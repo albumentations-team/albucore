@@ -10,6 +10,7 @@ from timeit import Timer
 from typing import Any, Dict, List
 
 import albucore
+from albucore.utils import MAX_VALUES_BY_DTYPE
 import cv2
 import numpy as np
 import pandas as pd
@@ -117,7 +118,7 @@ class MultiplyConstant(BenchmarkTest):
         result = img * self.value
 
         if img.dtype == np.uint8:
-            result = np.clip(result, 0, MAX_VALUES_BY_DTYPE[image.dtype]).astype(np.uint8)
+            result = np.clip(result, 0, MAX_VALUES_BY_DTYPE[img.dtype]).astype(np.uint8)
 
         return result
 
