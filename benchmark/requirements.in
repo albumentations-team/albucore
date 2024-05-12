@@ -1,3 +1,5 @@
 numpy
 opencv-python-headless
 tqdm
+pandas
+pytablewriter
