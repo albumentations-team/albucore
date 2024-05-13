@@ -58,7 +58,7 @@ jobs:
       uses: codecov/codecov-action@v4.3.0
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        slug: albumentations-team/albumentations
+        slug: albumentations-team/albucore
 
   check_code_formatting_types:
     name: Check code formatting with ruff and mypy
