@@ -4,20 +4,17 @@ import os
 import random
 import sys
 from collections import defaultdict
-from contextlib import suppress
-from pathlib import Path
+from importlib.metadata import PackageNotFoundError, version
 from timeit import Timer
 from typing import Any, Dict, List
 
-import albucore
-from albucore.utils import MAX_VALUES_BY_DTYPE
 import cv2
 import numpy as np
 import pandas as pd
-from importlib.metadata import version, PackageNotFoundError
-
 from tqdm import tqdm
 
+import albucore
+from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE
 from benchmark.utils import (
     MarkdownGenerator,
     format_results,
@@ -33,22 +30,43 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
+# Instantiate the random number generator
+rng = np.random.default_rng()
+
+
 DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "opencv", "numpy"]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Augmentation libraries performance benchmark")
     parser.add_argument(
-        "-n", "--num_images", default=100, type=int, metavar="N", help="number of images to test"
+        "-n",
+        "--num_images",
+        default=100,
+        type=int,
+        metavar="N",
+        help="number of images to test",
     )
     parser.add_argument(
-        "-t", "--img_type", choices=["float32", "uint8"], type=str, help="image type for benchmarking"
+        "-t",
+        "--img_type",
+        choices=["float32", "uint8"],
+        type=str,
+        help="image type for benchmarking",
     )
     parser.add_argument(
-        "-r", "--runs", default=5, type=int, metavar="N", help="number of runs for each benchmark"
+        "-r",
+        "--runs",
+        default=5,
+        type=int,
+        metavar="N",
+        help="number of runs for each benchmark",
     )
     parser.add_argument(
-        "--show-std", dest="show_std", action="store_true", help="show standard deviation for benchmark runs"
+        "--show-std",
+        dest="show_std",
+        action="store_true",
+        help="show standard deviation for benchmark runs",
     )
     parser.add_argument("-p", "--print-package-versions", action="store_true", help="print versions of packages")
     parser.add_argument("-m", "--markdown", action="store_true", help="print benchmarking results as a markdown table")
@@ -66,7 +84,6 @@ def get_package_versions() -> Dict[str, str]:
     return package_versions
 
 
-
 class BenchmarkTest:
     def __str__(self) -> str:
         return self.__class__.__name__
@@ -79,8 +96,6 @@ class BenchmarkTest:
 
     def numpy(self, img: np.ndarray) -> np.ndarray:
         return self.numpy_transform(img)
-
-
 
     def is_supported_by(self, library: str) -> bool:
         library_attr_map = {
@@ -116,14 +131,11 @@ class MultiplyConstant(BenchmarkTest):
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         result = img * self.value
-
-        if img.dtype == np.uint8:
-            result = np.clip(result, 0, MAX_VALUES_BY_DTYPE[img.dtype]).astype(np.uint8)
-
-        return result
+        return np.clip(result, 0, MAX_VALUES_BY_DTYPE[img.dtype]).astype(img.dtype)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return cv2.multiply(img, self.value)
+        return cv2.multiply(img, self.value, dtype=NPDTYPE_TO_OPENCV_DTYPE[img.dtype])
+
 
 def main() -> None:
     args = parse_args()
@@ -133,16 +145,17 @@ def main() -> None:
 
     images_per_second: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
-
     if args.img_type == "float32":
-        imgs = [np.random.rand(256, 256, 3).astype(np.float32) for _ in range(args.num_images)]
+        # Using the new Generator to create float32 images
+        imgs = [rng.random((256, 256, 3), dtype=np.float32) for _ in range(args.num_images)]
     elif args.img_type == "uint8":
-        imgs = [np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8) for _ in range(args.num_images)]
+        # Using the new Generator to create uint8 images
+        imgs = [rng.integers(0, 256, (256, 256, 3), dtype=np.uint8) for _ in range(args.num_images)]
     else:
         raise ValueError("Invalid image type")
 
     benchmarks = [
-        MultiplyConstant()
+        MultiplyConstant(),
     ]
     pbar = tqdm(total=len(benchmarks))
 
@@ -176,7 +189,7 @@ def main() -> None:
     if args.markdown:
         print(f"Benchmark results for {args.num_images} images of {args.img_type} type:")
         makedown_generator = MarkdownGenerator(df, package_versions)
-        makedown_generator.print()
+        makedown_generator.print_markdown_table()
     else:
         pass
 

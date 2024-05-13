@@ -44,7 +44,6 @@ exclude = [
   "tests",
   "setup.py",
   "tools",
-  "benchmark",
   "site",
 ]
 
@@ -53,6 +52,19 @@ indent-width = 4
 
 # Assume Python 3.8
 target-version = "py38"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+# skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
 
 [tool.ruff.lint]
 explicit-preview-rules = true
@@ -122,6 +134,19 @@ ignore = [
   "D100",
   "D103",
   "ANN401",
+  "D101",
+  "D107",
+  "ANN101",
+  "D105",
+  "D102",
+  "PD901",
+  "FBT001",
+  "EM101",
+  "TRY003",
+  "T201",
+  "B023",
+  "PERF203",
+  "FBT002",
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -136,19 +161,6 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.ruff.format]
-# Like Black, use double quotes for strings.
-quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
-indent-style = "space"
-
-# Like Black, respect magic trailing commas.
-skip-magic-trailing-comma = false
-
-# Like Black, automatically detect the appropriate line ending.
-line-ending = "auto"
 
 [tool.mypy]
 python_version = "3.8"

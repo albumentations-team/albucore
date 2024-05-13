@@ -1,14 +1,11 @@
 import math
-from pathlib import Path
-from typing import Dict, List, Optional, List
-from typing import TypeVar
-from numpy.typing import NDArray
+from typing import Dict, List, Optional
 
-import cv2
 import numpy as np
 import pandas as pd
 from pytablewriter import MarkdownTableWriter
 from pytablewriter.style import Style
+
 
 class MarkdownGenerator:
     def __init__(self, df: pd.DataFrame, package_versions: Dict[str, str]) -> None:
@@ -67,7 +64,7 @@ class MarkdownGenerator:
         ]
         return f"Python and library versions: {', '.join(libraries_with_versions)}."
 
-    def print(self) -> None:
+    def print_markdown_table(self) -> None:
         writer = MarkdownTableWriter()
         writer.headers = self._make_headers()
         writer.value_matrix = self._make_value_matrix()

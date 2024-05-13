@@ -1,6 +1,7 @@
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
+import cv2
 import numpy as np
 from numpy.typing import NDArray
 from typing_extensions import Concatenate, ParamSpec
@@ -20,9 +21,23 @@ MAX_VALUES_BY_DTYPE = {
     np.float32: 1.0,
 }
 
+NPDTYPE_TO_OPENCV_DTYPE = {
+    np.uint8: cv2.CV_8U,
+    np.uint16: cv2.CV_16U,
+    np.int32: cv2.CV_32S,
+    np.float32: cv2.CV_32F,
+    np.float64: cv2.CV_64F,
+    np.dtype("uint8"): cv2.CV_8U,
+    np.dtype("uint16"): cv2.CV_16U,
+    np.dtype("int32"): cv2.CV_32S,
+    np.dtype("float32"): cv2.CV_32F,
+    np.dtype("float64"): cv2.CV_64F,
+}
 
-def clip(img: FloatOrUIntArray, dtype: Any, maxval: float) -> FloatOrUIntArray:
-    return np.clip(img, 0, maxval).astype(dtype)
+
+def clip(img: FloatOrUIntArray, dtype: Any) -> FloatOrUIntArray:
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    return np.clip(img, 0, max_value).astype(dtype)
 
 
 def clipped(
@@ -31,7 +46,6 @@ def clipped(
     @wraps(func)
     def wrapped_function(img: FloatOrUIntArray, *args: P.args, **kwargs: P.kwargs) -> FloatOrUIntArray:
         dtype = img.dtype
-        maxval = MAX_VALUES_BY_DTYPE[dtype]
-        return clip(func(img, *args, **kwargs), dtype, maxval)
+        return clip(func(img, *args, **kwargs), dtype)
 
     return wrapped_function
