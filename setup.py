@@ -32,16 +32,17 @@ def get_long_description() -> str:
         return f.read()
 
 def choose_requirement(mains: Tuple[str, ...], secondary: str) -> str:
-    chosen = secondary
     for main in mains:
         try:
-            name = re.split(r"[!<>=]", main)[0]
-            get_distribution(name)
-            chosen = main
-            break
+            # Extract the package name from the requirement string
+            package_name = re.split(r"[!<>=]", main)[0]
+            # Check if the package is already installed
+            get_distribution(package_name)
+            return main
         except DistributionNotFound:
-            pass
-    return chosen
+            continue
+    return secondary
+
 
 def get_install_requirements(install_requires: List[str], choose_install_requires: List[Tuple[Tuple[str, ...], str]]) -> List[str]:
     for mains, secondary in choose_install_requires:
@@ -51,17 +52,17 @@ def get_install_requirements(install_requires: List[str], choose_install_require
 setup(
     name="albucore",
     version=get_version(),
-    description="",
+    description='A high-performance image processing library designed to optimize and extend the Albumentations library with specialized functions for advanced image transformations. Perfect for developers working in computer vision who require efficient and scalable image augmentation.',
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     author="Vladimir I. Iglovikov",
     license="MIT",
-    url="https://albumentations.ai",
+    url="https://github.com/albumentations-team/albucore",
     packages=find_packages(exclude=["tests", "benchmark", ".github"]),
     python_requires=">=3.8",
     install_requires=get_install_requirements(INSTALL_REQUIRES, CHOOSE_INSTALL_REQUIRES),
     classifiers=[
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
@@ -80,5 +81,9 @@ setup(
     "Typing :: Typed"
     ],
     keywords=[
+        "Image Processing", "Computer Vision", "Image Augmentation", "Albumentations", "Optimization", "Machine Learning",
+        "Deep Learning", "Python Imaging", "Data Augmentation", "Performance", "Efficiency", "High-Performance",
+        "CV", "OpenCV", "Automation"
     ],
+    zip_safe=False
 )
