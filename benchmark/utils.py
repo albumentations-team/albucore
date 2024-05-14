@@ -8,33 +8,48 @@ from pytablewriter.style import Style
 
 
 class MarkdownGenerator:
-    def __init__(self, df: pd.DataFrame, package_versions: Dict[str, str]) -> None:
+    def __init__(self, df: pd.DataFrame, package_versions: Dict[str, str], num_samples: int) -> None:
         self._df = df
         self._package_versions = package_versions
+        self.num_samples = num_samples
 
-    def _highlight_best_result(self, results: List[str]) -> List[str]:
+    def _highlight_best_result(self, results: List[str], t_critical: float = 1.96) -> List[str]:
         processed_results = []
 
-        # Extract mean values and convert to float for comparison
+        # Extract mean values, standard deviations, and filter out None results
         for result in results:
+            if result is None or result == "-":
+                processed_results.append(
+                    (float("-inf"), float("inf"), "-")
+                )  # Use infinities to ignore these in comparisons
+                continue
             try:
-                if result is None:
-                    processed_results.append((float("-inf"), "-"))
-                    continue
-                mean_value = float(result.split("±")[0].strip())
-                processed_results.append((mean_value, result))
-            except (ValueError, IndexError):
-                # Handle cases where conversion fails or result doesn't follow expected format
-                processed_results.append((float("-inf"), result))
+                mean, std = map(float, result.split("±"))
+                processed_results.append((mean, std, result))
+            except ValueError:
+                processed_results.append((float("-inf"), float("inf"), result))  # Handle malformed inputs
 
-        # Determine the best result based on mean values
-        best_mean_value = max([mean for mean, _ in processed_results])
+        # Determine the best mean value to compare against
+        best_mean, best_std = max(processed_results, key=lambda x: x[0])[:2]
 
-        # Highlight the best result
-        return [
-            f"**{original_result}**" if mean_value == best_mean_value else original_result
-            for mean_value, original_result in processed_results
-        ]
+        # Highlight results that are statistically similar to the best result
+        highlighted_results = []
+        for mean, std, original_result in processed_results:
+            if mean == float("-inf"):  # Skip results that are placeholders or malformed
+                highlighted_results.append(original_result)
+                continue
+
+            # Calculate the standard error of the difference in means
+            sem = math.sqrt((best_std**2 / self.num_samples) + (std**2 / self.num_samples))
+            t_stat = abs(best_mean - mean) / sem if sem > 0 else float("inf")
+
+            # Compare t-statistic against the critical t-value
+            if t_stat < t_critical:
+                highlighted_results.append(f"**{original_result}**")
+            else:
+                highlighted_results.append(original_result)
+
+        return highlighted_results
 
     def _make_headers(self) -> List[str]:
         libraries = self._df.columns.to_list()
