@@ -18,6 +18,9 @@ class MarkdownGenerator:
         # Extract mean values and convert to float for comparison
         for result in results:
             try:
+                if result is None:
+                    processed_results.append((float("-inf"), "-"))
+                    continue
                 mean_value = float(result.split("±")[0].strip())
                 processed_results.append((mean_value, result))
             except (ValueError, IndexError):
