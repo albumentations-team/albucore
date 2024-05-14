@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import cv2
-from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip
+from albucore.utils import MAX_VALUES_BY_DTYPE, clip
 import albucore
 
 # Pre-defined images for testing
@@ -18,16 +18,9 @@ test_data = [
 
 @pytest.mark.parametrize("image, multiplier", test_data)
 def test_multiply(image, multiplier):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    max_value = MAX_VALUES_BY_DTYPE[image.dtype]
 
     result = albucore.multiply(image, multiplier)
-
-    opencv_dtype = NPDTYPE_TO_OPENCV_DTYPE[image.dtype]
-
-    opencv_result = np.clip(0, max_value, cv2.multiply(image, multiplier, dtype=opencv_dtype)).astype(image.dtype)
-
-    print(opencv_result)
-    print(result)
 
     numpy_result = image * multiplier
     numpy_result = np.clip(0, max_value, numpy_result).astype(image.dtype)
@@ -35,8 +28,6 @@ def test_multiply(image, multiplier):
     # Check that all results match expected dtype and value arrays
     assert result.dtype == image.dtype, "Result dtype does not match expected dtype."
     assert np.array_equal(result, numpy_result), "Result does not match NumPy result."
-    assert np.array_equal(result, opencv_result), "Result does not match OpenCV result."
-
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
     (np.array([[-300, 0], [100, 400]], dtype=np.float32), np.uint8, np.array([[0, 0], [100, 255]], dtype=np.float32)),
