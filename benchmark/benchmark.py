@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 import albucore
 from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE
@@ -35,7 +34,7 @@ DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "opencv", "numpy"]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Augmentation libraries performance benchmark")
-    parser.add_argument("-n", "--num_images", default=100, type=int, help="number of images to test")
+    parser.add_argument("-n", "--num_images", default=10, type=int, help="number of images to test")
     parser.add_argument("-c", "--num_channels", default=3, type=int, help="number of channels in the images")
     parser.add_argument("-t", "--img_type", choices=["float32", "uint8"], type=str, help="image type for benchmarking")
     parser.add_argument("-r", "--runs", default=5, type=int, metavar="N", help="number of runs for each benchmark")
@@ -158,8 +157,6 @@ def main() -> None:
 
     benchmark_class_names = [MultiplyConstant, MultiplyVector]
 
-    pbar = tqdm(total=len(benchmark_class_names))
-
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
 
     for benchmark_class in benchmark_class_names:
@@ -167,7 +164,6 @@ def main() -> None:
         random.shuffle(shuffled_libraries)
 
         benchmark = benchmark_class(num_channels)
-        pbar.set_description(f"Current benchmark: {benchmark}")
 
         for library in shuffled_libraries:
             if benchmark.is_supported_by(library):
@@ -183,11 +179,6 @@ def main() -> None:
 
             images_per_second[library][str(benchmark)] = benchmark_images_per_second
 
-        pbar.update(1)
-    pbar.close()
-
-    print(images_per_second)
-
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)
     df = df.applymap(lambda r: format_results(r, args.show_std) if r is not None else None)
@@ -198,6 +189,7 @@ def main() -> None:
     df = df[DEFAULT_BENCHMARKING_LIBRARIES]
 
     if args.markdown:
+        print()
         print(
             f"Benchmark results for {num_images} images of {args.img_type} "
             f"type with ({height}, {width}, {num_channels}):"
