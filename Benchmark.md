@@ -1,12 +1,5 @@
 # Benchmark
 
-## Benchmark results for 100 images of float32 type with (256, 256, 7)
-
-|                  | albucore<br><small>0.0.1</small> | opencv<br><small>4.9.0.80</small> | numpy<br><small>1.24.4</small> |
-| ---------------- | -------------------------------- | --------------------------------- | ------------------------------ |
-| MultiplyConstant | **2095 ± 201**                   | -                                 | 1967 ± 278                     |
-| MultiplyVector   | 548 ± 56                         | -                                 | **697 ± 27**                   |
-
 ## Benchmark results for 1000 images of float32 type with (256, 256, 1):
 
 |                  | albucore<br><small>0.0.1</small> | opencv<br><small>4.9.0.80</small> | numpy<br><small>1.24.4</small> |
