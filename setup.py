@@ -10,10 +10,12 @@ INSTALL_REQUIRES = [
     "tomli>=2.0.1",
 ]
 
+MIN_OPENCV_VERSION = "4.5.5.64"
+
 CHOOSE_INSTALL_REQUIRES = [
     (
-        ("opencv-python>=4.9.0", "opencv-contrib-python>=4.9.0", "opencv-contrib-python-headless>=4.9.0"),
-        "opencv-python-headless>=4.9.0",
+        (f"opencv-python>={MIN_OPENCV_VERSION}", f"opencv-contrib-python>={MIN_OPENCV_VERSION}", f"opencv-contrib-python-headless>={MIN_OPENCV_VERSION}"),
+        f"opencv-python-headless>={MIN_OPENCV_VERSION}",
     ),
 ]
 
