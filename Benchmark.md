@@ -6,7 +6,6 @@
 | ---------------- | -------------------------------- | --------------------------------- | ------------------------------ |
 | MultiplyConstant | **2095 ± 201**                   | -                                 | 1967 ± 278                     |
 | MultiplyVector   | 548 ± 56                         | -                                 | **697 ± 27**                   |
-(albucore) ➜  albucore git:(add_readme) ✗ ./benchmark.sh
 
 ## Benchmark results for 1000 images of float32 type with (256, 256, 1):
 
