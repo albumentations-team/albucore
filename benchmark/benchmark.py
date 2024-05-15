@@ -191,10 +191,11 @@ def main() -> None:
     if args.markdown:
         print()
         print(
-            f"Benchmark results for {num_images} images of {args.img_type} "
-            f"type with ({height}, {width}, {num_channels}):"
+            f"## Benchmark results for {num_images} images of {args.img_type} "
+            f"type with ({height}, {width}, {num_channels})"
         )
-        markdown_generator = MarkdownGenerator(df, package_versions)
+        print()
+        markdown_generator = MarkdownGenerator(df, package_versions, num_images)
         markdown_generator.print_markdown_table()
 
 
