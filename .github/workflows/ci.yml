@@ -5,6 +5,8 @@ on:
       - main
     paths-ignore:
       - 'CONTRIBUTORS.md'
+      - 'README.md'
+      - 'Benchmark.md'
 
 jobs:
   test_and_lint:
