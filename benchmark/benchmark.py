@@ -137,15 +137,15 @@ class MultiplyVector(BenchmarkTest):
         return cv2.multiply(img, multiplier, dtype=NPDTYPE_TO_OPENCV_DTYPE[img.dtype])
 
 
-def get_images(num_images: int, height: int, width: int, num_channels: int, dtype: np.dtype) -> List[np.ndarray]:
-    if dtype in {np.float32, np.float64}:
-        return [rng.random((height, width, num_channels), dtype=dtype) for _ in range(num_images)]
-    if dtype in {np.uint8, np.uint16}:
+def get_images(num_images: int, height: int, width: int, num_channels: int, dtype: str) -> List[np.ndarray]:
+    if dtype in {"float32", "float64"}:
+        return [rng.random((height, width, num_channels), dtype=np.dtype(dtype)) for _ in range(num_images)]
+    if dtype in {"uint8", "uint16"}:
         return [
-            rng.integers(0, MAX_VALUES_BY_DTYPE[dtype] + 1, (height, width, num_channels), dtype=dtype)
+            rng.integers(0, MAX_VALUES_BY_DTYPE[np.dtype(dtype)] + 1, (height, width, num_channels), dtype=dtype)
             for _ in range(num_images)
         ]
-    raise ValueError("Invalid image type")
+    raise ValueError(f"Invalid image type {dtype}")
 
 
 def main() -> None:
@@ -160,9 +160,7 @@ def main() -> None:
     if args.print_package_versions:
         print(get_markdown_table(package_versions))
 
-    dtype = np.dtype(args.img_type)
-
-    imgs = get_images(num_images, height, width, num_channels, dtype)
+    imgs = get_images(num_images, height, width, num_channels, args.img_type)
 
     benchmark_class_names = [MultiplyConstant, MultiplyVector]
 

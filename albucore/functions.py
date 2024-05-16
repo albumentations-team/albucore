@@ -25,13 +25,14 @@ def _multiply_non_uint_optimized(img: np.ndarray, multiplier: Union[Sequence[flo
 def _multiply_uint_optimized(img: np.ndarray, multiplier: Union[Sequence[float], float]) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    num_channels = get_num_channels(img)
 
-    if num_channels == 1:
+    if isinstance(multiplier, float):
         lut = np.arange(0, max_value + 1, dtype=np.float32)
         lut *= multiplier
         lut = clip(lut, dtype)
         return cv2.LUT(img, lut)
+
+    num_channels = img.shape[-1]
 
     lut = [np.arange(0, max_value + 1, dtype=np.float32)] * num_channels
     lut = np.stack(lut, axis=-1)
