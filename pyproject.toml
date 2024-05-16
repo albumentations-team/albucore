@@ -12,6 +12,12 @@ requires = [
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
+target-version = "py38"
+
+line-length = 120
+indent-width = 4
+
+# Assume Python 3.8
 exclude = [
   ".bzr",
   ".direnv",
@@ -37,130 +43,114 @@ exclude = [
   "build",
   "dist",
   "node_modules",
-  "site-packages",
-  "venv",
-  "tests",
   "setup.py",
-  "tools",
   "site",
+  "site-packages",
+  "tests",
+  "tools",
+  "venv",
 ]
 
-line-length = 120
-indent-width = 4
-
-# Assume Python 3.8
-target-version = "py38"
-
-[tool.ruff.lint]
-explicit-preview-rules = true
-
-select = [
-  "F",
-  "E",
-  "W",
-  "C90",
-  "I",
-  "N",
-  "D",
-  "UP",
-  "YTT",
-  "ANN",
-  "ASYNC",
-  "TRIO",
-  "S",
-  "BLE",
-  "FBT",
-  "B",
+format.indent-style = "space"
+# Like Black, respect magic trailing commas.
+format.quote-style = "double"
+# Like Black, indent with spaces, rather than tabs.
+format.line-ending = "auto"
+format.skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending.
+lint.select = [
   "A",
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  "BLE",
+  "C4",
+  "C90",
   "COM",
   "CPY",
-  "C4",
-  "DTZ",
-  "T10",
+  "D",
   "DJ",
+  "DTZ",
+  "E",
   "EM",
+  "ERA",
   "EXE",
-  "ISC",
-  "ICN",
+  "F",
+  "FBT",
+  "FIX",
+  "FLY",
+  "FURB",
   "G",
+  "I",
+  "ICN",
   "INP",
+  "INT",
+  "ISC",
+  "LOG",
+  "N",
+  "NPY",
+  "PD",
+  "PERF",
+  "PGH",
   "PIE",
-  "T20",
-  "PYI",
+  "PL",
   "PT",
+  "PTH",
+  "PYI",
   "Q",
-  "RSE",
   "RET",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
   "SLF",
   "SLOT",
-  "SIM",
-  "TID",
+  "T10",
+  "T20",
   "TCH",
-  "INT",
-  "ARG",
-  "PTH",
   "TD",
-  "FIX",
-  "ERA",
-  "PD",
-  "PGH",
-  "PL",
+  "TID",
+  "TRIO",
   "TRY",
-  "FLY",
-  "NPY",
-  "PERF",
-  "FURB",
-  "LOG",
-  "RUF",
+  "UP",
+  "W",
+  "YTT",
 ]
-ignore = [
-  "D104",
-  "F403",
-  "D100",
-  "D103",
-  "ANN401",
-  "D101",
-  "D107",
-  "ANN101",
-  "D105",
-  "D102",
-  "PD901",
-  "FBT001",
-  "EM101",
-  "TRY003",
-  "T201",
-  "B023",
-  "PERF203",
-  "FBT002",
-  "BLE001",
-  "COM812",
-]
-
-# Allow fix for all enabled rules (when `--fix`) is provided.
-fixable = [
+lint.explicit-preview-rules = true
+lint.fixable = [
   "ALL",
 ]
-unfixable = [
+lint.unfixable = [
 ]
-
 # Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.ruff.format]
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+lint.pydocstyle.convention = "google"
 # Like Black, use double quotes for strings.
-quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
-indent-style = "space"
-
-# Like Black, respect magic trailing commas.
-skip-magic-trailing-comma = false
-
-# Like Black, automatically detect the appropriate line ending.
-line-ending = "auto"
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+lint.ignore = [
+  "ANN101",
+  "ANN401",
+  "B023",
+  "BLE001",
+  "COM812",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D107",
+  "EM101",
+  "EM102",
+  "F403",
+  "FBT001",
+  "FBT002",
+  "PD901",
+  "PERF203",
+  "T201",
+  "TRY003",
+]
+# Allow fix for all enabled rules (when `--fix`) is provided.
 
 [tool.mypy]
 python_version = "3.8"
