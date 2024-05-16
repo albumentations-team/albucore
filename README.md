@@ -54,7 +54,7 @@ multiplied_image = multiply(img, multiplier)
 
 Albucore provides significant performance improvements for image processing tasks. Here are some benchmark results comparing Albucore with OpenCV and Numpy:
 
-For more detailed benchmark results, including other configurations and data types, refer to the [Benchmark.md](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) in the repository.
+For more detailed benchmark results, including other configurations and data types, refer to the [Benchmark](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) in the repository.
 
 ## License
 

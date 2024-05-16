@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -13,7 +14,7 @@ class MarkdownGenerator:
         self._package_versions = package_versions
         self.num_samples = num_samples
 
-    def _highlight_best_result(self, results: List[str], t_critical: float = 1.96) -> List[str]:
+    def _highlight_best_result(self, results: List[str]) -> List[str]:
         processed_results = []
 
         # Extract mean values, standard deviations, and filter out None results
@@ -38,13 +39,7 @@ class MarkdownGenerator:
             if mean == float("-inf"):  # Skip results that are placeholders or malformed
                 highlighted_results.append(original_result)
                 continue
-
-            # Calculate the standard error of the difference in means
-            sem = math.sqrt((best_std**2 / self.num_samples) + (std**2 / self.num_samples))
-            t_stat = abs(best_mean - mean) / sem if sem > 0 else float("inf")
-
-            # Compare t-statistic against the critical t-value
-            if t_stat < t_critical:
+            if abs(best_mean - mean) < best_std + std:
                 highlighted_results.append(f"**{original_result}**")
             else:
                 highlighted_results.append(original_result)
@@ -89,9 +84,17 @@ class MarkdownGenerator:
         writer.styles = [Style(align="left")] + [Style(align="center") for _ in range(len(writer.headers) - 1)]
         writer.write_table()
 
+    def save_markdown_table(self, file_path: Path) -> None:
+        writer = MarkdownTableWriter()
+        writer.headers = self._make_headers()
+        writer.value_matrix = self._make_value_matrix()
+        writer.styles = [Style(align="left")] + [Style(align="center") for _ in range(len(writer.headers) - 1)]
+        with file_path.open("w") as file:
+            file.write(writer.dumps())
+
 
 def format_results(images_per_second_for_aug: Optional[List[float]], show_std: bool = False) -> str:
-    if images_per_second_for_aug is None:
+    if all(x is None for x in images_per_second_for_aug):
         return "-"
     result = str(math.floor(np.mean(images_per_second_for_aug)))
     if show_std:

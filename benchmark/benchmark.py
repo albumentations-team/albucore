@@ -3,17 +3,18 @@ import copy
 import os
 import random
 import sys
-from collections import defaultdict
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 from timeit import Timer
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import albucore
-from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE
+from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip
 from benchmark.utils import MarkdownGenerator, format_results, get_markdown_table
 
 cv2.setNumThreads(0)
@@ -36,7 +37,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Augmentation libraries performance benchmark")
     parser.add_argument("-n", "--num_images", default=10, type=int, help="number of images to test")
     parser.add_argument("-c", "--num_channels", default=3, type=int, help="number of channels in the images")
-    parser.add_argument("-t", "--img_type", choices=["float32", "uint8"], type=str, help="image type for benchmarking")
+    parser.add_argument(
+        "-t",
+        "--img_type",
+        choices=["float32", "float64", "uint8", "uint16"],
+        type=str,
+        help="image type for benchmarking",
+    )
     parser.add_argument("-r", "--runs", default=5, type=int, metavar="N", help="number of runs for each benchmark")
     parser.add_argument(
         "--show-std", dest="show_std", action="store_true", help="show standard deviation for benchmark runs"
@@ -68,10 +75,10 @@ class BenchmarkTest:
         return self.albucore_transform(img)
 
     def opencv(self, img: np.ndarray) -> np.ndarray:
-        return self.opencv_transform(img)
+        return clip(self.opencv_transform(img), img.dtype)
 
     def numpy(self, img: np.ndarray) -> np.ndarray:
-        return self.numpy_transform(img)
+        return clip(self.numpy_transform(img), img.dtype)
 
     def is_supported_by(self, library: str) -> bool:
         library_attr_map = {"albucore": "albucore_transform", "opencv": "opencv_transform", "numpy": "numpy_transform"}
@@ -109,8 +116,7 @@ class MultiplyConstant(BenchmarkTest):
         return albucore.multiply(img, self.multiplier)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        result = img * self.multiplier
-        return np.clip(result, 0, MAX_VALUES_BY_DTYPE[img.dtype]).astype(img.dtype)
+        return img * self.multiplier
 
     def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
         return cv2.multiply(img, self.multiplier, dtype=NPDTYPE_TO_OPENCV_DTYPE[img.dtype])
@@ -124,12 +130,22 @@ class MultiplyVector(BenchmarkTest):
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         multiplier = np.array([1.5] * self.num_channels)
 
-        result = img * multiplier
-        return np.clip(result, 0, MAX_VALUES_BY_DTYPE[img.dtype]).astype(img.dtype)
+        return img * multiplier
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         multiplier = np.array([1.5] * self.num_channels)
         return cv2.multiply(img, multiplier, dtype=NPDTYPE_TO_OPENCV_DTYPE[img.dtype])
+
+
+def get_images(num_images: int, height: int, width: int, num_channels: int, dtype: str) -> List[np.ndarray]:
+    if dtype in {"float32", "float64"}:
+        return [rng.random((height, width, num_channels), dtype=np.dtype(dtype)) for _ in range(num_images)]
+    if dtype in {"uint8", "uint16"}:
+        return [
+            rng.integers(0, MAX_VALUES_BY_DTYPE[np.dtype(dtype)] + 1, (height, width, num_channels), dtype=dtype)
+            for _ in range(num_images)
+        ]
+    raise ValueError(f"Invalid image type {dtype}")
 
 
 def main() -> None:
@@ -139,45 +155,45 @@ def main() -> None:
     num_channels = args.num_channels
     num_images = args.num_images
 
-    height, width = 256, 256
+    height, width = 512, 512
 
     if args.print_package_versions:
         print(get_markdown_table(package_versions))
 
-    images_per_second: Dict[str, Dict[str, Any]] = defaultdict(dict)
-
-    if args.img_type == "float32":
-        # Using the new Generator to create float32 images
-        imgs = [rng.random((height, width, num_channels), dtype=np.float32) for _ in range(num_images)]
-    elif args.img_type == "uint8":
-        # Using the new Generator to create uint8 images
-        imgs = [rng.integers(0, 256, (height, width, num_channels), dtype=np.uint8) for _ in range(num_images)]
-    else:
-        raise ValueError("Invalid image type")
+    imgs = get_images(num_images, height, width, num_channels, args.img_type)
 
     benchmark_class_names = [MultiplyConstant, MultiplyVector]
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
 
-    for benchmark_class in benchmark_class_names:
-        shuffled_libraries = copy.deepcopy(libraries)
-        random.shuffle(shuffled_libraries)
+    images_per_second = {lib: {} for lib in libraries}
+    to_skip = {lib: {} for lib in libraries}
 
+    for benchmark_class in tqdm(benchmark_class_names, desc="Running benchmarks"):
         benchmark = benchmark_class(num_channels)
 
-        for library in shuffled_libraries:
-            if benchmark.is_supported_by(library):
-                timer = Timer(lambda: benchmark.run(library, imgs))
-                try:
-                    run_times = timer.repeat(number=1, repeat=args.runs)
-                    benchmark_images_per_second = [1 / (run_time / num_images) for run_time in run_times]
-                except Exception as e:
-                    print(f"Error running benchmark for {library}: {e!s}")
-                    benchmark_images_per_second = None  # Handling cases where `run` returns None
-            else:
-                benchmark_images_per_second = None
+        for library in libraries:
+            images_per_second[library][str(benchmark)] = []
 
-            images_per_second[library][str(benchmark)] = benchmark_images_per_second
+        for _ in range(args.runs):
+            shuffled_libraries = copy.deepcopy(libraries)
+            random.shuffle(shuffled_libraries)
+
+            for library in shuffled_libraries:
+                if benchmark.is_supported_by(library) and not to_skip[library].get(str(benchmark), False):
+                    timer = Timer(lambda lib=library: benchmark.run(lib, imgs))
+                    try:
+                        run_times = timer.repeat(number=1, repeat=1)
+                        benchmark_images_per_second = [1 / (run_time / num_images) for run_time in run_times]
+                    except Exception as e:
+                        print(f"Error running benchmark for {library}: {e}")
+                        benchmark_images_per_second = [None]
+                        images_per_second[library][str(benchmark)].extend(benchmark_images_per_second)
+                        to_skip[library][str(benchmark)] = True
+                else:
+                    benchmark_images_per_second = [None]
+
+                images_per_second[library][str(benchmark)].extend(benchmark_images_per_second)
 
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)
@@ -189,14 +205,12 @@ def main() -> None:
     df = df[DEFAULT_BENCHMARKING_LIBRARIES]
 
     if args.markdown:
-        print()
-        print(
-            f"## Benchmark results for {num_images} images of {args.img_type} "
-            f"type with ({height}, {width}, {num_channels})"
-        )
-        print()
+        results_dir = Path(__file__).parent / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        file_path = results_dir / f"{args.img_type}_{num_channels}.md"
         markdown_generator = MarkdownGenerator(df, package_versions, num_images)
-        markdown_generator.print_markdown_table()
+        markdown_generator.save_markdown_table(file_path)
+        print(f"Benchmark results saved to {file_path}")
 
 
 if __name__ == "__main__":
