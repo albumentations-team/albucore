@@ -205,7 +205,7 @@ def main() -> None:
     df = df[DEFAULT_BENCHMARKING_LIBRARIES]
 
     if args.markdown:
-        results_dir = Path("./benchmark/results").absolute()
+        results_dir = Path(__file__).parent / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
         file_path = results_dir / f"{args.img_type}_{num_channels}.md"
         markdown_generator = MarkdownGenerator(df, package_versions, num_images)
