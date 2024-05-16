@@ -53,7 +53,7 @@ repos:
   #   hooks:
   #     - id: markdownlint
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: "2.0.3"
+    rev: "2.1.1"
     hooks:
       - id: pyproject-fmt
         additional_dependencies: ["tomli"]

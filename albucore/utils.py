@@ -10,28 +10,33 @@ NUM_MULTI_CHANNEL_DIMENSIONS = 3
 FOUR = 4
 TWO = 2
 
+MAX_OPENCV_WORKING_CHANNELS = 4
+
 P = ParamSpec("P")
 
 MAX_VALUES_BY_DTYPE = {
     np.dtype("uint8"): 255,
     np.dtype("uint16"): 65535,
     np.dtype("uint32"): 4294967295,
+    np.dtype("float16"): 1.0,
     np.dtype("float32"): 1.0,
+    np.dtype("float64"): 1.0,
     np.uint8: 255,
     np.uint16: 65535,
     np.uint32: 4294967295,
+    np.float16: 1.0,
     np.float32: 1.0,
+    np.float64: 1.0,
 }
 
 NPDTYPE_TO_OPENCV_DTYPE = {
     np.uint8: cv2.CV_8U,
     np.uint16: cv2.CV_16U,
-    np.int32: cv2.CV_32S,
     np.float32: cv2.CV_32F,
     np.float64: cv2.CV_64F,
     np.dtype("uint8"): cv2.CV_8U,
     np.dtype("uint16"): cv2.CV_16U,
-    np.dtype("int32"): cv2.CV_32S,
+    np.dtype("float16"): cv2.CV_16F,
     np.dtype("float32"): cv2.CV_32F,
     np.dtype("float64"): cv2.CV_64F,
 }
@@ -57,7 +62,7 @@ def maybe_process_in_chunks(
     @wraps(process_fn)
     def __process_fn(img: np.ndarray) -> np.ndarray:
         num_channels = get_num_channels(img)
-        if num_channels > FOUR:
+        if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             chunks = []
             for index in range(0, num_channels, 4):
                 if num_channels - index == TWO:
