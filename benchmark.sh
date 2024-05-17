@@ -11,6 +11,6 @@ for ch in "${channels[@]}"; do
     # Nested loop over each image type
     for type in "${types[@]}"; do
         # Command to run your program, e.g., a Python script
-        python -m benchmark.benchmark --num_channels $ch --img_type $type --markdown -n 1000 --show-std -r 5
+        python -m benchmark.benchmark --num_channels $ch --img_type $type --markdown -n 1000 --show-std -r 10
     done
 done

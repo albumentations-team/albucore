@@ -36,7 +36,6 @@ NPDTYPE_TO_OPENCV_DTYPE = {
     np.float64: cv2.CV_64F,
     np.dtype("uint8"): cv2.CV_8U,
     np.dtype("uint16"): cv2.CV_16U,
-    np.dtype("float16"): cv2.CV_16F,
     np.dtype("float32"): cv2.CV_32F,
     np.dtype("float64"): cv2.CV_64F,
 }
