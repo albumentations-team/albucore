@@ -194,12 +194,20 @@ np.random.seed(0)
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("num_channels", [1, 3, 5])
 @pytest.mark.parametrize("multiplier", [1.5, np.array([2.0, 1.0, 0.5, 1.5, 1.1])])
-def test_multiply(img_dtype, num_channels, multiplier):
+@pytest.mark.parametrize("is_contiguous", [True, False])
+def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     height, width = 2, 2
-    if img_dtype == np.uint8:
-        img = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
+    if is_contiguous:
+        if img_dtype == np.uint8:
+            img = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
+        else:
+            img = np.random.rand(height, width, num_channels).astype(img_dtype)
     else:
-        img = np.random.rand(height, width, num_channels).astype(img_dtype)
+        if img_dtype == np.uint8:
+            img = np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
+        else:
+            img = np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+
 
     original_image = img.copy()
 

@@ -8,6 +8,7 @@ from albucore.utils import (
     MAX_VALUES_BY_DTYPE,
     clip,
     clipped,
+    contiguous,
     get_num_channels,
     preserve_channel_dim,
 )
@@ -68,6 +69,7 @@ def multiply_by_array(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
     return multiply_with_opencv(img, multiplier)
 
 
+@contiguous
 @clipped
 def multiply(img: np.ndarray, multiplier: Union[Sequence[float], np.ndarray, float]) -> np.ndarray:
     num_channels = get_num_channels(img)

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import cv2
-from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip
+from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip, get_opencv_dtype_from_numpy
 import albucore
 
 
@@ -14,9 +14,23 @@ def test_clip(input_img, dtype, expected):
     assert np.array_equal(clipped, expected)
 
 valid_cv2_types = {
-    cv2.CV_8U, cv2.CV_16U, cv2.CV_32F, cv2.CV_64F
+    cv2.CV_8U, cv2.CV_16U, cv2.CV_32F, cv2.CV_64F, cv2.CV_32S
 }
 
-@pytest.mark.parametrize("dtype, cv_type", NPDTYPE_TO_OPENCV_DTYPE.items())
-def test_valid_cv2_types(dtype, cv_type):
+@pytest.mark.parametrize("cv_type", NPDTYPE_TO_OPENCV_DTYPE.values())
+def test_valid_cv2_types(cv_type):
     assert cv_type in valid_cv2_types, f"{cv_type} is not a valid cv2 type"
+
+
+def test_cv_dtype_from_np():
+    assert get_opencv_dtype_from_numpy(np.uint8) == cv2.CV_8U
+    assert get_opencv_dtype_from_numpy(np.uint16) == cv2.CV_16U
+    assert get_opencv_dtype_from_numpy(np.float32) == cv2.CV_32F
+    assert get_opencv_dtype_from_numpy(np.float64) == cv2.CV_64F
+    assert get_opencv_dtype_from_numpy(np.int32) == cv2.CV_32S
+
+    assert get_opencv_dtype_from_numpy(np.dtype("uint8")) == cv2.CV_8U
+    assert get_opencv_dtype_from_numpy(np.dtype("uint16")) == cv2.CV_16U
+    assert get_opencv_dtype_from_numpy(np.dtype("float32")) == cv2.CV_32F
+    assert get_opencv_dtype_from_numpy(np.dtype("float64")) == cv2.CV_64F
+    assert get_opencv_dtype_from_numpy(np.dtype("int32")) == cv2.CV_32S

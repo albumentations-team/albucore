@@ -1,10 +1,11 @@
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 import cv2
 import numpy as np
 from typing_extensions import Concatenate, ParamSpec
 
+NUM_RGB_CHANNELS = 3
 MONO_CHANNEL_DIMENSIONS = 2
 NUM_MULTI_CHANNEL_DIMENSIONS = 3
 FOUR = 4
@@ -27,6 +28,7 @@ MAX_VALUES_BY_DTYPE = {
     np.float16: 1.0,
     np.float32: 1.0,
     np.float64: 1.0,
+    np.int32: 2147483647,
 }
 
 NPDTYPE_TO_OPENCV_DTYPE = {
@@ -34,10 +36,12 @@ NPDTYPE_TO_OPENCV_DTYPE = {
     np.uint16: cv2.CV_16U,
     np.float32: cv2.CV_32F,
     np.float64: cv2.CV_64F,
+    np.int32: cv2.CV_32S,
     np.dtype("uint8"): cv2.CV_8U,
     np.dtype("uint16"): cv2.CV_16U,
     np.dtype("float32"): cv2.CV_32F,
     np.dtype("float64"): cv2.CV_64F,
+    np.dtype("int32"): cv2.CV_32S,
 }
 
 
@@ -96,10 +100,6 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     return wrapped_function
 
 
-def get_num_channels(image: np.ndarray) -> int:
-    return image.shape[2] if image.ndim == NUM_MULTI_CHANNEL_DIMENSIONS else 1
-
-
 def preserve_channel_dim(
     func: Callable[Concatenate[np.ndarray, P], np.ndarray],
 ) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
@@ -119,5 +119,37 @@ def preserve_channel_dim(
     return wrapped_function
 
 
+def get_num_channels(image: np.ndarray) -> int:
+    return image.shape[2] if image.ndim == NUM_MULTI_CHANNEL_DIMENSIONS else 1
+
+
 def is_grayscale_image(image: np.ndarray) -> bool:
     return get_num_channels(image) == 1
+
+
+def get_opencv_dtype_from_numpy(value: Union[np.ndarray, int, np.dtype, object]) -> int:
+    if isinstance(value, np.ndarray):
+        value = value.dtype
+    return NPDTYPE_TO_OPENCV_DTYPE[value]
+
+
+def is_rgb_image(image: np.ndarray) -> bool:
+    return get_num_channels(image) == NUM_RGB_CHANNELS
+
+
+def is_multispectral_image(image: np.ndarray) -> bool:
+    num_channels = get_num_channels(image)
+    return num_channels not in {1, 3}
+
+
+def contiguous(
+    func: Callable[Concatenate[np.ndarray, P], np.ndarray],
+) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
+    """Ensure that input img is contiguous."""
+
+    @wraps(func)
+    def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
+        img = np.require(img, requirements=["C_CONTIGUOUS"])
+        return func(img, *args, **kwargs)
+
+    return wrapped_function
