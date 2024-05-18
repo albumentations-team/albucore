@@ -1,4 +1,5 @@
-|                |albucore<br><small>0.0.1</small>|opencv<br><small>4.9.0.80</small>|numpy<br><small>1.24.4</small>|
+|                |albucore<br><small>0.0.3</small>|opencv<br><small>4.9.0.80</small>|numpy<br><small>1.24.4</small>|
 |----------------|--------------------------------|---------------------------------|------------------------------|
-|MultiplyConstant|**208 ± 60**                    |-                                |**221 ± 29**                  |
-|MultiplyVector  |**59 ± 55**                     |-                                |**56 ± 46**                   |
+|MultiplyConstant|**882 ± 812**                   |-                                |**765 ± 843**                 |
+|MultiplyVector  |**673 ± 39**                    |-                                |**641 ± 21**                  |
+|MultiplyArray   |**1140 ± 31**                   |1085 ± 34                        |**1184 ± 27**                 |
