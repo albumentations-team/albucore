@@ -25,11 +25,7 @@ def multiply_with_lut(img: np.ndarray, multiplier: Union[Sequence[float], float]
 
     num_channels = img.shape[-1]
 
-    luts = []
-    for i in range(num_channels):
-        lut = np.arange(0, max_value + 1, dtype=np.float32) * multiplier[i]
-        lut = clip(lut, dtype)
-        luts.append(lut)
+    luts = [clip(np.arange(0, max_value + 1, dtype=np.float32) * multiplier[i], dtype) for i in range(num_channels)]
 
     images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
     return np.stack(images, axis=-1)
@@ -56,8 +52,10 @@ def multiply_by_constant(img: np.ndarray, multiplier: float) -> np.ndarray:
 
 def multiply_by_vector(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
     num_channels = get_num_channels(img)
+    # Handle uint8 images separately to use a lookup table for performance
     if img.dtype == np.uint8:
         return multiply_with_lut(img, multiplier)
+    # Check if the number of channels exceeds the maximum that OpenCV can handle
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         return multiply_with_numpy(img, multiplier)
     return multiply_with_opencv(img, multiplier)
