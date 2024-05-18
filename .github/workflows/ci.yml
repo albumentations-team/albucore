@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - 'CONTRIBUTORS.md'
       - 'README.md'
-      - 'Benchmark.md'
+      - 'benchmarks/results/**'
 
 jobs:
   test_and_lint:
@@ -57,7 +57,9 @@ jobs:
         path: build
     - name: Run PyTest
       run: pytest --cov .
+
     - name: Upload coverage reports to Codecov
+      if: matrix.operating-system == 'ubuntu-latest' && matrix.python-version == '3.8'
       uses: codecov/codecov-action@v4.3.0
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -85,3 +87,27 @@ jobs:
       run: pip install -r requirements-dev.txt
     - name: Run checks
       run: pre-commit run
+
+  check_transforms_docs:
+    name: Check Readme is not outdated
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install requirements
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install requests
+        pip install .
+    - name: Run checks for documentation
+      run: python -m tools.make_transforms_docs check README.md
+    - name: Run checks for used by documentation
+      run: python -m tools.make_used_by_docs check
