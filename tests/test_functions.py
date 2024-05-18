@@ -1,26 +1,35 @@
+from typing import Sequence
 import pytest
 import numpy as np
-import cv2
-from typing import Union, Sequence
 
-from albucore.utils import (
-    MAX_OPENCV_WORKING_CHANNELS,
-    NPDTYPE_TO_OPENCV_DTYPE,
-    clip,
-    clipped,
-    get_num_channels,
-    preserve_channel_dim,
-)
+
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 
 from albucore import (
     multiply_with_lut,
     multiply_with_numpy,
     multiply_with_opencv,
-    multiply_by_constant,
-    multiply_by_vector,
-    multiply_by_array,
-    multiply
+    multiply,
+    convert_multiplier,
 )
+
+@pytest.mark.parametrize(
+    "multiplier, num_channels, expected",
+    [
+        ((1.5), 1, 1.5),
+        (np.array([1.5]), 3, 1.5),
+        ([1.5], 2, 1.5),
+        ([1.5, 2.5], 1, 1.5),
+        ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5, 0.5], dtype=np.float32)),
+        ((1.5), 2, 1.5),
+    ]
+)
+def test_convert_multiplier(multiplier, num_channels, expected):
+    result = convert_multiplier(multiplier, num_channels)
+    if isinstance(expected, np.ndarray):
+        assert np.array_equal(result, expected)
+    else:
+         assert result == expected
 
 @pytest.mark.parametrize(
     "img, multiplier, expected_output",
@@ -127,7 +136,7 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
     result_numpy = multiply_with_numpy(img, multiplier)
     assert np.allclose(result_numpy, expected_output, atol=1e-6)
 
-    if img.shape[1] > MAX_OPENCV_WORKING_CHANNELS:
+    if img.shape[-1] in {2, 3} and img.dtype == np.uint8:
         result_opencv = multiply_with_opencv(img, multiplier)
         assert np.allclose(result_opencv, expected_output, atol=1e-6)
 
@@ -193,7 +202,7 @@ def test_multiply_with_lut(img, multiplier, expected_output):
 np.random.seed(0)
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("num_channels", [1, 3, 5])
-@pytest.mark.parametrize("multiplier", [1.5, np.array([2.0, 1.0, 0.5, 1.5, 1.1])])
+@pytest.mark.parametrize("multiplier", [1.5, [1.5], (1.5), np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32)])
 @pytest.mark.parametrize("is_contiguous", [True, False])
 def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     height, width = 2, 2
@@ -214,6 +223,8 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     if not isinstance(multiplier, float):
         multiplier = multiplier[:num_channels]
 
+    processed_multiplier = convert_multiplier(multiplier, num_channels)
+
     result = multiply(img, multiplier)
 
     assert np.array_equal(img, original_image), "Input image was modified"
@@ -225,12 +236,12 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     assert np.allclose(result, result_numpy, atol=1e-6)
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
-        result_lut = clip(multiply_with_lut(img, multiplier), img.dtype)
+        result_lut = clip(multiply_with_lut(img, processed_multiplier), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        result_opencv = clip(multiply_with_opencv(img, multiplier), img.dtype)
+        result_opencv = clip(multiply_with_opencv(img, processed_multiplier), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
 
         assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"

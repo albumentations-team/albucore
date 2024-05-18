@@ -38,9 +38,7 @@ def multiply_with_lut(img: np.ndarray, multiplier: Union[Sequence[float], float]
 @preserve_channel_dim
 @clipped
 def multiply_with_opencv(img: np.ndarray, multiplier: Union[np.ndarray, float]) -> np.ndarray:
-    if isinstance(multiplier, np.ndarray):
-        multiplier = multiplier.astype(np.float32)
-    return cv2.multiply(img.astype(np.float32), multiplier)
+    return cv2.multiply(img.astype(np.float32), multiplier, dtype=cv2.CV_64F)
 
 
 @clipped
@@ -69,21 +67,36 @@ def multiply_by_array(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
     return multiply_with_opencv(img, multiplier)
 
 
+def convert_multiplier(multiplier: Union[Sequence[float], np.ndarray], num_channels: int) -> Union[float, np.ndarray]:
+    if isinstance(multiplier, float):
+        return multiplier
+    if (
+        # Case 1: num_channels is 1 and multiplier is a list or tuple
+        (
+            num_channels == 1
+            and (isinstance(multiplier, Sequence) or (isinstance(multiplier, np.ndarray) and multiplier.ndim == 1))
+        )
+        or
+        # Case 2: multiplier length is 1, regardless of num_channels
+        (isinstance(multiplier, (Sequence, np.ndarray)) and len(multiplier) == 1)
+    ):
+        # Convert to a float
+        return float(multiplier[0])
+
+    if isinstance(multiplier, Sequence):
+        return np.array(multiplier, dtype=np.float64)
+
+    return multiplier.astype(np.float64)
+
+
 @contiguous
 @clipped
-def multiply(img: np.ndarray, multiplier: Union[Sequence[float], np.ndarray, float]) -> np.ndarray:
+def multiply(img: np.ndarray, multiplier: Union[Sequence[Union[int, float]], np.ndarray, float]) -> np.ndarray:
     num_channels = get_num_channels(img)
-
-    if num_channels == 1 and (
-        isinstance(multiplier, Sequence) or isinstance(multiplier, np.ndarray) and multiplier.ndim == 1
-    ):
-        multiplier = multiplier[0]
+    multiplier = convert_multiplier(multiplier, num_channels)
 
     if isinstance(multiplier, float):
         return multiply_by_constant(img, multiplier)
-
-    if isinstance(multiplier, Sequence):
-        multiplier = np.array(multiplier, np.float32)
 
     if isinstance(multiplier, np.ndarray) and multiplier.ndim == 1:
         return multiply_by_vector(img, multiplier)
