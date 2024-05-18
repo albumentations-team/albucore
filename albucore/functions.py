@@ -64,7 +64,7 @@ def multiply_by_vector(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
 
 
 def multiply_by_array(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
-    return multiply_with_opencv(img, multiplier)
+    return multiply_with_numpy(img, multiplier)
 
 
 def convert_multiplier(multiplier: Union[Sequence[float], np.ndarray], num_channels: int) -> Union[float, np.ndarray]:
@@ -86,7 +86,7 @@ def convert_multiplier(multiplier: Union[Sequence[float], np.ndarray], num_chann
     if isinstance(multiplier, Sequence):
         return np.array(multiplier, dtype=np.float64)
 
-    return multiplier.astype(np.float64)
+    return multiplier
 
 
 @contiguous
