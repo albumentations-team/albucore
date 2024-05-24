@@ -92,7 +92,8 @@ def convert_multiplier(
 
     if isinstance(multiplier, Sequence):
         return np.array(multiplier[:num_channels], dtype=np.float64)
-
+    if multiplier.ndim == 1 and multiplier.shape[0] > num_channels:
+        multiplier = multiplier[:num_channels]
     return multiplier
 
 
