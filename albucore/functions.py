@@ -65,8 +65,15 @@ def multiply_by_array(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
     return multiply_with_numpy(img, multiplier)
 
 
-def convert_multiplier(multiplier: Union[Sequence[float], np.ndarray], num_channels: int) -> Union[float, np.ndarray]:
-    if isinstance(multiplier, float):
+def convert_multiplier(
+    multiplier: Union[Sequence[float], np.ndarray, float], num_channels: int
+) -> Union[float, np.ndarray]:
+    """Convert a multiplier to a float / int or a numpy array.
+
+    If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
+    If length of the multiplier is greater than num_channels, multiplier is truncated to num_channels.
+    """
+    if isinstance(multiplier, (int, float)):
         return multiplier
     if (
         # Case 1: num_channels is 1 and multiplier is a list or tuple
@@ -77,13 +84,16 @@ def convert_multiplier(multiplier: Union[Sequence[float], np.ndarray], num_chann
         or
         # Case 2: multiplier length is 1, regardless of num_channels
         (isinstance(multiplier, (Sequence, np.ndarray)) and len(multiplier) == 1)
+        # Case 3: num_channels more then length of multiplier
+        or (num_channels > 1 and len(multiplier) < num_channels)
     ):
         # Convert to a float
         return float(multiplier[0])
 
     if isinstance(multiplier, Sequence):
-        return np.array(multiplier, dtype=np.float64)
-
+        return np.array(multiplier[:num_channels], dtype=np.float64)
+    if multiplier.ndim == 1 and multiplier.shape[0] > num_channels:
+        multiplier = multiplier[:num_channels]
     return multiplier
 
 

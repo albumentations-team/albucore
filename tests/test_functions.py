@@ -1,4 +1,3 @@
-from typing import Sequence
 import pytest
 import numpy as np
 
@@ -13,6 +12,7 @@ from albucore import (
     convert_multiplier,
 )
 
+
 @pytest.mark.parametrize(
     "multiplier, num_channels, expected",
     [
@@ -20,7 +20,7 @@ from albucore import (
         (np.array([1.5]), 3, 1.5),
         ([1.5], 2, 1.5),
         ([1.5, 2.5], 1, 1.5),
-        ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5, 0.5], dtype=np.float32)),
+        ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5,], dtype=np.float32)),
         ((1.5), 2, 1.5),
     ]
 )
@@ -30,6 +30,7 @@ def test_convert_multiplier(multiplier, num_channels, expected):
         assert np.array_equal(result, expected)
     else:
          assert result == expected
+
 
 @pytest.mark.parametrize(
     "img, multiplier, expected_output",
@@ -200,9 +201,20 @@ def test_multiply_with_lut(img, multiplier, expected_output):
 
 
 np.random.seed(0)
+
+
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("num_channels", [1, 3, 5])
-@pytest.mark.parametrize("multiplier", [1.5, [1.5], (1.5), np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32)])
+@pytest.mark.parametrize(
+    "multiplier",
+    [
+        1.5,
+        [1.5],
+        (1.5),
+        np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
+        np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
+    ]
+)
 @pytest.mark.parametrize("is_contiguous", [True, False])
 def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     height, width = 2, 2
@@ -217,11 +229,7 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
         else:
             img = np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
 
-
     original_image = img.copy()
-
-    if not isinstance(multiplier, float):
-        multiplier = multiplier[:num_channels]
 
     processed_multiplier = convert_multiplier(multiplier, num_channels)
 
@@ -229,7 +237,7 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
-    result_numpy = multiply_with_numpy(img, multiplier)
+    result_numpy = multiply_with_numpy(img, processed_multiplier)
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
