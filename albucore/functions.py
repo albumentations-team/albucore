@@ -90,10 +90,8 @@ def convert_multiplier(
         # Convert to a float
         return float(multiplier[0])
 
-    if len(multiplier) > num_channels:  # check if the length of the multiplier is same as num_channels
-        multiplier = multiplier[:num_channels]
     if isinstance(multiplier, Sequence):
-        return np.array(multiplier, dtype=np.float64)
+        return np.array(multiplier[:num_channels], dtype=np.float64)
 
     return multiplier
 
