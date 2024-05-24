@@ -68,6 +68,11 @@ def multiply_by_array(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
 def convert_multiplier(
     multiplier: Union[Sequence[float], np.ndarray, float], num_channels: int
 ) -> Union[float, np.ndarray]:
+    """Convert a multiplier to a float / int or a numpy array.
+
+    If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
+    If length of the multiplier is greater than num_channels, multiplier is truncated to num_channels.
+    """
     if isinstance(multiplier, (int, float)):
         return multiplier
     if (
@@ -85,7 +90,7 @@ def convert_multiplier(
         # Convert to a float
         return float(multiplier[0])
 
-    if len(multiplier) > num_channels:
+    if len(multiplier) > num_channels:  # check if the length of the multiplier is same as num_channels
         multiplier = multiplier[:num_channels]
     if isinstance(multiplier, Sequence):
         return np.array(multiplier, dtype=np.float64)
