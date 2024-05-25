@@ -25,7 +25,8 @@ def multiply_with_lut(img: np.ndarray, multiplier: Union[Sequence[float], float]
 
     num_channels = img.shape[-1]
 
-    luts = [clip(np.arange(0, max_value + 1, dtype=np.float32) * multiplier[i], dtype) for i in range(num_channels)]
+    multiplier = np.array(multiplier, dtype=np.float32).reshape(-1, 1)
+    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * multiplier, dtype)
 
     images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
     return np.stack(images, axis=-1)
