@@ -176,3 +176,32 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
         assert np.array_equal(img, original_image), "Input image was modified"
 
         assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+
+@pytest.mark.parametrize(
+    ["shift_params", "expected"], [[(-10, 0, 10), (117, 127, 137)], [(-200, 0, 200), (0, 127, 255)]]
+)
+def test_shift_rgb(shift_params, expected):
+    img = np.ones((100, 100, 3), dtype=np.uint8) * 127
+    r_shift, g_shift, b_shift = shift_params
+    img = add(img, (r_shift, g_shift, b_shift))
+    expected_r, expected_g, expected_b = expected
+    assert img.dtype == np.dtype("uint8")
+    assert (img[:, :, 0] == expected_r).all()
+    assert (img[:, :, 1] == expected_g).all()
+    assert (img[:, :, 2] == expected_b).all()
+
+
+@pytest.mark.parametrize(
+    ["shift_params", "expected"], [[(-0.1, 0, 0.1), (0.3, 0.4, 0.5)], [(-0.6, 0, 0.6), (0, 0.4, 1.0)]]
+)
+def test_shift_rgb_float(shift_params, expected):
+    img = np.ones((100, 100, 3), dtype=np.float32) * 0.4
+    r_shift, g_shift, b_shift = shift_params
+    img = add(img, (r_shift, g_shift, b_shift))
+    expected_r, expected_g, expected_b = [
+        np.ones((100, 100), dtype=np.float32) * channel_value for channel_value in expected
+    ]
+    assert img.dtype == np.dtype("float32")
+    np.array_equal(img[:, :, 0], expected_r)
+    np.array_equal(img[:, :, 1], expected_g)
+    np.array_equal(img[:, :, 2], expected_b)
