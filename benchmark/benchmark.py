@@ -14,7 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 
 import albucore
-from albucore.functions import multiply_with_numpy, multiply_with_opencv
+from albucore.functions import add_with_numpy, add_with_opencv, multiply_with_numpy, multiply_with_opencv
 from albucore.utils import MAX_VALUES_BY_DTYPE, clip
 from benchmark.utils import MarkdownGenerator, format_results, get_markdown_table
 
@@ -155,6 +155,53 @@ class MultiplyArray(BenchmarkTest):
         return multiply_with_opencv(img, self.multiplier)
 
 
+class AddConstant(BenchmarkTest):
+    def __init__(self, shape: Tuple[int]) -> None:
+        super().__init__(shape)
+        self.value = 1.5
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add(img, self.value)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return add_with_numpy(img, self.value)
+
+    def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
+        return add_with_opencv(img, self.value)
+
+
+class AddVector(BenchmarkTest):
+    def __init__(self, shape: Tuple[int]) -> None:
+        super().__init__(shape)
+        self.value = rng.uniform(0.5, 1, [self.num_channels])
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add(img, self.value)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return add_with_numpy(img, self.value)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return add_with_opencv(img, self.value)
+
+
+class AddArray(BenchmarkTest):
+    def __init__(self, shape: Tuple[int]) -> None:
+        super().__init__(shape)
+
+        boundaries = (0.9, 1.1)
+        self.value = rng.uniform(boundaries[0], boundaries[1], shape)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add(img, self.value)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return add_with_numpy(img, self.value)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return add_with_opencv(img, self.value)
+
+
 def get_images(num_images: int, height: int, width: int, num_channels: int, dtype: str) -> List[np.ndarray]:
     if dtype in {"float32", "float64"}:
         return [rng.random((height, width, num_channels), dtype=np.dtype(dtype)) for _ in range(num_images)]
@@ -180,7 +227,7 @@ def main() -> None:
 
     imgs = get_images(num_images, height, width, num_channels, args.img_type)
 
-    benchmark_class_names = [MultiplyConstant, MultiplyVector, MultiplyArray]
+    benchmark_class_names = [MultiplyConstant, MultiplyVector, MultiplyArray, AddConstant, AddVector, AddArray]
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
 
@@ -206,7 +253,6 @@ def main() -> None:
                     except Exception as e:
                         print(f"Error running benchmark for {library}: {e}")
                         benchmark_images_per_second = [None]
-                        images_per_second[library][str(benchmark)].extend(benchmark_images_per_second)
                         to_skip[library][str(benchmark)] = True
                 else:
                     benchmark_images_per_second = [None]
