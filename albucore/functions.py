@@ -6,9 +6,9 @@ import numpy as np
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
+    ValueType,
     clip,
     clipped,
-    contiguous,
     convert_value,
     get_num_channels,
     preserve_channel_dim,
@@ -67,9 +67,8 @@ def multiply_by_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     return multiply_with_numpy(img, value)
 
 
-@contiguous
 @clipped
-def multiply(img: np.ndarray, value: Union[Sequence[Union[int, float]], np.ndarray, float]) -> np.ndarray:
+def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
@@ -135,7 +134,7 @@ def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     return add_with_numpy(img, value)
 
 
-def add(img: np.ndarray, value: Union[Sequence[Union[int, float]], np.ndarray, float]) -> np.ndarray:
+def add(img: np.ndarray, value: ValueType) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
@@ -148,3 +147,68 @@ def add(img: np.ndarray, value: Union[Sequence[Union[int, float]], np.ndarray, f
         return add_vector(img, value)
 
     return add_array(img, value)
+
+
+def normalize_numpy(
+    img: np.ndarray, mean: Union[float, np.ndarray], denominator: Union[float, np.ndarray]
+) -> np.ndarray:
+    img = img.astype(np.float32)
+    img -= mean
+    return img * denominator
+
+
+@preserve_channel_dim
+def normalize_opencv(
+    img: np.ndarray, mean: Union[float, np.ndarray], denominator: Union[float, np.ndarray]
+) -> np.ndarray:
+    img = img.astype(np.float32)
+    mean_img = np.zeros_like(img, dtype=np.float32)
+    denominator_img = np.zeros_like(img, dtype=np.float32)
+
+    # If mean or denominator are scalar, convert them to arrays
+    if isinstance(mean, (float, int)):
+        mean = np.full(img.shape, mean, dtype=np.float32)
+    if isinstance(denominator, (float, int)):
+        denominator = np.full(img.shape, denominator, dtype=np.float32)
+
+    # Ensure the shapes match for broadcasting
+    mean_img = (mean_img + mean).astype(np.float32)
+    denominator_img = denominator_img + denominator
+
+    result = cv2.subtract(img, mean_img)
+    return cv2.multiply(result, denominator_img, dtype=cv2.CV_32F)
+
+
+@preserve_channel_dim
+def normalize_lut(img: np.ndarray, mean: Union[float, np.ndarray], denominator: Union[float, np.ndarray]) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    num_channels = get_num_channels(img)
+
+    if isinstance(denominator, (float, int)) and isinstance(mean, (float, int)):
+        lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator
+        return cv2.LUT(img, lut)
+
+    if isinstance(denominator, np.ndarray) and denominator.shape != ():
+        denominator = denominator.reshape(-1, 1)
+
+    if isinstance(mean, np.ndarray):
+        mean = mean.reshape(-1, 1)
+
+    luts = (np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator
+
+    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
+    return np.stack(images, axis=-1)
+
+
+def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.ndarray:
+    num_channels = get_num_channels(img)
+    denominator = convert_value(denominator, num_channels)
+    mean = convert_value(mean, num_channels)
+    if img.dtype == np.uint8:
+        return normalize_lut(img, mean, denominator)
+
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        return normalize_numpy(img, mean, denominator)
+
+    return normalize_opencv(img, mean, denominator)

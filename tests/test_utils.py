@@ -46,6 +46,7 @@ def test_cv_dtype_from_np():
         ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5,], dtype=np.float32)),
         (3, 2, 3),
         ((1.5), 2, 1.5),
+        (np.reciprocal(np.array(0.2, dtype=np.float64)), 2, 5),
     ]
 )
 def test_convert_value(value, num_channels, expected):
