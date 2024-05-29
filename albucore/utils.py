@@ -161,6 +161,10 @@ def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels
     If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
     If length of the multiplier is greater than num_channels, multiplier is truncated to num_channels.
     """
+    if isinstance(value, (np.float32, np.float64)):
+        return value.item()
+    if isinstance(value, np.ndarray) and value.ndim == 0:
+        return value.item()
     if isinstance(value, (int, float)):
         return value
     if (
@@ -180,3 +184,6 @@ def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels
     if value.ndim == 1 and value.shape[0] > num_channels:
         value = value[:num_channels]
     return value
+
+
+ValueType = Union[Sequence[Union[int, float]], np.ndarray, float, int]
