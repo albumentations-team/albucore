@@ -9,24 +9,25 @@ from albucore.utils import (
     clip,
     clipped,
     contiguous,
+    convert_value,
     get_num_channels,
     preserve_channel_dim,
 )
 
 
 @preserve_channel_dim
-def multiply_with_lut(img: np.ndarray, multiplier: Union[Sequence[float], float]) -> np.ndarray:
+def multiply_with_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
-    if isinstance(multiplier, float):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * multiplier, dtype)
+    if isinstance(value, (int, float)):
+        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
         return cv2.LUT(img, lut)
 
     num_channels = img.shape[-1]
 
-    multiplier = np.array(multiplier, dtype=np.float32).reshape(-1, 1)
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * multiplier, dtype)
+    value = np.array(value, dtype=np.float32).reshape(-1, 1)
+    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
 
     images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
     return np.stack(images, axis=-1)
@@ -34,80 +35,116 @@ def multiply_with_lut(img: np.ndarray, multiplier: Union[Sequence[float], float]
 
 @preserve_channel_dim
 @clipped
-def multiply_with_opencv(img: np.ndarray, multiplier: Union[np.ndarray, float]) -> np.ndarray:
-    return cv2.multiply(img.astype(np.float32), multiplier, dtype=cv2.CV_64F)
+def multiply_with_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+    return cv2.multiply(img.astype(np.float32), value, dtype=cv2.CV_64F)
 
 
 @clipped
-def multiply_with_numpy(img: np.ndarray, multiplier: Union[float, np.ndarray]) -> np.ndarray:
-    return np.multiply(img, multiplier)
+def multiply_with_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
+    return np.multiply(img, value)
 
 
-def multiply_by_constant(img: np.ndarray, multiplier: float) -> np.ndarray:
+def multiply_by_constant(img: np.ndarray, value: float) -> np.ndarray:
     if img.dtype == np.uint8:
-        return multiply_with_lut(img, multiplier)
+        return multiply_with_lut(img, value)
     if img.dtype == np.float32:
-        return multiply_with_numpy(img, multiplier)
-    return multiply_with_opencv(img, multiplier)
+        return multiply_with_numpy(img, value)
+    return multiply_with_opencv(img, value)
 
 
-def multiply_by_vector(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
+def multiply_by_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     num_channels = get_num_channels(img)
     # Handle uint8 images separately to use a lookup table for performance
     if img.dtype == np.uint8:
-        return multiply_with_lut(img, multiplier)
+        return multiply_with_lut(img, value)
     # Check if the number of channels exceeds the maximum that OpenCV can handle
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return multiply_with_numpy(img, multiplier)
-    return multiply_with_opencv(img, multiplier)
+        return multiply_with_numpy(img, value)
+    return multiply_with_opencv(img, value)
 
 
-def multiply_by_array(img: np.ndarray, multiplier: np.ndarray) -> np.ndarray:
-    return multiply_with_numpy(img, multiplier)
-
-
-def convert_multiplier(
-    multiplier: Union[Sequence[float], np.ndarray, float], num_channels: int
-) -> Union[float, np.ndarray]:
-    """Convert a multiplier to a float / int or a numpy array.
-
-    If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
-    If length of the multiplier is greater than num_channels, multiplier is truncated to num_channels.
-    """
-    if isinstance(multiplier, (int, float)):
-        return multiplier
-    if (
-        # Case 1: num_channels is 1 and multiplier is a list or tuple
-        (
-            num_channels == 1
-            and (isinstance(multiplier, Sequence) or (isinstance(multiplier, np.ndarray) and multiplier.ndim == 1))
-        )
-        or
-        # Case 2: multiplier length is 1, regardless of num_channels
-        (isinstance(multiplier, (Sequence, np.ndarray)) and len(multiplier) == 1)
-        # Case 3: num_channels more then length of multiplier
-        or (num_channels > 1 and len(multiplier) < num_channels)
-    ):
-        # Convert to a float
-        return float(multiplier[0])
-
-    if isinstance(multiplier, Sequence):
-        return np.array(multiplier[:num_channels], dtype=np.float64)
-    if multiplier.ndim == 1 and multiplier.shape[0] > num_channels:
-        multiplier = multiplier[:num_channels]
-    return multiplier
+def multiply_by_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
+    return multiply_with_numpy(img, value)
 
 
 @contiguous
 @clipped
-def multiply(img: np.ndarray, multiplier: Union[Sequence[Union[int, float]], np.ndarray, float]) -> np.ndarray:
+def multiply(img: np.ndarray, value: Union[Sequence[Union[int, float]], np.ndarray, float]) -> np.ndarray:
     num_channels = get_num_channels(img)
-    multiplier = convert_multiplier(multiplier, num_channels)
+    value = convert_value(value, num_channels)
 
-    if isinstance(multiplier, float):
-        return multiply_by_constant(img, multiplier)
+    if isinstance(value, (float, int)):
+        return multiply_by_constant(img, value)
 
-    if isinstance(multiplier, np.ndarray) and multiplier.ndim == 1:
-        return multiply_by_vector(img, multiplier)
+    if isinstance(value, np.ndarray) and value.ndim == 1:
+        return multiply_by_vector(img, value)
 
-    return multiply_by_array(img, multiplier)
+    return multiply_by_array(img, value)
+
+
+@preserve_channel_dim
+@clipped
+def add_with_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+    return cv2.add(img.astype(np.float32), value, dtype=cv2.CV_64F)
+
+
+@clipped
+def add_with_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
+    return np.add(img.astype(np.float32), value)
+
+
+@preserve_channel_dim
+def add_with_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+
+    if isinstance(value, (float, int)):
+        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
+        return cv2.LUT(img, lut)
+
+    num_channels = img.shape[-1]
+
+    value = np.array(value, dtype=np.float32).reshape(-1, 1)
+
+    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
+
+    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
+    return np.stack(images, axis=-1)
+
+
+def add_constant(img: np.ndarray, value: float) -> np.ndarray:
+    if img.dtype == np.uint8:
+        return add_with_lut(img, value)
+    if img.dtype == np.float32:
+        return add_with_numpy(img, value)
+    return add_with_opencv(img, value)
+
+
+def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
+    num_channels = get_num_channels(img)
+    # Handle uint8 images separately to use a lookup table for performance
+    if img.dtype == np.uint8:
+        return add_with_lut(img, value)
+    # Check if the number of channels exceeds the maximum that OpenCV can handle
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        return add_with_numpy(img, value)
+    return add_with_opencv(img, value)
+
+
+def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
+    return add_with_numpy(img, value)
+
+
+def add(img: np.ndarray, value: Union[Sequence[Union[int, float]], np.ndarray, float]) -> np.ndarray:
+    num_channels = get_num_channels(img)
+    value = convert_value(value, num_channels)
+
+    if isinstance(value, (float, int)):
+        if value == 0:
+            return img
+        return add_constant(img, value)
+
+    if isinstance(value, np.ndarray) and value.ndim == 1:
+        return add_vector(img, value)
+
+    return add_array(img, value)

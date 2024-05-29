@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import cv2
-from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip, get_opencv_dtype_from_numpy
+from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy
 import albucore
 
 
@@ -34,3 +34,23 @@ def test_cv_dtype_from_np():
     assert get_opencv_dtype_from_numpy(np.dtype("float32")) == cv2.CV_32F
     assert get_opencv_dtype_from_numpy(np.dtype("float64")) == cv2.CV_64F
     assert get_opencv_dtype_from_numpy(np.dtype("int32")) == cv2.CV_32S
+
+
+@pytest.mark.parametrize(
+    "value, num_channels, expected",
+    [
+        ((1.5), 1, 1.5),
+        (np.array([1.5]), 3, 1.5),
+        ([1.5], 2, 1.5),
+        ([1.5, 2.5], 1, 1.5),
+        ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5,], dtype=np.float32)),
+        (3, 2, 3),
+        ((1.5), 2, 1.5),
+    ]
+)
+def test_convert_value(value, num_channels, expected):
+    result = convert_value(value, num_channels)
+    if isinstance(expected, np.ndarray):
+        assert np.array_equal(result, expected)
+    else:
+         assert result == expected
