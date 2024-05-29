@@ -38,23 +38,7 @@ multiplied_image = multiply(img, multiplier)
 
 ## Benchmarks
 
-### Benchmark Results for 1000 Images of `float32` Type (256, 256, 1)
-
-|                  | albucore     | opencv           | numpy            |
-| ---------------- | ------------ | ---------------- | ---------------- |
-| MultiplyConstant | 12925 ± 1237 | 10963 ± 1053     | **14040 ± 2063** |
-| MultiplyVector   | 3832 ± 512   | **10824 ± 1005** | 8986 ± 511       |
-
-### Benchmark Results for 1000 Images of `uint8` Type (256, 256, 1)
-
-|                  | albucore         | opencv      | numpy      |
-| ---------------- | ---------------- | ----------- | ---------- |
-| MultiplyConstant | **24131 ± 1129** | 11622 ± 175 | 6969 ± 643 |
-| MultiplyVector   | **24279 ± 908**  | 11756 ± 152 | 6936 ± 408 |
-
-Albucore provides significant performance improvements for image processing tasks. Here are some benchmark results comparing Albucore with OpenCV and Numpy:
-
-For more detailed benchmark results, including other configurations and data types, refer to the [Benchmark](benchmark/results/) in the repository.
+For detailed benchmark results, including other configurations and data types, refer to the [Benchmark](benchmark/results/) in the repository.
 
 ## License
 

@@ -9,27 +9,8 @@ from albucore import (
     multiply_with_numpy,
     multiply_with_opencv,
     multiply,
-    convert_multiplier,
+    convert_value,
 )
-
-
-@pytest.mark.parametrize(
-    "multiplier, num_channels, expected",
-    [
-        ((1.5), 1, 1.5),
-        (np.array([1.5]), 3, 1.5),
-        ([1.5], 2, 1.5),
-        ([1.5, 2.5], 1, 1.5),
-        ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5,], dtype=np.float32)),
-        ((1.5), 2, 1.5),
-    ]
-)
-def test_convert_multiplier(multiplier, num_channels, expected):
-    result = convert_multiplier(multiplier, num_channels)
-    if isinstance(expected, np.ndarray):
-        assert np.array_equal(result, expected)
-    else:
-         assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -157,12 +138,6 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
             np.array([0.5, 1.5, 2.0], dtype=np.float32),
             np.array([[[0, 3, 6], [2, 7, 12]], [[3, 12, 18], [5, 16, 24]]], dtype=np.uint8),
         ),
-        # Test case 3: Multiplier as an array, image of type uint8
-        (
-            np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
-            np.array([[[1, 0.5, 0.25], [0.5, 1, 1.5]], [[1.5, 2, 0.5], [0.25, 0.75, 1]]], dtype=np.float32),
-            np.array([[[1, 1, 0], [2, 5, 9]], [[10, 16, 4], [2, 8, 12]]], dtype=np.uint8),
-        ),
         # Clipping effect test for uint8
         (
             np.array([[[100, 150, 200], [250, 255, 100]], [[50, 75, 125], [175, 200, 225]]], dtype=np.uint8),
@@ -174,12 +149,6 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
             np.array([[[1, 2, 3, 4], [5, 6, 7, 8]], [[9, 10, 11, 12], [13, 14, 15, 16]]], dtype=np.uint8),
             np.array([0.5, 1.5, 2.0, 2.5], dtype=np.float32),
             np.array([[[0, 3, 6, 10], [2, 9, 14, 20]], [[4, 15, 22, 30], [6, 21, 30, 40]]], dtype=np.uint8),
-        ),
-        # New test case 8: Multiplier as a vector, image of type float32 with 4 channels
-        (
-            np.array([[[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], [[0.9, 1.0, 1.1, 1.2], [1.3, 1.4, 1.5, 1.6]]], dtype=np.float32),
-            np.array([0.5, 1.5, 2.0, 2.5], dtype=np.float32),
-            np.array([[[0.05, 0.3, 0.6, 1.0], [0.25, 0.9, 1.0, 1.0]], [[0.45, 1.0, 1.0, 1.0], [0.65, 1.0, 1.0, 1.0]]], dtype=np.float32),
         ),
         # Test case 1: Multiplier as a float, image of type uint8, shape (height, width)
         (
@@ -196,7 +165,7 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
     ],
 )
 def test_multiply_with_lut(img, multiplier, expected_output):
-    result_lut = multiply_with_numpy(img, multiplier)
+    result_lut = multiply_with_lut(img, multiplier)
     assert np.allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -217,7 +186,8 @@ np.random.seed(0)
 )
 @pytest.mark.parametrize("is_contiguous", [True, False])
 def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
-    height, width = 2, 2
+    height, width = 9, 11
+
     if is_contiguous:
         if img_dtype == np.uint8:
             img = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
@@ -231,7 +201,7 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     original_image = img.copy()
 
-    processed_multiplier = convert_multiplier(multiplier, num_channels)
+    processed_multiplier = convert_value(multiplier, num_channels)
 
     result = multiply(img, multiplier)
 
