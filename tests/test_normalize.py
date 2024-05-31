@@ -32,10 +32,13 @@ def test_normalize_lut(img, denominator, mean, expected):
     converted_denominator = convert_value(denominator, num_channels)
     converted_mean = convert_value(mean, num_channels)
 
-    result = normalize_lut(img, converted_mean, converted_denominator)
+    result = normalize_lut(img, converted_mean, denominator)
+    result_lut = normalize_lut(img, converted_mean, converted_denominator)
     result_np = normalize_numpy(img, mean, denominator)
     result_cv2 = normalize_opencv(img, mean, denominator)
+
     np.array_equal(result, expected)
+    np.array_equal(result_lut, expected)
     np.array_equal(result_np, expected)
     np.array_equal(result_cv2, expected)
 
@@ -78,7 +81,7 @@ def test_normalize_np_cv_equal(image, mean, std):
     np.float32,
 ])
 @pytest.mark.parametrize("shape", [(99, 101, 3), (99, 101, 1), (99, 101)])
-def test_normalize_float(dtype, shape) -> None:
+def test_normalize(dtype, shape) -> None:
     img = np.ones(shape, dtype=dtype) * 0.4
     mean = np.array(50, dtype=np.float32)
     denominator = np.array(1 / 3, dtype=np.float32)
