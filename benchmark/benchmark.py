@@ -14,14 +14,6 @@ import pandas as pd
 from tqdm import tqdm
 
 import albucore
-from albucore.functions import (
-    add_with_numpy,
-    add_with_opencv,
-    multiply_with_numpy,
-    multiply_with_opencv,
-    normalize_numpy,
-    normalize_opencv,
-)
 from albucore.utils import MAX_VALUES_BY_DTYPE, MONO_CHANNEL_DIMENSIONS, NUM_MULTI_CHANNEL_DIMENSIONS, clip
 from benchmark.utils import MarkdownGenerator, format_results, get_markdown_table
 
@@ -129,10 +121,10 @@ class MultiplyConstant(BenchmarkTest):
         return albucore.multiply(img, self.multiplier)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return multiply_with_numpy(img, self.multiplier)
+        return albucore.multiply_with_numpy(img, self.multiplier)
 
     def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
-        return multiply_with_opencv(img, self.multiplier)
+        return albucore.multiply_with_opencv(img, self.multiplier)
 
 
 class MultiplyVector(BenchmarkTest):
@@ -144,10 +136,10 @@ class MultiplyVector(BenchmarkTest):
         return albucore.multiply(img, self.multiplier)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return multiply_with_numpy(img, self.multiplier)
+        return albucore.multiply_with_numpy(img, self.multiplier)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return multiply_with_opencv(img, self.multiplier)
+        return albucore.multiply_with_opencv(img, self.multiplier)
 
 
 class MultiplyArray(BenchmarkTest):
@@ -162,11 +154,11 @@ class MultiplyArray(BenchmarkTest):
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return multiply_with_numpy(img, multiplier)
+        return albucore.multiply_with_numpy(img, multiplier)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return multiply_with_opencv(img, multiplier)
+        return albucore.multiply_with_opencv(img, multiplier)
 
 
 class AddConstant(BenchmarkTest):
@@ -178,10 +170,10 @@ class AddConstant(BenchmarkTest):
         return albucore.add(img, self.value)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return add_with_numpy(img, self.value)
+        return albucore.add_with_numpy(img, self.value)
 
     def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
-        return add_with_opencv(img, self.value)
+        return albucore.add_with_opencv(img, self.value)
 
 
 class AddVector(BenchmarkTest):
@@ -193,10 +185,10 @@ class AddVector(BenchmarkTest):
         return albucore.add(img, self.value)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return add_with_numpy(img, self.value)
+        return albucore.add_with_numpy(img, self.value)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return add_with_opencv(img, self.value)
+        return albucore.add_with_opencv(img, self.value)
 
 
 class AddArray(BenchmarkTest):
@@ -210,11 +202,11 @@ class AddArray(BenchmarkTest):
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return add_with_numpy(img, value)
+        return albucore.add_with_numpy(img, value)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return add_with_opencv(img, value)
+        return albucore.add_with_opencv(img, value)
 
 
 class Normalize(BenchmarkTest):
@@ -228,10 +220,25 @@ class Normalize(BenchmarkTest):
         return albucore.normalize(img, self.denominator, self.mean)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return normalize_numpy(img, self.denominator, self.mean)
+        return albucore.normalize_numpy(img, self.denominator, self.mean)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return normalize_opencv(img, self.denominator, self.mean)
+        return albucore.normalize_opencv(img, self.denominator, self.mean)
+
+
+class PowerConstant(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+        self.exponent = 1.1
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.power(img, self.exponent)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.power_numpy(img, self.exponent)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.power_opencv(img, self.exponent)
 
 
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> List[np.ndarray]:
@@ -300,6 +307,7 @@ def main() -> None:
         AddVector,
         AddArray,
         Normalize,
+        PowerConstant,
     ]
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
