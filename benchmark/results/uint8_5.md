@@ -1,9 +1,10 @@
-|                |albucore<br><small>0.0.5</small>|opencv<br><small>4.9.0.80</small>|numpy<br><small>1.24.4</small>|
+|                |albucore<br><small>0.0.6</small>|opencv<br><small>4.9.0.80</small>|numpy<br><small>1.24.4</small>|
 |----------------|--------------------------------|---------------------------------|------------------------------|
-|MultiplyConstant|**1317 ± 68**                   |-                                |300 ± 9                       |
-|MultiplyVector  |**561 ± 29**                    |-                                |178 ± 2                       |
-|MultiplyArray   |**91 ± 2**                      |-                                |**91 ± 2**                    |
-|AddConstant     |**1682 ± 53**                   |-                                |439 ± 28                      |
-|AddVector       |**634 ± 7**                     |-                                |144 ± 3                       |
-|AddArray        |**89 ± 1**                      |-                                |**87 ± 2**                    |
-|Normalize       |**213 ± 17**                    |-                                |130 ± 2                       |
+|MultiplyConstant|**1429 ± 28**                   |-                                |343 ± 3                       |
+|MultiplyVector  |**626 ± 7**                     |-                                |197 ± 3                       |
+|MultiplyArray   |**97 ± 1**                      |93 ± 1                           |**98 ± 1**                    |
+|AddConstant     |**1717 ± 87**                   |-                                |800 ± 15                      |
+|AddVector       |**669 ± 5**                     |-                                |168 ± 1                       |
+|AddArray        |**98 ± 1**                      |93 ± 2                           |**97 ± 1**                    |
+|Normalize       |**175 ± 19**                    |99 ± 3                           |105 ± 3                       |
+|PowerConstant   |**1607 ± 116**                  |277 ± 15                         |68 ± 9                        |

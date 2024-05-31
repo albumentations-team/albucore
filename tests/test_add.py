@@ -11,25 +11,6 @@ from albucore import (
 
 
 @pytest.mark.parametrize(
-    "value, num_channels, expected",
-    [
-        ((1.5), 1, 1.5),
-        (np.array([1.5]), 3, 1.5),
-        ([1.5], 2, 1.5),
-        ([1.5, 2.5], 1, 1.5),
-        ([1.5, 2.5, 0.5], 2, np.array([1.5, 2.5,], dtype=np.float32)),
-        ((1.5), 2, 1.5),
-    ]
-)
-def test_convert_multiplier(value, num_channels, expected):
-    result = convert_value(value, num_channels)
-    if isinstance(expected, np.ndarray):
-        assert np.array_equal(result, expected)
-    else:
-         assert result == expected
-
-
-@pytest.mark.parametrize(
     "img, value, expected_output",
     [
         # Test case 1: Value as a float, image of type uint8

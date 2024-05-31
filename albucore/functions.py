@@ -212,3 +212,46 @@ def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.nd
         return normalize_numpy(img, mean, denominator)
 
     return normalize_opencv(img, mean, denominator)
+
+
+@preserve_channel_dim
+@clipped
+def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
+    return np.power(img, exponent)
+
+
+@preserve_channel_dim
+@clipped
+def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
+    return cv2.pow(img.astype(np.float32), exponent)
+
+
+@preserve_channel_dim
+def power_lut(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    num_channels = get_num_channels(img)
+
+    if isinstance(exponent, (float, int)):
+        lut = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
+        return cv2.LUT(img, lut)
+
+    if isinstance(exponent, np.ndarray) and exponent.shape != ():
+        exponent = exponent.reshape(-1, 1)
+
+    luts = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
+
+    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
+    return np.stack(images, axis=-1)
+
+
+def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
+    num_channels = get_num_channels(img)
+    exponent = convert_value(exponent, num_channels)
+    if img.dtype == np.uint8:
+        return power_lut(img, exponent)
+
+    if isinstance(exponent, (float, int)):
+        return power_opencv(img, exponent)
+
+    return power_numpy(img, exponent)
