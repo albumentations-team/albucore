@@ -286,7 +286,7 @@ def add_weighted_lut(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2
 
 @clipped
 def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    if not img1.shape == img2.shape:
+    if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
     return add_weighted_opencv(img1, weight1, img2, weight2)
