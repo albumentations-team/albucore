@@ -16,7 +16,7 @@ from albucore.utils import (
 
 
 @preserve_channel_dim
-def multiply_with_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -34,37 +34,35 @@ def multiply_with_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> 
 
 
 @preserve_channel_dim
-@clipped
-def multiply_with_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     return cv2.multiply(img.astype(np.float32), value, dtype=cv2.CV_64F)
 
 
-@clipped
-def multiply_with_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
+def multiply_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
     return np.multiply(img, value)
 
 
 def multiply_by_constant(img: np.ndarray, value: float) -> np.ndarray:
     if img.dtype == np.uint8:
-        return multiply_with_lut(img, value)
+        return multiply_lut(img, value)
     if img.dtype == np.float32:
-        return multiply_with_numpy(img, value)
-    return multiply_with_opencv(img, value)
+        return multiply_numpy(img, value)
+    return multiply_opencv(img, value)
 
 
 def multiply_by_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     num_channels = get_num_channels(img)
     # Handle uint8 images separately to use a lookup table for performance
     if img.dtype == np.uint8:
-        return multiply_with_lut(img, value)
+        return multiply_lut(img, value)
     # Check if the number of channels exceeds the maximum that OpenCV can handle
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return multiply_with_numpy(img, value)
-    return multiply_with_opencv(img, value)
+        return multiply_numpy(img, value)
+    return multiply_opencv(img, value)
 
 
 def multiply_by_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return multiply_with_numpy(img, value)
+    return multiply_numpy(img, value)
 
 
 @clipped
@@ -82,18 +80,16 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
 
 
 @preserve_channel_dim
-@clipped
-def add_with_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     return cv2.add(img.astype(np.float32), value, dtype=cv2.CV_64F)
 
 
-@clipped
-def add_with_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
+def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
     return np.add(img.astype(np.float32), value)
 
 
 @preserve_channel_dim
-def add_with_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -113,27 +109,28 @@ def add_with_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.nd
 
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
     if img.dtype == np.uint8:
-        return add_with_lut(img, value)
+        return add_lut(img, value)
     if img.dtype == np.float32:
-        return add_with_numpy(img, value)
-    return add_with_opencv(img, value)
+        return add_numpy(img, value)
+    return add_opencv(img, value)
 
 
 def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     num_channels = get_num_channels(img)
     # Handle uint8 images separately to use a lookup table for performance
     if img.dtype == np.uint8:
-        return add_with_lut(img, value)
+        return add_lut(img, value)
     # Check if the number of channels exceeds the maximum that OpenCV can handle
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return add_with_numpy(img, value)
-    return add_with_opencv(img, value)
+        return add_numpy(img, value)
+    return add_opencv(img, value)
 
 
 def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return add_with_numpy(img, value)
+    return add_numpy(img, value)
 
 
+@clipped
 def add(img: np.ndarray, value: ValueType) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
@@ -208,20 +205,14 @@ def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.nd
     if img.dtype == np.uint8:
         return normalize_lut(img, mean, denominator)
 
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return normalize_numpy(img, mean, denominator)
-
     return normalize_opencv(img, mean, denominator)
 
 
-@preserve_channel_dim
-@clipped
 def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
     return np.power(img, exponent)
 
 
 @preserve_channel_dim
-@clipped
 def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
     return cv2.pow(img.astype(np.float32), exponent)
 
@@ -245,6 +236,7 @@ def power_lut(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray
     return np.stack(images, axis=-1)
 
 
+@clipped
 def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
     num_channels = get_num_channels(img)
     exponent = convert_value(exponent, num_channels)
@@ -255,3 +247,46 @@ def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
         return power_opencv(img, exponent)
 
     return power_numpy(img, exponent)
+
+
+def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    return img1 * weight1 + img2 * weight2
+
+
+@preserve_channel_dim
+def add_weighted_opencv(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    return cv2.addWeighted(img1.astype(np.float32), weight1, img2.astype(np.float32), weight2, 0)
+
+
+@preserve_channel_dim
+def add_weighted_lut(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    dtype = img1.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+
+    if weight1 == 1 and weight2 == 0:
+        return img1
+
+    if weight1 == 0 and weight2 == 1:
+        return img2
+
+    if weight1 == 0 and weight2 == 0:
+        return np.zeros_like(img1)
+
+    if weight1 == 1 and weight2 == 1:
+        return add_array(img1, img2)
+
+    lut1 = np.arange(0, max_value + 1, dtype=np.float32) * weight1
+    result1 = cv2.LUT(img1, lut1)
+
+    lut2 = np.arange(0, max_value + 1, dtype=np.float32) * weight2
+    result2 = cv2.LUT(img2, lut2)
+
+    return add_array(result1, result2)
+
+
+@clipped
+def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    if not img1.shape == img2.shape:
+        raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
+
+    return add_weighted_opencv(img1, weight1, img2, weight2)
