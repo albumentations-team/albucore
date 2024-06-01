@@ -5,9 +5,9 @@ import numpy as np
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 
 from albucore import (
-    multiply_with_lut,
-    multiply_with_numpy,
-    multiply_with_opencv,
+    multiply_lut,
+    multiply_numpy,
+    multiply_opencv,
     multiply,
     convert_value,
 )
@@ -115,11 +115,11 @@ from albucore import (
     ],
 )
 def test_multiply_with_numpy(img, multiplier, expected_output):
-    result_numpy = multiply_with_numpy(img, multiplier)
+    result_numpy = clip(multiply_numpy(img, multiplier), img.dtype)
     assert np.allclose(result_numpy, expected_output, atol=1e-6)
 
-    if img.shape[-1] in {2, 3} and img.dtype == np.uint8:
-        result_opencv = multiply_with_opencv(img, multiplier)
+    if img.shape[-1] in {1, 3, 4} and img.dtype == np.uint8:
+        result_opencv = clip(multiply_opencv(img, multiplier), img.dtype)
         assert np.allclose(result_opencv, expected_output, atol=1e-6)
 
 
@@ -165,7 +165,7 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
     ],
 )
 def test_multiply_with_lut(img, multiplier, expected_output):
-    result_lut = multiply_with_lut(img, multiplier)
+    result_lut = clip(multiply_lut(img, multiplier), img.dtype)
     assert np.allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -207,19 +207,19 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
-    result_numpy = multiply_with_numpy(img, processed_multiplier)
+    result_numpy = clip(multiply_numpy(img, processed_multiplier), img.dtype)
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
     assert np.allclose(result, result_numpy, atol=1e-6)
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
-        result_lut = clip(multiply_with_lut(img, processed_multiplier), img.dtype)
+        result_lut = clip(multiply_lut(img, processed_multiplier), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        result_opencv = clip(multiply_with_opencv(img, processed_multiplier), img.dtype)
+        result_opencv = clip(multiply_opencv(img, processed_multiplier), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
 
         assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
