@@ -2,9 +2,9 @@ import pytest
 import numpy as np
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 from albucore import (
-    add_with_lut,
-    add_with_numpy,
-    add_with_opencv,
+    add_lut,
+    add_numpy,
+    add_opencv,
     add,
     convert_value,
 )
@@ -64,11 +64,11 @@ from albucore import (
     ],
 )
 def test_add_with_numpy(img, value, expected_output):
-    result_numpy = add_with_numpy(img, value)
+    result_numpy = clip(add_numpy(img, value), img.dtype)
     assert np.allclose(result_numpy, expected_output, atol=1e-6)
 
     if img.shape[-1] in {2, 3} and img.dtype == np.uint8:
-        result_opencv = add_with_opencv(img, value)
+        result_opencv = clip(add_opencv(img, value), img.dtype)
         assert np.allclose(result_opencv, expected_output, atol=1e-6)
 
 
@@ -96,7 +96,7 @@ def test_add_with_numpy(img, value, expected_output):
     ],
 )
 def test_add_with_lut(img, value, expected_output):
-    result_lut = add_with_lut(img, value)
+    result_lut = add_lut(img, value)
     assert np.allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -141,19 +141,19 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
-    result_numpy = add_with_numpy(img, processed_value)
+    result_numpy = clip(add_numpy(img, processed_value), img_dtype)
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
     assert np.allclose(result, result_numpy, atol=1e-6)
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
-        result_lut = clip(add_with_lut(img, processed_value), img.dtype)
+        result_lut = clip(add_lut(img, processed_value), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        result_opencv = clip(add_with_opencv(img, processed_value), img.dtype)
+        result_opencv = clip(add_opencv(img, processed_value), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
 
         assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
