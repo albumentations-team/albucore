@@ -30,7 +30,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 rng = np.random.default_rng()
 
 
-DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "opencv", "numpy"]
+DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "lut", "opencv", "numpy"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,8 +85,16 @@ class BenchmarkTest:
     def numpy(self, img: np.ndarray) -> np.ndarray:
         return clip(self.numpy_transform(img), img.dtype)
 
+    def lut(self, img: np.ndarray) -> np.ndarray:
+        return clip(self.lut_transform(img), img.dtype)
+
     def is_supported_by(self, library: str) -> bool:
-        library_attr_map = {"albucore": "albucore_transform", "opencv": "opencv_transform", "numpy": "numpy_transform"}
+        library_attr_map = {
+            "albucore": "albucore_transform",
+            "opencv": "opencv_transform",
+            "numpy": "numpy_transform",
+            "lut": "lut_transform",
+        }
 
         # Check if the library is in the map
         if library in library_attr_map:
@@ -121,10 +129,13 @@ class MultiplyConstant(BenchmarkTest):
         return albucore.multiply(img, self.multiplier)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.multiply_with_numpy(img, self.multiplier)
+        return albucore.multiply_numpy(img, self.multiplier)
 
     def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
-        return albucore.multiply_with_opencv(img, self.multiplier)
+        return albucore.multiply_opencv(img, self.multiplier)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.multiply_lut(img, self.multiplier)
 
 
 class MultiplyVector(BenchmarkTest):
@@ -136,10 +147,13 @@ class MultiplyVector(BenchmarkTest):
         return albucore.multiply(img, self.multiplier)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.multiply_with_numpy(img, self.multiplier)
+        return albucore.multiply_numpy(img, self.multiplier)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.multiply_with_opencv(img, self.multiplier)
+        return albucore.multiply_opencv(img, self.multiplier)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.multiply_lut(img, self.multiplier)
 
 
 class MultiplyArray(BenchmarkTest):
@@ -154,11 +168,11 @@ class MultiplyArray(BenchmarkTest):
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.multiply_with_numpy(img, multiplier)
+        return albucore.multiply_numpy(img, multiplier)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.multiply_with_opencv(img, multiplier)
+        return albucore.multiply_opencv(img, multiplier)
 
 
 class AddConstant(BenchmarkTest):
@@ -170,10 +184,13 @@ class AddConstant(BenchmarkTest):
         return albucore.add(img, self.value)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_with_numpy(img, self.value)
+        return albucore.add_numpy(img, self.value)
 
     def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
-        return albucore.add_with_opencv(img, self.value)
+        return albucore.add_opencv(img, self.value)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_lut(img, self.value)
 
 
 class AddVector(BenchmarkTest):
@@ -185,10 +202,13 @@ class AddVector(BenchmarkTest):
         return albucore.add(img, self.value)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_with_numpy(img, self.value)
+        return albucore.add_numpy(img, self.value)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_with_opencv(img, self.value)
+        return albucore.add_opencv(img, self.value)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_lut(img, self.value)
 
 
 class AddArray(BenchmarkTest):
@@ -202,11 +222,11 @@ class AddArray(BenchmarkTest):
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.add_with_numpy(img, value)
+        return albucore.add_numpy(img, value)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.add_with_opencv(img, value)
+        return albucore.add_opencv(img, value)
 
 
 class Normalize(BenchmarkTest):
@@ -225,6 +245,9 @@ class Normalize(BenchmarkTest):
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.normalize_opencv(img, self.denominator, self.mean)
 
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_lut(img, self.denominator, self.mean)
+
 
 class PowerConstant(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
@@ -239,6 +262,28 @@ class PowerConstant(BenchmarkTest):
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.power_opencv(img, self.exponent)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.power_lut(img, self.exponent)
+
+
+class AddWeighted(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+        self.weight1 = 0.4
+        self.weight2 = 0.6
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_weighted(img, self.weight1, img, self.weight2)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_weighted_numpy(img, self.weight1, img, self.weight2)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_weighted_opencv(img, self.weight1, img, self.weight2)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_weighted_lut(img, self.weight1, img, self.weight2)
 
 
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> List[np.ndarray]:
@@ -308,6 +353,7 @@ def main() -> None:
         AddArray,
         Normalize,
         PowerConstant,
+        AddWeighted,
     ]
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES

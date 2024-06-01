@@ -52,7 +52,7 @@ class MarkdownGenerator:
 
         for library in libraries:
             key = library
-            if "opencv" in key:
+            if "opencv" in key or "lut" in key:
                 key = "opencv-python-headless"
 
             version = self._package_versions[key]

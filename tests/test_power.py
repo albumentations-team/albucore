@@ -40,18 +40,18 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
     ],
 )
 def test_power_with_numpy(img, exponent, expected_output):
-    result_numpy = power_numpy(img, exponent)
+    result_numpy = clip(power_numpy(img, exponent), img.dtype)
     assert np.allclose(result_numpy, expected_output, atol=1e-6)
 
     assert result_numpy.dtype == img.dtype, "Input image was modified"
     assert result_numpy.shape == img.shape
 
     if isinstance(exponent, (float, int)):
-        result_opencv = power_opencv(img, exponent)
+        result_opencv = clip(power_opencv(img, exponent), img.dtype)
         assert np.allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8:
-        result_lut = power_lut(img, exponent)
+        result_lut = clip(power_lut(img, exponent), img.dtype)
         assert np.allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -99,7 +99,7 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
-    result_numpy = power_numpy(img, processed_exponent)
+    result_numpy = clip(power_numpy(img, processed_exponent), img_dtype)
 
     assert np.array_equal(img, original_image), "Input image was modified"
 
