@@ -290,3 +290,63 @@ def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: fl
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
     return add_weighted_opencv(img1, weight1, img2, weight2)
+
+
+def multiply_add_numpy(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+    if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
+        return np.zeros_like(img)
+    result = img
+    result = np.multiply(result, factor) if factor != 0 else np.zeros_like(result)
+    if value != 0:
+        result = np.add(result, value)
+    return result
+
+
+@preserve_channel_dim
+def multiply_add_opencv(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+    if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
+        return np.zeros_like(img)
+
+    result = img.astype(np.float32)
+    result = (
+        cv2.multiply(result, np.ones_like(result) * factor, dtype=cv2.CV_64F)
+        if factor != 0
+        else np.zeros_like(result, dtype=img.dtype)
+    )
+    if value != 0:
+        result = cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
+    return result
+
+
+@preserve_channel_dim
+def multiply_add_lut(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    num_channels = get_num_channels(img)
+
+    if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
+        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
+        return cv2.LUT(img, lut)
+
+    if isinstance(factor, np.ndarray) and factor.shape != ():
+        factor = factor.reshape(-1, 1)
+
+    if isinstance(value, np.ndarray) and value.shape != ():
+        value = value.reshape(-1, 1)
+
+    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
+
+    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
+    return np.stack(images, axis=-1)
+
+
+@clipped
+def multiply_add(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+    num_channels = get_num_channels(img)
+    factor = convert_value(factor, num_channels)
+    value = convert_value(value, num_channels)
+
+    if img.dtype == np.uint8:
+        return multiply_add_lut(img, value, factor)
+
+    return multiply_add_opencv(img, value, factor)
