@@ -81,8 +81,8 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
         (1.0, 0.0),
         (0.0, 1.0),
         (0.5, 0.5),
-        # (1.0, 1.0),
-        # (2.0, 0.5),
+        (1.0, 1.0),
+        (2.0, 0.5),
     ]
 )
 @pytest.mark.parametrize(
