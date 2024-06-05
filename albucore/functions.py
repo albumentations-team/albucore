@@ -292,7 +292,7 @@ def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: fl
     return add_weighted_opencv(img1, weight1, img2, weight2)
 
 
-def multiply_add_numpy(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
         return np.zeros_like(img)
     result = img
@@ -303,7 +303,7 @@ def multiply_add_numpy(img: np.ndarray, value: ValueType, factor: ValueType) -> 
 
 
 @preserve_channel_dim
-def multiply_add_opencv(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+def multiply_add_opencv(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
         return np.zeros_like(img)
 
@@ -319,7 +319,7 @@ def multiply_add_opencv(img: np.ndarray, value: ValueType, factor: ValueType) ->
 
 
 @preserve_channel_dim
-def multiply_add_lut(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     num_channels = get_num_channels(img)
@@ -341,12 +341,12 @@ def multiply_add_lut(img: np.ndarray, value: ValueType, factor: ValueType) -> np
 
 
 @clipped
-def multiply_add(img: np.ndarray, value: ValueType, factor: ValueType) -> np.ndarray:
+def multiply_add(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     num_channels = get_num_channels(img)
     factor = convert_value(factor, num_channels)
     value = convert_value(value, num_channels)
 
     if img.dtype == np.uint8:
-        return multiply_add_lut(img, value, factor)
+        return multiply_add_lut(img, factor, value)
 
-    return multiply_add_opencv(img, value, factor)
+    return multiply_add_opencv(img, factor, value)
