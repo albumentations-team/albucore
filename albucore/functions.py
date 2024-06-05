@@ -29,8 +29,7 @@ def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.nd
     value = np.array(value, dtype=np.float32).reshape(-1, 1)
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
 
-    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
-    return np.stack(images, axis=-1)
+    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
 
 
 @preserve_channel_dim
@@ -103,8 +102,7 @@ def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray
 
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
 
-    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
-    return np.stack(images, axis=-1)
+    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
 
 
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
@@ -194,8 +192,7 @@ def normalize_lut(img: np.ndarray, mean: Union[float, np.ndarray], denominator: 
 
     luts = (np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator
 
-    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
-    return np.stack(images, axis=-1)
+    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
 
 
 def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.ndarray:
@@ -232,8 +229,7 @@ def power_lut(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray
 
     luts = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
 
-    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
-    return np.stack(images, axis=-1)
+    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
 
 
 @clipped
@@ -295,8 +291,8 @@ def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: fl
 def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
         return np.zeros_like(img)
-    result = img
-    result = np.multiply(result, factor) if factor != 0 else np.zeros_like(result)
+
+    result = np.multiply(img, factor) if factor != 0 else np.zeros_like(img)
     if value != 0:
         result = np.add(result, value)
     return result
@@ -336,8 +332,7 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np
 
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
 
-    images = [cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)]
-    return np.stack(images, axis=-1)
+    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
 
 
 @clipped
