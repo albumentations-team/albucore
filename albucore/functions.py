@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Literal, Sequence, Union
 
 import cv2
 import numpy as np
@@ -6,6 +6,8 @@ import numpy as np
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
+    MONO_CHANNEL_DIMENSIONS,
+    NormalizationType,
     ValueType,
     clip,
     clipped,
@@ -14,27 +16,67 @@ from albucore.utils import (
     preserve_channel_dim,
 )
 
+np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
+
+cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
+
+
+def create_lut_array(
+    max_value: float, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    value = np.array(value, dtype=np.float32).reshape(-1, 1)
+    lut = np.arange(0, max_value + 1, dtype=np.float32)
+
+    if operation in np_operations:
+        return np_operations[operation](lut, value)
+
+    raise ValueError(f"Unsupported operation: {operation}")
+
+
+def apply_lut(
+    img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    if isinstance(value, (int, float)):
+        lut = create_lut_array(max_value, value, operation)
+        return cv2.LUT(img, clip(lut, dtype))
+
+    num_channels = img.shape[-1]
+    luts = create_lut_array(max_value, value, operation)
+    return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
+
+
+@preserve_channel_dim
+def apply_opencv(
+    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    img_float = img.astype(np.float32)
+    if operation in cv2_operations:
+        return cv2_operations[operation](img_float, value)
+
+    raise ValueError(f"Unsupported operation: {operation}")
+
+
+def apply_numpy(
+    img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    img_float = img.astype(np.float32)
+
+    if operation in np_operations:
+        return np_operations[operation](img_float, value)
+
+    raise ValueError(f"Unsupported operation: {operation}")
+
 
 @preserve_channel_dim
 def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
-    dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-
-    if isinstance(value, (int, float)):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
-        return cv2.LUT(img, lut)
-
-    num_channels = img.shape[-1]
-
-    value = np.array(value, dtype=np.float32).reshape(-1, 1)
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
-
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return apply_lut(img, value, "multiply")
 
 
 @preserve_channel_dim
 def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    return cv2.multiply(img.astype(np.float32), value, dtype=cv2.CV_64F)
+    return apply_opencv(img, value, "multiply")
 
 
 def multiply_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
@@ -80,29 +122,16 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
 
 @preserve_channel_dim
 def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    return cv2.add(img.astype(np.float32), value, dtype=cv2.CV_64F)
+    return apply_opencv(img, value, "add")
 
 
 def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
-    return np.add(img.astype(np.float32), value)
+    return apply_numpy(img, value, "add")
 
 
 @preserve_channel_dim
 def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
-    dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-
-    if isinstance(value, (float, int)):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
-        return cv2.LUT(img, lut)
-
-    num_channels = img.shape[-1]
-
-    value = np.array(value, dtype=np.float32).reshape(-1, 1)
-
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
-
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return apply_lut(img, value, "add")
 
 
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
@@ -206,30 +235,17 @@ def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.nd
 
 
 def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    return np.power(img, exponent)
+    return apply_numpy(img, exponent, "power")
 
 
 @preserve_channel_dim
 def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    return cv2.pow(img.astype(np.float32), exponent)
+    return apply_opencv(img, exponent, "power")
 
 
 @preserve_channel_dim
 def power_lut(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    num_channels = get_num_channels(img)
-
-    if isinstance(exponent, (float, int)):
-        lut = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
-        return cv2.LUT(img, lut)
-
-    if isinstance(exponent, np.ndarray) and exponent.shape != ():
-        exponent = exponent.reshape(-1, 1)
-
-    luts = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
-
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return apply_lut(img, exponent, "power")
 
 
 @clipped
@@ -345,3 +361,125 @@ def multiply_add(img: np.ndarray, factor: ValueType, value: ValueType) -> np.nda
         return multiply_add_lut(img, factor, value)
 
     return multiply_add_opencv(img, factor, value)
+
+
+@preserve_channel_dim
+def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    img = img.astype(np.float32)
+    eps = 1e-4
+
+    if img.ndim == MONO_CHANNEL_DIMENSIONS:
+        img = np.expand_dims(img, axis=-1)
+
+    if normalization == "image":
+        mean = img.mean().item()
+        std = img.std() + eps
+        normalized_img = cv2.divide(cv2.subtract(img, mean), std)
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "image_per_channel":
+        mean = img.mean(axis=(0, 1))
+        std = img.std(axis=(0, 1)) + eps
+        normalized_img = cv2.divide(cv2.subtract(img, mean), std, dtype=cv2.CV_32F)
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "min_max":
+        img_min = img.min()
+        img_max = img.max()
+        return cv2.normalize(img, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+
+    if normalization == "min_max_per_channel":
+        img_min = img.min(axis=(0, 1))
+        img_max = img.max(axis=(0, 1))
+
+        return cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F).clip(-20, 20)
+
+    raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+@preserve_channel_dim
+def normalize_per_image_numpy(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    img = img.astype(np.float32)
+    eps = 1e-4
+
+    if img.ndim == MONO_CHANNEL_DIMENSIONS:
+        img = np.expand_dims(img, axis=-1)
+
+    if normalization == "image":
+        mean = img.mean()
+        std = img.std() + eps
+        normalized_img = (img - mean) / std
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "image_per_channel":
+        pixel_mean = img.mean(axis=(0, 1))
+        pixel_std = img.std(axis=(0, 1)) + eps
+        normalized_img = (img - pixel_mean) / pixel_std
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "min_max":
+        img_min = img.min()
+        img_max = img.max()
+        return (img - img_min) / (img_max - img_min + eps)
+
+    if normalization == "min_max_per_channel":
+        img_min = img.min(axis=(0, 1))
+        img_max = img.max(axis=(0, 1))
+        return (img - img_min) / (img_max - img_min + eps)
+
+    raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+@preserve_channel_dim
+def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    eps = 1e-4
+    num_channels = get_num_channels(img)
+
+    if img.ndim == MONO_CHANNEL_DIMENSIONS:
+        img = np.expand_dims(img, axis=-1)
+
+    if normalization == "image":
+        mean = img.mean()
+        std = img.std() + eps
+        lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) / std
+        return cv2.LUT(img, lut).clip(-20, 20)
+
+    if normalization == "image_per_channel":
+        pixel_mean = img.mean(axis=(0, 1))
+        pixel_std = img.std(axis=(0, 1)) + eps
+        luts = [
+            (np.arange(0, max_value + 1, dtype=np.float32) - pixel_mean[c]) / pixel_std[c] for c in range(num_channels)
+        ]
+        return cv2.merge([cv2.LUT(img[:, :, i], luts[i]).clip(-20, 20) for i in range(num_channels)])
+
+    if normalization == "min_max":
+        img_min = img.min()
+        img_max = img.max()
+        lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
+        return cv2.LUT(img, lut)
+
+    if normalization == "min_max_per_channel":
+        img_min = img.min(axis=(0, 1))
+        img_max = img.max(axis=(0, 1))
+        luts = [
+            (np.arange(0, max_value + 1, dtype=np.float32) - img_min[c]) / (img_max[c] - img_min[c] + eps)
+            for c in range(num_channels)
+        ]
+
+        return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+
+    raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    if img.dtype == np.uint8:
+        return normalize_per_image_lut(img, normalization)
+
+    num_channels = get_num_channels(img)
+
+    if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
+        return normalize_per_image_opencv(img, normalization)
+
+    return normalize_per_image_numpy(img, normalization)
