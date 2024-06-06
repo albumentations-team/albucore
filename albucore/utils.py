@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Literal, Sequence, Union
 
 import cv2
 import numpy as np
@@ -12,6 +12,8 @@ FOUR = 4
 TWO = 2
 
 MAX_OPENCV_WORKING_CHANNELS = 4
+
+NormalizationType = Literal["image", "image_per_channel", "min_max", "min_max_per_channel"]
 
 P = ParamSpec("P")
 

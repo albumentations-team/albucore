@@ -249,6 +249,74 @@ class Normalize(BenchmarkTest):
         return albucore.normalize_lut(img, self.denominator, self.mean)
 
 
+class NormalizePerImage(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image(img, "image")
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_numpy(img, "image")
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_opencv(img, "image")
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_lut(img, "image")
+
+
+class NormalizePerImagePerChannel(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image(img, "image_per_channel")
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_numpy(img, "image_per_channel")
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_opencv(img, "image_per_channel")
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_lut(img, "image_per_channel")
+
+
+class NormalizeMinMax(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image(img, "min_max")
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_numpy(img, "min_max")
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_opencv(img, "min_max")
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_lut(img, "min_max")
+
+
+class NormalizeMinMaxPerChannel(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image(img, "min_max_per_channel")
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_numpy(img, "min_max_per_channel")
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_opencv(img, "min_max_per_channel")
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.normalize_per_image_lut(img, "min_max_per_channel")
+
+
 class PowerConstant(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
@@ -352,6 +420,10 @@ def main() -> None:
         AddVector,
         AddArray,
         Normalize,
+        NormalizePerImage,
+        NormalizePerImagePerChannel,
+        NormalizeMinMaxPerChannel,
+        NormalizeMinMax,
         PowerConstant,
         AddWeighted,
     ]
