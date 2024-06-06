@@ -47,13 +47,41 @@ def apply_lut(
 
 
 @preserve_channel_dim
+def apply_opencv(
+    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    img_float = img.astype(np.float32)
+    if operation == "multiply":
+        return cv2.multiply(img_float, value, dtype=cv2.CV_64F)
+    if operation == "add":
+        return cv2.add(img_float, value, dtype=cv2.CV_64F)
+    if operation == "power":
+        return cv2.pow(img_float, value)
+
+    raise ValueError(f"Unsupported operation: {operation}")
+
+
+def apply_numpy(
+    img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    img_float = img.astype(np.float32)
+    if operation == "multiply":
+        return np.multiply(img_float, value)
+    if operation == "add":
+        return np.add(img_float, value)
+    if operation == "power":
+        return np.power(img_float, value)
+    raise ValueError(f"Unsupported operation: {operation}")
+
+
+@preserve_channel_dim
 def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
     return apply_lut(img, value, "multiply")
 
 
 @preserve_channel_dim
 def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    return cv2.multiply(img.astype(np.float32), value, dtype=cv2.CV_64F)
+    return apply_opencv(img, value, "multiply")
 
 
 def multiply_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
@@ -99,11 +127,11 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
 
 @preserve_channel_dim
 def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    return cv2.add(img.astype(np.float32), value, dtype=cv2.CV_64F)
+    return apply_opencv(img, value, "add")
 
 
 def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
-    return np.add(img.astype(np.float32), value)
+    return apply_numpy(img, value, "add")
 
 
 @preserve_channel_dim
@@ -212,12 +240,12 @@ def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.nd
 
 
 def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    return np.power(img, exponent)
+    return apply_numpy(img, exponent, "power")
 
 
 @preserve_channel_dim
 def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    return cv2.pow(img.astype(np.float32), exponent)
+    return apply_opencv(img, exponent, "power")
 
 
 @preserve_channel_dim
