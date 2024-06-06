@@ -3,6 +3,6 @@ pre_commit>=3.5.0
 pytest>=8.2.0
 pytest_cov>=4.1.0
 pytest_mock>=3.14.0
-ruff>=0.4.9
+ruff>=0.4.8
 tomli>=2.0.1
 types-setuptools
