@@ -6,6 +6,8 @@ import numpy as np
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
+    MONO_CHANNEL_DIMENSIONS,
+    NormalizationType,
     ValueType,
     clip,
     clipped,
@@ -345,3 +347,120 @@ def multiply_add(img: np.ndarray, factor: ValueType, value: ValueType) -> np.nda
         return multiply_add_lut(img, factor, value)
 
     return multiply_add_opencv(img, factor, value)
+
+
+@preserve_channel_dim
+def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    img = img.astype(np.float32)
+    eps = 1e-4
+
+    if img.ndim == MONO_CHANNEL_DIMENSIONS:
+        img = np.expand_dims(img, axis=-1)
+
+    if normalization == "image":
+        mean = img.mean().item()
+        std = img.std() + eps
+        normalized_img = cv2.divide(cv2.subtract(img, mean), std)
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "image_per_channel":
+        mean = img.mean(axis=(0, 1))
+        std = img.std(axis=(0, 1)) + eps
+        normalized_img = cv2.divide(cv2.subtract(img, mean), std, dtype=cv2.CV_32F)
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "min_max":
+        img_min = img.min()
+        img_max = img.max()
+        return cv2.normalize(img, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+
+    if normalization == "min_max_per_channel":
+        img_min = img.min(axis=(0, 1))
+        img_max = img.max(axis=(0, 1))
+
+        return cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F).clip(-20, 20)
+
+    raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+@preserve_channel_dim
+def normalize_per_image_numpy(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    img = img.astype(np.float32)
+    eps = 1e-4
+
+    if img.ndim == MONO_CHANNEL_DIMENSIONS:
+        img = np.expand_dims(img, axis=-1)
+
+    if normalization == "image":
+        mean = img.mean()
+        std = img.std() + eps
+        normalized_img = (img - mean) / std
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "image_per_channel":
+        pixel_mean = img.mean(axis=(0, 1))
+        pixel_std = img.std(axis=(0, 1)) + eps
+        normalized_img = (img - pixel_mean) / pixel_std
+        return normalized_img.clip(-20, 20)
+
+    if normalization == "min_max":
+        img_min = img.min()
+        img_max = img.max()
+        return (img - img_min) / (img_max - img_min + eps)
+
+    if normalization == "min_max_per_channel":
+        img_min = img.min(axis=(0, 1))
+        img_max = img.max(axis=(0, 1))
+        return (img - img_min) / (img_max - img_min + eps)
+
+    raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+@preserve_channel_dim
+def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    dtype = img.dtype
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    eps = 1e-4
+    num_channels = get_num_channels(img)
+
+    if img.ndim == MONO_CHANNEL_DIMENSIONS:
+        img = np.expand_dims(img, axis=-1)
+
+    if normalization == "image":
+        mean = img.mean()
+        std = img.std() + eps
+        lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) / std
+        return cv2.LUT(img, lut).clip(-20, 20)
+
+    if normalization == "image_per_channel":
+        pixel_mean = img.mean(axis=(0, 1))
+        pixel_std = img.std(axis=(0, 1)) + eps
+        luts = [
+            (np.arange(0, max_value + 1, dtype=np.float32) - pixel_mean[c]) / pixel_std[c] for c in range(num_channels)
+        ]
+        return cv2.merge([cv2.LUT(img[:, :, i], luts[i]).clip(-20, 20) for i in range(num_channels)])
+
+    if normalization == "min_max":
+        img_min = img.min()
+        img_max = img.max()
+        lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
+        return cv2.LUT(img, lut)
+
+    if normalization == "min_max_per_channel":
+        img_min = img.min(axis=(0, 1))
+        img_max = img.max(axis=(0, 1))
+        luts = [
+            (np.arange(0, max_value + 1, dtype=np.float32) - img_min[c]) / (img_max[c] - img_min[c] + eps)
+            for c in range(num_channels)
+        ]
+
+        return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+
+    raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
+    if img.dtype == np.uint8:
+        return normalize_per_image_lut(img, normalization)
+
+    return normalize_per_image_opencv(img, normalization)
