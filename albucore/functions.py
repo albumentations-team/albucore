@@ -16,18 +16,19 @@ from albucore.utils import (
     preserve_channel_dim,
 )
 
+np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
+
+cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
+
 
 def create_lut_array(
     max_value: float, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     value = np.array(value, dtype=np.float32).reshape(-1, 1)
     lut = np.arange(0, max_value + 1, dtype=np.float32)
-    if operation == "multiply":
-        return lut * value
-    if operation == "add":
-        return lut + value
-    if operation == "power":
-        return np.power(lut, value)
+
+    if operation in np_operations:
+        return np_operations[operation](lut, value)
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -51,12 +52,8 @@ def apply_opencv(
     img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     img_float = img.astype(np.float32)
-    if operation == "multiply":
-        return cv2.multiply(img_float, value, dtype=cv2.CV_64F)
-    if operation == "add":
-        return cv2.add(img_float, value, dtype=cv2.CV_64F)
-    if operation == "power":
-        return cv2.pow(img_float, value)
+    if operation in cv2_operations:
+        return cv2_operations[operation](img_float, value)
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -65,12 +62,10 @@ def apply_numpy(
     img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     img_float = img.astype(np.float32)
-    if operation == "multiply":
-        return np.multiply(img_float, value)
-    if operation == "add":
-        return np.add(img_float, value)
-    if operation == "power":
-        return np.power(img_float, value)
+
+    if operation in np_operations:
+        return np_operations[operation](img_float, value)
+
     raise ValueError(f"Unsupported operation: {operation}")
 
 
