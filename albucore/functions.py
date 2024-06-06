@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Literal, Sequence, Union
 
 import cv2
 import numpy as np
@@ -17,21 +17,38 @@ from albucore.utils import (
 )
 
 
-@preserve_channel_dim
-def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+def create_lut_array(
+    max_value: float, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
+    value = np.array(value, dtype=np.float32).reshape(-1, 1)
+    lut = np.arange(0, max_value + 1, dtype=np.float32)
+    if operation == "multiply":
+        return lut * value
+    if operation == "add":
+        return lut + value
+    if operation == "power":
+        return np.power(lut, value)
+
+    raise ValueError(f"Unsupported operation: {operation}")
+
+
+def apply_lut(
+    img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-
     if isinstance(value, (int, float)):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
-        return cv2.LUT(img, lut)
+        lut = create_lut_array(max_value, value, operation)
+        return cv2.LUT(img, clip(lut, dtype))
 
     num_channels = img.shape[-1]
+    luts = create_lut_array(max_value, value, operation)
+    return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
-    value = np.array(value, dtype=np.float32).reshape(-1, 1)
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * value, dtype)
 
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+@preserve_channel_dim
+def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+    return apply_lut(img, value, "multiply")
 
 
 @preserve_channel_dim
@@ -91,20 +108,7 @@ def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
 
 @preserve_channel_dim
 def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
-    dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-
-    if isinstance(value, (float, int)):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
-        return cv2.LUT(img, lut)
-
-    num_channels = img.shape[-1]
-
-    value = np.array(value, dtype=np.float32).reshape(-1, 1)
-
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) + value, dtype)
-
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return apply_lut(img, value, "add")
 
 
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
@@ -218,20 +222,7 @@ def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndar
 
 @preserve_channel_dim
 def power_lut(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    num_channels = get_num_channels(img)
-
-    if isinstance(exponent, (float, int)):
-        lut = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
-        return cv2.LUT(img, lut)
-
-    if isinstance(exponent, np.ndarray) and exponent.shape != ():
-        exponent = exponent.reshape(-1, 1)
-
-    luts = clip(np.power(np.arange(0, max_value + 1, dtype=np.float32), exponent), dtype)
-
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return apply_lut(img, exponent, "power")
 
 
 @clipped
