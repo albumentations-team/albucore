@@ -482,4 +482,9 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
     if img.dtype == np.uint8:
         return normalize_per_image_lut(img, normalization)
 
-    return normalize_per_image_opencv(img, normalization)
+    num_channels = get_num_channels(img)
+
+    if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
+        return normalize_per_image_opencv(img, normalization)
+
+    return normalize_per_image_numpy(img, normalization)
