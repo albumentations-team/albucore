@@ -104,16 +104,17 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 
     result = add_weighted(img1, weight1, img2, weight2)
 
-    assert np.array_equal(img1, original_img1), "Input img1 was modified"
-    assert np.array_equal(img2, original_img2), "Input img2 was modified"
 
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
     assert np.allclose(result, result_numpy, atol=1e-6)
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
-        assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+
+    result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
+    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
 
     if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = clip(add_weighted_lut(img1, weight1, img2, weight2), img1.dtype)
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
+
+    assert np.array_equal(img1, original_img1), "Input img1 was modified"
+    assert np.array_equal(img2, original_img2), "Input img2 was modified"
