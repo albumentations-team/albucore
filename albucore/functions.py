@@ -43,7 +43,7 @@ def apply_lut(
         return cv2.LUT(img, clip(lut, dtype))
 
     num_channels = img.shape[-1]
-    luts = create_lut_array(max_value, value, operation)
+    luts = create_lut_array(max_value, value, operation).astype(dtype)
     return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
 
@@ -51,11 +51,27 @@ def apply_lut(
 def apply_opencv(
     img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
-    img_float = img.astype(np.float32)
-    if operation in cv2_operations:
-        return cv2_operations[operation](img_float, value)
+    if operation == "power":
+        if isinstance(value, (int, float)):
+            return cv2.pow(img, value)
+        else:
+            raise ValueError(f"Unsupported value type for power operation: {type(value)}")
+    elif operation in cv2_operations:
+        if isinstance(value, (int, float)):
+            if img.shape[-1] > 4:
+                value = np.full(img.shape, value, dtype=img.dtype)
+        elif isinstance(value, np.ndarray):
+            if value.ndim == 1:
+                value = value.reshape(1, 1, -1)
+            if value.shape[-1] != img.shape[-1]:
+                raise ValueError("Value array must have the same number of channels as the image.")
+            value = np.broadcast_to(value, img.shape).astype(img.dtype)
+        return cv2_operations[operation](img, value)
 
     raise ValueError(f"Unsupported operation: {operation}")
+
+
+
 
 
 def apply_numpy(

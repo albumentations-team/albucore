@@ -2,6 +2,8 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from typing import Any
+import torch
 import numpy as np
 import pandas as pd
 from pytablewriter import MarkdownTableWriter
@@ -125,3 +127,10 @@ def get_markdown_table(data: Dict[str, str]) -> str:
         markdown_table += f"| {key} | {value} |\n"
 
     return markdown_table
+
+
+def torch_clip(img: torch.Tensor, dtype: Any) -> torch.Tensor:
+    if dtype == torch.uint8:
+        return img.clamp(0, 255).byte()
+
+    return img.clamp(0, 255).float()

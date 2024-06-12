@@ -167,7 +167,7 @@ def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels
         return value.item()
     if isinstance(value, np.ndarray) and value.ndim == 0:
         return value.item()
-    if isinstance(value, (int, float)):
+    if isinstance(value, (float, int)):
         return value
     if (
         # Case 1: num_channels is 1 and multiplier is a list or tuple
@@ -182,7 +182,7 @@ def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels
         return float(value[0])
 
     if isinstance(value, Sequence):
-        return np.array(value[:num_channels], dtype=np.float64)
+        return np.array(value[:num_channels])
     if value.ndim == 1 and value.shape[0] > num_channels:
         value = value[:num_channels]
     return value

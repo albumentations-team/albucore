@@ -6,19 +6,26 @@ import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from timeit import Timer
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+import torch
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Manager
 
 import cv2
-import numpy as np
+
 import pandas as pd
 from tqdm import tqdm
 
 import albucore
 from albucore.utils import MAX_VALUES_BY_DTYPE, MONO_CHANNEL_DIMENSIONS, NUM_MULTI_CHANNEL_DIMENSIONS, clip
-from benchmark.utils import MarkdownGenerator, format_results, get_markdown_table
+from benchmark.utils import MarkdownGenerator, format_results, get_markdown_table, torch_clip
+
+import torchvision.transforms.v2.functional as torchf
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
+
+torch.set_num_threads(1)
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -26,11 +33,13 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
+import numpy as np # important to do it after these env variables
+
 # Instantiate the random number generator
 rng = np.random.default_rng()
 
 
-DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "lut", "opencv", "numpy"]
+DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "lut", "opencv", "numpy", "torchvision"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,11 +64,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("-p", "--print-package-versions", action="store_true", help="print versions of packages")
     parser.add_argument("-m", "--markdown", action="store_true", help="print benchmarking results as a markdown table")
+    parser.add_argument("-j", "--num_workers", default=1, type=int, help="The number of CPU workers to use")
     return parser.parse_args()
 
 
 def get_package_versions() -> Dict[str, str]:
-    packages = ["albucore", "opencv-python-headless", "numpy"]
+    packages = ["albucore", "opencv-python-headless", "numpy", "torchvision"]
     package_versions = {"Python": sys.version}
     for package in packages:
         try:
@@ -88,12 +98,18 @@ class BenchmarkTest:
     def lut(self, img: np.ndarray) -> np.ndarray:
         return clip(self.lut_transform(img), img.dtype)
 
+    def torchvision(self, img: np.ndarray) -> np.ndarray:
+        return torch_clip(self.torchvision_transform(img), img.dtype)
+
+
     def is_supported_by(self, library: str) -> bool:
         library_attr_map = {
             "albucore": "albucore_transform",
             "opencv": "opencv_transform",
             "numpy": "numpy_transform",
             "lut": "lut_transform",
+            "kornia-rs": "kornia_transform",
+            "torchvision": "torchvision_transform"
         }
 
         # Check if the library is in the map
@@ -137,11 +153,15 @@ class MultiplyConstant(BenchmarkTest):
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.multiply_lut(img, self.multiplier)
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torch.mul(img, self.multiplier)
+
 
 class MultiplyVector(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
         self.multiplier = rng.uniform(0.5, 1, num_channels)
+        self.torch_multiplier = torch.from_numpy(self.multiplier).view(-1, 1, 1)
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.multiply(img, self.multiplier)
@@ -154,6 +174,9 @@ class MultiplyVector(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.multiply_lut(img, self.multiplier)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torch.mul(img, self.torch_multiplier)
 
 
 class MultiplyArray(BenchmarkTest):
@@ -174,6 +197,10 @@ class MultiplyArray(BenchmarkTest):
         multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
         return albucore.multiply_opencv(img, multiplier)
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
+        return torch.mul(img, torch.from_numpy(multiplier))
+
 
 class AddConstant(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
@@ -192,11 +219,16 @@ class AddConstant(BenchmarkTest):
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.add_lut(img, self.value)
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torch.add(img, self.value)
+
+
 
 class AddVector(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
         self.value = rng.uniform(0.5, 1, [num_channels])
+        self.torch_value = torch.from_numpy(self.value).view(-1, 1, 1)
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.add(img, self.value)
@@ -209,6 +241,9 @@ class AddVector(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.add_lut(img, self.value)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torch.add(img, self.torch_value)
 
 
 class AddArray(BenchmarkTest):
@@ -228,11 +263,15 @@ class AddArray(BenchmarkTest):
         value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
         return albucore.add_opencv(img, value)
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
+        return torch.add(img, torch.from_numpy(value))
+
 
 class Normalize(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
-        boundaries = (0, 113)
+        boundaries = (0, 113.0)
         self.mean = rng.uniform(boundaries[0], boundaries[1], num_channels)
         self.denominator = rng.uniform(boundaries[0], boundaries[1], num_channels)
 
@@ -247,6 +286,9 @@ class Normalize(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.normalize_lut(img, self.denominator, self.mean)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torchf.normalize(img.float(), self.mean, self.denominator)
 
 
 class NormalizePerImage(BenchmarkTest):
@@ -264,6 +306,12 @@ class NormalizePerImage(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.normalize_per_image_lut(img, "image")
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        eps = 1e-4
+        std, mean = torch.std_mean(img.float())
+        normalized_img = (img - mean) / (std + eps)
+        return torch.clamp(normalized_img, min=-20, max=20)
 
 
 class NormalizePerImagePerChannel(BenchmarkTest):
@@ -298,6 +346,12 @@ class NormalizeMinMax(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.normalize_per_image_lut(img, "min_max")
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        eps = 1e-4
+        min_max = img.aminmax()
+        normalized_image = (img - min_max.min) / (min_max.max - min_max.min + eps)
+        return torch.clamp(normalized_image, min=-20, max=20)
 
 
 class NormalizeMinMaxPerChannel(BenchmarkTest):
@@ -334,6 +388,9 @@ class PowerConstant(BenchmarkTest):
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.power_lut(img, self.exponent)
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torch.pow(img, self.exponent)
+
 
 class AddWeighted(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
@@ -353,9 +410,12 @@ class AddWeighted(BenchmarkTest):
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.add_weighted_lut(img, self.weight1, img, self.weight2)
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return img * self.weight1 + img * self.weight2
+
 
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> List[np.ndarray]:
-    image_paths = list(data_dir.glob("*.*"))[:num_images]
+    image_paths = list(data_dir.expanduser().absolute().glob("*.*"))[:num_images]
     images = []
 
     for image_path in image_paths:
@@ -397,21 +457,105 @@ def get_images(num_images: int, height: int, width: int, num_channels: int, dtyp
     raise ValueError(f"Invalid image type {dtype}")
 
 
+def run_single_benchmark(
+    library: str,
+    benchmark_class: Any,
+    num_channels: int,
+    runs: int,
+    img_type: str,
+    torch_imgs: List[torch.Tensor],
+    imgs: List[Any],
+    num_images: int,
+    to_skip: Dict[str, Dict[str, bool]],
+    unsupported_types: Dict[str, List[str]]
+) -> Dict[str, Dict[str, List[Union[None, float]]]]:
+    benchmark = benchmark_class(num_channels)
+    library_results: Dict[str, List[Union[None, float]]] = {str(benchmark): []}
+
+    # Skip if library does not support the img_type
+    if img_type in unsupported_types.get(library, []):
+        to_skip[library][str(benchmark)] = True
+        return {library: library_results}
+
+    for _ in range(runs):
+        if library == "torchvision":
+            images = torch_imgs
+        else:
+            images = imgs
+
+        if benchmark.is_supported_by(library) and not to_skip[library].get(str(benchmark), False):
+            timer = Timer(lambda lib=library: benchmark.run(lib, images))
+            try:
+                run_times = timer.repeat(number=1, repeat=1)
+                benchmark_images_per_second = [1 / (run_time / num_images) for run_time in run_times]
+            except Exception as e:
+                print(f"Error running benchmark for {library}: {e}")
+                benchmark_images_per_second = [None]
+                to_skip[library][str(benchmark)] = True
+        else:
+            benchmark_images_per_second = [None]
+
+        library_results[str(benchmark)].extend(benchmark_images_per_second)
+
+    return {library: library_results}
+
+
+def run_benchmarks(
+    benchmark_class_names: List[Any],
+    libraries: List[str],
+    torch_imgs: List[torch.Tensor],
+    imgs: List[Any],
+    num_channels: int,
+    num_images: int,
+    runs: int,
+    img_type: str,
+    num_workers: int
+) -> Dict[str, Dict[str, List[Union[None, float]]]]:
+    images_per_second: Dict[str, Dict[str, List[Union[None, float]]]] = {lib: {} for lib in libraries}
+    to_skip: Dict[str, Dict[str, bool]] = {lib: {} for lib in libraries}
+
+    # Define unsupported types for each library
+    unsupported_types: Dict[str, List[str]] = {
+        "albucore": [],
+        "opencv": [],  # Example: opencv does not support float32
+        "numpy": [],
+        "lut": ["float32"],
+        "torchvision": []
+    }
+
+    with Manager() as manager:
+        to_skip = manager.dict(to_skip)
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = []
+            total_tasks = len(benchmark_class_names) * len(libraries)
+            with tqdm(total=total_tasks, desc="Running benchmarks") as progress_bar:
+                for benchmark_class in benchmark_class_names:
+                    for library in libraries:
+                        futures.append(executor.submit(
+                            run_single_benchmark,
+                            library,
+                            benchmark_class,
+                            num_channels,
+                            runs,
+                            img_type,
+                            torch_imgs,
+                            imgs,
+                            num_images,
+                            to_skip,
+                            unsupported_types
+                        ))
+
+                for future in as_completed(futures):
+                    result = future.result()
+                    for library, results in result.items():
+                        for benchmark_name, benchmark_results in results.items():
+                            images_per_second[library].setdefault(benchmark_name, []).extend(benchmark_results)
+                    progress_bar.update(1)  # Update progress bar for each completed future
+
+    return images_per_second
+
+
 def main() -> None:
-    args = parse_args()
-    package_versions = get_package_versions()
-
-    num_channels = args.num_channels
-    num_images = args.num_images
-
-    if args.print_package_versions:
-        print(get_markdown_table(package_versions))
-
-    if args.data_dir is not None:
-        imgs = get_images_from_dir(args.data_dir, num_images, num_channels, args.img_type)
-    else:
-        imgs = get_images(num_images, num_channels, args.img_type)
-
     benchmark_class_names = [
         MultiplyConstant,
         MultiplyVector,
@@ -427,36 +571,25 @@ def main() -> None:
         PowerConstant,
         AddWeighted,
     ]
+    args = parse_args()
+    package_versions = get_package_versions()
+
+    num_channels = args.num_channels
+    num_images = args.num_images
+
+    if args.print_package_versions:
+        print(get_markdown_table(package_versions))
+
+    if args.data_dir is not None:
+        imgs = get_images_from_dir(args.data_dir, num_images, num_channels, args.img_type)
+    else:
+        imgs = get_images(num_images, num_channels, args.img_type)
+
+    torch_imgs = [torch.from_numpy(img.transpose(2, 0, 1).astype(args.img_type)) for img in imgs]
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
 
-    images_per_second = {lib: {} for lib in libraries}
-    to_skip = {lib: {} for lib in libraries}
-
-    for benchmark_class in tqdm(benchmark_class_names, desc="Running benchmarks"):
-        benchmark = benchmark_class(num_channels)
-
-        for library in libraries:
-            images_per_second[library][str(benchmark)] = []
-
-        for _ in range(args.runs):
-            shuffled_libraries = copy.deepcopy(libraries)
-            random.shuffle(shuffled_libraries)
-
-            for library in shuffled_libraries:
-                if benchmark.is_supported_by(library) and not to_skip[library].get(str(benchmark), False):
-                    timer = Timer(lambda lib=library: benchmark.run(lib, imgs))
-                    try:
-                        run_times = timer.repeat(number=1, repeat=1)
-                        benchmark_images_per_second = [1 / (run_time / num_images) for run_time in run_times]
-                    except Exception as e:
-                        print(f"Error running benchmark for {library}: {e}")
-                        benchmark_images_per_second = [None]
-                        to_skip[library][str(benchmark)] = True
-                else:
-                    benchmark_images_per_second = [None]
-
-                images_per_second[library][str(benchmark)].extend(benchmark_images_per_second)
+    images_per_second = run_benchmarks(benchmark_class_names, libraries, torch_imgs, imgs, num_channels, num_images, args.runs, args.img_type, args.num_workers)
 
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)
@@ -475,6 +608,6 @@ def main() -> None:
         markdown_generator.save_markdown_table(file_path)
         print(f"Benchmark results saved to {file_path}")
 
-
 if __name__ == "__main__":
     main()
+
