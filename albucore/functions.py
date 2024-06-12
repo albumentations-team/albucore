@@ -409,13 +409,21 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
 
     if normalization == "image":
         mean = img.mean().item()
-        std = img.std() + eps
+        std = img.std().item() + eps
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            mean = np.full_like(img, mean)
+            std = np.full_like(img, std)
         normalized_img = cv2.divide(cv2.subtract(img, mean), std)
         return normalized_img.clip(-20, 20)
 
     if normalization == "image_per_channel":
         mean = img.mean(axis=(0, 1))
         std = img.std(axis=(0, 1)) + eps
+
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            mean = np.full_like(img, mean)
+            std = np.full_like(img, std)
+
         normalized_img = cv2.divide(cv2.subtract(img, mean), std, dtype=cv2.CV_32F)
         return normalized_img.clip(-20, 20)
 
@@ -427,6 +435,10 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=(0, 1))
         img_max = img.max(axis=(0, 1))
+
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            img_min = np.full_like(img, img_min)
+            img_max = np.full_like(img, img_max)
 
         return cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F).clip(-20, 20)
 
