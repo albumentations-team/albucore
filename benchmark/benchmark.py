@@ -64,7 +64,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("-p", "--print-package-versions", action="store_true", help="print versions of packages")
     parser.add_argument("-m", "--markdown", action="store_true", help="print benchmarking results as a markdown table")
-    parser.add_argument("-j", "--num_workers", default=1, type=int, help="The number of CPU workers to use")
     return parser.parse_args()
 
 
@@ -527,8 +526,7 @@ def run_benchmarks(
     num_channels: int,
     num_images: int,
     runs: int,
-    img_type: str,
-    num_workers: int
+    img_type: str
 ) -> Dict[str, Dict[str, List[Union[None, float]]]]:
     images_per_second: Dict[str, Dict[str, List[Union[None, float]]]] = {lib: {} for lib in libraries}
     to_skip: Dict[str, Dict[str, bool]] = {lib: {} for lib in libraries}
@@ -536,42 +534,38 @@ def run_benchmarks(
     # Define unsupported types for each library
     unsupported_types: Dict[str, List[str]] = {
         "albucore": [],
-        "opencv": [],  # Example: opencv does not support float32
+        "opencv": [],
         "numpy": [],
         "lut": ["float32"],
         "torchvision": []
     }
 
-    with Manager() as manager:
-        to_skip = manager.dict(to_skip)
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = []
-            total_tasks = len(benchmark_class_names) * len(libraries)
-            with tqdm(total=total_tasks, desc="Running benchmarks") as progress_bar:
-                for benchmark_class in benchmark_class_names:
-                    for library in libraries:
-                        futures.append(executor.submit(
-                            run_single_benchmark,
-                            library,
-                            benchmark_class,
-                            num_channels,
-                            runs,
-                            img_type,
-                            torch_imgs,
-                            imgs,
-                            num_images,
-                            to_skip,
-                            unsupported_types
-                        ))
-
-                for future in as_completed(futures):
-                    result = future.result()
-                    for library, results in result.items():
+    total_tasks = len(benchmark_class_names) * len(libraries)
+    with tqdm(total=total_tasks, desc="Running benchmarks") as progress_bar:
+        for benchmark_class in benchmark_class_names:
+            for library in libraries:
+                try:
+                    result = run_single_benchmark(
+                        library,
+                        benchmark_class,
+                        num_channels,
+                        runs,
+                        img_type,
+                        torch_imgs,
+                        imgs,
+                        num_images,
+                        to_skip,
+                        unsupported_types
+                    )
+                    for lib, results in result.items():
                         for benchmark_name, benchmark_results in results.items():
-                            images_per_second[library].setdefault(benchmark_name, []).extend(benchmark_results)
-                    progress_bar.update(1)  # Update progress bar for each completed future
+                            images_per_second[lib].setdefault(benchmark_name, []).extend(benchmark_results)
+                except Exception as e:
+                    print(f"Exception running benchmark for {library} with {benchmark_class}: {e}")
+                progress_bar.update(1)
 
     return images_per_second
+
 
 
 def main() -> None:
@@ -608,7 +602,7 @@ def main() -> None:
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
 
-    images_per_second = run_benchmarks(benchmark_class_names, libraries, torch_imgs, imgs, num_channels, num_images, args.runs, args.img_type, args.num_workers)
+    images_per_second = run_benchmarks(benchmark_class_names, libraries, torch_imgs, imgs, num_channels, num_images, args.runs, args.img_type)
 
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)

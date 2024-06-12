@@ -160,8 +160,6 @@ def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
     if img.dtype == np.uint8:
         return add_lut(img, value)
-    if img.dtype == np.float32:
-        return add_numpy(img, value)
     return add_opencv(img, value)
 
 
@@ -177,7 +175,7 @@ def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
 
 
 def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return add_numpy(img, value)
+    return add_opencv(img, value)
 
 
 @clipped
