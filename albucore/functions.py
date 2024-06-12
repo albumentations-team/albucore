@@ -34,7 +34,9 @@ def create_lut_array(
     lut = np.arange(0, max_value + 1, dtype=np.float32)
 
     if operation in np_operations:
-        return np_operations[operation](lut, value)
+        result = np_operations[operation](lut, value)
+        if dtype == np.uint8:
+            return result.round()
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -67,8 +69,11 @@ def apply_opencv(
             value = round(value)
         # If the image has more than 4 channels, convert scalar value to array to match the image shape
         # as OpenCV will throw an error otherwise
-        if img.shape[-1] > 4:
-            value = np.full(img.shape, value, dtype=img.dtype)
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            if operation == "add":
+                value = np.full(img.shape, value, dtype=img.dtype)
+            elif operation == "multiply":
+                value = np.full(img.shape, value, dtype=np.float32)
     elif isinstance(value, np.ndarray):
         # If the value is a 1-dimensional array, reshape it to match the channel dimension
         if value.ndim == 1:
@@ -83,9 +88,9 @@ def apply_opencv(
 
     # For uint8 images, for multiplication, cv2 rounds value to the integer
     if img.dtype == np.uint8:
-        if operation == "multiply" and int(value) != value:
+        if operation == "multiply":
             result = cv2_operations[operation](img.astype(np.float32), value)
-            return result.astype(np.uint8)
+            return result.clip(0, 255).round().astype(np.uint8)
 
     return cv2_operations[operation](img, value)
 
@@ -98,7 +103,13 @@ def apply_numpy(
             value = np.round(value)
             if isinstance(value, np.ndarray):
                 value = value.astype(img.dtype)
-        return np_operations[operation](img.astype(np.float32), value)
+
+        result = np_operations[operation](img.astype(np.float32), value)
+
+        if img.dtype == np.uint8 and operation == "multiply":
+            return result.round().clip(0, 255).astype(np.uint8)
+
+        return result
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -114,7 +125,7 @@ def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndar
 
 
 def multiply_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
-    return np.multiply(img, value)
+    return apply_numpy(img, value, "multiply")
 
 
 def multiply_by_constant(img: np.ndarray, value: float) -> np.ndarray:
