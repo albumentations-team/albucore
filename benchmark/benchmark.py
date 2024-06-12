@@ -330,6 +330,17 @@ class NormalizePerImagePerChannel(BenchmarkTest):
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.normalize_per_image_lut(img, "image_per_channel")
 
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        eps = 1e-4
+        # Calculate mean and std per channel in a vectorized manner
+        img_float = img.float()
+        mean = img_float.mean(dim=(1, 2), keepdim=True)
+        std = img_float.std(dim=(1, 2), keepdim=True) + eps
+        # Normalize the image
+        normalized_img = (img_float - mean) / std
+        # Clamp the values
+        return torch.clamp(normalized_img, min=-20, max=20)
+
 
 class NormalizeMinMax(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
@@ -350,8 +361,8 @@ class NormalizeMinMax(BenchmarkTest):
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         eps = 1e-4
         min_max = img.aminmax()
-        normalized_image = (img - min_max.min) / (min_max.max - min_max.min + eps)
-        return torch.clamp(normalized_image, min=-20, max=20)
+        return (img - min_max.min) / (min_max.max - min_max.min + eps)
+
 
 
 class NormalizeMinMaxPerChannel(BenchmarkTest):
@@ -369,6 +380,14 @@ class NormalizeMinMaxPerChannel(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.normalize_per_image_lut(img, "min_max_per_channel")
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        eps = 1e-4
+        img_float = img.float()
+        min_value = torch.amin(img_float, dim=(1, 2), keepdim=True)
+        max_value = torch.amax(img_float, dim=(1, 2), keepdim=True)
+        # Normalize the image
+        return (img_float - min_value) / (max_value - min_value + eps)
 
 
 class PowerConstant(BenchmarkTest):

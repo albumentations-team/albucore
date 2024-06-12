@@ -49,26 +49,33 @@ def apply_lut(
 
 @preserve_channel_dim
 def apply_opencv(
-    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply", "power"]
+    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply"]
 ) -> np.ndarray:
-    if operation == "power":
-        if isinstance(value, (int, float)):
-            return cv2.pow(img, value)
-        else:
-            raise ValueError(f"Unsupported value type for power operation: {type(value)}")
-    elif operation in cv2_operations:
-        if isinstance(value, (int, float)):
-            if img.shape[-1] > 4:
-                value = np.full(img.shape, value, dtype=img.dtype)
-        elif isinstance(value, np.ndarray):
-            if value.ndim == 1:
-                value = value.reshape(1, 1, -1)
-            if value.shape[-1] != img.shape[-1]:
-                raise ValueError("Value array must have the same number of channels as the image.")
-            value = np.broadcast_to(value, img.shape).astype(img.dtype)
-        return cv2_operations[operation](img, value)
+    # Check if the operation is supported
+    if operation not in {"add", "multiply"}:
+        raise ValueError(f"Unsupported operation: {operation}")
 
-    raise ValueError(f"Unsupported operation: {operation}")
+    # Handle the case where value is a scalar (int or float)
+    if isinstance(value, (int, float)):
+        # If the image has more than 4 channels, convert scalar value to array to match the image shape
+        # as OpenCV will throw an error otherwise
+        if img.shape[-1] > 4:
+            value = np.full(img.shape, value, dtype=img.dtype)
+    elif isinstance(value, np.ndarray):
+        # If the value is a 1-dimensional array, reshape it to match the channel dimension
+        if value.ndim == 1:
+            value = value.reshape(1, 1, -1)
+        # Ensure the number of channels in the value matches the number of channels in the image
+        if value.shape[-1] != img.shape[-1]:
+            raise ValueError("Value array must have the same number of channels as the image.")
+        # Broadcast the value to the same shape as the image and cast it to the image's data type
+        value = np.broadcast_to(value, img.shape).astype(img.dtype)
+
+    # Perform the operation using the corresponding OpenCV function
+    return cv2_operations[operation](img, value)
+
+
+
 
 
 
@@ -255,8 +262,21 @@ def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarr
 
 
 @preserve_channel_dim
-def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    return apply_opencv(img, exponent, "power")
+def power_opencv(img: np.ndarray, value: Union[float, int]) -> np.ndarray:
+    """Handle the 'power' operation for OpenCV."""
+    if img.dtype == np.float32:
+        # For float32 images, cv2.pow works directly
+        return cv2.pow(img, value)
+    if img.dtype == np.uint8 and int(value) == value:
+        # For uint8 images, cv2.pow works directly if value is actual integer, even if it's type is float
+        return cv2.pow(img, value)
+    if img.dtype == np.uint8 and isinstance(value, float):
+        # For uint8 images, convert to float32, apply power, then convert back to uint8
+        img_float = img.astype(np.float32)
+        result_float = cv2.pow(img_float, value)
+        return clip(result_float, img.dtype)
+
+    raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
 
 @preserve_channel_dim
