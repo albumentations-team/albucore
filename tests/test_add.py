@@ -76,8 +76,7 @@ def test_add(img, value, expected_output):
 
 
 @pytest.mark.parametrize(
-    # "img_dtype", [np.uint8, np.float32]
-    "img_dtype", [np.uint8]
+    "img_dtype", [np.uint8, np.float32]
 )
 @pytest.mark.parametrize(
     "num_channels", [1, 3, 5]
@@ -86,15 +85,14 @@ def test_add(img, value, expected_output):
     "value",
     [
         1.5,
-        # [1.4],
-        # (1.6),
-        # np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
-        # np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
+        [1.4],
+        (1.6),
+        np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
+        np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
     ]
 )
 @pytest.mark.parametrize(
-    # "is_contiguous", [True, False]
-    "is_contiguous", [True]
+    "is_contiguous", [True, False]
 )
 def test_add(img_dtype, num_channels, value, is_contiguous):
     np.random.seed(0)
