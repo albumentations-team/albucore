@@ -182,7 +182,7 @@ def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels
         return float(value[0])
 
     if isinstance(value, Sequence):
-        return np.array(value[:num_channels])
+        return np.array(value[:num_channels], dtype=np.float32)
     if value.ndim == 1 and value.shape[0] > num_channels:
         value = value[:num_channels]
     return value

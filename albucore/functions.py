@@ -22,8 +22,14 @@ cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
 
 def create_lut_array(
-    max_value: float, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+    dtype, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
+
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+
+    if dtype == np.uint8 and operation == "add":
+        value = np.round(value)
+
     value = np.array(value, dtype=np.float32).reshape(-1, 1)
     lut = np.arange(0, max_value + 1, dtype=np.float32)
 
@@ -37,13 +43,13 @@ def apply_lut(
     img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
+
     if isinstance(value, (int, float)):
-        lut = create_lut_array(max_value, value, operation)
+        lut = create_lut_array(dtype, value, operation)
         return cv2.LUT(img, clip(lut, dtype))
 
     num_channels = img.shape[-1]
-    luts = create_lut_array(max_value, value, operation).astype(dtype)
+    luts = create_lut_array(dtype, value, operation)
     return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
 
@@ -57,6 +63,8 @@ def apply_opencv(
 
     # Handle the case where value is a scalar (int or float)
     if isinstance(value, (int, float)):
+        if operation == "add" and img.dtype == np.uint8:
+            value = round(value)
         # If the image has more than 4 channels, convert scalar value to array to match the image shape
         # as OpenCV will throw an error otherwise
         if img.shape[-1] > 4:
@@ -69,25 +77,28 @@ def apply_opencv(
         if value.shape[-1] != img.shape[-1]:
             raise ValueError("Value array must have the same number of channels as the image.")
         # Broadcast the value to the same shape as the image and cast it to the image's data type
-        value = np.broadcast_to(value, img.shape).astype(img.dtype)
+        value = np.broadcast_to(value, img.shape)
+        if operation == "add" and img.dtype == np.uint8:
+            value = np.round(np.broadcast_to(value, img.shape)).astype(np.uint8)
 
-    # Perform the operation using the corresponding OpenCV function
+    # For uint8 images, for multiplication, cv2 rounds value to the integer
+    if img.dtype == np.uint8:
+        if operation == "multiply" and int(value) != value:
+            result = cv2_operations[operation](img.astype(np.float32), value)
+            return result.astype(np.uint8)
+
     return cv2_operations[operation](img, value)
-
-
-
-
-
-
 
 
 def apply_numpy(
     img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
-    img_float = img.astype(np.float32)
-
     if operation in np_operations:
-        return np_operations[operation](img_float, value)
+        if operation == "add" and img.dtype == np.uint8:
+            value = np.round(value)
+            if isinstance(value, np.ndarray):
+                value = value.astype(img.dtype)
+        return np_operations[operation](img.astype(np.float32), value)
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -164,13 +175,9 @@ def add_constant(img: np.ndarray, value: float) -> np.ndarray:
 
 
 def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    num_channels = get_num_channels(img)
     # Handle uint8 images separately to use a lookup table for performance
     if img.dtype == np.uint8:
         return add_lut(img, value)
-    # Check if the number of channels exceeds the maximum that OpenCV can handle
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return add_numpy(img, value)
     return add_opencv(img, value)
 
 
