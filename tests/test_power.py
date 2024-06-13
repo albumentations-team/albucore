@@ -105,7 +105,7 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
 
     assert np.allclose(result, result_numpy, atol=1e-6)
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
+    if img.dtype == np.uint8:
         result_lut = clip(power_lut(img, processed_exponent), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.allclose(result, result_lut, atol=1e-6), f"Difference {(result - result_lut).mean()}"
