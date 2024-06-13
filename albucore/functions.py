@@ -106,7 +106,7 @@ def apply_numpy(
 
         result = np_operations[operation](img.astype(np.float32), value)
 
-        if img.dtype == np.uint8 and operation == "multiply":
+        if img.dtype == np.uint8 and operation in {"multiply", "power"}:
             return result.round().clip(0, 255).astype(np.uint8)
 
         return result
@@ -289,8 +289,7 @@ def power_opencv(img: np.ndarray, value: Union[float, int]) -> np.ndarray:
     if img.dtype == np.uint8 and isinstance(value, float):
         # For uint8 images, convert to float32, apply power, then convert back to uint8
         img_float = img.astype(np.float32)
-        result_float = cv2.pow(img_float, value)
-        return clip(result_float, img.dtype)
+        return cv2.pow(img_float, value).round().clip(0, 255).astype(np.uint8)
 
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 

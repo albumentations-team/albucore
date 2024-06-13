@@ -64,9 +64,9 @@ def test_power_with_numpy(img, exponent, expected_output):
 @pytest.mark.parametrize(
     "exponent",
     [
-        1.5,
+        1.4,
         [1.5],
-        (1.5),
+        (1.6),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
     ]

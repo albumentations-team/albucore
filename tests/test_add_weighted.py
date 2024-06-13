@@ -104,10 +104,8 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 
     result = add_weighted(img1, weight1, img2, weight2)
 
-
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
     assert np.allclose(result, result_numpy, atol=1e-6)
-
 
     result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
     assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
