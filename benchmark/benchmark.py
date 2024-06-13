@@ -1,26 +1,20 @@
 import argparse
-import copy
 import os
-import random
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from timeit import Timer
 from typing import Any, Dict, List, Optional, Union
-import torch
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import Manager
 
 import cv2
-
 import pandas as pd
+import torch
+import torchvision.transforms.v2.functional as torchf
 from tqdm import tqdm
 
 import albucore
 from albucore.utils import MAX_VALUES_BY_DTYPE, MONO_CHANNEL_DIMENSIONS, NUM_MULTI_CHANNEL_DIMENSIONS, clip
 from benchmark.utils import MarkdownGenerator, format_results, get_markdown_table, torch_clip
-
-import torchvision.transforms.v2.functional as torchf
 
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
@@ -33,7 +27,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-import numpy as np # important to do it after these env variables
+import numpy as np  # important to do it after these env variables
 
 # Instantiate the random number generator
 rng = np.random.default_rng()
@@ -100,7 +94,6 @@ class BenchmarkTest:
     def torchvision(self, img: np.ndarray) -> np.ndarray:
         return torch_clip(self.torchvision_transform(img), img.dtype)
 
-
     def is_supported_by(self, library: str) -> bool:
         library_attr_map = {
             "albucore": "albucore_transform",
@@ -108,7 +101,7 @@ class BenchmarkTest:
             "numpy": "numpy_transform",
             "lut": "lut_transform",
             "kornia-rs": "kornia_transform",
-            "torchvision": "torchvision_transform"
+            "torchvision": "torchvision_transform",
         }
 
         # Check if the library is in the map
@@ -159,7 +152,7 @@ class MultiplyConstant(BenchmarkTest):
 class MultiplyVector(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
-        self.multiplier = rng.uniform(0.5, 1, num_channels)
+        self.multiplier = rng.uniform(0.5, 2, num_channels).astype(np.float32)
         self.torch_multiplier = torch.from_numpy(self.multiplier).view(-1, 1, 1)
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
@@ -204,7 +197,7 @@ class MultiplyArray(BenchmarkTest):
 class AddConstant(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
-        self.value = 1.5
+        self.value = 2.5
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.add(img, self.value)
@@ -222,11 +215,10 @@ class AddConstant(BenchmarkTest):
         return torch.add(img, self.value)
 
 
-
 class AddVector(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
-        self.value = rng.uniform(0.5, 1, [num_channels])
+        self.value = rng.uniform(0, 255, [num_channels]).astype(np.float32)
         self.torch_value = torch.from_numpy(self.value).view(-1, 1, 1)
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
@@ -363,7 +355,6 @@ class NormalizeMinMax(BenchmarkTest):
         return (img - min_max.min) / (min_max.max - min_max.min + eps)
 
 
-
 class NormalizeMinMaxPerChannel(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
@@ -432,6 +423,31 @@ class AddWeighted(BenchmarkTest):
         return img * self.weight1 + img * self.weight2
 
 
+class MultiplyAdd(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+        self.factor = 1.2
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        value = MAX_VALUES_BY_DTYPE[img.dtype] / 10.0
+        return albucore.multiply_add(img, self.factor, value)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        value = MAX_VALUES_BY_DTYPE[img.dtype] / 10.0
+        return albucore.multiply_add_numpy(img, self.factor, value)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        value = MAX_VALUES_BY_DTYPE[img.dtype] / 10.0
+        return albucore.multiply_add_opencv(img, self.factor, value)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        value = MAX_VALUES_BY_DTYPE[img.dtype] / 10.0
+        return albucore.multiply_add_lut(img, self.factor, value)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return img * self.factor + 13
+
+
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> List[np.ndarray]:
     image_paths = list(data_dir.expanduser().absolute().glob("*.*"))[:num_images]
     images = []
@@ -485,7 +501,7 @@ def run_single_benchmark(
     imgs: List[Any],
     num_images: int,
     to_skip: Dict[str, Dict[str, bool]],
-    unsupported_types: Dict[str, List[str]]
+    unsupported_types: Dict[str, List[str]],
 ) -> Dict[str, Dict[str, List[Union[None, float]]]]:
     benchmark = benchmark_class(num_channels)
     library_results: Dict[str, List[Union[None, float]]] = {str(benchmark): []}
@@ -496,10 +512,7 @@ def run_single_benchmark(
         return {library: library_results}
 
     for _ in range(runs):
-        if library == "torchvision":
-            images = torch_imgs
-        else:
-            images = imgs
+        images = torch_imgs if library == "torchvision" else imgs
 
         if benchmark.is_supported_by(library) and not to_skip[library].get(str(benchmark), False):
             timer = Timer(lambda lib=library: benchmark.run(lib, images))
@@ -526,7 +539,7 @@ def run_benchmarks(
     num_channels: int,
     num_images: int,
     runs: int,
-    img_type: str
+    img_type: str,
 ) -> Dict[str, Dict[str, List[Union[None, float]]]]:
     images_per_second: Dict[str, Dict[str, List[Union[None, float]]]] = {lib: {} for lib in libraries}
     to_skip: Dict[str, Dict[str, bool]] = {lib: {} for lib in libraries}
@@ -537,7 +550,7 @@ def run_benchmarks(
         "opencv": [],
         "numpy": [],
         "lut": ["float32"],
-        "torchvision": []
+        "torchvision": [],
     }
 
     total_tasks = len(benchmark_class_names) * len(libraries)
@@ -555,7 +568,7 @@ def run_benchmarks(
                         imgs,
                         num_images,
                         to_skip,
-                        unsupported_types
+                        unsupported_types,
                     )
                     for lib, results in result.items():
                         for benchmark_name, benchmark_results in results.items():
@@ -565,7 +578,6 @@ def run_benchmarks(
                 progress_bar.update(1)
 
     return images_per_second
-
 
 
 def main() -> None:
@@ -583,6 +595,7 @@ def main() -> None:
         NormalizeMinMax,
         PowerConstant,
         AddWeighted,
+        MultiplyAdd,
     ]
     args = parse_args()
     package_versions = get_package_versions()
@@ -602,7 +615,9 @@ def main() -> None:
 
     libraries = DEFAULT_BENCHMARKING_LIBRARIES
 
-    images_per_second = run_benchmarks(benchmark_class_names, libraries, torch_imgs, imgs, num_channels, num_images, args.runs, args.img_type)
+    images_per_second = run_benchmarks(
+        benchmark_class_names, libraries, torch_imgs, imgs, num_channels, num_images, args.runs, args.img_type
+    )
 
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)
@@ -621,6 +636,6 @@ def main() -> None:
         markdown_generator.save_markdown_table(file_path)
         print(f"Benchmark results saved to {file_path}")
 
+
 if __name__ == "__main__":
     main()
-

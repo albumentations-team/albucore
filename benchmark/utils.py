@@ -1,11 +1,9 @@
-import math
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from typing import Any
-import torch
 import numpy as np
 import pandas as pd
+import torch
 from pytablewriter import MarkdownTableWriter
 from pytablewriter.style import Style
 
@@ -98,9 +96,9 @@ class MarkdownGenerator:
 def format_results(images_per_second_for_aug: Optional[List[float]], show_std: bool = False) -> str:
     if all(x is None for x in images_per_second_for_aug):
         return "-"
-    result = str(math.floor(np.mean(images_per_second_for_aug)))
+    result = str(round(np.median(images_per_second_for_aug)))
     if show_std:
-        result += f" ± {math.ceil(np.std(images_per_second_for_aug))}"
+        result += f" ± {round(np.std(images_per_second_for_aug))}"
     return result
 
 
