@@ -100,8 +100,7 @@ def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.nd
 def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     value = _prepare_value_opencv(img, value, "multiply")
     if img.dtype == np.uint8:
-        result = cv2.multiply(img.astype(np.float32), value)
-        return result.round()
+        return cv2.multiply(img.astype(np.float32), value).round()
     return cv2.multiply(img, value)
 
 
@@ -274,7 +273,7 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
     if img.dtype == np.uint8 and isinstance(value, float):
         # For uint8 images, convert to float32, apply power, then convert back to uint8
         img_float = img.astype(np.float32)
-        return cv2.pow(img_float, value).round().clip(0, 255).astype(np.uint8)
+        return cv2.pow(img_float, value).round()
 
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
