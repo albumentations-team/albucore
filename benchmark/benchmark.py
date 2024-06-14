@@ -408,19 +408,19 @@ class AddWeighted(BenchmarkTest):
         self.weight2 = 0.6
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_weighted(img, self.weight1, img, self.weight2)
+        return albucore.add_weighted(img, self.weight1, img.copy(), self.weight2)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_weighted_numpy(img, self.weight1, img, self.weight2)
+        return albucore.add_weighted_numpy(img, self.weight1, img.copy(), self.weight2)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_weighted_opencv(img, self.weight1, img, self.weight2)
+        return albucore.add_weighted_opencv(img, self.weight1, img.copy(), self.weight2)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_weighted_lut(img, self.weight1, img, self.weight2)
+        return albucore.add_weighted_lut(img, self.weight1, img.copy(), self.weight2)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
-        return img * self.weight1 + img * self.weight2
+        return img * self.weight1 + img.clone() * self.weight2
 
 
 class MultiplyAdd(BenchmarkTest):
