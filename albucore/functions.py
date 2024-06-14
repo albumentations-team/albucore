@@ -54,7 +54,7 @@ def apply_lut(
     return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
 
-def _prepare_value_opencv(
+def prepare_value_opencv(
     img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply"]
 ) -> np.ndarray:
     if isinstance(value, (int, float)):
@@ -67,13 +67,14 @@ def _prepare_value_opencv(
             elif operation == "multiply":
                 value = np.full(img.shape, value, dtype=np.float32)
     elif isinstance(value, np.ndarray):
+        if value.dtype == np.float64:
+            value = value.astype(np.float32)
         if value.ndim == 1:
             value = value.reshape(1, 1, -1)
-        if value.shape[-1] != img.shape[-1]:
-            raise ValueError("Value array must have the same number of channels as the image.")
         value = np.broadcast_to(value, img.shape)
         if operation == "add" and img.dtype == np.uint8:
             value = value.round().astype(np.uint8)
+
     return value
 
 
@@ -98,7 +99,7 @@ def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.nd
 
 @preserve_channel_dim
 def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    value = _prepare_value_opencv(img, value, "multiply")
+    value = prepare_value_opencv(img, value, "multiply")
     if img.dtype == np.uint8:
         return cv2.multiply(img.astype(np.float32), value).round()
     return cv2.multiply(img, value)
@@ -146,7 +147,7 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
 
 @preserve_channel_dim
 def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    value = _prepare_value_opencv(img, value, "add")
+    value = prepare_value_opencv(img, value, "add")
     return cv2.add(img, value)
 
 
