@@ -100,10 +100,10 @@ def test_multiply_add(img_dtype, num_channels, value, factor, is_contiguous):
     result_numpy = clip(multiply_add_numpy(img, factor, value), img_dtype)
     assert np.allclose(result, result_numpy, atol=1e-6)
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        result_opencv = clip(multiply_add_opencv(img, factor, value), img.dtype)
-        assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
+    if img.dtype == np.uint8:
         result_lut = clip(multiply_add_lut(img, factor, value), img.dtype)
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
+
+    result_opencv = clip(multiply_add_opencv(img, factor, value), img.dtype)
+    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"

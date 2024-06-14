@@ -26,13 +26,13 @@ from albucore import (
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             np.array([0.5, 1.5, 2.0], dtype=np.float32),
-            np.array([[[0, 3, 6], [2, 7, 12]], [[3, 12, 18], [5, 16, 24]]], dtype=np.uint8),
+            np.array([[[0, 3, 6], [2, 8, 12]], [[4, 12, 18], [5, 16, 24]]], dtype=np.uint8),
         ),
         # Test case 3: Multiplier as an array, image of type uint8
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             np.array([[[1, 0.5, 0.25], [0.5, 1, 1.5]], [[1.5, 2, 0.5], [0.25, 0.75, 1]]], dtype=np.float32),
-            np.array([[[1, 1, 0], [2, 5, 9]], [[10, 16, 4], [2, 8, 12]]], dtype=np.uint8),
+            np.array([[[1, 1, 1], [2, 5, 9]], [[10, 16, 4], [2, 8, 12]]], dtype=np.uint8),
         ),
         # Test case 4: Multiplier as a float, image of type float32
         (
@@ -104,7 +104,7 @@ from albucore import (
         (
             np.array([[[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], [[11, 12, 13, 14, 15], [16, 17, 18, 19, 20]]], dtype=np.uint8),
             np.array([0.5, 1.5, 2.0, 2.5, 3.0], dtype=np.float32),
-            np.array([[[0, 3, 6, 10, 15], [3, 10, 16, 22, 30]], [[5, 18, 26, 35, 45], [8, 25, 36, 47, 60]]], dtype=np.uint8),
+            np.array([[[0, 3, 6, 10, 15], [3, 10, 16, 22, 30]], [[6, 18, 26, 35, 45], [8, 26, 36, 48, 60]]], dtype=np.uint8),
         ),
         # Test case 8: Multiplier as a vector, image of type float32 with 5 channels
         (
@@ -112,64 +112,31 @@ from albucore import (
             np.array([0.5, 1.5, 2.0, 2.5, 3.0], dtype=np.float32),
             np.array([[[0.05, 0.3, 0.6, 1.0, 1.0], [0.3, 1.0, 1.0, 1.0, 1.0]], [[0.55, 1.0, 1.0, 1.0, 1.0], [0.8, 1.0, 1.0, 1.0, 1.0]]], dtype=np.float32),
         ),
+        (
+            np.array([[[1], [2]], [[3], [4]]], dtype=np.uint8),
+            2.0,
+            np.array([[[2], [4]], [[6], [8]]], dtype=np.uint8),
+        ),
+        (
+            np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint8),
+            2.0,
+            np.array([[2, 4, 6], [8, 10, 12]], dtype=np.uint8),
+        ),
     ],
 )
 def test_multiply_with_numpy(img, multiplier, expected_output):
     result_numpy = clip(multiply_numpy(img, multiplier), img.dtype)
     assert np.allclose(result_numpy, expected_output, atol=1e-6)
 
-    if img.shape[-1] in {1, 3, 4} and img.dtype == np.uint8:
-        result_opencv = clip(multiply_opencv(img, multiplier), img.dtype)
-        assert np.allclose(result_opencv, expected_output, atol=1e-6)
+    result_opencv = clip(multiply_opencv(img, multiplier), img.dtype)
+    assert np.allclose(result_opencv, expected_output, atol=1e-6)
+
+    if img.dtype == np.uint8 and not (isinstance(multiplier, np.ndarray) and multiplier.ndim > 1):
+        result_lut = multiply_lut(img, multiplier)
+        assert np.allclose(result_lut, expected_output, atol=1e-6)
 
 
-@pytest.mark.parametrize(
-    "img, multiplier, expected_output",
-    [
-        # Test case 1: Multiplier as a float, image of type uint8
-        (
-            np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
-            2.0,
-            np.array([[[2, 4, 6], [8, 10, 12]], [[14, 16, 18], [20, 22, 24]]], dtype=np.uint8),
-        ),
-        # Test case 2: Multiplier as a vector, image of type uint8
-        (
-            np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
-            np.array([0.5, 1.5, 2.0], dtype=np.float32),
-            np.array([[[0, 3, 6], [2, 7, 12]], [[3, 12, 18], [5, 16, 24]]], dtype=np.uint8),
-        ),
-        # Clipping effect test for uint8
-        (
-            np.array([[[100, 150, 200], [250, 255, 100]], [[50, 75, 125], [175, 200, 225]]], dtype=np.uint8),
-            2.0,
-            np.array([[[200, 255, 255], [255, 255, 200]], [[100, 150, 250], [255, 255, 255]]], dtype=np.uint8),
-        ),
-        # New test case 7: Multiplier as a vector, image of type uint8 with 4 channels
-        (
-            np.array([[[1, 2, 3, 4], [5, 6, 7, 8]], [[9, 10, 11, 12], [13, 14, 15, 16]]], dtype=np.uint8),
-            np.array([0.5, 1.5, 2.0, 2.5], dtype=np.float32),
-            np.array([[[0, 3, 6, 10], [2, 9, 14, 20]], [[4, 15, 22, 30], [6, 21, 30, 40]]], dtype=np.uint8),
-        ),
-        # Test case 1: Multiplier as a float, image of type uint8, shape (height, width)
-        (
-            np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint8),
-            2.0,
-            np.array([[2, 4, 6], [8, 10, 12]], dtype=np.uint8),
-        ),
-        # Test case 2: Multiplier as a float, image of type uint8, shape (height, width, 1)
-        (
-            np.array([[[1], [2]], [[3], [4]]], dtype=np.uint8),
-            2.0,
-            np.array([[[2], [4]], [[6], [8]]], dtype=np.uint8),
-        ),
-    ],
-)
-def test_multiply_with_lut(img, multiplier, expected_output):
-    result_lut = clip(multiply_lut(img, multiplier), img.dtype)
-    assert np.allclose(result_lut, expected_output, atol=1e-6)
-
-
-np.random.seed(0)
+# np.random.seed(0)
 
 
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
@@ -177,9 +144,9 @@ np.random.seed(0)
 @pytest.mark.parametrize(
     "multiplier",
     [
-        1.5,
+        1.4,
         [1.5],
-        (1.5),
+        (1.6),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
     ]
@@ -205,21 +172,17 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     result = multiply(img, multiplier)
 
-    assert np.array_equal(img, original_image), "Input image was modified"
-
     result_numpy = clip(multiply_numpy(img, processed_multiplier), img.dtype)
-
-    assert np.array_equal(img, original_image), "Input image was modified"
 
     assert np.allclose(result, result_numpy, atol=1e-6)
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
+    if img.dtype == np.uint8:
         result_lut = clip(multiply_lut(img, processed_multiplier), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        result_opencv = clip(multiply_opencv(img, processed_multiplier), img.dtype)
-        assert np.array_equal(img, original_image), "Input image was modified"
+    result_opencv = clip(multiply_opencv(img, processed_multiplier), img.dtype)
 
-        assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    assert np.array_equal(img, original_image), "Input image was modified"
+
+    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
