@@ -1,4 +1,4 @@
-from typing import Literal, Sequence, Union
+from typing import Literal, Sequence, Type, Union
 
 import cv2
 import numpy as np
@@ -22,13 +22,20 @@ cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
 
 def create_lut_array(
-    max_value: float, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+    dtype: Type[np.number], value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+
+    if dtype == np.uint8 and operation == "add":
+        value = np.round(value)
+
     value = np.array(value, dtype=np.float32).reshape(-1, 1)
     lut = np.arange(0, max_value + 1, dtype=np.float32)
 
     if operation in np_operations:
-        return np_operations[operation](lut, value)
+        result = np_operations[operation](lut, value)
+        if dtype == np.uint8:
+            return result.round()
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -37,36 +44,49 @@ def apply_lut(
     img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
+
     if isinstance(value, (int, float)):
-        lut = create_lut_array(max_value, value, operation)
+        lut = create_lut_array(dtype, value, operation)
         return cv2.LUT(img, clip(lut, dtype))
 
     num_channels = img.shape[-1]
-    luts = create_lut_array(max_value, value, operation)
+    luts = create_lut_array(dtype, value, operation)
     return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
 
-@preserve_channel_dim
-def apply_opencv(
-    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply", "power"]
+def prepare_value_opencv(
+    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply"]
 ) -> np.ndarray:
-    img_float = img.astype(np.float32)
-    if operation in cv2_operations:
-        return cv2_operations[operation](img_float, value)
+    if isinstance(value, (int, float)):
+        if operation == "add" and img.dtype == np.uint8:
+            value = round(value)
+        num_channels = get_num_channels(img)
+        if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+            if operation == "add":
+                value = np.full(img.shape, value, dtype=img.dtype)
+            elif operation == "multiply":
+                value = np.full(img.shape, value, dtype=np.float32)
+    elif isinstance(value, np.ndarray):
+        if value.dtype == np.float64:
+            value = value.astype(np.float32)
+        if value.ndim == 1:
+            value = value.reshape(1, 1, -1)
+        value = np.broadcast_to(value, img.shape)
+        if operation == "add" and img.dtype == np.uint8:
+            value = value.round().astype(np.uint8)
 
-    raise ValueError(f"Unsupported operation: {operation}")
+    return value
 
 
 def apply_numpy(
     img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
-    img_float = img.astype(np.float32)
+    if operation == "add" and img.dtype == np.uint8:
+        value = np.round(value)
 
-    if operation in np_operations:
-        return np_operations[operation](img_float, value)
+    result = np_operations[operation](img.astype(np.float32), value)
 
-    raise ValueError(f"Unsupported operation: {operation}")
+    return result.round() if img.dtype == np.uint8 else result
 
 
 @preserve_channel_dim
@@ -76,11 +96,14 @@ def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.nd
 
 @preserve_channel_dim
 def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    return apply_opencv(img, value, "multiply")
+    value = prepare_value_opencv(img, value, "multiply")
+    if img.dtype == np.uint8:
+        return cv2.multiply(img.astype(np.float32), value).round()
+    return cv2.multiply(img, value)
 
 
 def multiply_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
-    return np.multiply(img, value)
+    return apply_numpy(img, value, "multiply")
 
 
 def multiply_by_constant(img: np.ndarray, value: float) -> np.ndarray:
@@ -91,9 +114,8 @@ def multiply_by_constant(img: np.ndarray, value: float) -> np.ndarray:
     return multiply_opencv(img, value)
 
 
-def multiply_by_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    num_channels = get_num_channels(img)
-    # Handle uint8 images separately to use a lookup table for performance
+def multiply_by_vector(img: np.ndarray, value: np.ndarray, num_channels: int) -> np.ndarray:
+    # Handle uint8 images separately to use 1a lookup table for performance
     if img.dtype == np.uint8:
         return multiply_lut(img, value)
     # Check if the number of channels exceeds the maximum that OpenCV can handle
@@ -103,7 +125,7 @@ def multiply_by_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
 
 
 def multiply_by_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return multiply_numpy(img, value)
+    return multiply_opencv(img, value)
 
 
 @clipped
@@ -115,14 +137,15 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
         return multiply_by_constant(img, value)
 
     if isinstance(value, np.ndarray) and value.ndim == 1:
-        return multiply_by_vector(img, value)
+        return multiply_by_vector(img, value, num_channels)
 
     return multiply_by_array(img, value)
 
 
 @preserve_channel_dim
 def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
-    return apply_opencv(img, value, "add")
+    value = prepare_value_opencv(img, value, "add")
+    return cv2.add(img, value)
 
 
 def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
@@ -135,26 +158,17 @@ def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray
 
 
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
-    if img.dtype == np.uint8:
-        return add_lut(img, value)
-    if img.dtype == np.float32:
-        return add_numpy(img, value)
     return add_opencv(img, value)
 
 
 def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    num_channels = get_num_channels(img)
-    # Handle uint8 images separately to use a lookup table for performance
     if img.dtype == np.uint8:
         return add_lut(img, value)
-    # Check if the number of channels exceeds the maximum that OpenCV can handle
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return add_numpy(img, value)
     return add_opencv(img, value)
 
 
 def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return add_numpy(img, value)
+    return add_opencv(img, value)
 
 
 @clipped
@@ -165,12 +179,16 @@ def add(img: np.ndarray, value: ValueType) -> np.ndarray:
     if isinstance(value, (float, int)):
         if value == 0:
             return img
+
+        if img.dtype == np.uint8:
+            value = round(value)
+
         return add_constant(img, value)
 
-    if isinstance(value, np.ndarray) and value.ndim == 1:
-        return add_vector(img, value)
+    if img.dtype == np.uint8:
+        value = value.round().astype(int)
 
-    return add_array(img, value)
+    return add_vector(img, value) if value.ndim == 1 else add_array(img, value)
 
 
 def normalize_numpy(
@@ -239,8 +257,20 @@ def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarr
 
 
 @preserve_channel_dim
-def power_opencv(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
-    return apply_opencv(img, exponent, "power")
+def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
+    """Handle the 'power' operation for OpenCV."""
+    if img.dtype == np.float32:
+        # For float32 images, cv2.pow works directly
+        return cv2.pow(img, value)
+    if img.dtype == np.uint8 and int(value) == value:
+        # For uint8 images, cv2.pow works directly if value is actual integer, even if it's type is float
+        return cv2.pow(img, value)
+    if img.dtype == np.uint8 and isinstance(value, float):
+        # For uint8 images, convert to float32, apply power, then convert back to uint8
+        img_float = img.astype(np.float32)
+        return cv2.pow(img_float, value).round()
+
+    raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
 
 @preserve_channel_dim
@@ -262,7 +292,7 @@ def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
 
 
 def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    return img1 * weight1 + img2 * weight2
+    return img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2
 
 
 @preserve_channel_dim
@@ -371,19 +401,28 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
     if img.ndim == MONO_CHANNEL_DIMENSIONS:
         img = np.expand_dims(img, axis=-1)
 
-    if normalization == "image":
+    if normalization == "image" or (img.shape[-1] == 1 and normalization == "image_per_channel"):
         mean = img.mean().item()
-        std = img.std() + eps
+        std = img.std().item() + eps
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            mean = np.full_like(img, mean)
+            std = np.full_like(img, std)
         normalized_img = cv2.divide(cv2.subtract(img, mean), std)
         return normalized_img.clip(-20, 20)
 
     if normalization == "image_per_channel":
-        mean = img.mean(axis=(0, 1))
-        std = img.std(axis=(0, 1)) + eps
+        mean, std = cv2.meanStdDev(img)
+        mean = mean[:, 0]
+        std = std[:, 0]
+
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            mean = np.full_like(img, mean)
+            std = np.full_like(img, std)
+
         normalized_img = cv2.divide(cv2.subtract(img, mean), std, dtype=cv2.CV_32F)
         return normalized_img.clip(-20, 20)
 
-    if normalization == "min_max":
+    if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
         img_min = img.min()
         img_max = img.max()
         return cv2.normalize(img, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
@@ -391,6 +430,10 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=(0, 1))
         img_max = img.max(axis=(0, 1))
+
+        if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
+            img_min = np.full_like(img, img_min)
+            img_max = np.full_like(img, img_max)
 
         return cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F).clip(-20, 20)
 
@@ -440,7 +483,7 @@ def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -
     if img.ndim == MONO_CHANNEL_DIMENSIONS:
         img = np.expand_dims(img, axis=-1)
 
-    if normalization == "image":
+    if normalization == "image" or (img.shape[-1] == 1 and normalization == "image_per_channel"):
         mean = img.mean()
         std = img.std() + eps
         lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) / std
@@ -454,7 +497,7 @@ def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -
         ]
         return cv2.merge([cv2.LUT(img[:, :, i], luts[i]).clip(-20, 20) for i in range(num_channels)])
 
-    if normalization == "min_max":
+    if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
         img_min = img.min()
         img_max = img.max()
         lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
@@ -474,12 +517,7 @@ def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -
 
 
 def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
-    if img.dtype == np.uint8:
+    if img.dtype == np.uint8 and normalization != "per_image_per_channel":
         return normalize_per_image_lut(img, normalization)
 
-    num_channels = get_num_channels(img)
-
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS:
-        return normalize_per_image_opencv(img, normalization)
-
-    return normalize_per_image_numpy(img, normalization)
+    return normalize_per_image_opencv(img, normalization)

@@ -1,5 +1,9 @@
+-f https://download.pytorch.org/whl/torch_stable.html
+
 numpy
 opencv-python-headless
 tqdm
 pandas
 pytablewriter
+torch
+torchvision
