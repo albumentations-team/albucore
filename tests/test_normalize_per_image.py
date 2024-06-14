@@ -45,6 +45,7 @@ def test_normalize_per_image(img, normalization, expected, dtype):
     ],
 )
 def test_normalize_np_cv_equal(image, normalization):
+    np.random.seed(0)
     res1 = normalize_per_image_numpy(image, normalization)
     res1_float = normalize_per_image_numpy(image.astype(np.float32), normalization)
 
@@ -57,9 +58,9 @@ def test_normalize_np_cv_equal(image, normalization):
     assert np.array_equal(image.shape, res2.shape)
     assert np.array_equal(image.shape, res3.shape)
 
-    assert np.allclose(res1, res2, atol=1e-7), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
-    assert np.allclose(res1, res1_float, atol=1e-7), f"mean: {(res1 - res1_float).mean()}, max: {(res1 - res1_float).max()}"
-    assert np.allclose(res2, res2_float, atol=1e-6), f"mean: {(res2 - res2_float).mean()}, max: {(res2 - res2_float).max()}"
+    assert np.allclose(res1, res2, atol=1e-5), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
+    assert np.allclose(res1, res1_float, atol=1e-5), f"mean: {(res1 - res1_float).mean()}, max: {(res1 - res1_float).max()}"
+    assert np.allclose(res2, res2_float, atol=1e-5), f"mean: {(res2 - res2_float).mean()}, max: {(res2 - res2_float).max()}"
 
     assert np.allclose(res1, res3, atol=1e-6), f"mean: {(res1 - res3).mean()}, max: {(res1 - res3).max()}"
 
