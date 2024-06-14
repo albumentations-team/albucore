@@ -82,13 +82,12 @@ def apply_numpy(
 ) -> np.ndarray:
     if operation == "add" and img.dtype == np.uint8:
         value = np.round(value)
-        if isinstance(value, np.ndarray):
-            value = value.astype(img.dtype)
 
     result = np_operations[operation](img.astype(np.float32), value)
 
-    if img.dtype == np.uint8 and operation in {"multiply", "power"}:
-        return result.round().clip(0, 255).astype(np.uint8)
+    if img.dtype == np.uint8:
+        return result.round()
+
     return result
 
 
@@ -299,7 +298,7 @@ def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
 
 
 def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    return img1 * weight1 + img2 * weight2
+    return img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2
 
 
 @preserve_channel_dim
