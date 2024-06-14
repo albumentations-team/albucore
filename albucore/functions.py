@@ -188,10 +188,7 @@ def add(img: np.ndarray, value: ValueType) -> np.ndarray:
     if img.dtype == np.uint8:
         value = value.round().astype(int)
 
-    if value.ndim == 1:
-        return add_vector(img, value)
-
-    return add_array(img, value)
+    return add_vector(img, value) if value.ndim == 1 else add_array(img, value)
 
 
 def normalize_numpy(
