@@ -86,10 +86,7 @@ def apply_numpy(
 
     result = np_operations[operation](img.astype(np.float32), value)
 
-    if img.dtype == np.uint8:
-        return result.round()
-
-    return result
+    return result.round() if img.dtype == np.uint8 else result
 
 
 @preserve_channel_dim
