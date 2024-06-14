@@ -64,9 +64,9 @@ def test_power_with_numpy(img, exponent, expected_output):
 @pytest.mark.parametrize(
     "exponent",
     [
-        1.5,
+        1.4,
         [1.5],
-        (1.5),
+        (1.6),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
     ]
@@ -105,7 +105,7 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
 
     assert np.allclose(result, result_numpy, atol=1e-6)
 
-    if num_channels <= MAX_OPENCV_WORKING_CHANNELS and img.dtype == np.uint8:
+    if img.dtype == np.uint8:
         result_lut = clip(power_lut(img, processed_exponent), img.dtype)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.allclose(result, result_lut, atol=1e-6), f"Difference {(result - result_lut).mean()}"

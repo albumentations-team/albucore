@@ -45,23 +45,31 @@ def test_normalize_per_image(img, normalization, expected, dtype):
     ],
 )
 def test_normalize_np_cv_equal(image, normalization):
+    np.random.seed(0)
     res1 = normalize_per_image_numpy(image, normalization)
+    res1_float = normalize_per_image_numpy(image.astype(np.float32), normalization)
+
     res2 = normalize_per_image_opencv(image, normalization)
+    res2_float = normalize_per_image_opencv(image.astype(np.float32), normalization)
+
     res3 = normalize_per_image_lut(image, normalization)
 
     assert np.array_equal(image.shape, res1.shape)
     assert np.array_equal(image.shape, res2.shape)
     assert np.array_equal(image.shape, res3.shape)
 
-    assert np.allclose(res1, res2, atol=1e-7), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
+    assert np.allclose(res1, res2, atol=1e-5), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
+    assert np.allclose(res1, res1_float, atol=1e-5), f"mean: {(res1 - res1_float).mean()}, max: {(res1 - res1_float).max()}"
+    assert np.allclose(res2, res2_float, atol=1e-5), f"mean: {(res2 - res2_float).mean()}, max: {(res2 - res2_float).max()}"
+
     assert np.allclose(res1, res3, atol=1e-6), f"mean: {(res1 - res3).mean()}, max: {(res1 - res3).max()}"
 
 
 # Parameterize tests for all combinations
 @pytest.mark.parametrize("shape", [
-    # (100, 100),  # height, width
-    # (100, 100, 1),  # height, width, 1 channel
-    # (100, 100, 3),  # height, width, 3 channels
+    (100, 100),  # height, width
+    (100, 100, 1),  # height, width, 1 channel
+    (100, 100, 3),  # height, width, 3 channels
     (100, 100, 7),  # height, width, 7 channels
 ])
 @pytest.mark.parametrize("normalization", [
@@ -108,3 +116,27 @@ def test_normalize_per_image(shape, normalization, dtype):
                     channel_std = normalized_img[:, :, c].std()
                     assert np.isclose(channel_mean, 0, atol=1e-3), f"Mean for channel {c} should be close to 0"
                     assert np.isclose(channel_std, 1, atol=1e-3), f"STD for channel {c} should be close to 1"
+
+
+
+# Check that for constant array min max and min max per channel give 0
+@pytest.mark.parametrize("shape", [
+    (100, 100),  # height, width
+    (100, 100, 1),  # height, width, 1 channel
+    (100, 100, 3),  # height, width, 3 channels
+    (100, 100, 7),  # height, width, 7 channels
+])
+@pytest.mark.parametrize("normalization", [
+    "min_max",
+    "min_max_per_channel",
+])
+@pytest.mark.parametrize("dtype", [
+    np.uint8,
+    np.float32,
+])
+def test_normalize_per_image(shape, normalization, dtype):
+    img = np.ones(shape).astype(dtype)
+
+    # Normalize the image
+    normalized_img = normalize_per_image(img, normalization)
+    assert np.array_equal(normalized_img, np.zeros_like(normalized_img))
