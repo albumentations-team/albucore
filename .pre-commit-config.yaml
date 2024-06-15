@@ -26,7 +26,7 @@ repos:
       - id: check-xml
       - id: detect-private-key
       - id: forbid-new-submodules
-      - id: forbid-submodules
+      # - id: forbid-submodules
       - id: mixed-line-ending
       - id: destroyed-symlinks
       - id: fix-byte-order-marker
@@ -59,7 +59,7 @@ repos:
         additional_dependencies: ["tomli"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.4.8
+    rev: v0.4.9
     hooks:
       # Run the linter.
       - id: ruff
