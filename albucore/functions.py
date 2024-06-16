@@ -345,11 +345,13 @@ def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: fl
 
 def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
-        return np.zeros_like(img)
+        return np.zeros_like(img, dtype=img.dtype)
 
     result = np.multiply(img, factor) if factor != 0 else np.zeros_like(img)
+
     if value != 0:
-        result = np.add(result, value)
+        return np.add(result, value)
+
     return result
 
 

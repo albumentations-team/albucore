@@ -14,6 +14,24 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
             1.0,
             np.array([[2, 3], [4, 5]], dtype=np.uint8),
         ),
+        (
+            np.array([[1, 2], [3, 4]], dtype=np.uint8),
+            -1.0,
+            2.0,
+            np.array([[1, 3], [5, 7]], dtype=np.uint8),
+        ),
+        (
+            np.array([[1, 2], [3, 4]], dtype=np.uint8),
+            1.0,
+            0.0,
+            np.ones((2, 2))
+        ),
+        (
+            np.array([[1, 2], [3, 4]], dtype=np.uint8),
+            0.0,
+            1.0,
+            np.array([[1, 2], [3, 4]], dtype=np.uint8),
+        ),
         # Test case 2: Different factor and value, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
@@ -49,6 +67,12 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
             0.5,
             np.array([[0.55, 0.6], [0.65, 0.7]], dtype=np.float32),
         ),
+        (
+            np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
+            -0.1,
+            0.5,
+            np.array([[0, 0], [0.05, 0.1]], dtype=np.float32),
+        ),
     ],
 )
 def test_multiply_add_numpy(img, value, factor, expected_output):
@@ -59,7 +83,7 @@ def test_multiply_add_numpy(img, value, factor, expected_output):
     assert np.allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8:
-        result_lut = clip(multiply_add_lut(img, factor, value), img.dtype)
+        result_lut = multiply_add_lut(img, factor, value)
         assert np.allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -75,6 +99,7 @@ def test_multiply_add_numpy(img, value, factor, expected_output):
         (1.0, 0.0),
         (0.0, 1.0),
         (0.5, 0.5),
+        (-0.2, 0.5),
         (1.0, 1.0),
         (2.0, 0.5),
     ]
