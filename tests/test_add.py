@@ -20,9 +20,9 @@ from albucore import (
             np.array([[[3, 4, 5], [6, 7, 8]], [[9, 10, 11], [12, 13, 14]]], dtype=np.uint8),
         ),
         (
-            254 * np.ones((2, 2, 3), dtype=np.uint8),
+            np.full((2, 2, 3), 254, dtype=np.uint8),
             2,
-            255 * np.ones((2, 2, 3), dtype=np.uint8),
+            np.full((2, 2, 3), 255, dtype=np.uint8),
         ),
         (
             255 * np.ones((2, 2, 3), dtype=np.uint8),
@@ -244,7 +244,7 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
     assert np.allclose(result_opencv, result_numpy, atol=1e-6)
 
     if img.dtype == np.uint8:
-        result_lut = clip(add_lut(img, processed_value), img.dtype)
+        result_lut = add_lut(img, processed_value)
         assert np.array_equal(result_numpy, result_lut), f"Difference {(result_numpy - result_lut).mean()}"
 
     result = add(img, value)

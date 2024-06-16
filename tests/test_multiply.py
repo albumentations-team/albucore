@@ -199,7 +199,7 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     assert np.allclose(result, result_numpy, atol=1e-6)
 
     if img.dtype == np.uint8:
-        result_lut = clip(multiply_lut(img, processed_multiplier), img.dtype)
+        result_lut = multiply_lut(img, processed_multiplier)
         assert np.array_equal(img, original_image), "Input image was modified"
         assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
 
