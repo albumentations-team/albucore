@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Any, Callable, Literal, Sequence, Union
+from typing import Any, Callable, Literal, Union
 
 import cv2
 import numpy as np
@@ -157,7 +157,7 @@ def contiguous(
     return wrapped_function
 
 
-def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels: int) -> Union[float, np.ndarray]:
+def convert_value(value: Union[np.ndarray, float], num_channels: int) -> Union[float, np.ndarray]:
     """Convert a multiplier to a float / int or a numpy array.
 
     If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
@@ -171,21 +171,19 @@ def convert_value(value: Union[Sequence[float], np.ndarray, float], num_channels
         return value
     if (
         # Case 1: num_channels is 1 and multiplier is a list or tuple
-        (num_channels == 1 and (isinstance(value, Sequence) or (isinstance(value, np.ndarray) and value.ndim == 1)))
+        (num_channels == 1 and isinstance(value, np.ndarray) and value.ndim == 1)
         or
         # Case 2: multiplier length is 1, regardless of num_channels
-        (isinstance(value, (Sequence, np.ndarray)) and len(value) == 1)
+        (isinstance(value, np.ndarray) and len(value) == 1)
         # Case 3: num_channels more then length of multiplier
         or (num_channels > 1 and len(value) < num_channels)
     ):
         # Convert to a float
         return float(value[0])
 
-    if isinstance(value, Sequence):
-        return np.array(value[:num_channels], dtype=np.float32)
     if value.ndim == 1 and value.shape[0] > num_channels:
         value = value[:num_channels]
     return value
 
 
-ValueType = Union[Sequence[Union[int, float]], np.ndarray, float, int]
+ValueType = Union[np.ndarray, float, int]
