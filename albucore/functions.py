@@ -1,4 +1,4 @@
-from typing import Literal, Sequence, Type, Union
+from typing import Literal, Type, Union
 
 import cv2
 import numpy as np
@@ -27,15 +27,13 @@ def create_lut_array(
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
     if dtype == np.uint8 and operation == "add":
-        value = np.round(value)
+        value = np.trunc(value)
 
     value = np.array(value, dtype=np.float32).reshape(-1, 1)
     lut = np.arange(0, max_value + 1, dtype=np.float32)
 
     if operation in np_operations:
-        result = np_operations[operation](lut, value)
-        if dtype == np.uint8:
-            return result.round()
+        return np_operations[operation](lut, value)
 
     raise ValueError(f"Unsupported operation: {operation}")
 
@@ -59,11 +57,13 @@ def prepare_value_opencv(
 ) -> np.ndarray:
     if isinstance(value, (int, float)):
         if operation == "add" and img.dtype == np.uint8:
-            value = round(value)
+            value = int(value)
         num_channels = get_num_channels(img)
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             if operation == "add":
-                value = np.full(img.shape, value, dtype=img.dtype)
+                # Cast to float32 if value is negative to handle potential underflow issues
+                cast_type = np.float32 if value < 0 else img.dtype
+                value = np.full(img.shape, value, dtype=cast_type)
             elif operation == "multiply":
                 value = np.full(img.shape, value, dtype=np.float32)
     elif isinstance(value, np.ndarray):
@@ -73,7 +73,10 @@ def prepare_value_opencv(
             value = value.reshape(1, 1, -1)
         value = np.broadcast_to(value, img.shape)
         if operation == "add" and img.dtype == np.uint8:
-            value = value.round().astype(np.uint8)
+            if np.all(value >= 0):
+                return clip(value, np.uint8)
+
+            value = np.trunc(value).astype(np.float32)
 
     return value
 
@@ -82,15 +85,13 @@ def apply_numpy(
     img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     if operation == "add" and img.dtype == np.uint8:
-        value = np.round(value)
+        value = np.int16(value)
 
-    result = np_operations[operation](img.astype(np.float32), value)
-
-    return result.round() if img.dtype == np.uint8 else result
+    return np_operations[operation](img.astype(np.float32), value)
 
 
 @preserve_channel_dim
-def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+def multiply_lut(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     return apply_lut(img, value, "multiply")
 
 
@@ -98,7 +99,7 @@ def multiply_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.nd
 def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     value = prepare_value_opencv(img, value, "multiply")
     if img.dtype == np.uint8:
-        return cv2.multiply(img.astype(np.float32), value).round()
+        return cv2.multiply(img.astype(np.float32), value)
     return cv2.multiply(img, value)
 
 
@@ -145,6 +146,15 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
 @preserve_channel_dim
 def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     value = prepare_value_opencv(img, value, "add")
+
+    if img.dtype == np.uint8:
+        if isinstance(value, (int, float)) and value < 0:
+            return cv2.add(img.astype(np.float32), value)
+        if isinstance(value, np.ndarray) and value.dtype != np.uint8:
+            return cv2.add(img.astype(np.float32), value.astype(np.float32))
+
+        return cv2.add(img, value)
+
     return cv2.add(img, value)
 
 
@@ -153,7 +163,7 @@ def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
 
 
 @preserve_channel_dim
-def add_lut(img: np.ndarray, value: Union[Sequence[float], float]) -> np.ndarray:
+def add_lut(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     return apply_lut(img, value, "add")
 
 
@@ -181,12 +191,12 @@ def add(img: np.ndarray, value: ValueType) -> np.ndarray:
             return img
 
         if img.dtype == np.uint8:
-            value = round(value)
+            value = int(value)
 
         return add_constant(img, value)
 
     if img.dtype == np.uint8:
-        value = value.round().astype(int)
+        value = value.astype(np.int16)
 
     return add_vector(img, value) if value.ndim == 1 else add_array(img, value)
 
@@ -268,7 +278,7 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
     if img.dtype == np.uint8 and isinstance(value, float):
         # For uint8 images, convert to float32, apply power, then convert back to uint8
         img_float = img.astype(np.float32)
-        return cv2.pow(img_float, value).round()
+        return cv2.pow(img_float, value)
 
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
@@ -336,11 +346,13 @@ def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: fl
 
 def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
-        return np.zeros_like(img)
+        return np.zeros_like(img, dtype=img.dtype)
 
     result = np.multiply(img, factor) if factor != 0 else np.zeros_like(img)
+
     if value != 0:
-        result = np.add(result, value)
+        return np.add(result, value)
+
     return result
 
 
