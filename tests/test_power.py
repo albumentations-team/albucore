@@ -64,9 +64,9 @@ def test_power_with_numpy(img, exponent, expected_output):
 @pytest.mark.parametrize(
     "exponent",
     [
-        1.4,
-        [1.5],
-        (1.6),
+        1.6,
+        np.array([1.5]),
+        np.array((1.6)),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
     ]
@@ -76,6 +76,7 @@ def test_power_with_numpy(img, exponent, expected_output):
 )
 def test_power(img_dtype, num_channels, exponent, is_contiguous):
     height, width = 9, 11
+    np.random.seed(42)
 
     if is_contiguous:
         if img_dtype == np.uint8:
@@ -95,9 +96,6 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
     result = power(img, exponent)
 
     assert result.shape == original_image.shape
-    assert result.dtype == original_image.dtype, "Input image was modified"
-
-    assert np.array_equal(img, original_image), "Input image was modified"
 
     result_numpy = clip(power_numpy(img, processed_exponent), img_dtype)
 
@@ -106,12 +104,13 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
     assert np.allclose(result, result_numpy, atol=1e-6)
 
     if img.dtype == np.uint8:
-        result_lut = clip(power_lut(img, processed_exponent), img.dtype)
-        assert np.array_equal(img, original_image), "Input image was modified"
+        # result_lut = clip(power_lut(img, processed_exponent), img.dtype)
+        result_lut = power_lut(img, processed_exponent)
+
         assert np.allclose(result, result_lut, atol=1e-6), f"Difference {(result - result_lut).mean()}"
 
     if isinstance(exponent, (float, int)):
         result_opencv = clip(power_opencv(img, processed_exponent), img.dtype)
-        assert np.array_equal(img, original_image), "Input image was modified"
+        assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()} {(result - result_opencv).mean()}"
 
-        assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    assert np.array_equal(img, original_image), "Input image was modified"

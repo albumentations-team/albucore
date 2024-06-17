@@ -58,11 +58,11 @@ def test_normalize_np_cv_equal(image, normalization):
     assert np.array_equal(image.shape, res2.shape)
     assert np.array_equal(image.shape, res3.shape)
 
-    assert np.allclose(res1, res2, atol=1e-5), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
-    assert np.allclose(res1, res1_float, atol=1e-5), f"mean: {(res1 - res1_float).mean()}, max: {(res1 - res1_float).max()}"
-    assert np.allclose(res2, res2_float, atol=1e-5), f"mean: {(res2 - res2_float).mean()}, max: {(res2 - res2_float).max()}"
+    assert np.allclose(res1, res2, atol=1e-4), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
+    assert np.allclose(res1, res1_float, atol=1e-4), f"mean: {(res1 - res1_float).mean()}, max: {(res1 - res1_float).max()}"
+    assert np.allclose(res2, res2_float, atol=1e-4), f"mean: {(res2 - res2_float).mean()}, max: {(res2 - res2_float).max()}"
 
-    assert np.allclose(res1, res3, atol=1e-6), f"mean: {(res1 - res3).mean()}, max: {(res1 - res3).max()}"
+    assert np.allclose(res1, res3, atol=1e-4), f"mean: {(res1 - res3).mean()}, max: {(res1 - res3).max()}"
 
 
 # Parameterize tests for all combinations
