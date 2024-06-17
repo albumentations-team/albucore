@@ -61,6 +61,7 @@ def prepare_value_opencv(
         num_channels = get_num_channels(img)
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             if operation == "add":
+                # Cast to float32 if value is negative to handle potential underflow issues
                 cast_type = np.float32 if value < 0 else img.dtype
                 value = np.full(img.shape, value, dtype=cast_type)
             elif operation == "multiply":
