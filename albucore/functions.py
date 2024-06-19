@@ -171,6 +171,7 @@ def add_constant(img: np.ndarray, value: float) -> np.ndarray:
     return add_opencv(img, value)
 
 
+@clipped
 def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     if img.dtype == np.uint8:
         return add_lut(img, value)

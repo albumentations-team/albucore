@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from albucore.functions import add_vector
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 from albucore import (
     add_lut,
