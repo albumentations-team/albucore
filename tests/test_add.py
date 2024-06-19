@@ -248,6 +248,10 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
         assert np.array_equal(result_numpy, result_lut), f"Difference {(result_numpy - result_lut).mean()}"
 
     result = add(img, value)
+
+    assert result.dtype == img.dtype
+    assert result.shape == img.shape
+
     assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
 
     assert np.array_equal(img, original_image), "Input image was modified"

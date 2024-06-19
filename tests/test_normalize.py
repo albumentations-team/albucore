@@ -86,5 +86,9 @@ def test_normalize(dtype, shape) -> None:
     mean = np.array(50, dtype=np.float32)
     denominator = np.array(1 / 3, dtype=np.float32)
     normalized = normalize(img, mean=mean, denominator=denominator)
+
+    assert normalized.shape == img.shape
+    assert normalized.dtype == np.float32
+
     expected = (np.ones(img.shape, dtype=np.float32) * 0.4 - 50) / 3
     assert_array_almost_equal_nulp(normalized, expected)
