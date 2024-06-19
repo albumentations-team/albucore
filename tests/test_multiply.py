@@ -194,6 +194,9 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     result = multiply(img, multiplier)
 
+    assert result.dtype == img.dtype
+    assert result.shape == img.shape
+
     result_numpy = clip(multiply_numpy(img, processed_multiplier), img.dtype)
 
     assert np.allclose(result, result_numpy, atol=1e-6)

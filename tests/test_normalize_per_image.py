@@ -92,6 +92,9 @@ def test_normalize_per_image(shape, normalization, dtype):
     # Normalize the image
     normalized_img = normalize_per_image(img, normalization)
 
+    assert normalized_img.dtype == np.float32, "Output dtype should be float32"
+    assert normalized_img.shape == img.shape, "Output shape should match input shape"
+
     # Assert the output shape matches the input shape
     assert normalized_img.shape == img.shape, "Output shape should match input shape"
     assert normalized_img.dtype == np.float32, "Output dtype should be float32"

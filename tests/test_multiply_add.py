@@ -120,6 +120,9 @@ def test_multiply_add(img_dtype, num_channels, value, factor, is_contiguous):
 
     result = multiply_add(img, factor, value)
 
+    assert result.shape == original_img.shape
+    assert result.dtype == original_img.dtype
+
     assert np.array_equal(img, original_img), "Input img was modified"
 
     result_numpy = clip(multiply_add_numpy(img, factor, value), img_dtype)

@@ -163,6 +163,10 @@ def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
     original_img2 = img2.copy()
 
     result = add_weighted(img1, 1, img2, 1)
+
+    assert result.dtype == img1.dtype
+    assert result.shape == img1.shape
+
     result_add = add(img1, img2)
 
     assert np.array_equal(result, result_add)
