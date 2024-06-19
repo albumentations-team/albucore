@@ -94,8 +94,8 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
     processed_exponent = convert_value(exponent, num_channels)
 
     result = power(img, exponent)
-
     assert result.shape == original_image.shape
+    assert result.dtype == original_image.dtype
 
     result_numpy = clip(power_numpy(img, processed_exponent), img_dtype)
 
