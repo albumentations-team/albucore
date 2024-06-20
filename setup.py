@@ -8,6 +8,7 @@ from setuptools import find_packages, setup
 INSTALL_REQUIRES = [
     "numpy>=1.24.4,<2",
     "tomli>=2.0.1",
+    "typing-extensions>=4.9.0"
 ]
 
 MIN_OPENCV_VERSION = "4.9.0.80"
