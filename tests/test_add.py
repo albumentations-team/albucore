@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
-from albucore.functions import add_vector
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
+from albucore.utils import clip
 from albucore import (
     add_lut,
     add_numpy,
@@ -47,7 +46,7 @@ from albucore import (
         ),
         (
             np.ones((2, 2, 3), dtype=np.uint8),
-            -2 * np.ones((2, 2, 3), dtype=np.uint8),
+            -2 * np.ones((2, 2, 3), dtype=np.int8),
             np.zeros((2, 2, 3), dtype=np.uint8),
         ),
         (
@@ -90,7 +89,7 @@ from albucore import (
             np.array([-3.5] * 5),
             np.zeros((2, 2, 5), dtype=np.uint8),
         ),
-                (
+        (
             np.ones((2, 2, 5), dtype=np.uint8),
             -2 * (np.ones((2, 2, 5), dtype=np.int16)),
             np.zeros((2, 2, 5), dtype=np.uint8),
@@ -256,6 +255,7 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
     assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
 
     assert np.array_equal(img, original_image), "Input image was modified"
+
 
 @pytest.mark.parametrize(
     ["shift_params", "expected"], [[(-10, 0, 10), (117, 127, 137)], [(-200, 0, 200), (0, 127, 255)]]
