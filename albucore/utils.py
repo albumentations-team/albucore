@@ -156,7 +156,10 @@ def contiguous(
         # Call the original function with the contiguous input
         result = func(img, *args, **kwargs)
         # Ensure the output array is contiguous
-        return np.require(result, requirements=["C_CONTIGUOUS"])
+        if not result.flags["C_CONTIGUOUS"]:
+            return np.require(result, requirements=["C_CONTIGUOUS"])
+
+        return result
 
     return wrapped_function
 

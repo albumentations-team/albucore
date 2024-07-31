@@ -80,6 +80,11 @@ def test_contiguous_decorator(input_array):
     # Check if output is contiguous
     assert output_array.flags["C_CONTIGUOUS"], "Output array is not C-contiguous"
 
+    non_contiguous_array = np.asfortranarray(input_array)
+
+    output_array = process_image(non_contiguous_array)
+    assert output_array.flags["C_CONTIGUOUS"], "Output array is not C-contiguous"
+
     # Check if the content is correct (same as reversing the original array)
     expected_output = input_array[::-1, ::-1]
-    assert np.array_equal(output_array, expected_output), "Output array content is not as expected"
+    np.testing.assert_array_equal(output_array, expected_output), "Output array content is not as expected"
