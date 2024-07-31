@@ -147,12 +147,16 @@ def is_multispectral_image(image: np.ndarray) -> bool:
 def contiguous(
     func: Callable[Concatenate[np.ndarray, P], np.ndarray],
 ) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
-    """Ensure that input img is contiguous."""
+    """Ensure that input img is contiguous and the output array is also contiguous."""
 
     @wraps(func)
     def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
+        # Ensure the input array is contiguous
         img = np.require(img, requirements=["C_CONTIGUOUS"])
-        return func(img, *args, **kwargs)
+        # Call the original function with the contiguous input
+        result = func(img, *args, **kwargs)
+        # Ensure the output array is contiguous
+        return np.require(result, requirements=["C_CONTIGUOUS"])
 
     return wrapped_function
 
