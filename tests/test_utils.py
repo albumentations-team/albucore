@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 import cv2
-from albucore.utils import MAX_VALUES_BY_DTYPE, NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy
-import albucore
+from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, contiguous
 
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
@@ -54,3 +53,38 @@ def test_convert_value(value, num_channels, expected):
         assert np.array_equal(result, expected)
     else:
          assert result == expected
+
+@contiguous
+def process_image(img: np.ndarray) -> np.ndarray:
+    # For demonstration, let's just return a non-contiguous view
+    return img[::-1, ::-1]
+
+@pytest.mark.parametrize(
+    "input_array",
+    [
+        np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),  # C-contiguous array
+        np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])[::-1, ::-1],  # Non-contiguous view
+        np.arange(100).reshape(10, 10),  # Another C-contiguous array
+        np.ones([3, 100, 100], dtype=np.uint8).transpose(1, 2, 0)  # 3D array with transpose
+    ]
+)
+def test_contiguous_decorator(input_array):
+    # Check if input is made contiguous
+    contiguous_input = np.require(input_array, requirements=["C_CONTIGUOUS"])
+
+    assert contiguous_input.flags["C_CONTIGUOUS"], "Input array is not C-contiguous"
+
+    # Process the array using the decorated function
+    output_array = process_image(input_array)
+
+    # Check if output is contiguous
+    assert output_array.flags["C_CONTIGUOUS"], "Output array is not C-contiguous"
+
+    non_contiguous_array = np.asfortranarray(input_array)
+
+    output_array = process_image(non_contiguous_array)
+    assert output_array.flags["C_CONTIGUOUS"], "Output array is not C-contiguous"
+
+    # Check if the content is correct (same as reversing the original array)
+    expected_output = input_array[::-1, ::-1]
+    np.testing.assert_array_equal(output_array, expected_output), "Output array content is not as expected"
