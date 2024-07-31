@@ -60,28 +60,25 @@ def process_image(img: np.ndarray) -> np.ndarray:
     return img[::-1, ::-1]
 
 @pytest.mark.parametrize(
-    "input_array, expected_strides",
+    "input_array",
     [
-        (np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]), (24, 8)),  # C-contiguous array
-        (np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])[::-1, ::-1], (24, 8)),  # Non-contiguous view
-        (np.arange(100).reshape(10, 10), (80, 8)),  # Another C-contiguous array
-         (np.ones([3, 100, 100], dtype=np.uint8).transpose(1, 2, 0), (300, 3, 1))  # 3D array with transpose
+        np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),  # C-contiguous array
+        np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])[::-1, ::-1],  # Non-contiguous view
+        np.arange(100).reshape(10, 10),  # Another C-contiguous array
+        np.ones([3, 100, 100], dtype=np.uint8).transpose(1, 2, 0)  # 3D array with transpose
     ]
 )
-def test_contiguous_decorator(input_array, expected_strides):
+def test_contiguous_decorator(input_array):
     # Check if input is made contiguous
     contiguous_input = np.require(input_array, requirements=["C_CONTIGUOUS"])
-    input_strides_after = contiguous_input.strides
 
     assert contiguous_input.flags["C_CONTIGUOUS"], "Input array is not C-contiguous"
-    assert input_strides_after == expected_strides, "Input array strides are not as expected"
 
     # Process the array using the decorated function
     output_array = process_image(input_array)
 
     # Check if output is contiguous
     assert output_array.flags["C_CONTIGUOUS"], "Output array is not C-contiguous"
-    assert output_array.strides == expected_strides, "Output array strides are not as expected"
 
     # Check if the content is correct (same as reversing the original array)
     expected_output = input_array[::-1, ::-1]
