@@ -1,9 +1,14 @@
+import sys
 from functools import wraps
 from typing import Any, Callable, Literal, Union
 
+if sys.version_info >= (3, 10):
+    from typing import Concatenate, ParamSpec
+else:
+    from typing_extensions import Concatenate, ParamSpec
+
 import cv2
 import numpy as np
-from typing_extensions import Concatenate, ParamSpec
 
 NUM_RGB_CHANNELS = 3
 MONO_CHANNEL_DIMENSIONS = 2
