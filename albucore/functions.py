@@ -571,4 +571,6 @@ def to_float_lut(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
 
 
 def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
-    return to_float_lut(img, max_value)
+    if img.dtype == np.uint8:
+        return to_float_lut(img, max_value)
+    return to_float_numpy(img, max_value)
