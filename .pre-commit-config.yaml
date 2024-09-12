@@ -53,13 +53,13 @@ repos:
   #   hooks:
   #     - id: markdownlint
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: "2.2.1"
+    rev: "2.2.3"
     hooks:
       - id: pyproject-fmt
         additional_dependencies: ["tomli"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.6.2
+    rev: v0.6.4
     hooks:
       # Run the linter.
       - id: ruff
