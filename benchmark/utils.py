@@ -1,52 +1,55 @@
+from __future__ import annotations
+
+import platform
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
+import psutil
 import torch
 from pytablewriter import MarkdownTableWriter
 from pytablewriter.style import Style
 
 
 class MarkdownGenerator:
-    def __init__(self, df: pd.DataFrame, package_versions: Dict[str, str], num_samples: int) -> None:
-        self._df = df
-        self._package_versions = package_versions
-        self.num_samples = num_samples
+    def __init__(self, df: pd.DataFrame, package_versions: dict[str, str], num_images: int) -> None:
+        self.df = df
+        self.package_versions = package_versions
+        self.num_images = num_images
+        self.cpu_info = get_cpu_info()
 
-    def _highlight_best_result(self, results: List[str]) -> List[str]:
-        processed_results = []
-
-        # Extract mean values, standard deviations, and filter out None results
+    def _highlight_best_result(self, results: list[float | str]) -> list[str]:
+        parsed_results = []
         for result in results:
-            if result is None or result == "-":
-                processed_results.append(
-                    (float("-inf"), float("inf"), "-")
-                )  # Use infinities to ignore these in comparisons
-                continue
-            try:
-                mean, std = map(float, result.split("±"))
-                processed_results.append((mean, std, result))
-            except ValueError:
-                processed_results.append((float("-inf"), float("inf"), result))  # Handle malformed inputs
+            if pd.isna(result):
+                parsed_results.append((np.nan, np.nan))
+            elif isinstance(result, str):
+                try:
+                    mean, std = map(float, result.split("±"))
+                    parsed_results.append((mean, std))
+                except ValueError:
+                    parsed_results.append((float(result), 0))
+            elif isinstance(result, (int, float)):
+                parsed_results.append((float(result), 0))
+            else:
+                parsed_results.append((np.nan, np.nan))
 
-        # Determine the best mean value to compare against
-        best_mean, best_std = max(processed_results, key=lambda x: x[0])[:2]
+        if not parsed_results or all(np.isnan(mean) for mean, _ in parsed_results):
+            return [str(r) for r in results]
 
-        # Highlight results that are statistically similar to the best result
+        best_mean = max(mean for mean, _ in parsed_results if not np.isnan(mean))
         highlighted_results = []
-        for mean, std, original_result in processed_results:
-            if mean == float("-inf"):  # Skip results that are placeholders or malformed
-                highlighted_results.append(original_result)
-                continue
-            if abs(best_mean - mean) < best_std + std:
+
+        for (mean, _std), original_result in zip(parsed_results, results):
+            if mean == best_mean:
                 highlighted_results.append(f"**{original_result}**")
             else:
-                highlighted_results.append(original_result)
+                highlighted_results.append(str(original_result))
 
         return highlighted_results
 
-    def _make_headers(self) -> List[str]:
+    def _make_headers(self) -> list[str]:
         libraries = self._df.columns.to_list()
         columns = []
 
@@ -60,19 +63,36 @@ class MarkdownGenerator:
             columns.append(f"{library}<br><small>{version}</small>")
         return ["", *columns]
 
-    def _make_value_matrix(self) -> List[List[str]]:
-        index = self._df.index.tolist()
-        values = self._df.to_numpy().tolist()
+    def _make_value_matrix(self) -> list[list[str]]:
         value_matrix = []
-        for transform, results in zip(index, values):
+        for transform, results in self.df.iterrows():
             row = [transform, *self._highlight_best_result(results)]
             value_matrix.append(row)
         return value_matrix
 
+    def generate_markdown_table(self) -> str:
+        # Convert DataFrame to markdown
+        md_table = self.df.to_markdown()
+
+        # Add header
+        header = f"# Benchmark Results: {self.df.index[0]}\n\n"
+        header += f"Number of images: {self.num_images}\n\n"
+        header += "## CPU Information\n\n"
+        header += f"- CPU: {self.cpu_info['name']}\n"
+        header += f"- Frequency: {self.cpu_info['freq']}\n"
+        header += f"- Physical cores: {self.cpu_info['physical_cores']}\n"
+        header += f"- Total cores: {self.cpu_info['total_cores']}\n\n"
+        header += "## Package Versions\n\n"
+        header += pd.DataFrame([self.package_versions]).to_markdown(index=False) + "\n\n"
+        header += "## Performance (images/second)\n\n"
+        header += f"Raw data:\n{self.df.to_string()}\n\n"
+
+        return header + md_table
+
     def _make_versions_text(self) -> str:
         libraries = ["numpy", "opencv-python-headless"]
         libraries_with_versions = [
-            "{library} {version}".format(library=library, version=self._package_versions[library].replace("\n", ""))
+            "{library} {version}".format(library=library, version=self.package_versions[library].replace("\n", ""))
             for library in libraries
         ]
         return f"Python and library versions: {', '.join(libraries_with_versions)}."
@@ -85,15 +105,11 @@ class MarkdownGenerator:
         writer.write_table()
 
     def save_markdown_table(self, file_path: Path) -> None:
-        writer = MarkdownTableWriter()
-        writer.headers = self._make_headers()
-        writer.value_matrix = self._make_value_matrix()
-        writer.styles = [Style(align="left")] + [Style(align="center") for _ in range(len(writer.headers) - 1)]
-        with file_path.open("w") as file:
-            file.write(writer.dumps())
+        with file_path.open("w") as f:
+            f.write(self.generate_markdown_table())
 
 
-def format_results(images_per_second_for_aug: Optional[List[float]], show_std: bool = False) -> str:
+def format_results(images_per_second_for_aug: list[float] | None, show_std: bool = False) -> str:
     if all(x is None for x in images_per_second_for_aug):
         return "-"
     result = str(round(np.median(images_per_second_for_aug)))
@@ -102,7 +118,7 @@ def format_results(images_per_second_for_aug: Optional[List[float]], show_std: b
     return result
 
 
-def get_markdown_table(data: Dict[str, str]) -> str:
+def get_markdown_table(data: dict[str, str]) -> str:
     """Prints a dictionary as a nicely formatted Markdown table.
 
     Parameters:
@@ -132,3 +148,36 @@ def torch_clip(img: torch.Tensor, dtype: Any) -> torch.Tensor:
         return img.clamp(0, 255).byte()
 
     return img.clamp(0, 255).float()
+
+
+def get_cpu_info() -> dict[str, str]:
+    cpu_info = {}
+
+    # Get CPU name
+    if platform.system() == "Windows":
+        cpu_info["name"] = platform.processor()
+    elif platform.system() == "Darwin":
+        import subprocess
+
+        cpu_info["name"] = (
+            subprocess.check_output(["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"]).strip().decode()  # noqa: S603
+        )
+    elif platform.system() == "Linux":
+        with Path("/proc/cpuinfo").open() as f:
+            info = f.readlines()
+        cpu_info["name"] = next(x.strip().split(":")[1] for x in info if "model name" in x)
+    else:
+        cpu_info["name"] = "Unknown"
+
+    # Get CPU frequency
+    freq = psutil.cpu_freq()
+    if freq:
+        cpu_info["freq"] = f"Current: {freq.current:.2f} MHz, Min: {freq.min:.2f} MHz, Max: {freq.max:.2f} MHz"
+    else:
+        cpu_info["freq"] = "Frequency information not available"
+
+    # Get CPU cores
+    cpu_info["physical_cores"] = psutil.cpu_count(logical=False)
+    cpu_info["total_cores"] = psutil.cpu_count(logical=True)
+
+    return cpu_info

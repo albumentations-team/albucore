@@ -1,4 +1,6 @@
-from typing import Literal, Type, Union
+from __future__ import annotations
+
+from typing import Literal
 
 import cv2
 import numpy as np
@@ -22,7 +24,7 @@ cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
 
 def create_lut_array(
-    dtype: Type[np.number], value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+    dtype: type[np.number], value: float | np.ndarray, operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -38,9 +40,7 @@ def create_lut_array(
     raise ValueError(f"Unsupported operation: {operation}")
 
 
-def apply_lut(
-    img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
-) -> np.ndarray:
+def apply_lut(img: np.ndarray, value: float | np.ndarray, operation: Literal["add", "multiply", "power"]) -> np.ndarray:
     dtype = img.dtype
 
     if isinstance(value, (int, float)):
@@ -53,7 +53,7 @@ def apply_lut(
 
 
 def prepare_value_opencv(
-    img: np.ndarray, value: Union[np.ndarray, float], operation: Literal["add", "multiply"]
+    img: np.ndarray, value: np.ndarray | float, operation: Literal["add", "multiply"]
 ) -> np.ndarray:
     if isinstance(value, (int, float)):
         if operation == "add" and img.dtype == np.uint8:
@@ -82,7 +82,7 @@ def prepare_value_opencv(
 
 
 def apply_numpy(
-    img: np.ndarray, value: Union[float, np.ndarray], operation: Literal["add", "multiply", "power"]
+    img: np.ndarray, value: float | np.ndarray, operation: Literal["add", "multiply", "power"]
 ) -> np.ndarray:
     if operation == "add" and img.dtype == np.uint8:
         value = np.int16(value)
@@ -91,19 +91,19 @@ def apply_numpy(
 
 
 @preserve_channel_dim
-def multiply_lut(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+def multiply_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     return apply_lut(img, value, "multiply")
 
 
 @preserve_channel_dim
-def multiply_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+def multiply_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     value = prepare_value_opencv(img, value, "multiply")
     if img.dtype == np.uint8:
         return cv2.multiply(img.astype(np.float32), value)
     return cv2.multiply(img, value)
 
 
-def multiply_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
+def multiply_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "multiply")
 
 
@@ -144,7 +144,7 @@ def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
 
 
 @preserve_channel_dim
-def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+def add_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     value = prepare_value_opencv(img, value, "add")
 
     if img.dtype == np.uint8:
@@ -158,12 +158,12 @@ def add_opencv(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
     return cv2.add(img, value)
 
 
-def add_numpy(img: np.ndarray, value: Union[float, np.ndarray]) -> np.ndarray:
+def add_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "add")
 
 
 @preserve_channel_dim
-def add_lut(img: np.ndarray, value: Union[np.ndarray, float]) -> np.ndarray:
+def add_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     return apply_lut(img, value, "add")
 
 
@@ -202,18 +202,14 @@ def add(img: np.ndarray, value: ValueType) -> np.ndarray:
     return add_vector(img, value) if value.ndim == 1 else add_array(img, value)
 
 
-def normalize_numpy(
-    img: np.ndarray, mean: Union[float, np.ndarray], denominator: Union[float, np.ndarray]
-) -> np.ndarray:
+def normalize_numpy(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
     img = img.astype(np.float32)
     img -= mean
     return img * denominator
 
 
 @preserve_channel_dim
-def normalize_opencv(
-    img: np.ndarray, mean: Union[float, np.ndarray], denominator: Union[float, np.ndarray]
-) -> np.ndarray:
+def normalize_opencv(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
     img = img.astype(np.float32)
     mean_img = np.zeros_like(img, dtype=np.float32)
     denominator_img = np.zeros_like(img, dtype=np.float32)
@@ -233,7 +229,7 @@ def normalize_opencv(
 
 
 @preserve_channel_dim
-def normalize_lut(img: np.ndarray, mean: Union[float, np.ndarray], denominator: Union[float, np.ndarray]) -> np.ndarray:
+def normalize_lut(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     num_channels = get_num_channels(img)
@@ -263,7 +259,7 @@ def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.nd
     return normalize_opencv(img, mean, denominator)
 
 
-def power_numpy(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
+def power_numpy(img: np.ndarray, exponent: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, exponent, "power")
 
 
@@ -285,7 +281,7 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
 
 
 @preserve_channel_dim
-def power_lut(img: np.ndarray, exponent: Union[float, np.ndarray]) -> np.ndarray:
+def power_lut(img: np.ndarray, exponent: float | np.ndarray) -> np.ndarray:
     return apply_lut(img, exponent, "power")
 
 
@@ -534,3 +530,45 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
         return normalize_per_image_lut(img, normalization)
 
     return normalize_per_image_opencv(img, normalization)
+
+
+def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
+    if max_value is None:
+        if img.dtype not in MAX_VALUES_BY_DTYPE:
+            raise RuntimeError(f"Unsupported dtype {img.dtype}. Specify 'max_value' manually.")
+        max_value = MAX_VALUES_BY_DTYPE[img.dtype]
+    return (img / max_value).astype(np.float32)
+
+
+@preserve_channel_dim
+def to_float_opencv(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
+    if max_value is None:
+        if img.dtype not in MAX_VALUES_BY_DTYPE:
+            raise RuntimeError(f"Unsupported dtype {img.dtype}. Specify 'max_value' manually.")
+        max_value = MAX_VALUES_BY_DTYPE[img.dtype]
+    img_float = img.astype(np.float32)
+
+    num_channels = get_num_channels(img)
+
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        # For images with more than 4 channels, create a full-sized divisor
+        max_value_array = np.full_like(img_float, max_value)
+        return cv2.divide(img_float, max_value_array)
+
+    # For images with 4 or fewer channels, use scalar division
+    return cv2.divide(img_float, max_value)
+
+
+@preserve_channel_dim
+def to_float_lut(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
+    if img.dtype != np.uint8:
+        raise ValueError("LUT method is only applicable for uint8 images")
+
+    if max_value is None:
+        max_value = MAX_VALUES_BY_DTYPE[img.dtype]
+    lut = np.arange(256, dtype=np.float32) / max_value
+    return cv2.LUT(img, lut)
+
+
+def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
+    return to_float_lut(img, max_value)

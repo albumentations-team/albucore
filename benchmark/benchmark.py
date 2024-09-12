@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import argparse
 import os
+import random
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from timeit import Timer
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import cv2
 import pandas as pd
@@ -58,10 +61,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("-p", "--print-package-versions", action="store_true", help="print versions of packages")
     parser.add_argument("-m", "--markdown", action="store_true", help="print benchmarking results as a markdown table")
+    parser.add_argument(
+        "-b",
+        "--benchmark",
+        type=str,
+        default=None,
+        help="Specific benchmark class to run. If not provided, all benchmarks will be run.",
+    )
     return parser.parse_args()
 
 
-def get_package_versions() -> Dict[str, str]:
+def get_package_versions() -> dict[str, str]:
     packages = ["albucore", "opencv-python-headless", "numpy", "torchvision"]
     package_versions = {"Python": sys.version}
     for package in packages:
@@ -75,6 +85,7 @@ def get_package_versions() -> Dict[str, str]:
 class BenchmarkTest:
     def __init__(self, num_channels: int) -> None:
         self.num_channels = num_channels
+        self.img_type = None
 
     def __str__(self) -> str:
         return self.__class__.__name__
@@ -116,7 +127,7 @@ class BenchmarkTest:
         # Fallback: checks if the class has an attribute with the library's name
         return hasattr(self, library)
 
-    def run(self, library: str, imgs: List[np.ndarray]) -> Optional[List[np.ndarray]]:
+    def run(self, library: str, imgs: list[np.ndarray]) -> list[np.ndarray] | None:
         transform = getattr(self, library)
         transformed_images = []
         for img in imgs:
@@ -139,7 +150,7 @@ class MultiplyConstant(BenchmarkTest):
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.multiply_numpy(img, self.multiplier)
 
-    def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray | None:
         return albucore.multiply_opencv(img, self.multiplier)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
@@ -205,7 +216,7 @@ class AddConstant(BenchmarkTest):
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         return albucore.add_numpy(img, self.value)
 
-    def opencv_transform(self, img: np.ndarray) -> Optional[np.ndarray]:
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray | None:
         return albucore.add_opencv(img, self.value)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
@@ -448,7 +459,34 @@ class MultiplyAdd(BenchmarkTest):
         return img * self.factor + 13
 
 
-def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> List[np.ndarray]:
+class ToFloat(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+        self.max_value = 255.0
+
+    def is_supported_by(self, library: str) -> bool:
+        # ToFloat doesn't support float32 images
+        if self.img_type == np.float32:
+            return False
+        return super().is_supported_by(library)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.to_float(img, self.max_value)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.to_float_numpy(img, self.max_value)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.to_float_opencv(img, self.max_value)
+
+    def lut_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.to_float_lut(img, self.max_value)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return img / self.max_value
+
+
+def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> list[np.ndarray]:
     image_paths = list(data_dir.expanduser().absolute().glob("*.*"))[:num_images]
     images = []
 
@@ -478,7 +516,7 @@ def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtyp
     return images
 
 
-def get_images(num_images: int, height: int, width: int, num_channels: int, dtype: str) -> List[np.ndarray]:
+def get_images(num_images: int, height: int, width: int, num_channels: int, dtype: str) -> list[np.ndarray]:
     height, width = 256, 256
 
     if dtype in {"float32", "float64"}:
@@ -493,18 +531,18 @@ def get_images(num_images: int, height: int, width: int, num_channels: int, dtyp
 
 def run_single_benchmark(
     library: str,
-    benchmark_class: Any,
+    benchmark_class: type[BenchmarkTest],
     num_channels: int,
     runs: int,
     img_type: str,
-    torch_imgs: List[torch.Tensor],
-    imgs: List[Any],
+    torch_imgs: list[torch.Tensor],
+    imgs: list[Any],
     num_images: int,
-    to_skip: Dict[str, Dict[str, bool]],
-    unsupported_types: Dict[str, List[str]],
-) -> Dict[str, Dict[str, List[Union[None, float]]]]:
+    to_skip: dict[str, dict[str, bool]],
+    unsupported_types: dict[str, list[str]],
+) -> dict[str, dict[str, list[None | float]]]:
     benchmark = benchmark_class(num_channels)
-    library_results: Dict[str, List[Union[None, float]]] = {str(benchmark): []}
+    library_results: dict[str, list[None | float]] = {str(benchmark): []}
 
     # Skip if library does not support the img_type
     if img_type in unsupported_types.get(library, []):
@@ -532,35 +570,37 @@ def run_single_benchmark(
 
 
 def run_benchmarks(
-    benchmark_class_names: List[Any],
-    libraries: List[str],
-    torch_imgs: List[torch.Tensor],
-    imgs: List[Any],
+    benchmark_class_names: list[type[BenchmarkTest]],
+    libraries: list[str],
+    torch_imgs: list[torch.Tensor],
+    imgs: list[Any],
     num_channels: int,
     num_images: int,
     runs: int,
     img_type: str,
-) -> Dict[str, Dict[str, List[Union[None, float]]]]:
-    images_per_second: Dict[str, Dict[str, List[Union[None, float]]]] = {lib: {} for lib in libraries}
-    to_skip: Dict[str, Dict[str, bool]] = {lib: {} for lib in libraries}
-
-    # Define unsupported types for each library
-    unsupported_types: Dict[str, List[str]] = {
-        "albucore": [],
-        "opencv": [],
-        "numpy": [],
-        "lut": ["float32"],
-        "torchvision": [],
-    }
+) -> dict[str, dict[str, list[None | float]]]:
+    images_per_second: dict[str, dict[str, list[None | float]]] = {lib: {} for lib in libraries}
+    to_skip: dict[str, dict[str, bool]] = {lib: {} for lib in libraries}
+    unsupported_types: dict[str, list[str]] = {}
 
     total_tasks = len(benchmark_class_names) * len(libraries)
     with tqdm(total=total_tasks, desc="Running benchmarks") as progress_bar:
+        random.shuffle(benchmark_class_names)
         for benchmark_class in benchmark_class_names:
+            benchmark = benchmark_class(num_channels)
+            benchmark.img_type = np.dtype(img_type)  # Set the image type for the benchmark
+
+            random.shuffle(libraries)
+
             for library in libraries:
+                if not benchmark.is_supported_by(library):
+                    progress_bar.update(1)
+                    continue
+
                 try:
                     result = run_single_benchmark(
                         library,
-                        benchmark_class,
+                        benchmark_class,  # Pass the class, not an instance
                         num_channels,
                         runs,
                         img_type,
@@ -596,12 +636,19 @@ def main() -> None:
         PowerConstant,
         AddWeighted,
         MultiplyAdd,
+        ToFloat,
     ]
     args = parse_args()
     package_versions = get_package_versions()
 
     num_channels = args.num_channels
     num_images = args.num_images
+
+    if args.benchmark:
+        # Filter benchmark_class_names based on the provided benchmark name
+        benchmark_class_names = [cls for cls in benchmark_class_names if cls.__name__ == args.benchmark]
+        if not benchmark_class_names:
+            raise ValueError(f"No benchmark found with name: {args.benchmark}")
 
     if args.print_package_versions:
         print(get_markdown_table(package_versions))
@@ -613,7 +660,7 @@ def main() -> None:
 
     torch_imgs = [torch.from_numpy(img.transpose(2, 0, 1).astype(args.img_type)) for img in imgs]
 
-    libraries = DEFAULT_BENCHMARKING_LIBRARIES
+    libraries = DEFAULT_BENCHMARKING_LIBRARIES.copy()
 
     images_per_second = run_benchmarks(
         benchmark_class_names, libraries, torch_imgs, imgs, num_channels, num_images, args.runs, args.img_type
@@ -631,10 +678,40 @@ def main() -> None:
     if args.markdown:
         results_dir = Path(__file__).parent / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
-        file_path = results_dir / f"{args.img_type}_{num_channels}.md"
-        markdown_generator = MarkdownGenerator(df, package_versions, num_images)
-        markdown_generator.save_markdown_table(file_path)
-        print(f"Benchmark results saved to {file_path}")
+
+        # Create a subfolder for this specific dtype and num_channels
+        subfolder = results_dir / f"{args.img_type}_{num_channels}"
+        subfolder.mkdir(parents=True, exist_ok=True)
+
+        for benchmark_class in benchmark_class_names:
+            benchmark_name = benchmark_class.__name__
+            file_path = subfolder / f"{benchmark_name}.md"
+
+            # Check if the benchmark was run
+            if str(benchmark_class(num_channels)) not in df.index:
+                print(f"Benchmark {benchmark_name} was not run for {args.img_type} images.")
+                continue
+
+            # Create a DataFrame for this specific benchmark
+            benchmark_df = pd.DataFrame(
+                {
+                    lib: [df.loc[str(benchmark_class(num_channels)), lib]]
+                    for lib in DEFAULT_BENCHMARKING_LIBRARIES
+                    if str(benchmark_class(num_channels)) in df.index
+                },
+                index=[benchmark_name],
+            )
+
+            print(f"Debug: Benchmark DataFrame for {benchmark_name}:")
+            print(benchmark_df)
+
+            if benchmark_df.empty:
+                print(f"No results for {benchmark_name}. Skipping markdown generation.")
+                continue
+
+            markdown_generator = MarkdownGenerator(benchmark_df, package_versions, num_images)
+            markdown_generator.save_markdown_table(file_path)
+            print(f"Benchmark results for {benchmark_name} saved to {file_path}")
 
 
 if __name__ == "__main__":
