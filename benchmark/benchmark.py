@@ -483,7 +483,31 @@ class ToFloat(BenchmarkTest):
         return albucore.to_float_lut(img, self.max_value)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
-        return img / self.max_value
+        return (img / self.max_value).to(torch.float32)
+
+
+class FromFloat(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+        self.dtype = np.uint8
+
+    def is_supported_by(self, library: str) -> bool:
+        # FromFloat doesn't support uint8 images
+        if self.img_type == np.uint8:
+            return False
+        return super().is_supported_by(library)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.from_float(img, self.dtype)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.from_float_numpy(img, self.dtype)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.from_float_opencv(img, self.dtype)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return (img * MAX_VALUES_BY_DTYPE[self.dtype]).to(torch.uint8)
 
 
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> list[np.ndarray]:
@@ -598,6 +622,8 @@ def run_benchmarks(
                     continue
 
                 try:
+                    random.shuffle(torch_imgs)
+                    random.shuffle(imgs)
                     result = run_single_benchmark(
                         library,
                         benchmark_class,  # Pass the class, not an instance
@@ -637,7 +663,9 @@ def main() -> None:
         AddWeighted,
         MultiplyAdd,
         ToFloat,
+        FromFloat,
     ]
+
     args = parse_args()
     package_versions = get_package_versions()
 

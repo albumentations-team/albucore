@@ -14,6 +14,7 @@ from albucore.utils import (
     clip,
     clipped,
     convert_value,
+    get_max_value,
     get_num_channels,
     preserve_channel_dim,
 )
@@ -534,18 +535,15 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
 
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
-        if img.dtype not in MAX_VALUES_BY_DTYPE:
-            raise RuntimeError(f"Unsupported dtype {img.dtype}. Specify 'max_value' manually.")
-        max_value = MAX_VALUES_BY_DTYPE[img.dtype]
+        max_value = get_max_value(img.dtype)
     return (img / max_value).astype(np.float32)
 
 
 @preserve_channel_dim
 def to_float_opencv(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
-        if img.dtype not in MAX_VALUES_BY_DTYPE:
-            raise RuntimeError(f"Unsupported dtype {img.dtype}. Specify 'max_value' manually.")
-        max_value = MAX_VALUES_BY_DTYPE[img.dtype]
+        max_value = get_max_value(img.dtype)
+
     img_float = img.astype(np.float32)
 
     num_channels = get_num_channels(img)
@@ -574,3 +572,34 @@ def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     if img.dtype == np.uint8:
         return to_float_lut(img, max_value)
     return to_float_numpy(img, max_value)
+
+
+def from_float_numpy(img: np.ndarray, dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+    if max_value is None:
+        max_value = get_max_value(dtype)
+    return clip(np.rint(img * max_value), dtype)
+
+
+@preserve_channel_dim
+def from_float_opencv(img: np.ndarray, dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+    if max_value is None:
+        max_value = get_max_value(dtype)
+
+    img_float = img.astype(np.float32)
+
+    num_channels = get_num_channels(img)
+
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        # For images with more than 4 channels, create a full-sized multiplier
+        max_value_array = np.full_like(img_float, max_value)
+        return cv2.multiply(img_float, max_value_array)
+
+    # For images with 4 or fewer channels, use scalar multiplication
+    return clip(np.rint(img * max_value), dtype)
+
+
+def from_float(img: np.ndarray, dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+    if img.dtype == np.float32:
+        return from_float_opencv(img, dtype, max_value)
+
+    return from_float_numpy(img, dtype, max_value)

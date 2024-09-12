@@ -201,3 +201,13 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
 
 
 ValueType = Union[np.ndarray, float, int]
+
+
+def get_max_value(dtype: np.dtype) -> float:
+    if dtype not in MAX_VALUES_BY_DTYPE:
+        msg = (
+            f"Can't infer the maximum value for dtype {dtype}. "
+            "You need to specify the maximum value manually by passing the max_value argument."
+        )
+        raise RuntimeError(msg)
+    return MAX_VALUES_BY_DTYPE[dtype]

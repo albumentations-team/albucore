@@ -109,13 +109,25 @@ class MarkdownGenerator:
             f.write(self.generate_markdown_table())
 
 
-def format_results(images_per_second_for_aug: list[float] | None, show_std: bool = False) -> str:
+def format_results(images_per_second_for_aug: float | list[float], show_std: bool = True) -> str:
+    if isinstance(images_per_second_for_aug, (int, float)):
+        return f"{images_per_second_for_aug:.0f}"
+
     if all(x is None for x in images_per_second_for_aug):
-        return "-"
-    result = str(round(np.median(images_per_second_for_aug)))
+        return "N/A"
+
+    filtered_results = [x for x in images_per_second_for_aug if x is not None]
+
+    if not filtered_results:
+        return "N/A"
+
+    mean = np.mean(filtered_results)
+
     if show_std:
-        result += f" ± {round(np.std(images_per_second_for_aug))}"
-    return result
+        std = np.std(filtered_results)
+        return f"{mean:.0f} ± {std:.0f}"
+
+    return f"{mean:.0f}"
 
 
 def get_markdown_table(data: dict[str, str]) -> str:
