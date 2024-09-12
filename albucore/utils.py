@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from functools import wraps
 from typing import Any, Callable, Literal, Union
@@ -134,7 +136,7 @@ def is_grayscale_image(image: np.ndarray) -> bool:
     return get_num_channels(image) == 1
 
 
-def get_opencv_dtype_from_numpy(value: Union[np.ndarray, int, np.dtype, object]) -> int:
+def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
     if isinstance(value, np.ndarray):
         value = value.dtype
     return NPDTYPE_TO_OPENCV_DTYPE[value]
@@ -169,7 +171,7 @@ def contiguous(
     return wrapped_function
 
 
-def convert_value(value: Union[np.ndarray, float], num_channels: int) -> Union[float, np.ndarray]:
+def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.ndarray:
     """Convert a multiplier to a float / int or a numpy array.
 
     If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
@@ -199,3 +201,13 @@ def convert_value(value: Union[np.ndarray, float], num_channels: int) -> Union[f
 
 
 ValueType = Union[np.ndarray, float, int]
+
+
+def get_max_value(dtype: np.dtype) -> float:
+    if dtype not in MAX_VALUES_BY_DTYPE:
+        msg = (
+            f"Can't infer the maximum value for dtype {dtype}. "
+            "You need to specify the maximum value manually by passing the max_value argument."
+        )
+        raise RuntimeError(msg)
+    return MAX_VALUES_BY_DTYPE[dtype]
