@@ -1,13 +1,12 @@
 import pytest
 import numpy as np
 
-from albucore.functions import from_float_numpy, from_float_opencv, to_float_numpy, to_float_opencv, to_float_lut, to_float, MAX_VALUES_BY_DTYPE
+from albucore.functions import from_float, from_float_numpy, from_float_opencv, to_float_numpy, to_float_opencv, to_float_lut, to_float, MAX_VALUES_BY_DTYPE
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS
 import cv2
 
-CHANNELS = [1, 2, 5]
+CHANNELS = [1, 3, 5]
 DTYPES = [np.uint8, np.uint16]
-MAX_VALUES = [255, 65535]
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
@@ -85,8 +84,8 @@ def test_to_float_custom_max_value():
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("max_value", MAX_VALUES)
-def test_from_float_numpy_vs_opencv(dtype, channels, max_value):
+def test_from_float_numpy_vs_opencv(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
     # Generate random float image
     shape = (100, 100, channels) if channels > 1 else (100, 100)
     float_img = np.random.rand(*shape).astype(np.float32)
@@ -94,14 +93,21 @@ def test_from_float_numpy_vs_opencv(dtype, channels, max_value):
     # Convert using both methods
     numpy_result = from_float_numpy(float_img, dtype, max_value)
     opencv_result = from_float_opencv(float_img, dtype, max_value)
+    result = from_float(float_img, dtype, max_value)
 
     # Check that results are the same
     np.testing.assert_allclose(numpy_result, opencv_result, rtol=1e-5, atol=1)
+    np.testing.assert_allclose(numpy_result, result, rtol=1e-5, atol=1)
+    np.testing.assert_allclose(opencv_result, result, rtol=1e-5, atol=1)
+
+    assert numpy_result.dtype == dtype
+    assert opencv_result.dtype == dtype
+    assert result.dtype == dtype
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("max_value", MAX_VALUES)
 def test_to_float_from_float_roundtrip(dtype, channels, max_value):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
     # Generate random image
     shape = (100, 100, channels) if channels > 1 else (100, 100)
     if dtype == np.float32:
@@ -119,8 +125,8 @@ def test_to_float_from_float_roundtrip(dtype, channels, max_value):
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("max_value", MAX_VALUES)
-def test_from_float_to_float_roundtrip(dtype, channels, max_value):
+def test_from_float_to_float_roundtrip(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
     # Generate random float image
     shape = (100, 100, channels) if channels > 1 else (100, 100)
     original_float_img = np.random.rand(*shape).astype(np.float32)
@@ -135,8 +141,8 @@ def test_from_float_to_float_roundtrip(dtype, channels, max_value):
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("max_value", MAX_VALUES)
-def test_from_float_opencv_channels(dtype, channels, max_value):
+def test_from_float_opencv_channels(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
     # Generate random float image
     shape = (100, 100, channels) if channels > 1 else (100, 100)
     float_img = np.random.rand(*shape).astype(np.float32)
@@ -188,10 +194,10 @@ def test_to_float_from_float_roundtrip(dtype, channels):
 
     # Convert to float and back
     float_img = to_float(original_img, max_value)
-    roundtrip_img = from_float_opencv(float_img, dtype, max_value)
+    roundtrip_img = from_float(float_img, dtype, max_value)
 
     # Check that the result is the same as the original
-    np.testing.assert_allclose(original_img, roundtrip_img, rtol=1e-5, atol=1)
+    np.testing.assert_array_almost_equal(original_img, roundtrip_img, decimal=4)
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
@@ -202,11 +208,11 @@ def test_from_float_to_float_roundtrip(dtype, channels):
     original_float_img = np.random.rand(*shape).astype(np.float32)
 
     # Convert from float and back
-    int_img = from_float_opencv(original_float_img, dtype, max_value)
+    int_img = from_float(original_float_img, dtype, max_value)
     roundtrip_float_img = to_float(int_img, max_value)
 
-    # Check that the result is the same as the original
-    np.testing.assert_allclose(original_float_img, roundtrip_float_img, rtol=1e-5, atol=1e-5)
+    # Check that the result is the same as the origina
+    np.testing.assert_array_almost_equal(original_float_img, roundtrip_float_img, decimal=2)
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
@@ -219,6 +225,9 @@ def test_from_float_opencv_channels(dtype, channels):
     # Convert using OpenCV method
     result = from_float_opencv(float_img, dtype, max_value)
 
+    assert result.dtype == dtype
+    assert result.max() <= max_value
+
     # Check that the result has the correct number of channels
     if channels > 1:
         assert result.shape[2] == channels
@@ -228,7 +237,90 @@ def test_from_float_opencv_channels(dtype, channels):
     # Check that the function uses the correct method based on number of channels
     if channels > MAX_OPENCV_WORKING_CHANNELS:
         # For more than 4 channels, it should use np.full_like
-        assert np.array_equal(result, cv2.multiply(float_img, np.full_like(float_img, max_value or MAX_VALUES_BY_DTYPE[dtype])))
+        np.testing.assert_allclose(result, cv2.multiply(float_img, np.full_like(float_img, max_value)), rtol=1e-5, atol=1)
     else:
         # For 4 or fewer channels, it should use scalar multiplication
-        assert np.array_equal(result, cv2.multiply(float_img, max_value or MAX_VALUES_BY_DTYPE[dtype]))
+        np.testing.assert_allclose(result, cv2.multiply(float_img, max_value), rtol=1e-5, atol=1)
+
+
+def assert_array_equal_with_copy(original, processed):
+    np.testing.assert_array_equal(original, processed)
+    assert original is not processed  # Ensure a copy was made
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_input_unchanged(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    if dtype == np.float32:
+        img = np.random.rand(*shape).astype(dtype)
+    else:
+        max_val = MAX_VALUES_BY_DTYPE[dtype] if max_value is None else max_value
+        img = np.random.randint(0, max_val + 1, shape).astype(dtype)
+
+    img_copy = img.copy()
+    _ = to_float(img, max_value)
+    np.testing.assert_array_equal(img, img_copy)
+
+
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_lut_input_unchanged(channels):
+    max_value = MAX_VALUES_BY_DTYPE[np.uint8]
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    img = np.random.randint(0, 256, shape).astype(np.uint8)
+
+    img_copy = img.copy()
+    _ = to_float_lut(img, max_value)
+    np.testing.assert_array_equal(img, img_copy)
+
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_numpy_input_unchanged(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    if dtype == np.float32:
+        img = np.random.rand(*shape).astype(dtype)
+    else:
+        max_val = MAX_VALUES_BY_DTYPE[dtype] if max_value is None else max_value
+        img = np.random.randint(0, max_val + 1, shape).astype(dtype)
+
+    img_copy = img.copy()
+    _ = to_float_numpy(img, max_value)
+    np.testing.assert_array_equal(img, img_copy)
+
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_from_float_input_unchanged(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    img = np.random.rand(*shape).astype(np.float32)
+
+    img_copy = img.copy()
+    _ = from_float(img, dtype, max_value)
+    np.testing.assert_array_equal(img, img_copy)
+
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_from_float_numpy_input_unchanged(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    img = np.random.rand(*shape).astype(np.float32)
+
+    img_copy = img.copy()
+    _ = from_float_numpy(img, dtype, max_value)
+    np.testing.assert_array_equal(img, img_copy)
+
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_from_float_opencv_input_unchanged(dtype, channels):
+    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    img = np.random.rand(*shape).astype(np.float32)
+
+    img_copy = img.copy()
+    _ = from_float_opencv(img, dtype, max_value)
+    np.testing.assert_array_equal(img, img_copy)

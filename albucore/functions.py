@@ -592,7 +592,7 @@ def from_float_opencv(img: np.ndarray, dtype: np.dtype, max_value: float | None 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         # For images with more than 4 channels, create a full-sized multiplier
         max_value_array = np.full_like(img_float, max_value)
-        return cv2.multiply(img_float, max_value_array)
+        return clip(np.rint(cv2.multiply(img_float, max_value_array)), dtype)
 
     # For images with 4 or fewer channels, use scalar multiplication
     return clip(np.rint(img * max_value), dtype)
