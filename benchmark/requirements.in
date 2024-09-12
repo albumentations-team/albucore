@@ -7,3 +7,5 @@ pandas
 pytablewriter
 torch
 torchvision
+tabulate
+psutil
