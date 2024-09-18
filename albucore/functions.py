@@ -574,16 +574,16 @@ def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     return to_float_numpy(img, max_value)
 
 
-def from_float_numpy(img: np.ndarray, dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+def from_float_numpy(img: np.ndarray, target_dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
-        max_value = get_max_value(dtype)
-    return clip(np.rint(img * max_value), dtype)
+        max_value = get_max_value(target_dtype)
+    return clip(np.rint(img * max_value), target_dtype)
 
 
 @preserve_channel_dim
-def from_float_opencv(img: np.ndarray, dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+def from_float_opencv(img: np.ndarray, target_dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
-        max_value = get_max_value(dtype)
+        max_value = get_max_value(target_dtype)
 
     img_float = img.astype(np.float32)
 
@@ -592,14 +592,34 @@ def from_float_opencv(img: np.ndarray, dtype: np.dtype, max_value: float | None 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         # For images with more than 4 channels, create a full-sized multiplier
         max_value_array = np.full_like(img_float, max_value)
-        return clip(np.rint(cv2.multiply(img_float, max_value_array)), dtype)
+        return clip(np.rint(cv2.multiply(img_float, max_value_array)), target_dtype)
 
     # For images with 4 or fewer channels, use scalar multiplication
-    return clip(np.rint(img * max_value), dtype)
+    return clip(np.rint(img * max_value), target_dtype)
 
 
-def from_float(img: np.ndarray, dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+def from_float(img: np.ndarray, target_dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
+    """Convert a floating-point image to the specified target data type.
+
+    This function converts an input floating-point image to the specified target data type,
+    scaling the values appropriately based on the max_value parameter or the maximum value
+    of the target data type.
+
+    Args:
+        img (np.ndarray): Input floating-point image array.
+        target_dtype (np.dtype): Target numpy data type for the output image.
+        max_value (float | None, optional): Maximum value to use for scaling. If None,
+            the maximum value of the target data type will be used. Defaults to None.
+
+    Returns:
+        np.ndarray: Image converted to the target data type.
+
+    Notes:
+        - If the input image is of type float32, the function uses OpenCV for faster processing.
+        - For other input types, it falls back to a numpy-based implementation.
+        - The function clips values to ensure they fit within the range of the target data type.
+    """
     if img.dtype == np.float32:
-        return from_float_opencv(img, dtype, max_value)
+        return from_float_opencv(img, target_dtype, max_value)
 
-    return from_float_numpy(img, dtype, max_value)
+    return from_float_numpy(img, target_dtype, max_value)
