@@ -20,6 +20,13 @@ for ch in "${channels[@]}"; do
     # Nested loop over each image type
     for type in "${types[@]}"; do
         # Command to run your program, using the provided data directory
-        python -m benchmark.benchmark --num_channels $ch --img_type $type --markdown -n 1000 --show-std -r 10 -d "$data_dir" --benchmark VerticalFlip
+        python -m benchmark.benchmark \
+            --num_channels $ch \
+            --img_type $type \
+            --markdown \
+            -n 1000 \
+            --show-std \
+            -r 10 \
+            -d "$data_dir"
     done
 done
