@@ -13,6 +13,7 @@ from albucore.utils import (
     ValueType,
     clip,
     clipped,
+    contiguous,
     convert_value,
     get_max_value,
     get_num_channels,
@@ -623,3 +624,17 @@ def from_float(img: np.ndarray, target_dtype: np.dtype, max_value: float | None 
         return from_float_opencv(img, target_dtype, max_value)
 
     return from_float_numpy(img, target_dtype, max_value)
+
+
+@contiguous
+def hflip_numpy(img: np.ndarray) -> np.ndarray:
+    return img[:, ::-1, ...]
+
+
+@preserve_channel_dim
+def hflip_cv2(img: np.ndarray) -> np.ndarray:
+    return cv2.flip(img, 1)
+
+
+def hflip(img: np.ndarray) -> np.ndarray:
+    return hflip_cv2(img)

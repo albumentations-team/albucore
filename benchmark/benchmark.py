@@ -510,6 +510,23 @@ class FromFloat(BenchmarkTest):
         return (img * MAX_VALUES_BY_DTYPE[self.dtype]).to(torch.uint8)
 
 
+class HorizontalFlip(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.hflip(img)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.hflip_numpy(img)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.hflip_cv2(img)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torchf.hflip(img)
+
+
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> list[np.ndarray]:
     image_paths = list(data_dir.expanduser().absolute().glob("*.*"))[:num_images]
     images = []
@@ -664,6 +681,7 @@ def main() -> None:
         MultiplyAdd,
         ToFloat,
         FromFloat,
+        HorizontalFlip,
     ]
 
     args = parse_args()
