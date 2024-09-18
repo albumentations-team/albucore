@@ -20,10 +20,8 @@ def test_hflip_functions(channels, dtype):
     np.testing.assert_array_equal(flipped_numpy, flipped_cv2)
 
     # Test 2: Check if the flip is correct
-    if channels == 1:
-        expected = img[:, ::-1]
-    else:
-        expected = img[:, ::-1, :]
+
+    expected = img[:, ::-1]
     np.testing.assert_array_equal(flipped_numpy, expected)
 
     # Test 3: Check if results are contiguous
@@ -67,10 +65,7 @@ def test_vflip_functions(channels, dtype):
     np.testing.assert_array_equal(flipped_numpy, flipped_main)
 
     # Test 2: Check if the flip is correct
-    if channels == 1:
-        expected = img[::-1, :]
-    else:
-        expected = img[::-1, :, :]
+    expected = img[::-1, :]
     np.testing.assert_array_equal(flipped_numpy, expected)
 
     # Test 3: Check if results are contiguous
