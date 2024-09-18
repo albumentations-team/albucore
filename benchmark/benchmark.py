@@ -91,7 +91,7 @@ class BenchmarkTest:
         return self.__class__.__name__
 
     def albucore(self, img: np.ndarray) -> np.ndarray:
-        return self.albucore_transform(img)
+        return clip(self.albucore_transform(img), img.dtype)
 
     def opencv(self, img: np.ndarray) -> np.ndarray:
         return clip(self.opencv_transform(img), img.dtype)
@@ -527,6 +527,23 @@ class HorizontalFlip(BenchmarkTest):
         return torchf.hflip(img)
 
 
+class VerticalFlip(BenchmarkTest):
+    def __init__(self, num_channels: int) -> None:
+        super().__init__(num_channels)
+
+    def albucore_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.vflip(img)
+
+    def numpy_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.vflip_numpy(img)
+
+    def opencv_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.vflip_cv2(img)
+
+    def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
+        return torchf.vflip(img)
+
+
 def get_images_from_dir(data_dir: Path, num_images: int, num_channels: int, dtype: str) -> list[np.ndarray]:
     image_paths = list(data_dir.expanduser().absolute().glob("*.*"))[:num_images]
     images = []
@@ -682,6 +699,7 @@ def main() -> None:
         ToFloat,
         FromFloat,
         HorizontalFlip,
+        VerticalFlip,
     ]
 
     args = parse_args()

@@ -638,3 +638,17 @@ def hflip_cv2(img: np.ndarray) -> np.ndarray:
 
 def hflip(img: np.ndarray) -> np.ndarray:
     return hflip_cv2(img)
+
+
+@preserve_channel_dim
+def vflip_cv2(img: np.ndarray) -> np.ndarray:
+    return cv2.flip(img, 0)
+
+
+@contiguous
+def vflip_numpy(img: np.ndarray) -> np.ndarray:
+    return img[::-1, ...]
+
+
+def vflip(img: np.ndarray) -> np.ndarray:
+    return vflip_cv2(img)
