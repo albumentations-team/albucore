@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 import cv2
-from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, contiguous
+from albucore.decorators import contiguous
+from albucore.functions import float32_io, from_float, to_float, uint8_io
+from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy
 
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
@@ -88,3 +90,68 @@ def test_contiguous_decorator(input_array):
     # Check if the content is correct (same as reversing the original array)
     expected_output = input_array[::-1, ::-1]
     np.testing.assert_array_equal(output_array, expected_output), "Output array content is not as expected"
+
+
+# Sample functions to be wrapped
+@float32_io
+def dummy_float32_func(img):
+    return img * 2
+
+@uint8_io
+def dummy_uint8_func(img):
+    return np.clip(img + 10, 0, 255).astype(np.uint8)
+
+# Test data
+@pytest.fixture(params=[
+    np.uint8, np.float32
+])
+def test_image(request):
+    dtype = request.param
+    if np.issubdtype(dtype, np.integer):
+        return np.random.randint(0, 256, (10, 10, 3), dtype=dtype)
+    else:
+        return np.random.rand(10, 10, 3).astype(dtype)
+
+# Tests
+@pytest.mark.parametrize("wrapper,func, image", [
+    (float32_io, dummy_float32_func, np.random.randint(0, 256, (10, 10, 3), dtype=np.uint8)),
+    (uint8_io, dummy_uint8_func, np.random.rand(10, 10, 3).astype(np.float32))
+])
+def test_io_wrapper(wrapper, func, image):
+    input_dtype = image.dtype
+    result = func(image)
+
+    # Check if the output dtype matches the input dtype
+    assert result.dtype == input_dtype
+
+    # Check if the function was actually applied
+    if wrapper == float32_io:
+        expected = from_float(to_float(image) * 2, input_dtype)
+    else:  # uint8_io
+        expected = to_float(from_float(image, np.uint8) + 10)
+
+    np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
+
+@pytest.mark.parametrize("wrapper,func,expected_intermediate_dtype", [
+    (float32_io, dummy_float32_func, np.float32),
+    (uint8_io, dummy_uint8_func, np.uint8)
+])
+def test_intermediate_dtype(wrapper, func, expected_intermediate_dtype, test_image):
+    original_func = func.__wrapped__  # Access the original function
+
+    def check_dtype(img):
+        assert img.dtype == expected_intermediate_dtype
+        return original_func(img)
+
+    wrapped_func = wrapper(check_dtype)
+    wrapped_func(test_image)  # This will raise an assertion error if the intermediate dtype is incorrect
+
+def test_float32_io_preserves_float32(test_image):
+    if test_image.dtype == np.float32:
+        result = dummy_float32_func(test_image)
+        assert result.dtype == np.float32
+
+def test_uint8_io_preserves_uint8(test_image):
+    if test_image.dtype == np.uint8:
+        result = dummy_uint8_func(test_image)
+        assert result.dtype == np.uint8

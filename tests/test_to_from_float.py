@@ -324,3 +324,23 @@ def test_from_float_opencv_input_unchanged(dtype, channels):
     img_copy = img.copy()
     _ = from_float_opencv(img, dtype, max_value)
     np.testing.assert_array_equal(img, img_copy)
+
+
+def test_to_float_returns_same_object_for_float32():
+    float32_image = np.random.rand(10, 10, 3).astype(np.float32)
+    result = to_float(float32_image)
+    assert result is float32_image  # Check if it's the same object
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32])
+def test_to_float_from_float_roundtrip(dtype):
+    if dtype == np.float32:
+        original = np.random.rand(10, 10, 3).astype(dtype)
+    else:
+        original = np.random.randint(0, 256, (10, 10, 3)).astype(dtype)
+
+    float_version = to_float(original)
+    roundtrip = from_float(float_version, dtype)
+
+    assert roundtrip.dtype == dtype
+    np.testing.assert_allclose(original, roundtrip, rtol=1e-5, atol=1e-8)
