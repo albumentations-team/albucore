@@ -344,3 +344,89 @@ def test_to_float_from_float_roundtrip(dtype):
 
     assert roundtrip.dtype == dtype
     np.testing.assert_allclose(original, roundtrip, rtol=1e-5, atol=1e-8)
+
+
+@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_does_not_modify_input(dtype, channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    if dtype == np.float32:
+        original = np.random.rand(*shape).astype(dtype)
+    else:
+        original = np.random.randint(0, MAX_VALUES_BY_DTYPE[dtype], shape).astype(dtype)
+
+    original_copy = original.copy()
+    _ = to_float(original)
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_from_float_does_not_modify_input(dtype, channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    original = np.random.rand(*shape).astype(np.float32)
+    original_copy = original.copy()
+
+    _ = from_float(original, dtype)
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_numpy_does_not_modify_input(dtype, channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    if dtype == np.float32:
+        original = np.random.rand(*shape).astype(dtype)
+    else:
+        original = np.random.randint(0, MAX_VALUES_BY_DTYPE[dtype], shape).astype(dtype)
+
+    original_copy = original.copy()
+    _ = to_float_numpy(original, MAX_VALUES_BY_DTYPE[dtype])
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_from_float_numpy_does_not_modify_input(dtype, channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    original = np.random.rand(*shape).astype(np.float32)
+    original_copy = original.copy()
+
+    _ = from_float_numpy(original, dtype, MAX_VALUES_BY_DTYPE[dtype])
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_opencv_does_not_modify_input(dtype, channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    if dtype == np.float32:
+        original = np.random.rand(*shape).astype(dtype)
+    else:
+        original = np.random.randint(0, MAX_VALUES_BY_DTYPE[dtype], shape).astype(dtype)
+
+    original_copy = original.copy()
+    _ = to_float_opencv(original, MAX_VALUES_BY_DTYPE[dtype])
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_from_float_opencv_does_not_modify_input(dtype, channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    original = np.random.rand(*shape).astype(np.float32)
+    original_copy = original.copy()
+
+    _ = from_float_opencv(original, dtype, MAX_VALUES_BY_DTYPE[dtype])
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("channels", CHANNELS)
+def test_to_float_lut_does_not_modify_input(channels):
+    shape = (100, 100, channels) if channels > 1 else (100, 100)
+    original = np.random.randint(0, 256, shape).astype(np.uint8)
+    original_copy = original.copy()
+
+    _ = to_float_lut(original, MAX_VALUES_BY_DTYPE[np.uint8])
+
+    np.testing.assert_array_equal(original, original_copy)
