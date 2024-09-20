@@ -155,3 +155,67 @@ def test_uint8_io_preserves_uint8(test_image):
     if test_image.dtype == np.uint8:
         result = dummy_uint8_func(test_image)
         assert result.dtype == np.uint8
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64])
+def test_float32_io_does_not_modify_input(dtype):
+    @float32_io
+    def identity(img):
+        return img
+
+    shape = (10, 10, 3)
+    if np.issubdtype(dtype, np.integer):
+        original = np.random.randint(0, np.iinfo(dtype).max, shape).astype(dtype)
+    else:
+        original = np.random.rand(*shape).astype(dtype)
+
+    original_copy = original.copy()
+    _ = identity(original)
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64])
+def test_uint8_io_does_not_modify_input(dtype):
+    @uint8_io
+    def identity(img):
+        return img
+
+    shape = (10, 10, 3)
+    if np.issubdtype(dtype, np.integer):
+        original = np.random.randint(0, np.iinfo(dtype).max, shape).astype(dtype)
+    else:
+        original = np.random.rand(*shape).astype(dtype)
+
+    original_copy = original.copy()
+    _ = identity(original)
+
+    np.testing.assert_array_equal(original, original_copy)
+
+@pytest.mark.parametrize("wrapper", [float32_io, uint8_io])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+def test_wrapper_preserves_dtype(wrapper, dtype):
+    @wrapper
+    def identity(img):
+        return img
+
+    shape = (10, 10, 3)
+    if np.issubdtype(dtype, np.integer):
+        original = np.random.randint(0, np.iinfo(dtype).max, shape).astype(dtype)
+    else:
+        original = np.random.rand(*shape).astype(dtype)
+
+    result = identity(original)
+
+    assert result.dtype == dtype
+
+@pytest.mark.parametrize("wrapper", [float32_io, uint8_io])
+def test_wrapper_intermediate_dtype(wrapper):
+    intermediate_dtype = np.float32 if wrapper == float32_io else np.uint8
+
+    @wrapper
+    def check_dtype(img):
+        assert img.dtype == intermediate_dtype
+        return img
+
+    original = np.random.rand(10, 10, 3).astype(np.float32)
+    _ = check_dtype(original)
