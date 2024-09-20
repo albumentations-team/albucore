@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal
+from functools import wraps
+from typing import Any, Callable, Literal
 
 import cv2
 import numpy as np
 
+from albucore.decorators import contiguous, preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
@@ -13,11 +15,9 @@ from albucore.utils import (
     ValueType,
     clip,
     clipped,
-    contiguous,
     convert_value,
     get_max_value,
     get_num_channels,
-    preserve_channel_dim,
 )
 
 np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
@@ -570,6 +570,10 @@ def to_float_lut(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
 
 
 def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
+    if img.dtype == np.float64:
+        return img.astype(np.float32)
+    if img.dtype == np.float32:
+        return img
     if img.dtype == np.uint8:
         return to_float_lut(img, max_value)
     return to_float_numpy(img, max_value)
@@ -620,6 +624,12 @@ def from_float(img: np.ndarray, target_dtype: np.dtype, max_value: float | None 
         - For other input types, it falls back to a numpy-based implementation.
         - The function clips values to ensure they fit within the range of the target data type.
     """
+    if target_dtype == np.float32:
+        return img
+
+    if target_dtype == np.float64:
+        return img.astype(np.float32)
+
     if img.dtype == np.float32:
         return from_float_opencv(img, target_dtype, max_value)
 
@@ -652,3 +662,67 @@ def vflip_numpy(img: np.ndarray) -> np.ndarray:
 
 def vflip(img: np.ndarray) -> np.ndarray:
     return vflip_cv2(img)
+
+
+def float32_io(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
+    """Decorator to ensure float32 input/output for image processing functions.
+
+    This decorator converts the input image to float32 before passing it to the wrapped function,
+    and then converts the result back to the original dtype if it wasn't float32.
+
+    Args:
+        func (Callable[..., np.ndarray]): The image processing function to be wrapped.
+
+    Returns:
+        Callable[..., np.ndarray]: A wrapped function that handles float32 conversion.
+
+    Example:
+        @float32_io
+        def some_image_function(img: np.ndarray) -> np.ndarray:
+            # Function implementation
+            return processed_img
+    """
+
+    @wraps(func)
+    def float32_wrapper(img: np.ndarray, *args: Any, **kwargs: Any) -> np.ndarray:
+        input_dtype = img.dtype
+        if input_dtype != np.float32:
+            img = to_float(img)
+        result = func(img, *args, **kwargs)
+
+        return from_float(result, target_dtype=input_dtype) if input_dtype != np.float32 else result
+
+    return float32_wrapper
+
+
+def uint8_io(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
+    """Decorator to ensure uint8 input/output for image processing functions.
+
+    This decorator converts the input image to uint8 before passing it to the wrapped function,
+    and then converts the result back to the original dtype if it wasn't uint8.
+
+    Args:
+        func (Callable[..., np.ndarray]): The image processing function to be wrapped.
+
+    Returns:
+        Callable[..., np.ndarray]: A wrapped function that handles uint8 conversion.
+
+    Example:
+        @uint8_io
+        def some_image_function(img: np.ndarray) -> np.ndarray:
+            # Function implementation
+            return processed_img
+    """
+
+    @wraps(func)
+    def uint8_wrapper(img: np.ndarray, *args: Any, **kwargs: Any) -> np.ndarray:
+        input_dtype = img.dtype
+
+        if input_dtype != np.uint8:
+            img = from_float(img, target_dtype=np.uint8)
+
+        result = func(img, *args, **kwargs)
+
+        return to_float(result) if input_dtype != np.uint8 else result
+
+    return uint8_wrapper
