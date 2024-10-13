@@ -5,6 +5,7 @@ from typing import Any, Callable, Literal
 
 import cv2
 import numpy as np
+import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
 from albucore.utils import (
@@ -26,7 +27,9 @@ cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
 
 def create_lut_array(
-    dtype: type[np.number], value: float | np.ndarray, operation: Literal["add", "multiply", "power"]
+    dtype: type[np.number],
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -42,16 +45,27 @@ def create_lut_array(
     raise ValueError(f"Unsupported operation: {operation}")
 
 
-def apply_lut(img: np.ndarray, value: float | np.ndarray, operation: Literal["add", "multiply", "power"]) -> np.ndarray:
+def apply_lut(
+    img: np.ndarray,
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
+) -> np.ndarray:
     dtype = img.dtype
+
+    def serialize_lookup_recover(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
+        # Encode image into bytes, perform the lookups and then decode the bytes back to numpy array
+        img_bytes = img.tobytes()
+        lut_bytes = lut.tobytes()
+        sz.translate(img_bytes, lut_bytes)
+        return np.frombuffer(img_bytes, dtype=img.dtype).reshape(img.shape)
 
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return cv2.LUT(img, clip(lut, dtype))
+        return serialize_lookup_recover(img, clip(lut, dtype))
 
     num_channels = img.shape[-1]
     luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
+    return cv2.merge([serialize_lookup_recover(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -84,7 +98,9 @@ def prepare_value_opencv(
 
 
 def apply_numpy(
-    img: np.ndarray, value: float | np.ndarray, operation: Literal["add", "multiply", "power"]
+    img: np.ndarray,
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
     if operation == "add" and img.dtype == np.uint8:
         value = np.int16(value)

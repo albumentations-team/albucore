@@ -52,6 +52,8 @@ pytz==2024.2
 setuptools==74.1.2
     # via pytablewriter
 six==1.16.0
+    # via pandas
+stringzilla==5.10.0
     # via python-dateutil
 sympy==1.13.2
     # via torch
@@ -75,4 +77,4 @@ typepy==1.3.2
 typing-extensions==4.12.2
     # via torch
 tzdata==2024.1
-    # via pandas
+    # via -r requirements.in
