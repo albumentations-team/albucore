@@ -1,6 +1,7 @@
 -f https://download.pytorch.org/whl/torch_stable.html
 
 numpy
+stringzilla
 opencv-python-headless
 tqdm
 pandas
