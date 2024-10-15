@@ -15,9 +15,9 @@ def test_normalize(img, factor, shift, expected):
     result = normalize(img, factor, shift)
     result_np = normalize_numpy(img, factor, shift)
     result_cv2 = normalize_opencv(img, factor, shift)
-    np.array_equal(result, expected)
-    np.array_equal(result_np, expected)
-    np.array_equal(result_cv2, expected)
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(result_np, expected)
+    np.testing.assert_array_equal(result_cv2, expected)
 
 
 @pytest.mark.parametrize("img, denominator, mean, expected", [
@@ -37,10 +37,10 @@ def test_normalize_lut(img, denominator, mean, expected):
     result_np = normalize_numpy(img, mean, denominator)
     result_cv2 = normalize_opencv(img, mean, denominator)
 
-    np.array_equal(result, expected)
-    np.array_equal(result_lut, expected)
-    np.array_equal(result_np, expected)
-    np.array_equal(result_cv2, expected)
+    np.testing.assert_allclose(result, expected, atol=1e-6)
+    np.testing.assert_allclose(result_lut, expected, atol=1e-6)
+    np.testing.assert_allclose(result_np, expected, atol=1e-6)
+    np.testing.assert_allclose(result_cv2, expected, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -68,12 +68,12 @@ def test_normalize_np_cv_equal(image, mean, std):
     res1 = normalize_numpy(image, mean, denominator)
     res2 = normalize_opencv(image, mean, converted_denominator)
 
-    assert np.array_equal(image.shape, res1.shape)
-    assert np.array_equal(image.shape, res2.shape)
-    assert np.array_equal(image.shape, res3.shape)
+    np.testing.assert_array_equal(image.shape, res1.shape)
+    np.testing.assert_array_equal(image.shape, res2.shape)
+    np.testing.assert_array_equal(image.shape, res3.shape)
 
-    assert np.allclose(res1, res2, atol=1e-7), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
-    assert np.allclose(res1, res3, atol=1e-6), f"mean: {(res1 - res3).mean()}, max: {(res1 - res3).max()}"
+    np.testing.assert_allclose(res1, res2, atol=1e-6)
+    np.testing.assert_allclose(res1, res3, atol=1e-6)
 
 
 @pytest.mark.parametrize("dtype", [
@@ -91,4 +91,4 @@ def test_normalize(dtype, shape) -> None:
     assert normalized.dtype == np.float32
 
     expected = (np.ones(img.shape, dtype=np.float32) * 0.4 - 50) / 3
-    assert_array_almost_equal_nulp(normalized, expected)
+    np.testing.assert_array_almost_equal_nulp(normalized, expected)

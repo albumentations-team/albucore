@@ -1,4 +1,4 @@
-# Benchmark Results: HorizontalFlip
+# Benchmark Results: MultiplyVector
 
 Number of images: 100
 
@@ -19,9 +19,9 @@ Number of images: 100
 ## Performance (images/second)
 
 Raw data:
-                         albucore  lut             opencv             numpy       torchvision
-HorizontalFlip  15814.60 ± 797.59  nan  16251.42 ± 838.37  6055.03 ± 105.57  7469.36 ± 247.32
+                        albucore               lut           opencv            numpy      torchvision
+MultiplyVector  7968.70 ± 172.10  9936.34 ± 278.80  1336.43 ± 10.80  1548.55 ± 11.43  3296.31 ± 51.40
 
-|                | albucore          |   lut | opencv            | numpy            | torchvision      |
-|:---------------|:------------------|------:|:------------------|:-----------------|:-----------------|
-| HorizontalFlip | 15814.60 ± 797.59 |   nan | 16251.42 ± 838.37 | 6055.03 ± 105.57 | 7469.36 ± 247.32 |
+|                | albucore         | lut              | opencv          | numpy           | torchvision     |
+|:---------------|:-----------------|:-----------------|:----------------|:----------------|:----------------|
+| MultiplyVector | 7968.70 ± 172.10 | 9936.34 ± 278.80 | 1336.43 ± 10.80 | 1548.55 ± 11.43 | 3296.31 ± 51.40 |

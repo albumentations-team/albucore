@@ -22,7 +22,6 @@ You can install the required packages using:
 pip install -r requirements.txt
 ```
 
-
 ## Running the Benchmark
 
 1. Clone this repository:
@@ -61,8 +60,8 @@ The benchmark produces the following output:
    - Image size
    - Number of channels
    - Total number of pixels
-   - Execution time for `cv2.LUT` (mean ± std dev)
-   - Execution time for `sz_lut` (mean ± std dev)
+   - Execution time for `cv2.LUT` (mean ± std err)
+   - Execution time for `sz_lut` (mean ± std err)
    - Speedup (mean ± error)
 
 2. Average speedup across all tests

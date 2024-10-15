@@ -145,7 +145,6 @@ def apply_numpy(
     return np_operations[operation](img.astype(np.float32), value)
 
 
-# @preserve_channel_dim
 def multiply_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     return apply_lut(img, value, "multiply")
 
@@ -217,7 +216,6 @@ def add_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "add")
 
 
-# @preserve_channel_dim
 def add_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     return apply_lut(img, value, "add")
 

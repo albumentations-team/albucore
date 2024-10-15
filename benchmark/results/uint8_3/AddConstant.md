@@ -1,4 +1,4 @@
-# Benchmark Results: HorizontalFlip
+# Benchmark Results: AddConstant
 
 Number of images: 100
 
@@ -19,9 +19,9 @@ Number of images: 100
 ## Performance (images/second)
 
 Raw data:
-                         albucore  lut             opencv             numpy       torchvision
-HorizontalFlip  15814.60 ± 797.59  nan  16251.42 ± 838.37  6055.03 ± 105.57  7469.36 ± 247.32
+                     albucore               lut            opencv          numpy     torchvision
+AddConstant  3024.19 ± 156.17  3326.05 ± 125.46  4352.37 ± 150.81  403.48 ± 5.75  719.59 ± 16.25
 
-|                | albucore          |   lut | opencv            | numpy            | torchvision      |
-|:---------------|:------------------|------:|:------------------|:-----------------|:-----------------|
-| HorizontalFlip | 15814.60 ± 797.59 |   nan | 16251.42 ± 838.37 | 6055.03 ± 105.57 | 7469.36 ± 247.32 |
+|             | albucore         | lut              | opencv           | numpy         | torchvision    |
+|:------------|:-----------------|:-----------------|:-----------------|:--------------|:---------------|
+| AddConstant | 3024.19 ± 156.17 | 3326.05 ± 125.46 | 4352.37 ± 150.81 | 403.48 ± 5.75 | 719.59 ± 16.25 |

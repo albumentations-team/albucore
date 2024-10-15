@@ -1,4 +1,4 @@
-# Benchmark Results: HorizontalFlip
+# Benchmark Results: AddArray
 
 Number of images: 100
 
@@ -19,9 +19,9 @@ Number of images: 100
 ## Performance (images/second)
 
 Raw data:
-                         albucore  lut             opencv             numpy       torchvision
-HorizontalFlip  15814.60 ± 797.59  nan  16251.42 ± 838.37  6055.03 ± 105.57  7469.36 ± 247.32
+               albucore  lut         opencv          numpy    torchvision
+AddArray  165.73 ± 3.99  nan  108.37 ± 7.02  127.24 ± 2.54  122.78 ± 2.22
 
-|                | albucore          |   lut | opencv            | numpy            | torchvision      |
-|:---------------|:------------------|------:|:------------------|:-----------------|:-----------------|
-| HorizontalFlip | 15814.60 ± 797.59 |   nan | 16251.42 ± 838.37 | 6055.03 ± 105.57 | 7469.36 ± 247.32 |
+|          | albucore      |   lut | opencv        | numpy         | torchvision   |
+|:---------|:--------------|------:|:--------------|:--------------|:--------------|
+| AddArray | 165.73 ± 3.99 |   nan | 108.37 ± 7.02 | 127.24 ± 2.54 | 122.78 ± 2.22 |

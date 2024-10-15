@@ -1,4 +1,4 @@
-# Benchmark Results: HorizontalFlip
+# Benchmark Results: Normalize
 
 Number of images: 100
 
@@ -19,9 +19,9 @@ Number of images: 100
 ## Performance (images/second)
 
 Raw data:
-                         albucore  lut             opencv             numpy       torchvision
-HorizontalFlip  15814.60 ± 797.59  nan  16251.42 ± 838.37  6055.03 ± 105.57  7469.36 ± 247.32
+                 albucore            lut        opencv          numpy    torchvision
+Normalize  248.03 ± 10.94  261.17 ± 5.82  96.01 ± 0.23  120.34 ± 0.29  436.90 ± 3.48
 
-|                | albucore          |   lut | opencv            | numpy            | torchvision      |
-|:---------------|:------------------|------:|:------------------|:-----------------|:-----------------|
-| HorizontalFlip | 15814.60 ± 797.59 |   nan | 16251.42 ± 838.37 | 6055.03 ± 105.57 | 7469.36 ± 247.32 |
+|           | albucore       | lut           | opencv       | numpy         | torchvision   |
+|:----------|:---------------|:--------------|:-------------|:--------------|:--------------|
+| Normalize | 248.03 ± 10.94 | 261.17 ± 5.82 | 96.01 ± 0.23 | 120.34 ± 0.29 | 436.90 ± 3.48 |

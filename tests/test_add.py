@@ -188,14 +188,14 @@ from albucore import (
 def test_add_consistency(img, value, expected_output):
     result_numpy = clip(add_numpy(img, value), img.dtype)
 
-    assert np.allclose(result_numpy, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_numpy, expected_output, atol=1e-6)
 
     result_opencv = clip(add_opencv(img, value), img.dtype)
-    assert np.allclose(result_opencv, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8 and not (isinstance(value, np.ndarray) and value.ndim > 1):
         result_lut = add_lut(img, value)
-        assert np.allclose(result_lut, expected_output, atol=1e-6)
+        np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -239,22 +239,21 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
     result_numpy = clip(add_numpy(img, processed_value), img_dtype)
 
     result_opencv = clip(add_opencv(img, processed_value), img.dtype)
-    assert np.array_equal(img, original_image), "Input image was modified"
-
-    assert np.allclose(result_opencv, result_numpy, atol=1e-6)
+    np.testing.assert_array_equal(img, original_image)
+    np.testing.assert_array_equal(result_opencv, result_numpy)
 
     if img.dtype == np.uint8:
         result_lut = add_lut(img, processed_value)
-        assert np.array_equal(result_numpy, result_lut), f"Difference {(result_numpy - result_lut).mean()}"
+        np.testing.assert_array_equal(result_numpy, result_lut)
 
     result = add(img, value)
 
     assert result.dtype == img.dtype
     assert result.shape == img.shape
 
-    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    np.testing.assert_array_equal(result, result_opencv)
 
-    assert np.array_equal(img, original_image), "Input image was modified"
+    np.testing.assert_array_equal(img, original_image)
 
 
 @pytest.mark.parametrize(
@@ -282,6 +281,6 @@ def test_shift_rgb_float(shift_params, expected):
         np.ones((100, 100), dtype=np.float32) * channel_value for channel_value in expected
     ]
     assert img.dtype == np.dtype("float32")
-    np.array_equal(img[:, :, 0], expected_r)
-    np.array_equal(img[:, :, 1], expected_g)
-    np.array_equal(img[:, :, 2], expected_b)
+    np.testing.assert_array_equal(img[:, :, 0], expected_r)
+    np.testing.assert_array_equal(img[:, :, 1], expected_g)
+    np.testing.assert_array_equal(img[:, :, 2], expected_b)

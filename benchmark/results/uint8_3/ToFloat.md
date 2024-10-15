@@ -1,6 +1,6 @@
 # Benchmark Results: ToFloat
 
-Number of images: 1000
+Number of images: 100
 
 ## CPU Information
 
@@ -11,17 +11,17 @@ Number of images: 1000
 
 ## Package Versions
 
-| Python                                   | albucore   | opencv-python-headless   | numpy   | torchvision   |
-|:-----------------------------------------|:-----------|:-------------------------|:--------|:--------------|
-| 3.8.19 (default, Mar 20 2024, 15:27:52)  | 0.0.12     | 4.10.0.84                | 1.24.4  | 0.19.1        |
-| [Clang 14.0.6 ]                          |            |                          |         |               |
+| Python                                | albucore   | opencv-python-headless   | numpy   | torchvision   |
+|:--------------------------------------|:-----------|:-------------------------|:--------|:--------------|
+| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.17     | 4.10.0.84                | 2.0.2   | 0.19.1        |
+| [Clang 14.0.6 ]                       |            |                          |         |               |
 
 ## Performance (images/second)
 
 Raw data:
-          albucore        lut    opencv     numpy torchvision
-ToFloat  1097 ± 99  1242 ± 81  734 ± 25  818 ± 55  1147 ± 180
+              albucore            lut         opencv          numpy    torchvision
+ToFloat  497.26 ± 5.27  501.28 ± 3.17  357.40 ± 4.45  343.51 ± 5.68  852.16 ± 7.21
 
-|         | albucore   | lut       | opencv   | numpy    | torchvision   |
-|:--------|:-----------|:----------|:---------|:---------|:--------------|
-| ToFloat | 1097 ± 99  | 1242 ± 81 | 734 ± 25 | 818 ± 55 | 1147 ± 180    |
+|         | albucore      | lut           | opencv        | numpy         | torchvision   |
+|:--------|:--------------|:--------------|:--------------|:--------------|:--------------|
+| ToFloat | 497.26 ± 5.27 | 501.28 ± 3.17 | 357.40 ± 4.45 | 343.51 ± 5.68 | 852.16 ± 7.21 |

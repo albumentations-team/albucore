@@ -77,14 +77,14 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 )
 def test_multiply_add_numpy(img, value, factor, expected_output):
     result_numpy = clip(multiply_add_numpy(img, factor, value), img.dtype)
-    assert np.allclose(result_numpy, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_numpy, expected_output, atol=1e-6)
 
     result_opencv = clip(multiply_add_opencv(img, factor, value), img.dtype)
-    assert np.allclose(result_opencv, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8:
         result_lut = multiply_add_lut(img, factor, value)
-        assert np.allclose(result_lut, expected_output, atol=1e-6)
+        np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -123,15 +123,15 @@ def test_multiply_add(img_dtype, num_channels, value, factor, is_contiguous):
     assert result.shape == original_img.shape
     assert result.dtype == original_img.dtype
 
-    assert np.array_equal(img, original_img), "Input img was modified"
+    np.testing.assert_array_equal(img, original_img)
 
     result_numpy = clip(multiply_add_numpy(img, factor, value), img_dtype)
-    assert np.allclose(result, result_numpy, atol=1e-6)
+    np.testing.assert_allclose(result, result_numpy, atol=1e-6)
 
 
     if img.dtype == np.uint8:
         result_lut = clip(multiply_add_lut(img, factor, value), img.dtype)
-        assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
+        np.testing.assert_array_equal(result, result_lut)
 
     result_opencv = clip(multiply_add_opencv(img, factor, value), img.dtype)
-    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    np.testing.assert_array_equal(result, result_opencv)
