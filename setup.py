@@ -7,7 +7,8 @@ from setuptools import find_packages, setup
 
 INSTALL_REQUIRES = [
     "numpy>=1.24",
-    "typing-extensions>=4.9.0; python_version<'3.10'"
+    "typing-extensions>=4.9.0; python_version<'3.10'",
+    "stringzilla==5.10.0"
 ]
 
 MIN_OPENCV_VERSION = "4.9.0.80"
@@ -71,11 +72,11 @@ setup(
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",

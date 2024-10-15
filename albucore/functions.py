@@ -45,6 +45,50 @@ def create_lut_array(
     raise ValueError(f"Unsupported operation: {operation}")
 
 
+def sz_lut(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
+    """Apply a lookup table (LUT) to an image using StringZilla for efficient processing.
+
+    This function performs a lookup table operation on the input image, similar to cv2.LUT,
+    but utilizes StringZilla's translate function for potentially faster processing,
+    especially for larger images. However, unlike cv2.LUT, sz_lut is limited to uint8-to-uint8
+    mappings only.
+
+    Args:
+        img (np.ndarray): Input image array. Must be of type uint8 and can be either
+                          2D (grayscale) or 3D (multi-channel) array.
+        lut (np.ndarray): Lookup table array. Must be a 1D array of 256 elements,
+                          representing the mapping for each possible pixel value (0-255).
+                          Must be of type uint8.
+
+    Returns:
+        np.ndarray: Processed image array with the same shape and dtype (uint8) as the input image.
+
+    Raises:
+        ValueError: If the input image is not of type uint8.
+        ValueError: If the LUT array is not of type uint8 or does not have exactly 256 elements.
+
+    Notes:
+        - This function is designed to work efficiently with uint8 images and LUTs only.
+        - For multi-channel images, the same LUT is applied to all channels.
+        - The function uses StringZilla's translate method, which operates on byte buffers,
+          potentially offering performance benefits over traditional numpy operations.
+        - Unlike cv2.LUT, sz_lut cannot perform uint8-to-float mappings. This limits its
+          use in operations like normalization where float output is required.
+
+    Example:
+        >>> img = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
+        >>> lut = np.arange(256, dtype=np.uint8)[::-1]  # Invert LUT
+        >>> inverted_img = sz_lut(img, lut)
+
+    See Also:
+        cv2.LUT: OpenCV's LUT function, which supports uint8-to-float mappings.
+    """
+    img_bytes = img.tobytes()
+    lut_bytes = lut.tobytes()
+    img_bytes = sz.translate(img_bytes, lut_bytes)
+    return np.frombuffer(img_bytes, dtype=img.dtype).reshape(img.shape)
+
+
 def apply_lut(
     img: np.ndarray,
     value: float | np.ndarray,
@@ -52,20 +96,13 @@ def apply_lut(
 ) -> np.ndarray:
     dtype = img.dtype
 
-    def serialize_lookup_recover(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
-        # Encode image into bytes, perform the lookups and then decode the bytes back to numpy array
-        img_bytes = img.tobytes()
-        lut_bytes = lut.tobytes()
-        sz.translate(img_bytes, lut_bytes)
-        return np.frombuffer(img_bytes, dtype=img.dtype).reshape(img.shape)
-
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return serialize_lookup_recover(img, clip(lut, dtype))
+        return sz_lut(img, clip(lut, dtype))
 
     num_channels = img.shape[-1]
     luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([serialize_lookup_recover(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -108,7 +145,7 @@ def apply_numpy(
     return np_operations[operation](img.astype(np.float32), value)
 
 
-@preserve_channel_dim
+# @preserve_channel_dim
 def multiply_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     return apply_lut(img, value, "multiply")
 
@@ -180,7 +217,7 @@ def add_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "add")
 
 
-@preserve_channel_dim
+# @preserve_channel_dim
 def add_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     return apply_lut(img, value, "add")
 
@@ -298,7 +335,7 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
 
-@preserve_channel_dim
+# @preserve_channel_dim
 def power_lut(img: np.ndarray, exponent: float | np.ndarray) -> np.ndarray:
     return apply_lut(img, exponent, "power")
 
@@ -365,10 +402,7 @@ def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> 
 
     result = np.multiply(img, factor) if factor != 0 else np.zeros_like(img)
 
-    if value != 0:
-        return np.add(result, value)
-
-    return result
+    return result if value == 0 else np.add(result, value)
 
 
 @preserve_channel_dim
@@ -382,12 +416,10 @@ def multiply_add_opencv(img: np.ndarray, factor: ValueType, value: ValueType) ->
         if factor != 0
         else np.zeros_like(result, dtype=img.dtype)
     )
-    if value != 0:
-        result = cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
-    return result
+    return result if value == 0 else cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
 
 
-@preserve_channel_dim
+# @preserve_channel_dim
 def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
@@ -395,7 +427,7 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
         lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
-        return cv2.LUT(img, lut)
+        return sz_lut(img, lut)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
         factor = factor.reshape(-1, 1)
@@ -405,7 +437,7 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np
 
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
 
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], luts[i]) for i in range(num_channels)])
 
 
 @clipped
