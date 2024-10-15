@@ -27,7 +27,7 @@ pip install -r requirements.txt
 Run the benchmark script from the root of the repo:
 
 ```bash
-python -m benchmark.benchmark_lut --runs 100
+python -m benchmark.stringzilla_vs_cv2_lut.benchmark_lut --runs 100
 ```
 
 The `--runs` argument specifies how many times each test should be repeated for more accurate results. Default is 100.

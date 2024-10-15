@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("-r", "--runs", default=5, type=int, metavar="N", help="number of runs for each benchmark")
     parser.add_argument(
-        "--show-ste", dest="show_ste", action="store_true", help="show standard error for benchmark runs"
+        "--show-std", dest="show_std", action="store_true", help="show standard deviation for benchmark runs"
     )
     parser.add_argument("-p", "--print-package-versions", action="store_true", help="print versions of packages")
     parser.add_argument("-m", "--markdown", action="store_true", help="print benchmarking results as a markdown table")
@@ -739,7 +739,7 @@ def main() -> None:
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)
 
-    df = df.map(lambda r: format_results(r, num_images, args.show_ste) if r is not None else None)
+    df = df.map(lambda r: format_results(r, args.show_std) if r is not None else None)
 
     transform_names = [str(tr(num_channels)) for tr in benchmark_classes]
 

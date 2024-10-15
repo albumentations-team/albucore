@@ -24,11 +24,8 @@ pip install -r requirements.txt
 
 ## Running the Benchmark
 
-To run the benchmark, use the following command:
-
-## Running the Benchmark
-
 Run the benchmark script from the root of the repo:
+
 ```bash
 python -m benchmark.albucore_benchmark.benchmark -d /path/to/image/directory -n 2000 -c 3 -t uint8 -r 5 -m
 ```
@@ -40,7 +37,7 @@ Options:
 - `-c, --num_channels`: Number of channels in the images (default: 3)
 - `-t, --img_type`: Image data type ('float32' or 'uint8', default: 'uint8')
 - `-r, --runs`: Number of runs for each benchmark (default: 5)
-- `--show-ste`: Show standard error for benchmark runs
+- `--show-std`: Show standard deviation for benchmark runs
 - `-p, --print-package-versions`: Print versions of packages used
 - `-m, --markdown`: Print benchmarking results as a markdown table
 - `-b, --benchmark`: Specific benchmark class to run (if not provided, all benchmarks will be run)

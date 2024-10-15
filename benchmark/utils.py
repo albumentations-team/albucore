@@ -109,7 +109,7 @@ class MarkdownGenerator:
             f.write(self.generate_markdown_table())
 
 
-def format_results(images_per_second_for_aug: list[list[float | None]], num_images: int, show_ste: bool = True) -> str:
+def format_results(images_per_second_for_aug: list[list[float | None]], show_std: bool = True) -> str:
     if not images_per_second_for_aug or all(not run for run in images_per_second_for_aug):
         return "N/A"
 
@@ -121,12 +121,10 @@ def format_results(images_per_second_for_aug: list[list[float | None]], num_imag
 
     mean = np.mean(values)
 
-    if show_ste and len(values) > 1:
-        # Standard error = sigma / √(n * m), where sigma is the standard deviation of the runs,
-        # n is the number of runs, and m is the number of images per run
-        se = np.std(values, ddof=1) / np.sqrt(len(values) * num_images)
-        return f"{mean:.2f} ± {se:.2f}"
-    if show_ste:
+    if show_std and len(values) > 1:
+        std = np.std(values)
+        return f"{mean:.2f} ± {std:.2f}"
+    if show_std:
         # If there's only one run, we can't calculate the standard error
         return f"{mean:.2f} ± N/A"
 
