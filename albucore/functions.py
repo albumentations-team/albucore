@@ -417,7 +417,6 @@ def multiply_add_opencv(img: np.ndarray, factor: ValueType, value: ValueType) ->
     return result if value == 0 else cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
 
 
-# @preserve_channel_dim
 def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]

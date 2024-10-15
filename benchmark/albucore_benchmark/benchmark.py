@@ -604,9 +604,9 @@ def run_single_benchmark(
     num_images: int,
     to_skip: dict[str, dict[str, bool]],
     unsupported_types: dict[str, list[str]],
-) -> dict[str, dict[str, list[float | None]]]:
+) -> dict[str, dict[str, list[list[float | None]]]]:
     benchmark = benchmark_class(num_channels)
-    library_results: dict[str, list[float | None]] = {str(benchmark): []}
+    library_results: dict[str, list[list[float | None]]] = {str(benchmark): []}
 
     # Skip if library does not support the img_type
     if img_type in unsupported_types.get(library, []):
@@ -623,14 +623,15 @@ def run_single_benchmark(
                 benchmark_images_per_second: list[float | None] = [
                     1 / (total_time / num_images) if total_time is not None else None for total_time in run_times
                 ]
-            except Exception as e:
-                print(f"Error running benchmark for {library}: {e}")
-                benchmark_images_per_second = [None]
+                library_results[str(benchmark)].append(benchmark_images_per_second)
+            except NotImplementedError:
+                library_results[str(benchmark)].append([None] * num_images)
+                to_skip[library][str(benchmark)] = True
+            except Exception:
+                library_results[str(benchmark)].append([None] * num_images)
                 to_skip[library][str(benchmark)] = True
         else:
-            benchmark_images_per_second = [None]
-
-        library_results[str(benchmark)].extend(benchmark_images_per_second)
+            library_results[str(benchmark)].append([None] * num_images)
 
     return {library: library_results}
 
@@ -644,8 +645,8 @@ def run_benchmarks(
     num_images: int,
     runs: int,
     img_type: str,
-) -> dict[str, dict[str, list[float | None]]]:
-    images_per_second: dict[str, dict[str, list[float | None]]] = {lib: {} for lib in libraries}
+) -> dict[str, dict[str, list[list[float | None]]]]:
+    images_per_second: dict[str, dict[str, list[list[float | None]]]] = {lib: {} for lib in libraries}
     to_skip: dict[str, dict[str, bool]] = {lib: {} for lib in libraries}
     unsupported_types: dict[str, list[str]] = {}
 
@@ -680,9 +681,9 @@ def run_benchmarks(
                     )
                     for lib, results in result.items():
                         for benchmark_name, benchmark_results in results.items():
-                            images_per_second[lib].setdefault(benchmark_name, []).extend(benchmark_results)
+                            images_per_second[lib][benchmark_name] = benchmark_results
                 except Exception as e:
-                    print(f"Exception running benchmark for {library} with {benchmark_class}: {e}")
+                    print(f"  Exception running benchmark for {library}: {e}")
                 progress_bar.update(1)
 
     return images_per_second
@@ -737,12 +738,21 @@ def main() -> None:
 
     pd.set_option("display.width", 1000)
     df = pd.DataFrame.from_dict(images_per_second)
-    df = df.applymap(lambda r: format_results(r, args.show_ste) if r is not None else None)
 
-    transforms = [tr(num_channels) for tr in benchmark_classes]
+    df = df.map(lambda r: format_results(r, num_images, args.show_ste) if r is not None else None)
 
-    df = df.reindex(transforms)
+    transform_names = [str(tr(num_channels)) for tr in benchmark_classes]
+
+    df = df.reindex(transform_names)
     df = df[DEFAULT_BENCHMARKING_LIBRARIES]
+
+    print("\nBenchmark Results:")
+    print(df)
+
+    print("\nBenchmarks not run or with no results:")
+    for benchmark_name in transform_names:
+        if benchmark_name not in df.index or df.loc[benchmark_name].isna().all():
+            print(f"- {benchmark_name}")
 
     if args.markdown:
         results_dir = Path(__file__).parent / "results"
@@ -753,6 +763,7 @@ def main() -> None:
         subfolder.mkdir(parents=True, exist_ok=True)
 
         for benchmark_class in benchmark_classes:
+            print(f"- {benchmark_class.__name__}")
             benchmark_name = benchmark_class.__name__
             file_path = subfolder / f"{benchmark_name}.md"
 
@@ -771,16 +782,13 @@ def main() -> None:
                 index=[benchmark_name],
             )
 
-            print(f"Debug: Benchmark DataFrame for {benchmark_name}:")
-            print(benchmark_df)
-
             if benchmark_df.empty:
-                print(f"No results for {benchmark_name}. Skipping markdown generation.")
                 continue
+
+            print(benchmark_df)
 
             markdown_generator = MarkdownGenerator(benchmark_df, package_versions, num_images)
             markdown_generator.save_markdown_table(file_path)
-            print(f"Benchmark results for {benchmark_name} saved to {file_path}")
 
 
 if __name__ == "__main__":

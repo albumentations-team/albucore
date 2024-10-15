@@ -24,7 +24,7 @@ for ch in "${channels[@]}"; do
             --num_channels $ch \
             --img_type $type \
             --markdown \
-            -n 100 \
+            -n 1000 \
             --show-ste \
             -r 5 \
             -d "$data_dir"

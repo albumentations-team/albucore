@@ -109,27 +109,28 @@ class MarkdownGenerator:
             f.write(self.generate_markdown_table())
 
 
-def format_results(images_per_second_for_aug: float | list[float], show_std: bool = True) -> str:
-    if isinstance(images_per_second_for_aug, (int, float)):
-        return f"{images_per_second_for_aug:.0f}"
-
-    if all(x is None for x in images_per_second_for_aug):
+def format_results(images_per_second_for_aug: list[list[float | None]], num_images: int, show_ste: bool = True) -> str:
+    if not images_per_second_for_aug or all(not run for run in images_per_second_for_aug):
         return "N/A"
 
-    filtered_results = [x for x in images_per_second_for_aug if x is not None]
+    # Extract the single value from each run, ignoring None values
+    values = [run[0] for run in images_per_second_for_aug if run and run[0] is not None]
 
-    if not filtered_results:
+    if not values:
         return "N/A"
 
-    mean = np.mean(filtered_results)
+    mean = np.mean(values)
 
-    if show_std:
-        std = np.std(filtered_results)
-        n = len(filtered_results)
-        se = std / np.sqrt(n)  # Calculate standard error
-        return f"{mean:.2f} ± {se:.2f}"  # Changed to 2 decimal places for more precision
+    if show_ste and len(values) > 1:
+        # Standard error = sigma / √(n * m), where sigma is the standard deviation of the runs,
+        # n is the number of runs, and m is the number of images per run
+        se = np.std(values, ddof=1) / np.sqrt(len(values) * num_images)
+        return f"{mean:.2f} ± {se:.2f}"
+    if show_ste:
+        # If there's only one run, we can't calculate the standard error
+        return f"{mean:.2f} ± N/A"
 
-    return f"{mean:.2f}"  # Changed to 2 decimal places for consistency
+    return f"{mean:.2f}"
 
 
 def get_markdown_table(data: dict[str, str]) -> str:
