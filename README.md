@@ -1,45 +1,62 @@
-# Albucore
+# Albucore: High-Performance Image Processing Functions
 
-Albucore is a high-performance image processing library designed to optimize operations on images using Python and OpenCV, building upon the foundations laid by the popular Albumentations library. It offers specialized optimizations for different image data types and aims to provide faster processing times through efficient algorithm implementations.
+Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [Albumentations](https://github.com/albumentations-team/albumentations), a popular image augmentation library.
 
-## Features
+## Overview
 
-- Optimized image multiplication operations for both `uint8` and `float32` data types.
-- Support for single-channel and multi-channel images.
-- Custom decorators to manage channel dimensions and output constraints.
+Image processing operations can be implemented in various ways, each with its own performance characteristics depending on the image type, size, and number of channels. Albucore aims to provide the fastest implementation for each operation by leveraging different backends such as NumPy, OpenCV, and custom optimized code.
+
+Key features:
+
+- Optimized atomic image processing functions
+- Automatic selection of the fastest implementation based on input image characteristics
+- Seamless integration with Albumentations
+- Extensive benchmarking for performance validation
 
 ## Installation
 
-Install Albucore using pip:
-
 ```bash
-pip install -U albucore
+pip install albucore
 ```
 
-## Example
-
-Here's how you can use Albucore to multiply an image by a constant or a vector:
+## Usage
 
 ```python
-import cv2
 import numpy as np
-from albucore import multiply
-
-# Load an image
-img = cv2.imread('path_to_your_image.jpg')
-
-# Multiply by a constant
-multiplied_image = multiply(img, 1.5)
-
-# Multiply by a vector
-multiplier = [1.5, 1.2, 0.9]  # Different multiplier for each channel
-multiplied_image = multiply(img, multiplier)
+import albucore
+# sCreate a sample image
+image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+# Apply a function
+result = albucore.multiply(image, 1.5)
 ```
 
-## Benchmarks
+Albucore automatically selects the most efficient implementation based on the input image type and characteristics.
 
-For detailed benchmark results, including other configurations and data types, refer to the [Benchmark](benchmark/results/) in the repository.
+## Functions
+
+Albucore includes optimized implementations for various image processing operations, including:
+
+- Arithmetic operations (add, multiply, power)
+- Normalization (per-channel, global)
+- Geometric transformations (vertical flip, horizontal flip)
+- Helper decorators (to_float, to_uint8)
+
+## Performance
+
+Albucore uses a combination of techniques to achieve high performance:
+
+1. **Multiple Implementations**: Each function may have several implementations using different backends (NumPy, OpenCV, custom code).
+2. **Automatic Selection**: The library automatically chooses the fastest implementation based on the input image type, size, and number of channels.
+3. **Optimized Algorithms**: Custom implementations are optimized for specific use cases, often outperforming general-purpose libraries.
+
+### Benchmarks
+
+We maintain an extensive benchmark suite to ensure Albucore's performance across various scenarios. You can find the benchmarks and their results in the [benchmarks](./benchmarks/README.md) directory.
 
 ## License
 
-Distributed under the MIT License. See LICENSE for more information.
+MIT
+
+## Acknowledgements
+
+Albucore is part of the [Albumentations](https://github.com/albumentations-team/albumentations) project. We'd like to thank all contributors to [Albumentations](https://albumentations.ai/) and the broader computer vision community for their inspiration and support.
