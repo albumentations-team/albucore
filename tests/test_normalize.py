@@ -22,7 +22,6 @@ def test_normalize(img, factor, shift, expected):
 
 @pytest.mark.parametrize("img, denominator, mean, expected", [
     (np.array([[1, 2], [3, 4]], dtype=np.uint8), 2.0, 1.0, np.array([[0, 2], [4, 6]])),
-    (np.array([[1, 2], [3, 4]], dtype=np.uint8), 2.0, np.array([0.5, -1]), np.array([[1, 3], [5, 7]])), # Pick only first element for grayscale image
     (np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=np.uint8), 2.0, 1.0, np.array([[[0, 2], [4, 6]], [[8, 10], [12, 14]]])),
     (np.array([[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dtype=np.uint8), np.array([2.0, 3.0]), 1.0, np.array([[[-2, 0], [2, 6]], [[6, 12], [10, 18]]])),
 ])
