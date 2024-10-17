@@ -45,48 +45,12 @@ def create_lut_array(
     raise ValueError(f"Unsupported operation: {operation}")
 
 
-def sz_lut(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
-    """Apply a lookup table (LUT) to an image using StringZilla for efficient processing.
+def sz_lut(img: np.ndarray, lut: np.ndarray, inplace: bool = False) -> np.ndarray:
+    if not inplace:
+        img = img.copy()
 
-    This function performs a lookup table operation on the input image, similar to cv2.LUT,
-    but utilizes StringZilla's translate function for potentially faster processing,
-    especially for larger images. However, unlike cv2.LUT, sz_lut is limited to uint8-to-uint8
-    mappings only.
-
-    Args:
-        img (np.ndarray): Input image array. Must be of type uint8 and can be either
-                          2D (grayscale) or 3D (multi-channel) array.
-        lut (np.ndarray): Lookup table array. Must be a 1D array of 256 elements,
-                          representing the mapping for each possible pixel value (0-255).
-                          Must be of type uint8.
-
-    Returns:
-        np.ndarray: Processed image array with the same shape and dtype (uint8) as the input image.
-
-    Raises:
-        ValueError: If the input image is not of type uint8.
-        ValueError: If the LUT array is not of type uint8 or does not have exactly 256 elements.
-
-    Notes:
-        - This function is designed to work efficiently with uint8 images and LUTs only.
-        - For multi-channel images, the same LUT is applied to all channels.
-        - The function uses StringZilla's translate method, which operates on byte buffers,
-          potentially offering performance benefits over traditional numpy operations.
-        - Unlike cv2.LUT, sz_lut cannot perform uint8-to-float mappings. This limits its
-          use in operations like normalization where float output is required.
-
-    Example:
-        >>> img = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
-        >>> lut = np.arange(256, dtype=np.uint8)[::-1]  # Invert LUT
-        >>> inverted_img = sz_lut(img, lut)
-
-    See Also:
-        cv2.LUT: OpenCV's LUT function, which supports uint8-to-float mappings.
-    """
-    img_bytes = img.tobytes()
-    lut_bytes = lut.tobytes()
-    img_bytes = sz.translate(img_bytes, lut_bytes)
-    return np.frombuffer(img_bytes, dtype=img.dtype).reshape(img.shape)
+    sz.translate(memoryview(img), memoryview(lut), inplace=True)
+    return img
 
 
 def apply_lut(

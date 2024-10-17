@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 INSTALL_REQUIRES = [
     "numpy>=1.24",
     "typing-extensions>=4.9.0; python_version<'3.10'",
-    "stringzilla==3.10.0"
+    "stringzilla==3.10.4"
 ]
 
 MIN_OPENCV_VERSION = "4.9.0.80"
