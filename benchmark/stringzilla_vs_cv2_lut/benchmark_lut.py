@@ -36,12 +36,16 @@ def generate_lut() -> np.ndarray:
 
 
 def benchmark_lut(
-    func: Callable[[np.ndarray, np.ndarray], np.ndarray], img: np.ndarray, lut: np.ndarray, number: int = 100
+    func: Callable[[np.ndarray, np.ndarray, bool], np.ndarray],
+    img: np.ndarray,
+    lut: np.ndarray,
+    number: int = 100,
+    inplace: bool = False,
 ) -> tuple[float, float]:
     times = []
     for _ in range(number):
         start = time.perf_counter()
-        func(img, lut)
+        func(img, lut, inplace)
         end = time.perf_counter()
         times.append(end - start)
     mean = np.mean(times)
@@ -49,7 +53,14 @@ def benchmark_lut(
     return mean, sem
 
 
-def run_benchmarks(num_runs: int) -> pd.DataFrame:
+def cv2_lut(img: np.ndarray, lut: np.ndarray, inplace: bool = False) -> np.ndarray:
+    if inplace:
+        cv2.LUT(img, lut, dst=img)
+        return img
+    return cv2.LUT(img, lut)
+
+
+def run_benchmarks(num_runs: int, inplace: bool) -> pd.DataFrame:
     image_sizes: list[tuple[int, int]] = [(100, 100), (500, 500), (1000, 1000), (2000, 2000)]
     channel_counts: list[int] = [1, 3, 4]
     results: list[dict[str, int | str | float]] = []
@@ -59,8 +70,8 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
             img = generate_image(size, channels)
             lut = generate_lut()
 
-            cv2_mean, cv2_sem = benchmark_lut(cv2.LUT, img, lut, num_runs)
-            sz_mean, sz_sem = benchmark_lut(sz_lut, img, lut, num_runs)
+            cv2_mean, cv2_sem = benchmark_lut(cv2_lut, img, lut, num_runs, inplace)
+            sz_mean, sz_sem = benchmark_lut(sz_lut, img, lut, num_runs, inplace)
 
             speedup = cv2_mean / sz_mean
             speedup_error = speedup * np.sqrt((cv2_sem / cv2_mean) ** 2 + (sz_sem / sz_mean) ** 2)
@@ -82,9 +93,10 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark LUT operations")
     parser.add_argument("--runs", type=int, default=100, help="Number of runs for each benchmark")
+    parser.add_argument("--inplace", action="store_true", help="Use inplace LUT")
     args = parser.parse_args()
 
-    results_df: pd.DataFrame = run_benchmarks(args.runs)
+    results_df: pd.DataFrame = run_benchmarks(args.runs, args.inplace)
 
     print("Benchmark Results:")
     print(results_df.to_string(index=False))

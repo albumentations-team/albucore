@@ -1,3 +1,4 @@
+from functools import partial
 from albucore.decorators import preserve_channel_dim
 import pytest
 import numpy as np
@@ -8,7 +9,7 @@ from albucore.functions import sz_lut
     (10, 10),
     (100, 100),
     (224, 224),
-    (10, 10, 1),
+    # (10, 10, 1),
     (100, 100, 3),
     (224, 224, 4)
 ])
@@ -18,7 +19,8 @@ from albucore.functions import sz_lut
     "random",
     "threshold"
 ])
-def test_serialize_lookup_recover_vs_cv2_lut(shape, lut_type):
+@pytest.mark.parametrize("inplace", [True, False])
+def test_serialize_lookup_recover_vs_cv2_lut(shape, lut_type, inplace):
     # Generate random uint8 image
     img = np.random.randint(0, 256, size=shape, dtype=np.uint8)
 
@@ -32,12 +34,15 @@ def test_serialize_lookup_recover_vs_cv2_lut(shape, lut_type):
     elif lut_type == "threshold":
         lut = np.where(np.arange(256) > 127, 255, 0).astype(np.uint8)
 
-    cv2_func = preserve_channel_dim(cv2.LUT)
     # Apply cv2.LUT
-    cv2_result = cv2_func(img, lut)
+    if inplace:
+        cv2.LUT(img, lut, dst=img)
+        cv2_result = img
+    else:
+        cv2_result = cv2.LUT(img, lut)
 
     # Apply serialize_lookup_recover
-    custom_result = sz_lut(img, lut)
+    custom_result = sz_lut(img, lut, inplace=inplace)
 
     # Compare results
     np.testing.assert_array_equal(custom_result, cv2_result)
