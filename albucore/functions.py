@@ -5,6 +5,7 @@ from typing import Any, Callable, Literal
 
 import cv2
 import numpy as np
+import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
 from albucore.utils import (
@@ -26,7 +27,9 @@ cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
 
 def create_lut_array(
-    dtype: type[np.number], value: float | np.ndarray, operation: Literal["add", "multiply", "power"]
+    dtype: type[np.number],
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -42,16 +45,30 @@ def create_lut_array(
     raise ValueError(f"Unsupported operation: {operation}")
 
 
-def apply_lut(img: np.ndarray, value: float | np.ndarray, operation: Literal["add", "multiply", "power"]) -> np.ndarray:
+@contiguous
+def sz_lut(img: np.ndarray, lut: np.ndarray, inplace: bool = True) -> np.ndarray:
+    if not inplace:
+        img = img.copy()
+
+    sz.translate(memoryview(img), memoryview(lut), inplace=True)
+    return img
+
+
+def apply_lut(
+    img: np.ndarray,
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
+    inplace: bool,
+) -> np.ndarray:
     dtype = img.dtype
 
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return cv2.LUT(img, clip(lut, dtype))
+        return sz_lut(img, clip(lut, dtype), inplace)
 
     num_channels = img.shape[-1]
     luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([cv2.LUT(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype), inplace) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -84,7 +101,9 @@ def prepare_value_opencv(
 
 
 def apply_numpy(
-    img: np.ndarray, value: float | np.ndarray, operation: Literal["add", "multiply", "power"]
+    img: np.ndarray,
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
     if operation == "add" and img.dtype == np.uint8:
         value = np.int16(value)
@@ -92,9 +111,8 @@ def apply_numpy(
     return np_operations[operation](img.astype(np.float32), value)
 
 
-@preserve_channel_dim
-def multiply_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
-    return apply_lut(img, value, "multiply")
+def multiply_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> np.ndarray:
+    return apply_lut(img, value, "multiply", inplace)
 
 
 @preserve_channel_dim
@@ -109,18 +127,18 @@ def multiply_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "multiply")
 
 
-def multiply_by_constant(img: np.ndarray, value: float) -> np.ndarray:
+def multiply_by_constant(img: np.ndarray, value: float, inplace: bool) -> np.ndarray:
     if img.dtype == np.uint8:
-        return multiply_lut(img, value)
+        return multiply_lut(img, value, inplace)
     if img.dtype == np.float32:
         return multiply_numpy(img, value)
     return multiply_opencv(img, value)
 
 
-def multiply_by_vector(img: np.ndarray, value: np.ndarray, num_channels: int) -> np.ndarray:
+def multiply_by_vector(img: np.ndarray, value: np.ndarray, num_channels: int, inplace: bool) -> np.ndarray:
     # Handle uint8 images separately to use 1a lookup table for performance
     if img.dtype == np.uint8:
-        return multiply_lut(img, value)
+        return multiply_lut(img, value, inplace)
     # Check if the number of channels exceeds the maximum that OpenCV can handle
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         return multiply_numpy(img, value)
@@ -132,15 +150,15 @@ def multiply_by_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
 
 
 @clipped
-def multiply(img: np.ndarray, value: ValueType) -> np.ndarray:
+def multiply(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
     if isinstance(value, (float, int)):
-        return multiply_by_constant(img, value)
+        return multiply_by_constant(img, value, inplace)
 
     if isinstance(value, np.ndarray) and value.ndim == 1:
-        return multiply_by_vector(img, value, num_channels)
+        return multiply_by_vector(img, value, num_channels, inplace)
 
     return multiply_by_array(img, value)
 
@@ -164,9 +182,8 @@ def add_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "add")
 
 
-@preserve_channel_dim
-def add_lut(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
-    return apply_lut(img, value, "add")
+def add_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> np.ndarray:
+    return apply_lut(img, value, "add", inplace)
 
 
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
@@ -174,9 +191,9 @@ def add_constant(img: np.ndarray, value: float) -> np.ndarray:
 
 
 @clipped
-def add_vector(img: np.ndarray, value: np.ndarray) -> np.ndarray:
+def add_vector(img: np.ndarray, value: np.ndarray, inplace: bool) -> np.ndarray:
     if img.dtype == np.uint8:
-        return add_lut(img, value)
+        return add_lut(img, value, inplace)
     return add_opencv(img, value)
 
 
@@ -185,7 +202,7 @@ def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
 
 
 @clipped
-def add(img: np.ndarray, value: ValueType) -> np.ndarray:
+def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
@@ -201,7 +218,7 @@ def add(img: np.ndarray, value: ValueType) -> np.ndarray:
     if img.dtype == np.uint8:
         value = value.astype(np.int16)
 
-    return add_vector(img, value) if value.ndim == 1 else add_array(img, value)
+    return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value)
 
 
 def normalize_numpy(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
@@ -282,17 +299,17 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
 
-@preserve_channel_dim
-def power_lut(img: np.ndarray, exponent: float | np.ndarray) -> np.ndarray:
-    return apply_lut(img, exponent, "power")
+# @preserve_channel_dim
+def power_lut(img: np.ndarray, exponent: float | np.ndarray, inplace: bool = False) -> np.ndarray:
+    return apply_lut(img, exponent, "power", inplace)
 
 
 @clipped
-def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
+def power(img: np.ndarray, exponent: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     exponent = convert_value(exponent, num_channels)
     if img.dtype == np.uint8:
-        return power_lut(img, exponent)
+        return power_lut(img, exponent, inplace)
 
     if isinstance(exponent, (float, int)):
         return power_opencv(img, exponent)
@@ -349,10 +366,7 @@ def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> 
 
     result = np.multiply(img, factor) if factor != 0 else np.zeros_like(img)
 
-    if value != 0:
-        return np.add(result, value)
-
-    return result
+    return result if value == 0 else np.add(result, value)
 
 
 @preserve_channel_dim
@@ -366,20 +380,17 @@ def multiply_add_opencv(img: np.ndarray, factor: ValueType, value: ValueType) ->
         if factor != 0
         else np.zeros_like(result, dtype=img.dtype)
     )
-    if value != 0:
-        result = cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
-    return result
+    return result if value == 0 else cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
 
 
-@preserve_channel_dim
-def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
+def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType, inplace: bool) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     num_channels = get_num_channels(img)
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
         lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
-        return cv2.LUT(img, lut)
+        return sz_lut(img, lut, inplace)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
         factor = factor.reshape(-1, 1)
@@ -389,17 +400,17 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np
 
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
 
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], luts[i], inplace) for i in range(num_channels)])
 
 
 @clipped
-def multiply_add(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
+def multiply_add(img: np.ndarray, factor: ValueType, value: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     factor = convert_value(factor, num_channels)
     value = convert_value(value, num_channels)
 
     if img.dtype == np.uint8:
-        return multiply_add_lut(img, factor, value)
+        return multiply_add_lut(img, factor, value, inplace)
 
     return multiply_add_opencv(img, factor, value)
 

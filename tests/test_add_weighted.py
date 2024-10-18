@@ -79,14 +79,14 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 )
 def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img1.dtype)
-    assert np.allclose(result_numpy, expected_output, atol=1e-6)
+    np.testing.assert_array_equal(result_numpy, expected_output)
 
     result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
-    assert np.allclose(result_opencv, expected_output, atol=1e-6)
+    np.testing.assert_array_equal(result_opencv, expected_output)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = add_weighted_lut(img1, weight1, img2, weight2)
-        assert np.allclose(result_lut, expected_output, atol=1e-6)
+        np.testing.assert_array_equal(result_lut, expected_output)
 
 
 @pytest.mark.parametrize(
@@ -126,17 +126,17 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
     result = add_weighted(img1, weight1, img2, weight2)
 
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
-    assert np.allclose(result, result_numpy, atol=1e-6)
+    np.testing.assert_array_equal(result, result_numpy)
 
     result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
-    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    np.testing.assert_array_equal(result, result_opencv)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = clip(add_weighted_lut(img1, weight1, img2, weight2), img1.dtype)
-        assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
+        np.testing.assert_array_equal(result, result_lut)
 
-    assert np.array_equal(img1, original_img1), "Input img1 was modified"
-    assert np.array_equal(img2, original_img2), "Input img2 was modified"
+    np.testing.assert_array_equal(img1, original_img1)
+    np.testing.assert_array_equal(img2, original_img2)
 
 
 @pytest.mark.parametrize(
@@ -181,13 +181,13 @@ def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
     result_opencv = clip(add_weighted_opencv(img1, 1, img2, 1), img1.dtype)
     result_opencv_add = clip(add_opencv(img1, img2), img1.dtype)
 
-    assert np.array_equal(result_opencv, result_opencv_add)
-    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    np.testing.assert_array_equal(result_opencv, result_opencv_add)
+    np.testing.assert_array_equal(result, result_opencv)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = clip(add_weighted_lut(img1, 1, img2, 1), img1.dtype)
 
-        assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
+        np.testing.assert_array_equal(result, result_lut)
 
-    assert np.array_equal(img1, original_img1), "Input img1 was modified"
-    assert np.array_equal(img2, original_img2), "Input img2 was modified"
+    np.testing.assert_array_equal(img1, original_img1)
+    np.testing.assert_array_equal(img2, original_img2)

@@ -26,13 +26,13 @@ def test_normalize_per_image(img, normalization, expected, dtype):
     result_np = normalize_per_image_numpy(img, normalization)
     result_cv2 = normalize_per_image_opencv(img, normalization)
 
-    assert np.allclose(result_np, expected, atol=1.5e-4), f"Result - expected {(result_np - expected).max()}"
-    assert np.allclose(result_cv2, expected, atol=1.5e-4), f"Result - expected {(result_cv2 - expected).max()}"
-    assert np.allclose(result, expected, atol=1.5e-4), f"Result - expected {(result - expected).max()}"
+    np.testing.assert_array_equal(result_np, expected)
+    np.testing.assert_array_equal(result_cv2, expected)
+    np.testing.assert_array_equal(result, expected)
 
     if img.dtype == np.uint8:
         result_lut = normalize_per_image_lut(img, normalization)
-        assert np.allclose(result_lut, expected, atol=1.5e-4), f"Result - expected {(result_lut - expected).max()}"
+        np.testing.assert_array_equal(result_lut, expected)
 
 
 @pytest.mark.parametrize(
@@ -58,11 +58,11 @@ def test_normalize_np_cv_equal(image, normalization):
     assert np.array_equal(image.shape, res2.shape)
     assert np.array_equal(image.shape, res3.shape)
 
-    assert np.allclose(res1, res2, atol=1e-4), f"mean: {(res1 - res2).mean()}, max: {(res1 - res2).max()}"
-    assert np.allclose(res1, res1_float, atol=1e-4), f"mean: {(res1 - res1_float).mean()}, max: {(res1 - res1_float).max()}"
-    assert np.allclose(res2, res2_float, atol=1e-4), f"mean: {(res2 - res2_float).mean()}, max: {(res2 - res2_float).max()}"
+    np.testing.assert_allclose(res1, res2, atol=1e-4)
+    np.testing.assert_allclose(res1, res1_float, atol=1e-4)
+    np.testing.assert_allclose(res2, res2_float, atol=1e-4)
 
-    assert np.allclose(res1, res3, atol=1e-4), f"mean: {(res1 - res3).mean()}, max: {(res1 - res3).max()}"
+    np.testing.assert_allclose(res1, res3, atol=1e-4)
 
 
 # Parameterize tests for all combinations
@@ -142,4 +142,4 @@ def test_normalize_per_image(shape, normalization, dtype):
 
     # Normalize the image
     normalized_img = normalize_per_image(img, normalization)
-    assert np.array_equal(normalized_img, np.zeros_like(normalized_img))
+    np.testing.assert_array_equal(normalized_img, np.zeros_like(normalized_img))
