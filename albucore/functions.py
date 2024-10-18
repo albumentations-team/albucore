@@ -45,7 +45,8 @@ def create_lut_array(
     raise ValueError(f"Unsupported operation: {operation}")
 
 
-def sz_lut(img: np.ndarray, lut: np.ndarray, inplace: bool = False) -> np.ndarray:
+@contiguous
+def sz_lut(img: np.ndarray, lut: np.ndarray, inplace: bool = True) -> np.ndarray:
     if not inplace:
         img = img.copy()
 
@@ -57,16 +58,17 @@ def apply_lut(
     img: np.ndarray,
     value: float | np.ndarray,
     operation: Literal["add", "multiply", "power"],
+    inplace: bool = False,
 ) -> np.ndarray:
     dtype = img.dtype
 
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return sz_lut(img, clip(lut, dtype))
+        return sz_lut(img, clip(lut, dtype), inplace)
 
     num_channels = img.shape[-1]
     luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype)) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype), inplace) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -298,16 +300,16 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
 
 
 # @preserve_channel_dim
-def power_lut(img: np.ndarray, exponent: float | np.ndarray) -> np.ndarray:
-    return apply_lut(img, exponent, "power")
+def power_lut(img: np.ndarray, exponent: float | np.ndarray, inplace: bool = False) -> np.ndarray:
+    return apply_lut(img, exponent, "power", inplace)
 
 
 @clipped
-def power(img: np.ndarray, exponent: ValueType) -> np.ndarray:
+def power(img: np.ndarray, exponent: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     exponent = convert_value(exponent, num_channels)
     if img.dtype == np.uint8:
-        return power_lut(img, exponent)
+        return power_lut(img, exponent, inplace)
 
     if isinstance(exponent, (float, int)):
         return power_opencv(img, exponent)
@@ -381,14 +383,14 @@ def multiply_add_opencv(img: np.ndarray, factor: ValueType, value: ValueType) ->
     return result if value == 0 else cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_64F)
 
 
-def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
+def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType, inplace: bool = False) -> np.ndarray:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     num_channels = get_num_channels(img)
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
         lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
-        return sz_lut(img, lut)
+        return sz_lut(img, lut, inplace)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
         factor = factor.reshape(-1, 1)
@@ -398,7 +400,7 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType) -> np
 
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
 
-    return cv2.merge([sz_lut(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], luts[i], inplace) for i in range(num_channels)])
 
 
 @clipped
