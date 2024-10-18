@@ -24,7 +24,7 @@ pip install albucore
 ```python
 import numpy as np
 import albucore
-# sCreate a sample image
+# Create a sample image
 image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
 # Apply a function
 result = albucore.multiply(image, 1.5)

@@ -1,5 +1,3 @@
-from functools import partial
-from albucore.decorators import preserve_channel_dim
 import pytest
 import numpy as np
 import cv2
