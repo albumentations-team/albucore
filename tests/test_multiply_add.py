@@ -83,7 +83,7 @@ def test_multiply_add_numpy(img, value, factor, expected_output):
     np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8:
-        result_lut = multiply_add_lut(img, factor, value)
+        result_lut = multiply_add_lut(img, factor, value, inplace=False)
         np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -130,7 +130,7 @@ def test_multiply_add(img_dtype, num_channels, value, factor, is_contiguous):
 
 
     if img.dtype == np.uint8:
-        result_lut = clip(multiply_add_lut(img, factor, value), img.dtype)
+        result_lut = clip(multiply_add_lut(img, factor, value, inplace=False), img.dtype)
         np.testing.assert_array_equal(result, result_lut)
 
     result_opencv = clip(multiply_add_opencv(img, factor, value), img.dtype)

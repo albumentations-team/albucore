@@ -157,7 +157,7 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
     np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8 and not (isinstance(multiplier, np.ndarray) and multiplier.ndim > 1):
-        result_lut = multiply_lut(img, multiplier)
+        result_lut = multiply_lut(img, multiplier, inplace=False)
         np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -202,7 +202,7 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
     np.testing.assert_array_equal(result, result_numpy)
 
     if img.dtype == np.uint8:
-        result_lut = multiply_lut(img, processed_multiplier)
+        result_lut = multiply_lut(img, processed_multiplier, inplace=False)
         np.testing.assert_array_equal(img, original_image)
         np.testing.assert_array_equal(result, result_lut)
 

@@ -194,7 +194,7 @@ def test_add_consistency(img, value, expected_output):
     np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8 and not (isinstance(value, np.ndarray) and value.ndim > 1):
-        result_lut = add_lut(img, value)
+        result_lut = add_lut(img, value, inplace=False)
         np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
@@ -243,7 +243,7 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
     np.testing.assert_array_equal(result_opencv, result_numpy)
 
     if img.dtype == np.uint8:
-        result_lut = add_lut(img, processed_value)
+        result_lut = add_lut(img, processed_value, inplace=False)
         np.testing.assert_array_equal(result_numpy, result_lut)
 
     result = add(img, value)
