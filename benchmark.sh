@@ -20,7 +20,7 @@ for ch in "${channels[@]}"; do
     # Nested loop over each image type
     for type in "${types[@]}"; do
         # Command to run your program, using the provided data directory
-        python -m benchmark.benchmark \
+        python -m benchmark.albucore_benchmark.benchmark \
             --num_channels $ch \
             --img_type $type \
             --markdown \

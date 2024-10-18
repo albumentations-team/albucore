@@ -151,14 +151,14 @@ from albucore import (
 )
 def test_multiply_with_numpy(img, multiplier, expected_output):
     result_numpy = clip(multiply_numpy(img, multiplier), img.dtype)
-    assert np.allclose(result_numpy, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_numpy, expected_output, atol=1e-6)
 
     result_opencv = clip(multiply_opencv(img, multiplier), img.dtype)
-    assert np.allclose(result_opencv, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8 and not (isinstance(multiplier, np.ndarray) and multiplier.ndim > 1):
-        result_lut = multiply_lut(img, multiplier)
-        assert np.allclose(result_lut, expected_output, atol=1e-6)
+        result_lut = multiply_lut(img, multiplier, inplace=False)
+        np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
@@ -199,15 +199,14 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     result_numpy = clip(multiply_numpy(img, processed_multiplier), img.dtype)
 
-    assert np.allclose(result, result_numpy, atol=1e-6)
+    np.testing.assert_array_equal(result, result_numpy)
 
     if img.dtype == np.uint8:
-        result_lut = multiply_lut(img, processed_multiplier)
-        assert np.array_equal(img, original_image), "Input image was modified"
-        assert np.array_equal(result, result_lut), f"Difference {(result - result_lut).mean()}"
+        result_lut = multiply_lut(img, processed_multiplier, inplace=False)
+        np.testing.assert_array_equal(img, original_image)
+        np.testing.assert_array_equal(result, result_lut)
 
     result_opencv = clip(multiply_opencv(img, processed_multiplier), img.dtype)
 
-    assert np.array_equal(img, original_image), "Input image was modified"
-
-    assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()}"
+    np.testing.assert_array_equal(img, original_image)
+    np.testing.assert_allclose(result, result_opencv, atol=1e-6)

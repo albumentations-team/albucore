@@ -48,11 +48,11 @@ def test_power_with_numpy(img, exponent, expected_output):
 
     if isinstance(exponent, (float, int)):
         result_opencv = clip(power_opencv(img, exponent), img.dtype)
-        assert np.allclose(result_opencv, expected_output, atol=1e-6)
+        np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     if img.dtype == np.uint8:
         result_lut = clip(power_lut(img, exponent), img.dtype)
-        assert np.allclose(result_lut, expected_output, atol=1e-6)
+        np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -99,18 +99,18 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
 
     result_numpy = clip(power_numpy(img, processed_exponent), img_dtype)
 
-    assert np.array_equal(img, original_image), "Input image was modified"
+    np.testing.assert_array_equal(img, original_image)
 
-    assert np.allclose(result, result_numpy, atol=1e-6)
+    np.testing.assert_allclose(result, result_numpy, atol=1e-6)
 
     if img.dtype == np.uint8:
         # result_lut = clip(power_lut(img, processed_exponent), img.dtype)
         result_lut = power_lut(img, processed_exponent)
 
-        assert np.allclose(result, result_lut, atol=1e-6), f"Difference {(result - result_lut).mean()}"
+        np.testing.assert_array_equal(result, result_lut)
 
     if isinstance(exponent, (float, int)):
         result_opencv = clip(power_opencv(img, processed_exponent), img.dtype)
-        assert np.allclose(result, result_opencv, atol=1e-6), f"Difference {(result - result_opencv).max()} {(result - result_opencv).mean()}"
+        np.testing.assert_array_equal(result, result_opencv)
 
-    assert np.array_equal(img, original_image), "Input image was modified"
+    np.testing.assert_array_equal(img, original_image)
