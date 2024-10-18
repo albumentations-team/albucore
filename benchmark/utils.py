@@ -26,8 +26,8 @@ class MarkdownGenerator:
                 parsed_results.append((np.nan, np.nan))
             elif isinstance(result, str):
                 try:
-                    mean, std = map(float, result.split("±"))
-                    parsed_results.append((mean, std))
+                    mean, se = map(float, result.split("±"))
+                    parsed_results.append((mean, se))
                 except ValueError:
                     parsed_results.append((float(result), 0))
             elif isinstance(result, (int, float)):
@@ -41,7 +41,7 @@ class MarkdownGenerator:
         best_mean = max(mean for mean, _ in parsed_results if not np.isnan(mean))
         highlighted_results = []
 
-        for (mean, _std), original_result in zip(parsed_results, results):
+        for (mean, _se), original_result in zip(parsed_results, results):
             if mean == best_mean:
                 highlighted_results.append(f"**{original_result}**")
             else:
@@ -50,7 +50,7 @@ class MarkdownGenerator:
         return highlighted_results
 
     def _make_headers(self) -> list[str]:
-        libraries = self._df.columns.to_list()
+        libraries = self.df.columns.to_list()
         columns = []
 
         for library in libraries:
@@ -58,7 +58,7 @@ class MarkdownGenerator:
             if "opencv" in key or "lut" in key:
                 key = "opencv-python-headless"
 
-            version = self._package_versions[key]
+            version = self.package_versions[key]
 
             columns.append(f"{library}<br><small>{version}</small>")
         return ["", *columns]
@@ -109,25 +109,26 @@ class MarkdownGenerator:
             f.write(self.generate_markdown_table())
 
 
-def format_results(images_per_second_for_aug: float | list[float], show_std: bool = True) -> str:
-    if isinstance(images_per_second_for_aug, (int, float)):
-        return f"{images_per_second_for_aug:.0f}"
-
-    if all(x is None for x in images_per_second_for_aug):
+def format_results(images_per_second_for_aug: list[list[float | None]], show_std: bool = True) -> str:
+    if not images_per_second_for_aug or all(not run for run in images_per_second_for_aug):
         return "N/A"
 
-    filtered_results = [x for x in images_per_second_for_aug if x is not None]
+    # Extract the single value from each run, ignoring None values
+    values = [run[0] for run in images_per_second_for_aug if run and run[0] is not None]
 
-    if not filtered_results:
+    if not values:
         return "N/A"
 
-    mean = np.mean(filtered_results)
+    mean = np.mean(values)
 
+    if show_std and len(values) > 1:
+        std = np.std(values)
+        return f"{mean:.2f} ± {std:.2f}"
     if show_std:
-        std = np.std(filtered_results)
-        return f"{mean:.0f} ± {std:.0f}"
+        # If there's only one run, we can't calculate the standard error
+        return f"{mean:.2f} ± N/A"
 
-    return f"{mean:.0f}"
+    return f"{mean:.2f}"
 
 
 def get_markdown_table(data: dict[str, str]) -> str:
@@ -156,10 +157,9 @@ def get_markdown_table(data: dict[str, str]) -> str:
 
 
 def torch_clip(img: torch.Tensor, dtype: Any) -> torch.Tensor:
-    if dtype == torch.uint8:
-        return img.clamp(0, 255).byte()
+    result = img.clamp(0, 255)
 
-    return img.clamp(0, 255).float()
+    return result.byte() if dtype == torch.uint8 else result.float()
 
 
 def get_cpu_info() -> dict[str, str]:

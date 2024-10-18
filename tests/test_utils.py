@@ -12,7 +12,7 @@ from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_ope
 ])
 def test_clip(input_img, dtype, expected):
     clipped = clip(input_img, dtype=dtype)
-    assert np.array_equal(clipped, expected)
+    np.testing.assert_array_equal(clipped, expected)
 
 valid_cv2_types = {
     cv2.CV_8U, cv2.CV_16U, cv2.CV_32F, cv2.CV_64F, cv2.CV_32S
@@ -52,9 +52,9 @@ def test_cv_dtype_from_np():
 def test_convert_value(value, num_channels, expected):
     result = convert_value(value, num_channels)
     if isinstance(expected, np.ndarray):
-        assert np.array_equal(result, expected)
+        np.testing.assert_array_equal(result, expected)
     else:
-         assert result == expected
+        assert result == expected
 
 @contiguous
 def process_image(img: np.ndarray) -> np.ndarray:
