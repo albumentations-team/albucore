@@ -1,11 +1,50 @@
-# NOTE: you have to use single-quoted strings in TOML for regular expressions.
-# It's the equivalent of r-strings in Python.  Multiline strings are treated as
-# verbose regular expressions by Black.  Use [ ] to denote a significant space
-# character.
-
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools", "wheel" ]
+
+requires = [ "setuptools>=45", "wheel" ]
+
+[project]
+name = "albucore"
+description = "High-performance image processing functions for deep learning and computer vision."
+readme = "README.md"
+keywords = [ "deep learning", "image processing" ]
+license = { file = "LICENSE" }
+authors = [ { name = "Vladimir I. Iglovikov" } ]
+requires-python = ">=3.9"
+
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Image Processing",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dynamic = [ "dependencies", "version" ]
+
+[tool.setuptools]
+packages = { find = { include = [
+  "albucore*",
+], exclude = [
+  "tests",
+  "benchmark",
+] } }
+
+package-data = { albumentations = [ "*.txt", "*.md" ] }
+
+[tool.setuptools.exclude-package-data]
+"*" = [ "tests*", "tools*", "benchmark*", "conda.recipe*" ]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -36,6 +75,7 @@ exclude = [
   ".vscode",
   "__pypackages__",
   "_build",
+  "benchmark",
   "buck-out",
   "build",
   "dist",
@@ -56,31 +96,38 @@ format.line-ending = "auto"
 format.skip-magic-trailing-comma = false
 # Like Black, automatically detect the appropriate line ending.
 lint.select = [ "ALL" ]
-# Like Black, use double quotes for strings.
 lint.ignore = [
   "ANN101",
+  "ANN102",
+  "ANN204",
   "ANN401",
-  "B023",
-  "BLE001",
-  "C901",
-  "COM812",
+  "ARG001",
+  "ARG002",
+  "B008",
+  "B027",
   "D100",
   "D101",
   "D102",
   "D103",
   "D104",
   "D105",
+  "D106",
   "D107",
-  "E402",
+  "D205",
+  "D415",
   "EM101",
   "EM102",
   "F403",
   "FBT001",
   "FBT002",
-  "PD901",
-  "PERF203",
+  "FBT003",
+  "G004",
   "PLR0913",
-  "T201",
+  "PTH123",
+  "S311",
+  "TCH001",
+  "TCH002",
+  "TCH003",
   "TRY003",
 ]
 
@@ -91,10 +138,11 @@ lint.fixable = [ "ALL" ]
 lint.unfixable = [  ]
 # Allow unused variables when underscore-prefixed.
 lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+# Like Black, use double quotes for strings.
 lint.pydocstyle.convention = "google"
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_redundant_casts = true
