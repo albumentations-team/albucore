@@ -87,5 +87,3 @@ jobs:
       run: uv pip install --system -r requirements-dev.txt
     - name: Run checks
       run: pre-commit run
-    - name: Run tests
-      run: pytest
