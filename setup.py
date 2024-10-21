@@ -8,7 +8,7 @@ from setuptools import setup, find_packages
 INSTALL_REQUIRES = [
     "numpy>=1.24.4",
     "typing-extensions>=4.9.0; python_version<'3.10'",
-    "stringzilla==3.10.4",
+    "stringzilla>=3.10.4",
 
 ]
 
