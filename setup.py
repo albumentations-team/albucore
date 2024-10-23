@@ -1,6 +1,4 @@
 import re
-from typing import List, Tuple
-import os
 
 from pkg_resources import DistributionNotFound, get_distribution
 from setuptools import setup, find_packages
@@ -21,17 +19,7 @@ CHOOSE_INSTALL_REQUIRES = [
     ),
 ]
 
-def get_version():
-    version_file = os.path.join(os.path.dirname(__file__), 'albucore', '__init__.py')
-    with open(version_file, 'r') as f:
-        version_line = f.read().strip()
-    version_regex = r"^__version__ = ['\"]([^'\"]*)['\"]"
-    match = re.match(version_regex, version_line, re.M)
-    if match:
-        return match.group(1)
-    raise RuntimeError("Unable to find version string.")
-
-def choose_requirement(mains: Tuple[str, ...], secondary: str) -> str:
+def choose_requirement(mains: tuple[str, ...], secondary: str) -> str:
     chosen = secondary
     for main in mains:
         try:
@@ -43,13 +31,12 @@ def choose_requirement(mains: Tuple[str, ...], secondary: str) -> str:
             pass
     return chosen
 
-def get_install_requirements(install_requires: List[str], choose_install_requires: List[Tuple[Tuple[str, ...], str]]) -> List[str]:
+def get_install_requirements(install_requires: list[str], choose_install_requires: list[tuple[tuple[str, ...], str]]) -> list[str]:
     for mains, secondary in choose_install_requires:
         install_requires.append(choose_requirement(mains, secondary))
     return install_requires
 
 setup(
-    version=get_version(),
     packages=find_packages(exclude=["tests", "benchmark"], include=['albucore*']),
     install_requires=get_install_requirements(INSTALL_REQUIRES, CHOOSE_INSTALL_REQUIRES),
 )

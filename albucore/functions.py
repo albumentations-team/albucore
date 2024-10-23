@@ -72,31 +72,49 @@ def apply_lut(
 
 
 def prepare_value_opencv(
-    img: np.ndarray, value: np.ndarray | float, operation: Literal["add", "multiply"]
+    img: np.ndarray,
+    value: np.ndarray | float,
+    operation: Literal["add", "multiply"],
 ) -> np.ndarray:
-    if isinstance(value, (int, float)):
-        if operation == "add" and img.dtype == np.uint8:
-            value = int(value)
-        num_channels = get_num_channels(img)
-        if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-            if operation == "add":
-                # Cast to float32 if value is negative to handle potential underflow issues
-                cast_type = np.float32 if value < 0 else img.dtype
-                value = np.full(img.shape, value, dtype=cast_type)
-            elif operation == "multiply":
-                value = np.full(img.shape, value, dtype=np.float32)
-    elif isinstance(value, np.ndarray):
-        if value.dtype == np.float64:
-            value = value.astype(np.float32)
-        if value.ndim == 1:
-            value = value.reshape(1, 1, -1)
-        value = np.broadcast_to(value, img.shape)
-        if operation == "add" and img.dtype == np.uint8:
-            if np.all(value >= 0):
-                return clip(value, np.uint8)
+    return (
+        _prepare_scalar_value(img, value, operation)
+        if isinstance(value, (int, float))
+        else _prepare_array_value(img, value, operation)
+    )
 
-            value = np.trunc(value).astype(np.float32)
 
+def _prepare_scalar_value(
+    img: np.ndarray,
+    value: float,
+    operation: Literal["add", "multiply"],
+) -> np.ndarray | float:
+    if operation == "add" and img.dtype == np.uint8:
+        value = int(value)
+    num_channels = get_num_channels(img)
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        if operation == "add":
+            # Cast to float32 if value is negative to handle potential underflow issues
+            cast_type = np.float32 if value < 0 else img.dtype
+            return np.full(img.shape, value, dtype=cast_type)
+        if operation == "multiply":
+            return np.full(img.shape, value, dtype=np.float32)
+    return value
+
+
+def _prepare_array_value(
+    img: np.ndarray,
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+) -> np.ndarray:
+    if value.dtype == np.float64:
+        value = value.astype(np.float32)
+    if value.ndim == 1:
+        value = value.reshape(1, 1, -1)
+    value = np.broadcast_to(value, img.shape)
+    if operation == "add" and img.dtype == np.uint8:
+        if np.all(value >= 0):
+            return clip(value, np.uint8)
+        return np.trunc(value).astype(np.float32)
     return value
 
 

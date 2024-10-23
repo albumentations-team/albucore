@@ -55,7 +55,9 @@ NPDTYPE_TO_OPENCV_DTYPE = {
 
 
 def maybe_process_in_chunks(
-    process_fn: Callable[Concatenate[np.ndarray, P], np.ndarray], **kwargs: Any
+    process_fn: Callable[Concatenate[np.ndarray, P], np.ndarray],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> Callable[[np.ndarray], np.ndarray]:
     """Wrap OpenCV function to enable processing images with more than 4 channels.
 
@@ -64,15 +66,19 @@ def maybe_process_in_chunks(
 
     Args:
         process_fn: Transform function (e.g cv2.resize).
-        kwargs: Additional parameters.
+        args: Additional positional arguments.
+        kwargs: Additional keyword arguments.
 
     Returns:
         np.ndarray: Transformed image.
-
     """
 
     @wraps(process_fn)
-    def __process_fn(img: np.ndarray) -> np.ndarray:
+    def __process_fn(img: np.ndarray, *process_args: P.args, **process_kwargs: P.kwargs) -> np.ndarray:
+        # Merge args and kwargs
+        all_args = (*args, *process_args)
+        all_kwargs: P.kwargs = {**kwargs, **process_kwargs}
+
         num_channels = get_num_channels(img)
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             chunks = []
@@ -81,16 +87,16 @@ def maybe_process_in_chunks(
                     # Many OpenCV functions cannot work with 2-channel images
                     for i in range(2):
                         chunk = img[:, :, index + i : index + i + 1]
-                        chunk = process_fn(chunk, **kwargs)
+                        chunk = process_fn(chunk, *all_args, **all_kwargs)
                         chunk = np.expand_dims(chunk, -1)
                         chunks.append(chunk)
                 else:
                     chunk = img[:, :, index : index + 4]
-                    chunk = process_fn(chunk, **kwargs)
+                    chunk = process_fn(chunk, *all_args, **all_kwargs)
                     chunks.append(chunk)
             return np.dstack(chunks)
 
-        return process_fn(img, **kwargs)
+        return process_fn(img, *all_args, **all_kwargs)
 
     return __process_fn
 
