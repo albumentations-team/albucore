@@ -84,6 +84,9 @@ jobs:
           requirements-dev.txt
           setup.py
 
+    - name: Install uv
+      run: pip install uv
+
     - name: Install requirements
       run: |
         uv pip install --system --upgrade pip
