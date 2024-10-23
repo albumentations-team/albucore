@@ -5,11 +5,15 @@ requires = [ "setuptools>=45", "wheel" ]
 
 [project]
 name = "albucore"
+version = "0.0.19"
+
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
 keywords = [ "deep learning", "image processing" ]
 license = { file = "LICENSE" }
-authors = [ { name = "Vladimir I. Iglovikov" } ]
+maintainers = [ { name = "Vladimir Iglovikov" } ]
+
+authors = [ { name = "Vladimir Iglovikov" } ]
 requires-python = ">=3.9"
 
 classifiers = [
@@ -31,7 +35,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
-dynamic = [ "dependencies", "version" ]
+dynamic = [ "dependencies" ]
 
 [tool.setuptools]
 packages = { find = { include = [

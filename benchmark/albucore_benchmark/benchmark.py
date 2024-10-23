@@ -173,7 +173,7 @@ class MultiplyConstant(BenchmarkTest):
         return albucore.multiply_opencv(img, self.multiplier)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.multiply_lut(img, self.multiplier)
+        return albucore.multiply_lut(img, self.multiplier, inplace=False)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return torch.mul(img, self.multiplier)
@@ -195,7 +195,7 @@ class MultiplyVector(BenchmarkTest):
         return albucore.multiply_opencv(img, self.multiplier)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.multiply_lut(img, self.multiplier)
+        return albucore.multiply_lut(img, self.multiplier, inplace=False)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return torch.mul(img, self.torch_multiplier)
@@ -239,7 +239,7 @@ class AddConstant(BenchmarkTest):
         return albucore.add_opencv(img, self.value)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_lut(img, self.value)
+        return albucore.add_lut(img, self.value, inplace=False)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return torch.add(img, self.value)
@@ -261,7 +261,7 @@ class AddVector(BenchmarkTest):
         return albucore.add_opencv(img, self.value)
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
-        return albucore.add_lut(img, self.value)
+        return albucore.add_lut(img, self.value, inplace=False)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return torch.add(img, self.torch_value)
@@ -472,7 +472,7 @@ class MultiplyAdd(BenchmarkTest):
 
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         value = MAX_VALUES_BY_DTYPE[img.dtype] / 10.0
-        return albucore.multiply_add_lut(img, self.factor, value)
+        return albucore.multiply_add_lut(img, self.factor, value, inplace=False)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return img * self.factor + 13
