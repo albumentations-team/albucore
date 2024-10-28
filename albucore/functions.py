@@ -5,6 +5,7 @@ from typing import Any, Callable, Literal
 
 import cv2
 import numpy as np
+import simsimd as ss
 import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
@@ -755,3 +756,11 @@ def uint8_io(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
         return to_float(result) if input_dtype != np.uint8 else result
 
     return uint8_wrapper
+
+
+def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    oringal_shape = img1.shape
+
+    return np.array(ss.wsum(img1.reshape(-1), img2.reshape(-1), alpha=weight1, beta=weight2), dtype=np.float32).reshape(
+        oringal_shape,
+    )

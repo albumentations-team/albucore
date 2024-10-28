@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from albucore.functions import add, add_lut, add_numpy, add_opencv, add_weighted, add_weighted_numpy, add_weighted_opencv, add_weighted_lut
+from albucore.functions import add, add_numpy, add_opencv, add_weighted, add_weighted_numpy, add_weighted_opencv, add_weighted_lut, add_weighted_simsimd
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 
 @pytest.mark.parametrize(
@@ -84,6 +84,9 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
     result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
     np.testing.assert_array_equal(result_opencv, expected_output)
 
+    result_simsimd = clip(add_weighted_simsimd(img1, weight1, img2, weight2), img1.dtype)
+    np.testing.assert_array_equal(result_simsimd, expected_output)
+
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = add_weighted_lut(img1, weight1, img2, weight2)
         np.testing.assert_array_equal(result_lut, expected_output)
@@ -124,6 +127,13 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
     original_img2 = img2.copy()
 
     result = add_weighted(img1, weight1, img2, weight2)
+
+    result_simsimd = clip(add_weighted_simsimd(img1, weight1, img2, weight2), img_dtype)
+
+    if img_dtype == np.uint8:
+        np.testing.assert_allclose(result, result_simsimd, atol=1)
+    else:
+        np.testing.assert_allclose(result, result_simsimd, atol=1e-6)
 
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
     np.testing.assert_array_equal(result, result_numpy)
@@ -169,14 +179,13 @@ def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
 
     result_add = add(img1, img2)
 
-    assert np.array_equal(result, result_add)
+    np.testing.assert_array_equal(result, result_add)
 
     result_numpy = clip(add_weighted_numpy(img1, 1, img2, 1), img_dtype)
     result_numpy_add = clip(add_numpy(img1, img2), img_dtype)
 
-    assert np.allclose(result, result_numpy, atol=1e-6)
-
-    assert np.array_equal(result_numpy, result_numpy_add)
+    np.testing.assert_array_equal(result, result_numpy)
+    np.testing.assert_array_equal(result_numpy, result_numpy_add)
 
     result_opencv = clip(add_weighted_opencv(img1, 1, img2, 1), img1.dtype)
     result_opencv_add = clip(add_opencv(img1, img2), img1.dtype)
