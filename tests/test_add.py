@@ -193,6 +193,10 @@ def test_add_consistency(img, value, expected_output):
     result_opencv = clip(add_opencv(img, value), img.dtype)
     np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
+    result = add(img, value)
+
+    np.testing.assert_allclose(result, expected_output, atol=1e-6)
+
     if img.dtype == np.uint8 and not (isinstance(value, np.ndarray) and value.ndim > 1):
         result_lut = add_lut(img, value, inplace=False)
         np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)

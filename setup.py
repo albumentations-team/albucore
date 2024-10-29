@@ -7,6 +7,7 @@ INSTALL_REQUIRES = [
     "numpy>=1.24.4",
     "typing-extensions>=4.9.0; python_version<'3.10'",
     "stringzilla>=3.10.4",
+    "simsimd>=5.9.2"
 
 ]
 
