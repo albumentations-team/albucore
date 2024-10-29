@@ -110,7 +110,12 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     @wraps(func)
     def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
         dtype = img.dtype
-        return clip(func(img, *args, **kwargs), dtype)
+        result = func(img, *args, **kwargs)
+
+        if result.dtype == np.uint8:
+            return result
+
+        return clip(result, dtype)
 
     return wrapped_function
 
