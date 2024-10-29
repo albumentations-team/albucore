@@ -245,9 +245,9 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
                             numpy_median, numpy_sem = timings["NumPy"]
                             simsimd_median, simsimd_sem = timings["SimSIMD"]
 
-                            # Calculate speedups (SimSIMD over other libraries)
-                            speedup_vs_opencv = simsimd_median / opencv_median
-                            speedup_vs_numpy = simsimd_median / numpy_median
+                            # Calculate speedups (other libraries over SimSIMD)
+                            speedup_vs_opencv = opencv_median / simsimd_median  # >1 means SimSIMD is faster
+                            speedup_vs_numpy = numpy_median / simsimd_median    # >1 means SimSIMD is faster
 
                             # Calculate speedup errors using error propagation
                             speedup_opencv_error = speedup_vs_opencv * np.sqrt(
