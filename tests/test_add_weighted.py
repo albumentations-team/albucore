@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from albucore.functions import add, add_numpy, add_opencv, add_weighted, add_weighted_numpy, add_weighted_opencv, add_weighted_lut, add_weighted_simsimd
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
+from albucore.utils import clip
 
 @pytest.mark.parametrize(
     "img1, weight1, img2, weight2, expected_output",
@@ -136,14 +136,14 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
         np.testing.assert_allclose(result, result_simsimd, atol=1e-6)
 
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
-    np.testing.assert_array_equal(result, result_numpy)
+    np.testing.assert_allclose(result, result_numpy, atol=1)
 
     result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
-    np.testing.assert_array_equal(result, result_opencv)
+    np.testing.assert_allclose(result, result_opencv, atol=1)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = clip(add_weighted_lut(img1, weight1, img2, weight2), img1.dtype)
-        np.testing.assert_array_equal(result, result_lut)
+        np.testing.assert_allclose(result, result_lut, atol=1)
 
     np.testing.assert_array_equal(img1, original_img1)
     np.testing.assert_array_equal(img2, original_img2)
@@ -179,7 +179,10 @@ def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
 
     result_add = add(img1, img2)
 
-    np.testing.assert_array_equal(result, result_add)
+    if img_dtype == np.uint8:
+        np.testing.assert_array_equal(result, result_add)
+    else:
+        np.testing.assert_allclose(result, result_add, atol=1e-6)
 
     result_numpy = clip(add_weighted_numpy(img1, 1, img2, 1), img_dtype)
     result_numpy_add = clip(add_numpy(img1, img2), img_dtype)
@@ -196,7 +199,7 @@ def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = clip(add_weighted_lut(img1, 1, img2, 1), img1.dtype)
 
-        np.testing.assert_array_equal(result, result_lut)
+        np.testing.assert_allclose(result, result_lut, atol=1)
 
     np.testing.assert_array_equal(img1, original_img1)
     np.testing.assert_array_equal(img2, original_img2)

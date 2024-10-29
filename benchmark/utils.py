@@ -85,8 +85,6 @@ class MarkdownGenerator:
         header += "## Package Versions\n\n"
         header += pd.DataFrame([self.package_versions]).to_markdown(index=False) + "\n\n"
         header += "## Performance (images/second)\n\n"
-        header += f"Raw data:\n{self.df.to_string()}\n\n"
-
         return header + md_table
 
     def _make_versions_text(self) -> str:
@@ -119,16 +117,16 @@ def format_results(images_per_second_for_aug: list[list[float | None]], show_std
     if not values:
         return "N/A"
 
-    mean = np.mean(values)
+    median = np.median(values)
 
     if show_std and len(values) > 1:
         std = np.std(values)
-        return f"{mean:.2f} ± {std:.2f}"
+        return f"{median:.2f} ± {std:.2f}"
     if show_std:
         # If there's only one run, we can't calculate the standard error
-        return f"{mean:.2f} ± N/A"
+        return f"{median:.2f} ± N/A"
 
-    return f"{mean:.2f}"
+    return f"{median:.2f}"
 
 
 def get_markdown_table(data: dict[str, str]) -> str:
