@@ -54,6 +54,24 @@ def add_constant_simsimd(img: np.ndarray, value: float) -> np.ndarray:
     return add_weighted_simsimd(img, 1, (np.ones_like(img) * value).astype(img.dtype), 1)
 
 
+@clipped
+def multiply_by_array_simsimd(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
+    original_shape = img1.shape
+
+    return np.frombuffer(
+        ss.fma(
+            img1.astype(np.float32).reshape(-1),
+            img2.astype(np.float32).reshape(-1),
+            img2.astype(np.float32).reshape(-1),
+            alpha=1.0,
+            beta=0,
+        ),
+        dtype=np.float32,
+    ).reshape(
+        original_shape,
+    )
+
+
 def create_lut_array(
     dtype: type[np.number],
     value: float | np.ndarray,
@@ -165,7 +183,11 @@ def multiply_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> n
 def multiply_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     value = prepare_value_opencv(img, value, "multiply")
     if img.dtype == np.uint8:
+        if isinstance(value, np.ndarray):
+            return cv2.multiply(img.astype(np.float32), value.astype(np.float32))
+
         return cv2.multiply(img.astype(np.float32), value)
+
     return cv2.multiply(img, value)
 
 
@@ -371,7 +393,7 @@ def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weigh
 
 @preserve_channel_dim
 def add_weighted_opencv(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    return cv2.addWeighted(img1.astype(np.float32), weight1, img2.astype(np.float32), weight2, 0)
+    return cv2.addWeighted(img1, weight1, img2, weight2, 0)
 
 
 @preserve_channel_dim

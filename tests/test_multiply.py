@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
+from albucore.utils import clip
 
 from albucore import (
     multiply_lut,
@@ -10,6 +10,7 @@ from albucore import (
     multiply_opencv,
     multiply,
     convert_value,
+    multiply_by_array_simsimd,
 )
 
 
@@ -159,6 +160,10 @@ def test_multiply_with_numpy(img, multiplier, expected_output):
     if img.dtype == np.uint8 and not (isinstance(multiplier, np.ndarray) and multiplier.ndim > 1):
         result_lut = multiply_lut(img, multiplier, inplace=False)
         np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
+
+    if isinstance(multiplier, np.ndarray) and multiplier.shape == img.shape:
+        result_simsimd = clip(multiply_by_array_simsimd(img, multiplier), img.dtype)
+        np.testing.assert_allclose(result_simsimd, expected_output, atol=1e-6)
 
 
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])

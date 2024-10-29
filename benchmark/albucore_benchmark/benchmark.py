@@ -215,23 +215,20 @@ class MultiplyArray(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
 
-        self.boundaries = (0.9, 1.1)
-
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
-        multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.multiply(img, multiplier)
+        return albucore.multiply(img, img)
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.multiply_numpy(img, multiplier)
+        return albucore.multiply_numpy(img, img)
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.multiply_opencv(img, multiplier)
+        return albucore.multiply_opencv(img, img)
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
-        multiplier = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return torch.mul(img, torch.from_numpy(multiplier))
+        return torch.mul(img, img)
+
+    def simsimd_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.multiply_by_array_simsimd(img, img)
 
 
 class AddConstant(BenchmarkTest):
@@ -705,24 +702,24 @@ def run_benchmarks(
 
 def main() -> None:
     benchmark_classes: list[type[BenchmarkTest]] = [
-        MultiplyConstant,
-        MultiplyVector,
+        # MultiplyConstant,
+        # MultiplyVector,
         MultiplyArray,
-        AddConstant,
-        AddVector,
-        AddArray,
-        Normalize,
-        NormalizePerImage,
-        NormalizePerImagePerChannel,
-        NormalizeMinMaxPerChannel,
-        NormalizeMinMax,
-        PowerConstant,
-        AddWeighted,
-        MultiplyAdd,
-        ToFloat,
-        FromFloat,
-        HorizontalFlip,
-        VerticalFlip,
+        # AddConstant,
+        # AddVector,
+        # AddArray,
+        # Normalize,
+        # NormalizePerImage,
+        # NormalizePerImagePerChannel,
+        # NormalizeMinMaxPerChannel,
+        # NormalizeMinMax,
+        # PowerConstant,
+        # AddWeighted,
+        # MultiplyAdd,
+        # ToFloat,
+        # FromFloat,
+        # HorizontalFlip,
+        # VerticalFlip,
     ]
 
     args = parse_args()
