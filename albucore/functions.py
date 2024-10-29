@@ -27,6 +27,33 @@ np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
 cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
 
+def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    original_shape = img1.shape
+    original_dtype = img1.dtype
+
+    if img2.dtype != original_dtype:
+        img2 = clip(img2.astype(original_dtype), original_dtype)
+
+    return np.frombuffer(
+        ss.wsum(img1.reshape(-1), img2.astype(original_dtype).reshape(-1), alpha=weight1, beta=weight2),
+        dtype=original_dtype,
+    ).reshape(
+        original_shape,
+    )
+
+
+def add_array_simsimd(img: np.ndarray, value: np.ndarray) -> np.ndarray:
+    return add_weighted_simsimd(img, 1, value, 1)
+
+
+def multiply_by_constant_simsimd(img: np.ndarray, value: float) -> np.ndarray:
+    return add_weighted_simsimd(img, value, np.zeros_like(img), 0)
+
+
+def add_constant_simsimd(img: np.ndarray, value: float) -> np.ndarray:
+    return add_weighted_simsimd(img, 1, (np.ones_like(img) * value).astype(img.dtype), 1)
+
+
 def create_lut_array(
     dtype: type[np.number],
     value: float | np.ndarray,
@@ -146,6 +173,7 @@ def multiply_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
     return apply_numpy(img, value, "multiply")
 
 
+@clipped
 def multiply_by_constant(img: np.ndarray, value: float, inplace: bool) -> np.ndarray:
     if img.dtype == np.uint8:
         return multiply_lut(img, value, inplace)
@@ -154,6 +182,7 @@ def multiply_by_constant(img: np.ndarray, value: float, inplace: bool) -> np.nda
     return multiply_opencv(img, value)
 
 
+@clipped
 def multiply_by_vector(img: np.ndarray, value: np.ndarray, num_channels: int, inplace: bool) -> np.ndarray:
     # Handle uint8 images separately to use 1a lookup table for performance
     if img.dtype == np.uint8:
@@ -164,11 +193,11 @@ def multiply_by_vector(img: np.ndarray, value: np.ndarray, num_channels: int, in
     return multiply_opencv(img, value)
 
 
+@clipped
 def multiply_by_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
     return multiply_opencv(img, value)
 
 
-@clipped
 def multiply(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
@@ -205,6 +234,7 @@ def add_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> np.nda
     return apply_lut(img, value, "add", inplace)
 
 
+@clipped
 def add_constant(img: np.ndarray, value: float) -> np.ndarray:
     return add_opencv(img, value)
 
@@ -216,11 +246,11 @@ def add_vector(img: np.ndarray, value: np.ndarray, inplace: bool) -> np.ndarray:
     return add_opencv(img, value)
 
 
-def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return add_opencv(img, value)
-
-
 @clipped
+def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
+    return add_array_simsimd(img, value)
+
+
 def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
@@ -368,7 +398,7 @@ def add_weighted_lut(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2
     lut2 = np.arange(0, max_value + 1, dtype=np.float32) * weight2
     result2 = cv2.LUT(img2, lut2)
 
-    return add_array(result1, result2)
+    return add_opencv(result1, result2)
 
 
 @clipped
@@ -376,7 +406,7 @@ def add_weighted(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: fl
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
-    return add_weighted_opencv(img1, weight1, img2, weight2)
+    return add_weighted_simsimd(img1, weight1, img2, weight2)
 
 
 def multiply_add_numpy(img: np.ndarray, factor: ValueType, value: ValueType) -> np.ndarray:
@@ -756,11 +786,3 @@ def uint8_io(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:
         return to_float(result) if input_dtype != np.uint8 else result
 
     return uint8_wrapper
-
-
-def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    oringal_shape = img1.shape
-
-    return np.array(ss.wsum(img1.reshape(-1), img2.reshape(-1), alpha=weight1, beta=weight2), dtype=np.float32).reshape(
-        oringal_shape,
-    )
