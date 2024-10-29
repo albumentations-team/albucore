@@ -110,7 +110,12 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     @wraps(func)
     def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
         dtype = img.dtype
-        return clip(func(img, *args, **kwargs), dtype)
+        result = func(img, *args, **kwargs)
+
+        if result.dtype == np.uint8:
+            return result
+
+        return clip(result, dtype)
 
     return wrapped_function
 
@@ -139,32 +144,40 @@ def is_multispectral_image(image: np.ndarray) -> bool:
 
 
 def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.ndarray:
-    """Convert a multiplier to a float / int or a numpy array.
+    """Convert a value to a float or numpy array based on its shape and number of channels.
 
-    If num_channels is 1 or the length of the multiplier less than num_channels, the multiplier is converted to a float.
-    If length of the multiplier is greater than num_channels, multiplier is truncated to num_channels.
+    Args:
+        value: Input value to convert (numpy array, float, or int)
+        num_channels: Number of channels in the target image
+
+    Returns:
+        float: If value is a scalar or 1D array that should be converted to scalar
+        np.ndarray: If value is a multi-dimensional array or channel vector
+
+    Raises:
+        TypeError: If value is of unsupported type
     """
-    if isinstance(value, (np.float32, np.float64)):
-        return value.item()
-    if isinstance(value, np.ndarray) and value.ndim == 0:
-        return value.item()
-    if isinstance(value, (float, int)):
-        return value
-    if (
-        # Case 1: num_channels is 1 and multiplier is a list or tuple
-        (num_channels == 1 and isinstance(value, np.ndarray) and value.ndim == 1)
-        or
-        # Case 2: multiplier length is 1, regardless of num_channels
-        (isinstance(value, np.ndarray) and len(value) == 1)
-        # Case 3: num_channels more then length of multiplier
-        or (num_channels > 1 and len(value) < num_channels)
-    ):
-        # Convert to a float
-        return float(value[0])
+    # Handle scalar types
+    if isinstance(value, (float, int, np.float32, np.float64)):
+        return float(value) if isinstance(value, (float, int)) else value.item()
 
-    if value.ndim == 1 and value.shape[0] > num_channels:
-        value = value[:num_channels]
-    return value
+    # Handle numpy arrays
+    if isinstance(value, np.ndarray):
+        # Return scalars and 0-dim arrays as float
+        if value.ndim == 0:
+            return value.item()
+
+        # Return multi-dimensional arrays as-is
+        if value.ndim > 1:
+            return value
+
+        # Handle 1D arrays
+        if len(value) == 1 or num_channels == 1 or len(value) < num_channels:
+            return float(value[0])
+
+        return value[:num_channels]
+
+    raise TypeError(f"Unsupported value type: {type(value)}")
 
 
 ValueType = Union[np.ndarray, float, int]
