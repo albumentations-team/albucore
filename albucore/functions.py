@@ -248,7 +248,9 @@ def add_vector(img: np.ndarray, value: np.ndarray, inplace: bool) -> np.ndarray:
 
 @clipped
 def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return add_array_simsimd(img, value)
+    if img.dtype == value.dtype:
+        return add_array_simsimd(img, value)
+    return add_opencv(img, value)
 
 
 def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
@@ -263,9 +265,6 @@ def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
             value = int(value)
 
         return add_constant(img, value)
-
-    if img.dtype == np.uint8:
-        value = value.astype(np.int16)
 
     return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value)
 
