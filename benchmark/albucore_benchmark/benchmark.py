@@ -37,7 +37,7 @@ import numpy as np  # important to do it after these env variables
 rng = np.random.default_rng()
 
 
-DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "lut", "opencv", "numpy", "torchvision"]
+DEFAULT_BENCHMARKING_LIBRARIES = ["albucore", "lut", "opencv", "numpy", "simsimd"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -100,6 +100,9 @@ class BenchmarkTest(ABC):
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
         pass
 
+    def simsimd_transform(self, img: np.ndarray) -> np.ndarray:
+        raise NotImplementedError("simsimd_transform is not implemented for this benchmark")
+
     def lut_transform(self, img: np.ndarray) -> np.ndarray:
         raise NotImplementedError("lut_transform is not implemented for this benchmark")
 
@@ -110,7 +113,7 @@ class BenchmarkTest(ABC):
         return self.__class__.__name__
 
     def albucore(self, img: np.ndarray) -> np.ndarray:
-        return clip(self.albucore_transform(img), img.dtype)
+        return self.albucore_transform(img)
 
     def opencv(self, img: np.ndarray) -> np.ndarray:
         return clip(self.opencv_transform(img), img.dtype)
@@ -124,6 +127,9 @@ class BenchmarkTest(ABC):
     def torchvision(self, img: np.ndarray) -> np.ndarray:
         return torch_clip(self.torchvision_transform(img), img.dtype)
 
+    def simsimd(self, img: np.ndarray) -> np.ndarray:
+        return clip(self.simsimd_transform(img), img.dtype)
+
     def is_supported_by(self, library: str) -> bool:
         library_attr_map = {
             "albucore": "albucore_transform",
@@ -132,6 +138,7 @@ class BenchmarkTest(ABC):
             "lut": "lut_transform",
             "kornia-rs": "kornia_transform",
             "torchvision": "torchvision_transform",
+            "simsimd": "simsimd_transform",
         }
 
         # Check if the library is in the map
@@ -177,6 +184,9 @@ class MultiplyConstant(BenchmarkTest):
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return torch.mul(img, self.multiplier)
+
+    def simsimd_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.multiply_by_constant_simsimd(img, self.multiplier)
 
 
 class MultiplyVector(BenchmarkTest):
@@ -244,6 +254,9 @@ class AddConstant(BenchmarkTest):
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return torch.add(img, self.value)
 
+    def simsimd_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_constant_simsimd(img, self.value)
+
 
 class AddVector(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
@@ -270,23 +283,21 @@ class AddVector(BenchmarkTest):
 class AddArray(BenchmarkTest):
     def __init__(self, num_channels: int) -> None:
         super().__init__(num_channels)
-        self.boundaries = (0.9, 1.1)
 
     def albucore_transform(self, img: np.ndarray) -> np.ndarray:
-        value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.add(img, value)
+        return albucore.add_array(img, img.copy())
 
     def numpy_transform(self, img: np.ndarray) -> np.ndarray:
-        value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.add_numpy(img, value)
+        return albucore.add_numpy(img, img.copy())
 
     def opencv_transform(self, img: np.ndarray) -> np.ndarray:
-        value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return albucore.add_opencv(img, value)
+        return albucore.add_opencv(img, img.copy())
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
-        value = rng.uniform(self.boundaries[0], self.boundaries[1], img.shape)
-        return torch.add(img, torch.from_numpy(value))
+        return torch.add(img, img.clone())
+
+    def simsimd_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_array_simsimd(img, img.copy())
 
 
 class Normalize(BenchmarkTest):
@@ -451,6 +462,9 @@ class AddWeighted(BenchmarkTest):
 
     def torchvision_transform(self, img: torch.Tensor) -> torch.Tensor:
         return img * self.weight1 + img.clone() * self.weight2
+
+    def simsimd_transform(self, img: np.ndarray) -> np.ndarray:
+        return albucore.add_weighted_simsimd(img, self.weight1, img.copy(), self.weight2)
 
 
 class MultiplyAdd(BenchmarkTest):
