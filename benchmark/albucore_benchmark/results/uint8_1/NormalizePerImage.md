@@ -1,6 +1,6 @@
 # Benchmark Results: NormalizePerImage
 
-Number of images: 10
+Number of images: 500
 
 ## CPU Information
 
@@ -13,15 +13,11 @@ Number of images: 10
 
 | Python                                | albucore   | opencv-python-headless   | numpy   | torchvision   |
 |:--------------------------------------|:-----------|:-------------------------|:--------|:--------------|
-| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.17     | 4.10.0.84                | 2.0.2   | 0.19.1        |
+| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.19     | 4.10.0.84                | 2.0.2   | 0.19.1        |
 | [Clang 14.0.6 ]                       |            |                          |         |               |
 
 ## Performance (images/second)
 
-Raw data:
-                         albucore             lut           opencv           numpy     torchvision
-NormalizePerImage  484.49 ± 18.17  452.36 ± 75.22  581.12 ± 140.57  686.39 ± 38.90  236.82 ± 37.74
-
-|                   | albucore       | lut            | opencv          | numpy          | torchvision    |
-|:------------------|:---------------|:---------------|:----------------|:---------------|:---------------|
-| NormalizePerImage | 484.49 ± 18.17 | 452.36 ± 75.22 | 581.12 ± 140.57 | 686.39 ± 38.90 | 236.82 ± 37.74 |
+|                   | albucore       | lut            | opencv         | numpy          | simsimd   |
+|:------------------|:---------------|:---------------|:---------------|:---------------|:----------|
+| NormalizePerImage | 891.95 ± 23.18 | 607.03 ± 11.18 | 676.23 ± 42.87 | 831.44 ± 27.26 | N/A       |

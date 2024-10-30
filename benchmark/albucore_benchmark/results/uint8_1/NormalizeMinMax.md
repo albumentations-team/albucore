@@ -1,6 +1,6 @@
 # Benchmark Results: NormalizeMinMax
 
-Number of images: 10
+Number of images: 500
 
 ## CPU Information
 
@@ -13,15 +13,11 @@ Number of images: 10
 
 | Python                                | albucore   | opencv-python-headless   | numpy   | torchvision   |
 |:--------------------------------------|:-----------|:-------------------------|:--------|:--------------|
-| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.17     | 4.10.0.84                | 2.0.2   | 0.19.1        |
+| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.19     | 4.10.0.84                | 2.0.2   | 0.19.1        |
 | [Clang 14.0.6 ]                       |            |                          |         |               |
 
 ## Performance (images/second)
 
-Raw data:
-                       albucore             lut           opencv            numpy       torchvision
-NormalizeMinMax  1259.50 ± 2.01  1298.45 ± 4.41  1372.59 ± 95.93  1501.20 ± 80.35  1560.86 ± 274.16
-
-|                 | albucore       | lut            | opencv          | numpy           | torchvision      |
-|:----------------|:---------------|:---------------|:----------------|:----------------|:-----------------|
-| NormalizeMinMax | 1259.50 ± 2.01 | 1298.45 ± 4.41 | 1372.59 ± 95.93 | 1501.20 ± 80.35 | 1560.86 ± 274.16 |
+|                 | albucore         | lut              | opencv          | numpy           | simsimd   |
+|:----------------|:-----------------|:-----------------|:----------------|:----------------|:----------|
+| NormalizeMinMax | 3171.46 ± 294.12 | 1267.63 ± 137.53 | 1376.20 ± 57.55 | 1468.18 ± 26.87 | N/A       |

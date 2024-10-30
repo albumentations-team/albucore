@@ -1,6 +1,6 @@
 # Benchmark Results: HorizontalFlip
 
-Number of images: 10
+Number of images: 500
 
 ## CPU Information
 
@@ -13,15 +13,11 @@ Number of images: 10
 
 | Python                                | albucore   | opencv-python-headless   | numpy   | torchvision   |
 |:--------------------------------------|:-----------|:-------------------------|:--------|:--------------|
-| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.17     | 4.10.0.84                | 2.0.2   | 0.19.1        |
+| 3.9.20 (main, Oct  3 2024, 02:24:59)  | 0.0.19     | 4.10.0.84                | 2.0.2   | 0.19.1        |
 | [Clang 14.0.6 ]                       |            |                          |         |               |
 
 ## Performance (images/second)
 
-Raw data:
-                          albucore  lut              opencv            numpy       torchvision
-HorizontalFlip  24026.83 ± 2202.68  N/A  23996.47 ± 1486.62  7266.22 ± 38.61  8662.43 ± 700.12
-
-|                | albucore           | lut   | opencv             | numpy           | torchvision      |
-|:---------------|:-------------------|:------|:-------------------|:----------------|:-----------------|
-| HorizontalFlip | 24026.83 ± 2202.68 | N/A   | 23996.47 ± 1486.62 | 7266.22 ± 38.61 | 8662.43 ± 700.12 |
+|                | albucore          | lut   | opencv            | numpy            | simsimd   |
+|:---------------|:------------------|:------|:------------------|:-----------------|:----------|
+| HorizontalFlip | 27719.03 ± 264.68 | N/A   | 20214.85 ± 269.37 | 6484.90 ± 405.48 | N/A       |
