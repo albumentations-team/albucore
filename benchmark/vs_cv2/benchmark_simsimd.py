@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import time
-from typing import Any, Callable, TypeVar, Union
+from typing import Any
 
 import gc
 import cv2
@@ -12,6 +12,7 @@ import pandas as pd
 from tqdm import tqdm
 import simsimd as ss
 import json
+import stringzilla as sz
 
 import platform
 from pathlib import Path
@@ -28,6 +29,26 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 rng = np.random.default_rng()
+
+def lut_opencv(img: np.ndarray, lut: np.ndarray, inplace: bool = False) -> np.ndarray:
+    if inplace:
+        cv2.LUT(img, lut, dst=img)
+        return np.ascontiguousarray(img)
+    return np.ascontiguousarray(cv2.LUT(img, lut))
+
+def lut_stringzilla(img: np.ndarray, lut: np.ndarray, inplace: bool = True) -> np.ndarray:
+    if not inplace:
+        img = img.copy()
+    sz.translate(memoryview(img), memoryview(lut), inplace=True)
+    return np.ascontiguousarray(img)
+
+
+def lut_numpy(img: np.ndarray, lut: np.ndarray, inplace: bool = False) -> np.ndarray:
+    if inplace:
+        # NumPy doesn't have true inplace LUT, so we need to copy back
+        np.take(lut, img, out=img)
+        return np.ascontiguousarray(img)
+    return np.ascontiguousarray(np.take(lut, img))
 
 
 def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
@@ -103,16 +124,19 @@ def benchmark_operation(
     img2: np.ndarray,
     weight1: float | None = None,
     weight2: float | None = None,
+    inplace: bool = False,
     number: int = 100,
     warmup: int = 10,
     clear_cache: bool = False,
 ) -> tuple[float, float]:
-    # Warmup runs to stabilize CPU frequency and cache
+    # Warmup runs
     for _ in range(warmup):
         if operation == "add_arrays":
             func(img1, img2)
-        else:  # add_weighted
+        elif operation == "add_weighted":
             func(img1, weight1, img2, weight2)
+        else:  # LUT operations
+            func(img1, img2, inplace=inplace)
 
     # Ensure garbage collection doesn't interfere
     gc.collect()
@@ -120,21 +144,21 @@ def benchmark_operation(
 
     try:
         times = []
-        for _ in range(3):  # Number of repetitions for stability
+        for _ in range(3):
             if clear_cache:
                 _clear_cpu_cache()
 
-            # Measure total time for N operations
             start = time.perf_counter_ns()
             for _ in range(number):
                 if operation == "add_arrays":
                     func(img1, img2)
-                else:  # add_weighted
+                elif operation == "add_weighted":
                     func(img1, weight1, img2, weight2)
+                else:  # LUT operations
+                    func(img1, img2, inplace=inplace)
             end = time.perf_counter_ns()
 
-            # Calculate average time per operation
-            total_time = (end - start) / 1e9  # Convert to seconds
+            total_time = (end - start) / 1e9
             avg_time = total_time / number
             times.append(avg_time)
 
@@ -167,7 +191,12 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
     # Test configurations
     image_sizes: list[tuple[int, int]] = [(100, 100), (500, 500), (1000, 1000), (2000, 2000)]
     channel_counts: list[int] = [1, 3, 5]
+    weight_pairs: list[tuple[float, float]] = [
+        (0.5, 0.5),
+    ]
     dtypes: list[type] = [np.uint8, np.float32]
+    results: list[dict[str, Any]] = []
+
     operations: list[tuple[str, dict[str, Any]]] = [
         ("add_arrays", {
             "OpenCV": add_arrays_opencv,
@@ -179,108 +208,103 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
             "NumPy": add_weighted_numpy,
             "SimSIMD": add_weighted_simsimd,
         }),
+        ("lut", {
+            "OpenCV": lut_opencv,
+            "NumPy": lut_numpy,
+            "StringZilla": lut_stringzilla,
+        }),
     ]
-    weight_pairs: list[tuple[float, float]] = [
-        (0.5, 0.5),
-    ]
 
-    # Monitor initial CPU state
-    initial_freq = psutil.cpu_freq()
-    if initial_freq is None:
-        print("Warning: Cannot monitor CPU frequency")
-
-    # Try to set process priority
-    try:
-        os.nice(-20)  # Highest priority on Unix
-    except (AttributeError, PermissionError):
-        print("Warning: Could not set process priority")
-
-    results: list[dict[str, Any]] = []
+    # Add inplace modes for LUT operations
+    inplace_modes = [False, True]
 
     try:
-        # Main benchmark loop
         for operation_name, implementations in tqdm(operations, desc="Operations"):
             for dtype in tqdm(dtypes, desc="Data types", leave=False):
+                if operation_name == "lut" and dtype != np.uint8:
+                    continue
                 for size in tqdm(image_sizes, desc="Image sizes", leave=False):
                     for channels in tqdm(channel_counts, desc="Channels", leave=False):
-                        # Pre-generate images to ensure consistent memory layout
                         img1 = generate_image(size, channels, dtype)
-                        img2 = generate_image(size, channels, dtype)
-
-                        # Ensure images are contiguous in memory
                         img1 = np.ascontiguousarray(img1)
-                        img2 = np.ascontiguousarray(img2)
 
-                        # Determine weight pairs based on operation
-                        if operation_name == "add_weighted":
-                            weight_list = weight_pairs
-                        else:
+                        if operation_name == "lut":
+                            # Generate LUT table (256 entries for uint8)
+                            lut = np.arange(256, dtype=np.uint8)
+                            np.random.shuffle(lut)
+                            img2 = lut
                             weight_list = [(0.0, 0.0)]
+                            modes = inplace_modes
+                        else:
+                            img2 = generate_image(size, channels, dtype)
+                            img2 = np.ascontiguousarray(img2)
+                            weight_list = weight_pairs if operation_name == "add_weighted" else [(0.0, 0.0)]
+                            modes = [False]  # No inplace mode for other operations
 
-                        for weight1, weight2 in tqdm(weight_list, desc="Weights", leave=False):
-                            # Check CPU frequency stability
-                            if initial_freq is not None:
-                                current_freq = psutil.cpu_freq()
-                                if current_freq is not None and abs(current_freq.current - initial_freq.current) > 100:  # MHz
-                                    print(f"Warning: CPU frequency changed by {current_freq.current - initial_freq.current}MHz")
+                        for inplace in modes:
+                            for weight1, weight2 in tqdm(weight_list, desc="Weights", leave=False):
+                                timings: dict[str, tuple[float, float]] = {}
+                                for impl_name, func in implementations.items():
+                                    median, sem = benchmark_operation(
+                                        func=func,
+                                        operation=operation_name,
+                                        img1=img1.copy(),  # Copy to ensure fresh data for each implementation
+                                        img2=img2.copy() if operation_name != "lut" else img2, # Don't copy LUT
+                                        weight1=weight1,
+                                        weight2=weight2,
+                                        inplace=inplace,
+                                        number=num_runs,
+                                        warmup=10
+                                    )
+                                    timings[impl_name] = (median, sem)
 
-                            # Run benchmarks for each implementation
-                            timings: dict[str, tuple[float, float]] = {}
-                            for impl_name, func in implementations.items():
-                                # Single call to benchmark_operation with more internal repetitions
-                                median, sem = benchmark_operation(
-                                    func=func,
-                                    operation=operation_name,
-                                    img1=img1,
-                                    img2=img2,
-                                    weight1=weight1,
-                                    weight2=weight2,
-                                    number=num_runs,
-                                    warmup=10
-                                )
-                                timings[impl_name] = (median, sem)
-
-                            # Extract timing results
-                            opencv_median, opencv_sem = timings["OpenCV"]
-                            numpy_median, numpy_sem = timings["NumPy"]
-                            simsimd_median, simsimd_sem = timings["SimSIMD"]
-
-                            # Calculate speedups (other libraries over SimSIMD)
-                            speedup_vs_opencv = opencv_median / simsimd_median  # >1 means SimSIMD is faster
-                            speedup_vs_numpy = numpy_median / simsimd_median    # >1 means SimSIMD is faster
-
-                            # Calculate speedup errors using error propagation
-                            speedup_opencv_error = speedup_vs_opencv * np.sqrt(
-                                (opencv_sem / opencv_median) ** 2 +
-                                (simsimd_sem / simsimd_median) ** 2
-                            )
-                            speedup_numpy_error = speedup_vs_numpy * np.sqrt(
-                                (numpy_sem / numpy_median) ** 2 +
-                                (simsimd_sem / simsimd_median) ** 2
-                            )
-
-                            # Create result dictionary with proper typing
-                            result: dict[str, Any] = {
-                                "Operation": operation_name,
-                                "Data Type": str(dtype.__name__),
-                                "Size": f"{size[0]}x{size[1]}",
-                                "Channels": channels,
-                                "Total Pixels": size[0] * size[1] * channels,
-                                "Weights": f"({weight1}, {weight2})" if operation_name == "add_weighted" else None,
-                                "OpenCV": {
-                                    "time_ms": f"{opencv_median*1000:.4f} +- {opencv_sem*1000:.4f}"
-                                },
-                                "NumPy": {
-                                    "time_ms": f"{numpy_median*1000:.4f} +- {numpy_sem*1000:.4f}"
-                                },
-                                "SimSIMD": {
-                                    "time_ms": f"{simsimd_median*1000:.4f} +- {simsimd_sem*1000:.4f}",
-                                    "speedup_vs_opencv": f"{speedup_vs_opencv:.4f} +- {speedup_opencv_error:.4f}",
-                                    "speedup_vs_numpy": f"{speedup_vs_numpy:.4f} +- {speedup_numpy_error:.4f}"
+                                # Create base result dictionary
+                                result: dict[str, Any] = {
+                                    "Operation": f"{operation_name}{'_inplace' if inplace else ''}",
+                                    "Data Type": str(dtype.__name__),
+                                    "Size": f"{size[0]}x{size[1]}",
+                                    "Channels": channels,
+                                    "Total Pixels": size[0] * size[1] * channels,
+                                    "Weights": f"({weight1}, {weight2})" if operation_name == "add_weighted" else None,
+                                    "OpenCV": {
+                                        "time_ms": f"{timings['OpenCV'][0]*1000:.4f} +- {timings['OpenCV'][1]*1000:.4f}"
+                                    },
+                                    "NumPy": {
+                                        "time_ms": f"{timings['NumPy'][0]*1000:.4f} +- {timings['NumPy'][1]*1000:.4f}"
+                                    },
+                                    "SimSIMD": None,
+                                    "StringZilla": None
                                 }
-                            }
 
-                            results.append(result)
+                                # Add SimSIMD or StringZilla results based on operation
+                                if operation_name == "lut":
+                                    sz_median, sz_sem = timings["StringZilla"]
+                                    opencv_median, opencv_sem = timings["OpenCV"]
+                                    numpy_median, numpy_sem = timings["NumPy"]
+
+                                    speedup_vs_opencv = opencv_median / sz_median
+                                    speedup_vs_numpy = numpy_median / sz_median
+
+                                    speedup_opencv_error = speedup_vs_opencv * np.sqrt(
+                                        (opencv_sem / opencv_median) ** 2 +
+                                        (sz_sem / sz_median) ** 2
+                                    )
+                                    speedup_numpy_error = speedup_vs_numpy * np.sqrt(
+                                        (numpy_sem / numpy_median) ** 2 +
+                                        (sz_sem / sz_median) ** 2
+                                    )
+
+                                    result["StringZilla"] = {
+                                        "time_ms": f"{sz_median*1000:.4f} +- {sz_sem*1000:.4f}",
+                                        "speedup_vs_opencv": f"{speedup_vs_opencv:.4f} +- {speedup_opencv_error:.4f}",
+                                        "speedup_vs_numpy": f"{speedup_vs_numpy:.4f} +- {speedup_numpy_error:.4f}"
+                                    }
+                                else:  # add_arrays or add_weighted
+                                    simsimd_median, simsimd_sem = timings["SimSIMD"]
+                                    result["SimSIMD"] = {
+                                        "time_ms": f"{simsimd_median*1000:.4f} +- {simsimd_sem*1000:.4f}"
+                                    }
+                                results.append(result)
 
     finally:
         # Restore process priority
