@@ -1,13 +1,7 @@
 {
   "metadata": {
-    "cpu_info": {
-      "name": "Apple M1 Pro",
-      "freq": "Current: 3228.00 MHz, Min: 600.00 MHz, Max: 3228.00 MHz",
-      "physical_cores": 10,
-      "total_cores": 10
-    },
-    "num_runs": 100,
-    "timestamp": "2024-10-29 16:12:32"
+    "num_runs": 10,
+    "timestamp": "2024-10-30 12:54:36"
   },
   "results": [
     {
@@ -18,16 +12,15 @@
       "Total Pixels": 10000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.0011 +- 0.0002"
+        "time_ms": "0.0013 +- 0.0003"
       },
       "NumPy": {
-        "time_ms": "0.0005 +- 0.0000"
+        "time_ms": "0.0006 +- 0.0000"
       },
       "SimSIMD": {
-        "time_ms": "0.0027 +- 0.0003",
-        "speedup_vs_opencv": "0.3999 +- 0.0745",
-        "speedup_vs_numpy": "0.2017 +- 0.0202"
-      }
+        "time_ms": "0.0025 +- 0.0001"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -35,227 +28,431 @@
       "Size": "100x100",
       "Channels": 3,
       "Total Pixels": 30000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.0014 +- 0.0000"
-      },
-      "NumPy": {
-        "time_ms": "0.0009 +- 0.0000"
-      },
-      "SimSIMD": {
-        "time_ms": "0.0044 +- 0.0000",
-        "speedup_vs_opencv": "0.3164 +- 0.0020",
-        "speedup_vs_numpy": "0.1989 +- 0.0011"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "100x100",
-      "Channels": 5,
-      "Total Pixels": 50000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.0020 +- 0.0000"
-      },
-      "NumPy": {
-        "time_ms": "0.0014 +- 0.0001"
-      },
-      "SimSIMD": {
-        "time_ms": "0.0076 +- 0.0003",
-        "speedup_vs_opencv": "0.2688 +- 0.0091",
-        "speedup_vs_numpy": "0.1890 +- 0.0101"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "500x500",
-      "Channels": 1,
-      "Total Pixels": 250000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.0108 +- 0.0005"
-      },
-      "NumPy": {
-        "time_ms": "0.0090 +- 0.0002"
-      },
-      "SimSIMD": {
-        "time_ms": "0.0269 +- 0.0002",
-        "speedup_vs_opencv": "0.4005 +- 0.0171",
-        "speedup_vs_numpy": "0.3358 +- 0.0096"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "500x500",
-      "Channels": 3,
-      "Total Pixels": 750000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.0256 +- 0.0003"
-      },
-      "NumPy": {
-        "time_ms": "0.0196 +- 0.0009"
-      },
-      "SimSIMD": {
-        "time_ms": "0.0764 +- 0.0001",
-        "speedup_vs_opencv": "0.3354 +- 0.0038",
-        "speedup_vs_numpy": "0.2573 +- 0.0118"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "500x500",
-      "Channels": 5,
-      "Total Pixels": 1250000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.0434 +- 0.0010"
-      },
-      "NumPy": {
-        "time_ms": "0.0385 +- 0.0017"
-      },
-      "SimSIMD": {
-        "time_ms": "0.1473 +- 0.0001",
-        "speedup_vs_opencv": "0.2944 +- 0.0068",
-        "speedup_vs_numpy": "0.2613 +- 0.0115"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "1000x1000",
-      "Channels": 1,
-      "Total Pixels": 1000000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.0359 +- 0.0015"
-      },
-      "NumPy": {
-        "time_ms": "0.0287 +- 0.0010"
-      },
-      "SimSIMD": {
-        "time_ms": "0.1236 +- 0.0003",
-        "speedup_vs_opencv": "0.2900 +- 0.0125",
-        "speedup_vs_numpy": "0.2324 +- 0.0085"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "1000x1000",
-      "Channels": 3,
-      "Total Pixels": 3000000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.2842 +- 0.0038"
-      },
-      "NumPy": {
-        "time_ms": "0.2775 +- 0.0017"
-      },
-      "SimSIMD": {
-        "time_ms": "0.7440 +- 0.0116",
-        "speedup_vs_opencv": "0.3820 +- 0.0078",
-        "speedup_vs_numpy": "0.3730 +- 0.0062"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "1000x1000",
-      "Channels": 5,
-      "Total Pixels": 5000000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.4867 +- 0.0409"
-      },
-      "NumPy": {
-        "time_ms": "0.5398 +- 0.0661"
-      },
-      "SimSIMD": {
-        "time_ms": "1.1523 +- 0.0010",
-        "speedup_vs_opencv": "0.4224 +- 0.0355",
-        "speedup_vs_numpy": "0.4685 +- 0.0574"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "2000x2000",
-      "Channels": 1,
-      "Total Pixels": 4000000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.4664 +- 0.0107"
-      },
-      "NumPy": {
-        "time_ms": "0.4066 +- 0.0368"
-      },
-      "SimSIMD": {
-        "time_ms": "0.9390 +- 0.0053",
-        "speedup_vs_opencv": "0.4967 +- 0.0117",
-        "speedup_vs_numpy": "0.4330 +- 0.0393"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "2000x2000",
-      "Channels": 3,
-      "Total Pixels": 12000000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "0.4922 +- 0.0014"
-      },
-      "NumPy": {
-        "time_ms": "0.8462 +- 0.0796"
-      },
-      "SimSIMD": {
-        "time_ms": "2.4369 +- 0.0028",
-        "speedup_vs_opencv": "0.2020 +- 0.0006",
-        "speedup_vs_numpy": "0.3472 +- 0.0327"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "uint8",
-      "Size": "2000x2000",
-      "Channels": 5,
-      "Total Pixels": 20000000,
-      "Weights": null,
-      "OpenCV": {
-        "time_ms": "2.5886 +- 0.0343"
-      },
-      "NumPy": {
-        "time_ms": "2.4658 +- 0.0712"
-      },
-      "SimSIMD": {
-        "time_ms": "5.5953 +- 0.0855",
-        "speedup_vs_opencv": "0.4626 +- 0.0094",
-        "speedup_vs_numpy": "0.4407 +- 0.0144"
-      }
-    },
-    {
-      "Operation": "add_arrays",
-      "Data Type": "float32",
-      "Size": "100x100",
-      "Channels": 1,
-      "Total Pixels": 10000,
       "Weights": null,
       "OpenCV": {
         "time_ms": "0.0015 +- 0.0000"
       },
       "NumPy": {
-        "time_ms": "0.0011 +- 0.0000"
+        "time_ms": "0.0009 +- 0.0000"
       },
       "SimSIMD": {
-        "time_ms": "0.0098 +- 0.0002",
-        "speedup_vs_opencv": "0.1573 +- 0.0029",
-        "speedup_vs_numpy": "0.1137 +- 0.0020"
-      }
+        "time_ms": "0.0098 +- 0.0010"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 5,
+      "Total Pixels": 50000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0022 +- 0.0000"
+      },
+      "NumPy": {
+        "time_ms": "0.0014 +- 0.0000"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0068 +- 0.0001"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 1,
+      "Total Pixels": 250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0089 +- 0.0000"
+      },
+      "NumPy": {
+        "time_ms": "0.0091 +- 0.0005"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0267 +- 0.0001"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 3,
+      "Total Pixels": 750000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0262 +- 0.0010"
+      },
+      "NumPy": {
+        "time_ms": "0.0257 +- 0.0008"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0960 +- 0.0104"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 5,
+      "Total Pixels": 1250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0413 +- 0.0001"
+      },
+      "NumPy": {
+        "time_ms": "0.0399 +- 0.0001"
+      },
+      "SimSIMD": {
+        "time_ms": "0.2424 +- 0.0232"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 1,
+      "Total Pixels": 1000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0341 +- 0.0001"
+      },
+      "NumPy": {
+        "time_ms": "0.0320 +- 0.0000"
+      },
+      "SimSIMD": {
+        "time_ms": "0.1328 +- 0.0037"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 3,
+      "Total Pixels": 3000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.3351 +- 0.0750"
+      },
+      "NumPy": {
+        "time_ms": "0.2970 +- 0.0069"
+      },
+      "SimSIMD": {
+        "time_ms": "0.7072 +- 0.0524"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 5,
+      "Total Pixels": 5000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.4739 +- 0.0134"
+      },
+      "NumPy": {
+        "time_ms": "0.8884 +- 0.1505"
+      },
+      "SimSIMD": {
+        "time_ms": "1.2844 +- 0.1156"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 1,
+      "Total Pixels": 4000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.3717 +- 0.0218"
+      },
+      "NumPy": {
+        "time_ms": "0.3578 +- 0.0084"
+      },
+      "SimSIMD": {
+        "time_ms": "0.9460 +- 0.0111"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 3,
+      "Total Pixels": 12000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.5713 +- 0.0155"
+      },
+      "NumPy": {
+        "time_ms": "0.5452 +- 0.0094"
+      },
+      "SimSIMD": {
+        "time_ms": "2.2840 +- 0.0673"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 5,
+      "Total Pixels": 20000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "2.2913 +- 0.0249"
+      },
+      "NumPy": {
+        "time_ms": "2.4629 +- 0.0590"
+      },
+      "SimSIMD": {
+        "time_ms": "5.2455 +- 0.1804"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "100x100",
+      "Channels": 1,
+      "Total Pixels": 10000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0658 +- 0.0032"
+      },
+      "NumPy": {
+        "time_ms": "0.0424 +- 0.0001"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0021 +- 0.0000"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "100x100",
+      "Channels": 3,
+      "Total Pixels": 30000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.2139 +- 0.0028"
+      },
+      "NumPy": {
+        "time_ms": "0.1290 +- 0.0042"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0123 +- 0.0016"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "100x100",
+      "Channels": 5,
+      "Total Pixels": 50000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.3450 +- 0.0198"
+      },
+      "NumPy": {
+        "time_ms": "0.2106 +- 0.0019"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0183 +- 0.0024"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "500x500",
+      "Channels": 1,
+      "Total Pixels": 250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "1.9083 +- 0.2298"
+      },
+      "NumPy": {
+        "time_ms": "1.0478 +- 0.0162"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0425 +- 0.0012"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "500x500",
+      "Channels": 3,
+      "Total Pixels": 750000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "5.6459 +- 0.1416"
+      },
+      "NumPy": {
+        "time_ms": "3.3100 +- 0.0719"
+      },
+      "SimSIMD": {
+        "time_ms": "0.1088 +- 0.0030"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "500x500",
+      "Channels": 5,
+      "Total Pixels": 1250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "8.4114 +- 0.0162"
+      },
+      "NumPy": {
+        "time_ms": "5.8170 +- 0.1395"
+      },
+      "SimSIMD": {
+        "time_ms": "0.5081 +- 0.0072"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "1000x1000",
+      "Channels": 1,
+      "Total Pixels": 1000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "6.6201 +- 0.0288"
+      },
+      "NumPy": {
+        "time_ms": "4.4702 +- 0.0624"
+      },
+      "SimSIMD": {
+        "time_ms": "0.3735 +- 0.0176"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "1000x1000",
+      "Channels": 3,
+      "Total Pixels": 3000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "19.6360 +- 0.4394"
+      },
+      "NumPy": {
+        "time_ms": "13.1310 +- 0.0401"
+      },
+      "SimSIMD": {
+        "time_ms": "1.2455 +- 0.0123"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "1000x1000",
+      "Channels": 5,
+      "Total Pixels": 5000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "32.5679 +- 0.2078"
+      },
+      "NumPy": {
+        "time_ms": "21.8864 +- 0.0073"
+      },
+      "SimSIMD": {
+        "time_ms": "1.5070 +- 0.0096"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "2000x2000",
+      "Channels": 1,
+      "Total Pixels": 4000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "25.8161 +- 0.1623"
+      },
+      "NumPy": {
+        "time_ms": "17.5284 +- 0.0024"
+      },
+      "SimSIMD": {
+        "time_ms": "1.8038 +- 0.0325"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "2000x2000",
+      "Channels": 3,
+      "Total Pixels": 12000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "81.1217 +- 0.6194"
+      },
+      "NumPy": {
+        "time_ms": "52.3203 +- 0.0515"
+      },
+      "SimSIMD": {
+        "time_ms": "5.1115 +- 0.0556"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float16",
+      "Size": "2000x2000",
+      "Channels": 5,
+      "Total Pixels": 20000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "129.6550 +- 0.5328"
+      },
+      "NumPy": {
+        "time_ms": "87.6724 +- 0.0519"
+      },
+      "SimSIMD": {
+        "time_ms": "9.5976 +- 0.0226"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_arrays",
+      "Data Type": "float32",
+      "Size": "100x100",
+      "Channels": 1,
+      "Total Pixels": 10000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0018 +- 0.0000"
+      },
+      "NumPy": {
+        "time_ms": "0.0012 +- 0.0000"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0132 +- 0.0022"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -265,16 +462,15 @@
       "Total Pixels": 30000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.0046 +- 0.0000"
+        "time_ms": "0.0051 +- 0.0003"
       },
       "NumPy": {
-        "time_ms": "0.0042 +- 0.0000"
+        "time_ms": "0.0043 +- 0.0001"
       },
       "SimSIMD": {
-        "time_ms": "0.0142 +- 0.0004",
-        "speedup_vs_opencv": "0.3247 +- 0.0086",
-        "speedup_vs_numpy": "0.2994 +- 0.0080"
-      }
+        "time_ms": "0.0143 +- 0.0008"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -284,16 +480,15 @@
       "Total Pixels": 50000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.0072 +- 0.0000"
+        "time_ms": "0.0081 +- 0.0007"
       },
       "NumPy": {
-        "time_ms": "0.0068 +- 0.0000"
+        "time_ms": "0.0069 +- 0.0001"
       },
       "SimSIMD": {
-        "time_ms": "0.0201 +- 0.0013",
-        "speedup_vs_opencv": "0.3600 +- 0.0241",
-        "speedup_vs_numpy": "0.3368 +- 0.0226"
-      }
+        "time_ms": "0.0295 +- 0.0071"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -303,16 +498,15 @@
       "Total Pixels": 250000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.0336 +- 0.0001"
+        "time_ms": "0.0498 +- 0.0131"
       },
       "NumPy": {
-        "time_ms": "0.0292 +- 0.0001"
+        "time_ms": "0.0318 +- 0.0000"
       },
       "SimSIMD": {
-        "time_ms": "0.0839 +- 0.0015",
-        "speedup_vs_opencv": "0.4012 +- 0.0074",
-        "speedup_vs_numpy": "0.3479 +- 0.0066"
-      }
+        "time_ms": "0.0954 +- 0.0149"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -322,16 +516,15 @@
       "Total Pixels": 750000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.3428 +- 0.0097"
+        "time_ms": "0.3907 +- 0.0184"
       },
       "NumPy": {
-        "time_ms": "0.2815 +- 0.0026"
+        "time_ms": "0.2747 +- 0.0036"
       },
       "SimSIMD": {
-        "time_ms": "0.6150 +- 0.0014",
-        "speedup_vs_opencv": "0.5574 +- 0.0158",
-        "speedup_vs_numpy": "0.4577 +- 0.0043"
-      }
+        "time_ms": "0.6278 +- 0.0255"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -341,16 +534,15 @@
       "Total Pixels": 1250000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.4816 +- 0.0170"
+        "time_ms": "0.4946 +- 0.0429"
       },
       "NumPy": {
-        "time_ms": "0.4894 +- 0.0124"
+        "time_ms": "0.8421 +- 0.0036"
       },
       "SimSIMD": {
-        "time_ms": "0.9677 +- 0.0241",
-        "speedup_vs_opencv": "0.4977 +- 0.0215",
-        "speedup_vs_numpy": "0.5058 +- 0.0179"
-      }
+        "time_ms": "1.0435 +- 0.0566"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -360,16 +552,15 @@
       "Total Pixels": 1000000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "0.3583 +- 0.0095"
+        "time_ms": "0.3764 +- 0.0239"
       },
       "NumPy": {
-        "time_ms": "0.3638 +- 0.0022"
+        "time_ms": "0.3775 +- 0.0115"
       },
       "SimSIMD": {
-        "time_ms": "0.7698 +- 0.0020",
-        "speedup_vs_opencv": "0.4655 +- 0.0124",
-        "speedup_vs_numpy": "0.4725 +- 0.0031"
-      }
+        "time_ms": "0.8679 +- 0.0551"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -379,16 +570,15 @@
       "Total Pixels": 3000000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "1.2301 +- 0.0021"
+        "time_ms": "1.3230 +- 0.0121"
       },
       "NumPy": {
-        "time_ms": "1.2621 +- 0.0130"
+        "time_ms": "1.3438 +- 0.0034"
       },
       "SimSIMD": {
-        "time_ms": "1.8218 +- 0.0194",
-        "speedup_vs_opencv": "0.6752 +- 0.0073",
-        "speedup_vs_numpy": "0.6928 +- 0.0103"
-      }
+        "time_ms": "2.6421 +- 0.0274"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -398,16 +588,15 @@
       "Total Pixels": 5000000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "2.6826 +- 0.2764"
+        "time_ms": "2.3845 +- 0.0874"
       },
       "NumPy": {
-        "time_ms": "2.3152 +- 0.0434"
+        "time_ms": "2.2497 +- 0.0038"
       },
       "SimSIMD": {
-        "time_ms": "8.0645 +- 3.0366",
-        "speedup_vs_opencv": "0.3326 +- 0.1299",
-        "speedup_vs_numpy": "0.2871 +- 0.1082"
-      }
+        "time_ms": "4.5904 +- 0.0829"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -417,16 +606,15 @@
       "Total Pixels": 4000000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "2.2483 +- 0.1651"
+        "time_ms": "1.8855 +- 0.0746"
       },
       "NumPy": {
-        "time_ms": "2.0442 +- 0.1081"
+        "time_ms": "1.9284 +- 0.0528"
       },
       "SimSIMD": {
-        "time_ms": "3.9884 +- 0.3382",
-        "speedup_vs_opencv": "0.5637 +- 0.0632",
-        "speedup_vs_numpy": "0.5125 +- 0.0512"
-      }
+        "time_ms": "3.5465 +- 0.0030"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -436,16 +624,15 @@
       "Total Pixels": 12000000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "6.1500 +- 0.0566"
+        "time_ms": "5.8166 +- 0.0323"
       },
       "NumPy": {
-        "time_ms": "6.0250 +- 0.0789"
+        "time_ms": "6.0672 +- 0.0341"
       },
       "SimSIMD": {
-        "time_ms": "13.0392 +- 0.9959",
-        "speedup_vs_opencv": "0.4717 +- 0.0363",
-        "speedup_vs_numpy": "0.4621 +- 0.0358"
-      }
+        "time_ms": "11.3702 +- 0.0020"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_arrays",
@@ -455,16 +642,15 @@
       "Total Pixels": 20000000,
       "Weights": null,
       "OpenCV": {
-        "time_ms": "9.4490 +- 0.0492"
+        "time_ms": "9.9412 +- 0.0123"
       },
       "NumPy": {
-        "time_ms": "9.7373 +- 0.2784"
+        "time_ms": "9.6220 +- 0.0399"
       },
       "SimSIMD": {
-        "time_ms": "17.6321 +- 0.0215",
-        "speedup_vs_opencv": "0.5359 +- 0.0029",
-        "speedup_vs_numpy": "0.5522 +- 0.0158"
-      }
+        "time_ms": "18.6202 +- 0.0657"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -474,16 +660,15 @@
       "Total Pixels": 10000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0029 +- 0.0000"
+        "time_ms": "0.0064 +- 0.0027"
       },
       "NumPy": {
-        "time_ms": "0.0188 +- 0.0001"
+        "time_ms": "0.0168 +- 0.0004"
       },
       "SimSIMD": {
-        "time_ms": "0.0023 +- 0.0000",
-        "speedup_vs_opencv": "1.2501 +- 0.0190",
-        "speedup_vs_numpy": "8.0176 +- 0.1319"
-      }
+        "time_ms": "0.0023 +- 0.0000"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -493,16 +678,15 @@
       "Total Pixels": 30000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0076 +- 0.0000"
+        "time_ms": "0.0077 +- 0.0000"
       },
       "NumPy": {
-        "time_ms": "0.0416 +- 0.0001"
+        "time_ms": "0.0409 +- 0.0004"
       },
       "SimSIMD": {
-        "time_ms": "0.0046 +- 0.0000",
-        "speedup_vs_opencv": "1.6530 +- 0.0148",
-        "speedup_vs_numpy": "9.0634 +- 0.0829"
-      }
+        "time_ms": "0.0043 +- 0.0000"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -512,16 +696,15 @@
       "Total Pixels": 50000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0142 +- 0.0001"
+        "time_ms": "0.0124 +- 0.0001"
       },
       "NumPy": {
-        "time_ms": "0.0671 +- 0.0009"
+        "time_ms": "0.0953 +- 0.0034"
       },
       "SimSIMD": {
-        "time_ms": "0.0137 +- 0.0003",
-        "speedup_vs_opencv": "1.0369 +- 0.0212",
-        "speedup_vs_numpy": "4.9048 +- 0.1143"
-      }
+        "time_ms": "0.0067 +- 0.0000"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -531,16 +714,15 @@
       "Total Pixels": 250000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0580 +- 0.0000"
+        "time_ms": "0.0609 +- 0.0017"
       },
       "NumPy": {
-        "time_ms": "0.3155 +- 0.0017"
+        "time_ms": "0.3957 +- 0.0156"
       },
       "SimSIMD": {
-        "time_ms": "0.0379 +- 0.0002",
-        "speedup_vs_opencv": "1.5293 +- 0.0094",
-        "speedup_vs_numpy": "8.3226 +- 0.0681"
-      }
+        "time_ms": "0.0490 +- 0.0041"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -550,16 +732,15 @@
       "Total Pixels": 750000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.1739 +- 0.0003"
+        "time_ms": "0.1866 +- 0.0028"
       },
       "NumPy": {
-        "time_ms": "1.4911 +- 0.0459"
+        "time_ms": "1.6615 +- 0.1181"
       },
       "SimSIMD": {
-        "time_ms": "0.1005 +- 0.0011",
-        "speedup_vs_opencv": "1.7314 +- 0.0198",
-        "speedup_vs_numpy": "14.8418 +- 0.4868"
-      }
+        "time_ms": "0.1070 +- 0.0079"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -569,16 +750,15 @@
       "Total Pixels": 1250000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.2918 +- 0.0023"
+        "time_ms": "0.3137 +- 0.0041"
       },
       "NumPy": {
-        "time_ms": "2.5876 +- 0.0025"
+        "time_ms": "2.7356 +- 0.0939"
       },
       "SimSIMD": {
-        "time_ms": "0.1613 +- 0.0029",
-        "speedup_vs_opencv": "1.8084 +- 0.0353",
-        "speedup_vs_numpy": "16.0376 +- 0.2863"
-      }
+        "time_ms": "0.2052 +- 0.0396"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -588,16 +768,15 @@
       "Total Pixels": 1000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.2359 +- 0.0022"
+        "time_ms": "0.2679 +- 0.0053"
       },
       "NumPy": {
-        "time_ms": "2.2293 +- 0.0572"
+        "time_ms": "2.7829 +- 0.5054"
       },
       "SimSIMD": {
-        "time_ms": "0.1290 +- 0.0003",
-        "speedup_vs_opencv": "1.8293 +- 0.0180",
-        "speedup_vs_numpy": "17.2844 +- 0.4458"
-      }
+        "time_ms": "0.8418 +- 0.0338"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -607,16 +786,15 @@
       "Total Pixels": 3000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.8607 +- 0.0091"
+        "time_ms": "3.7365 +- 0.1709"
       },
       "NumPy": {
-        "time_ms": "6.7125 +- 0.0207"
+        "time_ms": "7.1107 +- 0.2914"
       },
       "SimSIMD": {
-        "time_ms": "0.7192 +- 0.0105",
-        "speedup_vs_opencv": "1.1968 +- 0.0216",
-        "speedup_vs_numpy": "9.3335 +- 0.1390"
-      }
+        "time_ms": "0.7422 +- 0.0062"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -626,16 +804,15 @@
       "Total Pixels": 5000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "1.4886 +- 0.0845"
+        "time_ms": "1.4821 +- 0.0099"
       },
       "NumPy": {
-        "time_ms": "12.8195 +- 0.1283"
+        "time_ms": "11.7952 +- 0.1538"
       },
       "SimSIMD": {
-        "time_ms": "1.4439 +- 0.1512",
-        "speedup_vs_opencv": "1.0310 +- 0.1228",
-        "speedup_vs_numpy": "8.8786 +- 0.9338"
-      }
+        "time_ms": "1.2274 +- 0.0234"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -645,16 +822,15 @@
       "Total Pixels": 4000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "1.9267 +- 0.3616"
+        "time_ms": "1.1375 +- 0.0136"
       },
       "NumPy": {
-        "time_ms": "12.3090 +- 0.0131"
+        "time_ms": "9.6202 +- 0.0854"
       },
       "SimSIMD": {
-        "time_ms": "0.9530 +- 0.0312",
-        "speedup_vs_opencv": "2.0217 +- 0.3851",
-        "speedup_vs_numpy": "12.9158 +- 0.4226"
-      }
+        "time_ms": "1.0373 +- 0.0283"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -664,16 +840,15 @@
       "Total Pixels": 12000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "3.6887 +- 0.1049"
+        "time_ms": "3.7186 +- 0.0291"
       },
       "NumPy": {
-        "time_ms": "29.1194 +- 0.0527"
+        "time_ms": "27.9956 +- 0.2182"
       },
       "SimSIMD": {
-        "time_ms": "2.3554 +- 0.0747",
-        "speedup_vs_opencv": "1.5660 +- 0.0667",
-        "speedup_vs_numpy": "12.3627 +- 0.3930"
-      }
+        "time_ms": "3.1446 +- 0.0039"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -683,16 +858,231 @@
       "Total Pixels": 20000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "6.2246 +- 0.0503"
+        "time_ms": "6.1578 +- 0.0023"
       },
       "NumPy": {
-        "time_ms": "63.6276 +- 1.8455"
+        "time_ms": "46.6463 +- 0.0247"
       },
       "SimSIMD": {
-        "time_ms": "5.7106 +- 0.2029",
-        "speedup_vs_opencv": "1.0900 +- 0.0397",
-        "speedup_vs_numpy": "11.1421 +- 0.5111"
-      }
+        "time_ms": "5.2313 +- 0.0938"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "100x100",
+      "Channels": 1,
+      "Total Pixels": 10000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "0.0656 +- 0.0016"
+      },
+      "NumPy": {
+        "time_ms": "0.1371 +- 0.0027"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0020 +- 0.0000"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "100x100",
+      "Channels": 3,
+      "Total Pixels": 30000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "0.1877 +- 0.0021"
+      },
+      "NumPy": {
+        "time_ms": "0.4263 +- 0.0206"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0145 +- 0.0047"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "100x100",
+      "Channels": 5,
+      "Total Pixels": 50000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "0.3313 +- 0.0111"
+      },
+      "NumPy": {
+        "time_ms": "0.6618 +- 0.0072"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0189 +- 0.0039"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "500x500",
+      "Channels": 1,
+      "Total Pixels": 250000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "1.5976 +- 0.0151"
+      },
+      "NumPy": {
+        "time_ms": "3.2066 +- 0.0173"
+      },
+      "SimSIMD": {
+        "time_ms": "0.0352 +- 0.0069"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "500x500",
+      "Channels": 3,
+      "Total Pixels": 750000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "5.0978 +- 0.0672"
+      },
+      "NumPy": {
+        "time_ms": "9.6247 +- 0.0160"
+      },
+      "SimSIMD": {
+        "time_ms": "0.1216 +- 0.0058"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "500x500",
+      "Channels": 5,
+      "Total Pixels": 1250000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "8.6874 +- 0.0902"
+      },
+      "NumPy": {
+        "time_ms": "16.3831 +- 0.0312"
+      },
+      "SimSIMD": {
+        "time_ms": "0.5887 +- 0.0065"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "1000x1000",
+      "Channels": 1,
+      "Total Pixels": 1000000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "6.9818 +- 0.0538"
+      },
+      "NumPy": {
+        "time_ms": "13.0370 +- 0.0042"
+      },
+      "SimSIMD": {
+        "time_ms": "0.3871 +- 0.0082"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "1000x1000",
+      "Channels": 3,
+      "Total Pixels": 3000000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "20.4980 +- 0.0141"
+      },
+      "NumPy": {
+        "time_ms": "38.8815 +- 0.0274"
+      },
+      "SimSIMD": {
+        "time_ms": "1.3065 +- 0.0125"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "1000x1000",
+      "Channels": 5,
+      "Total Pixels": 5000000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "32.6310 +- 0.0242"
+      },
+      "NumPy": {
+        "time_ms": "64.2209 +- 0.0055"
+      },
+      "SimSIMD": {
+        "time_ms": "1.4124 +- 0.0151"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "2000x2000",
+      "Channels": 1,
+      "Total Pixels": 4000000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "27.0375 +- 0.1070"
+      },
+      "NumPy": {
+        "time_ms": "51.9957 +- 0.0183"
+      },
+      "SimSIMD": {
+        "time_ms": "1.6817 +- 0.0544"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "2000x2000",
+      "Channels": 3,
+      "Total Pixels": 12000000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "80.2822 +- 0.1361"
+      },
+      "NumPy": {
+        "time_ms": "156.6242 +- 0.0393"
+      },
+      "SimSIMD": {
+        "time_ms": "5.4148 +- 0.0247"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "add_weighted",
+      "Data Type": "float16",
+      "Size": "2000x2000",
+      "Channels": 5,
+      "Total Pixels": 20000000,
+      "Weights": "(0.5, 0.5)",
+      "OpenCV": {
+        "time_ms": "169.0839 +- 11.8231"
+      },
+      "NumPy": {
+        "time_ms": "268.9919 +- 2.4270"
+      },
+      "SimSIMD": {
+        "time_ms": "9.4387 +- 0.0723"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -702,16 +1092,15 @@
       "Total Pixels": 10000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0029 +- 0.0000"
+        "time_ms": "0.0031 +- 0.0000"
       },
       "NumPy": {
-        "time_ms": "0.0133 +- 0.0015"
+        "time_ms": "0.0216 +- 0.0004"
       },
       "SimSIMD": {
-        "time_ms": "0.0088 +- 0.0000",
-        "speedup_vs_opencv": "0.3355 +- 0.0050",
-        "speedup_vs_numpy": "1.5205 +- 0.1673"
-      }
+        "time_ms": "0.0160 +- 0.0033"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -721,16 +1110,15 @@
       "Total Pixels": 30000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0075 +- 0.0000"
+        "time_ms": "0.0076 +- 0.0001"
       },
       "NumPy": {
-        "time_ms": "0.0346 +- 0.0002"
+        "time_ms": "0.0486 +- 0.0114"
       },
       "SimSIMD": {
-        "time_ms": "0.0148 +- 0.0005",
-        "speedup_vs_opencv": "0.5037 +- 0.0162",
-        "speedup_vs_numpy": "2.3333 +- 0.0769"
-      }
+        "time_ms": "0.0228 +- 0.0037"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -740,16 +1128,15 @@
       "Total Pixels": 50000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0125 +- 0.0000"
+        "time_ms": "0.0120 +- 0.0000"
       },
       "NumPy": {
-        "time_ms": "0.0437 +- 0.0041"
+        "time_ms": "0.0313 +- 0.0028"
       },
       "SimSIMD": {
-        "time_ms": "0.0197 +- 0.0002",
-        "speedup_vs_opencv": "0.6337 +- 0.0052",
-        "speedup_vs_numpy": "2.2182 +- 0.2076"
-      }
+        "time_ms": "0.0462 +- 0.0014"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -759,16 +1146,15 @@
       "Total Pixels": 250000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.0572 +- 0.0004"
+        "time_ms": "0.0598 +- 0.0006"
       },
       "NumPy": {
-        "time_ms": "0.1970 +- 0.0040"
+        "time_ms": "0.1566 +- 0.0108"
       },
       "SimSIMD": {
-        "time_ms": "0.0782 +- 0.0010",
-        "speedup_vs_opencv": "0.7312 +- 0.0109",
-        "speedup_vs_numpy": "2.5185 +- 0.0608"
-      }
+        "time_ms": "0.0889 +- 0.0081"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -778,16 +1164,15 @@
       "Total Pixels": 750000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.3184 +- 0.0032"
+        "time_ms": "0.3093 +- 0.0207"
       },
       "NumPy": {
-        "time_ms": "1.2435 +- 0.0075"
+        "time_ms": "0.7100 +- 0.0013"
       },
       "SimSIMD": {
-        "time_ms": "0.6088 +- 0.0199",
-        "speedup_vs_opencv": "0.5230 +- 0.0179",
-        "speedup_vs_numpy": "2.0425 +- 0.0680"
-      }
+        "time_ms": "0.5824 +- 0.0319"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -797,16 +1182,15 @@
       "Total Pixels": 1250000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.5428 +- 0.0056"
+        "time_ms": "0.6137 +- 0.0009"
       },
       "NumPy": {
-        "time_ms": "2.2720 +- 0.0584"
+        "time_ms": "1.2107 +- 0.0203"
       },
       "SimSIMD": {
-        "time_ms": "1.3236 +- 0.0903",
-        "speedup_vs_opencv": "0.4101 +- 0.0283",
-        "speedup_vs_numpy": "1.7165 +- 0.1251"
-      }
+        "time_ms": "1.0774 +- 0.0461"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -816,16 +1200,15 @@
       "Total Pixels": 1000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "0.4405 +- 0.0131"
+        "time_ms": "0.4333 +- 0.0266"
       },
       "NumPy": {
-        "time_ms": "1.7734 +- 0.0152"
+        "time_ms": "1.1645 +- 0.0175"
       },
       "SimSIMD": {
-        "time_ms": "0.8738 +- 0.0086",
-        "speedup_vs_opencv": "0.5042 +- 0.0158",
-        "speedup_vs_numpy": "2.0297 +- 0.0264"
-      }
+        "time_ms": "0.8300 +- 0.0287"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -835,16 +1218,15 @@
       "Total Pixels": 3000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "1.5295 +- 0.0276"
+        "time_ms": "1.5806 +- 0.0031"
       },
       "NumPy": {
-        "time_ms": "3.8746 +- 0.1607"
+        "time_ms": "3.1829 +- 0.0149"
       },
       "SimSIMD": {
-        "time_ms": "1.8193 +- 0.0085",
-        "speedup_vs_opencv": "0.8407 +- 0.0157",
-        "speedup_vs_numpy": "2.1297 +- 0.0889"
-      }
+        "time_ms": "2.5771 +- 0.0143"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -854,16 +1236,15 @@
       "Total Pixels": 5000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "2.9794 +- 0.1281"
+        "time_ms": "2.6509 +- 0.0582"
       },
       "NumPy": {
-        "time_ms": "12.6698 +- 0.4621"
+        "time_ms": "5.3322 +- 0.1340"
       },
       "SimSIMD": {
-        "time_ms": "4.4670 +- 0.0269",
-        "speedup_vs_opencv": "0.6670 +- 0.0290",
-        "speedup_vs_numpy": "2.8363 +- 0.1049"
-      }
+        "time_ms": "4.5162 +- 0.0247"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -873,16 +1254,15 @@
       "Total Pixels": 4000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "2.3003 +- 0.0565"
+        "time_ms": "2.1935 +- 0.0452"
       },
       "NumPy": {
-        "time_ms": "7.7970 +- 0.0252"
+        "time_ms": "4.2403 +- 0.0437"
       },
       "SimSIMD": {
-        "time_ms": "3.9219 +- 0.0384",
-        "speedup_vs_opencv": "0.5865 +- 0.0155",
-        "speedup_vs_numpy": "1.9881 +- 0.0205"
-      }
+        "time_ms": "3.5930 +- 0.0030"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -892,16 +1272,15 @@
       "Total Pixels": 12000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "6.6619 +- 0.0011"
+        "time_ms": "6.6033 +- 0.1277"
       },
       "NumPy": {
-        "time_ms": "23.4161 +- 0.1909"
+        "time_ms": "12.4435 +- 0.0086"
       },
       "SimSIMD": {
-        "time_ms": "11.0743 +- 0.1715",
-        "speedup_vs_opencv": "0.6016 +- 0.0093",
-        "speedup_vs_numpy": "2.1145 +- 0.0370"
-      }
+        "time_ms": "13.6522 +- 0.1247"
+      },
+      "StringZilla": null
     },
     {
       "Operation": "add_weighted",
@@ -911,15 +1290,446 @@
       "Total Pixels": 20000000,
       "Weights": "(0.5, 0.5)",
       "OpenCV": {
-        "time_ms": "10.9303 +- 0.1428"
+        "time_ms": "11.2056 +- 0.1949"
       },
       "NumPy": {
-        "time_ms": "42.1215 +- 1.1356"
+        "time_ms": "22.9357 +- 2.4876"
       },
       "SimSIMD": {
-        "time_ms": "20.7438 +- 0.8545",
-        "speedup_vs_opencv": "0.5269 +- 0.0228",
-        "speedup_vs_numpy": "2.0306 +- 0.1000"
+        "time_ms": "17.9132 +- 0.0660"
+      },
+      "StringZilla": null
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 1,
+      "Total Pixels": 10000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0038 +- 0.0000"
+      },
+      "NumPy": {
+        "time_ms": "0.0183 +- 0.0000"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0017 +- 0.0000"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 1,
+      "Total Pixels": 10000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0038 +- 0.0000"
+      },
+      "NumPy": {
+        "time_ms": "0.0191 +- 0.0001"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0013 +- 0.0000"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 3,
+      "Total Pixels": 30000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0107 +- 0.0002"
+      },
+      "NumPy": {
+        "time_ms": "0.0562 +- 0.0006"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0038 +- 0.0000"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 3,
+      "Total Pixels": 30000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0107 +- 0.0000"
+      },
+      "NumPy": {
+        "time_ms": "0.0619 +- 0.0009"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0031 +- 0.0000"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 5,
+      "Total Pixels": 50000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0174 +- 0.0006"
+      },
+      "NumPy": {
+        "time_ms": "0.1185 +- 0.0040"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0066 +- 0.0000"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "100x100",
+      "Channels": 5,
+      "Total Pixels": 50000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0171 +- 0.0003"
+      },
+      "NumPy": {
+        "time_ms": "0.0918 +- 0.0000"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0052 +- 0.0001"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 1,
+      "Total Pixels": 250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.0889 +- 0.0005"
+      },
+      "NumPy": {
+        "time_ms": "1.1515 +- 0.1485"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0298 +- 0.0008"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 1,
+      "Total Pixels": 250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.1048 +- 0.0012"
+      },
+      "NumPy": {
+        "time_ms": "0.6356 +- 0.0149"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0234 +- 0.0000"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 3,
+      "Total Pixels": 750000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.2425 +- 0.0001"
+      },
+      "NumPy": {
+        "time_ms": "1.9561 +- 0.0089"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0807 +- 0.0002"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 3,
+      "Total Pixels": 750000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.2778 +- 0.0259"
+      },
+      "NumPy": {
+        "time_ms": "1.8470 +- 0.0642"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0704 +- 0.0004"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 5,
+      "Total Pixels": 1250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.4057 +- 0.0025"
+      },
+      "NumPy": {
+        "time_ms": "3.1033 +- 0.0090"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.1427 +- 0.0006"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "500x500",
+      "Channels": 5,
+      "Total Pixels": 1250000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.5116 +- 0.0172"
+      },
+      "NumPy": {
+        "time_ms": "3.2900 +- 0.0741"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.1149 +- 0.0004"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 1,
+      "Total Pixels": 1000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.3254 +- 0.0056"
+      },
+      "NumPy": {
+        "time_ms": "2.6084 +- 0.0262"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.1210 +- 0.0041"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 1,
+      "Total Pixels": 1000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "0.4162 +- 0.0001"
+      },
+      "NumPy": {
+        "time_ms": "2.4727 +- 0.0461"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.0963 +- 0.0009"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 3,
+      "Total Pixels": 3000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "1.1609 +- 0.0043"
+      },
+      "NumPy": {
+        "time_ms": "8.3103 +- 0.2570"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.5797 +- 0.0263"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 3,
+      "Total Pixels": 3000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "1.3465 +- 0.0221"
+      },
+      "NumPy": {
+        "time_ms": "8.0678 +- 0.2637"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.2920 +- 0.0108"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 5,
+      "Total Pixels": 5000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "2.0214 +- 0.0361"
+      },
+      "NumPy": {
+        "time_ms": "13.0899 +- 0.1100"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "1.0279 +- 0.0537"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "1000x1000",
+      "Channels": 5,
+      "Total Pixels": 5000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "2.6090 +- 0.1081"
+      },
+      "NumPy": {
+        "time_ms": "14.6335 +- 0.2945"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.5528 +- 0.0273"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 1,
+      "Total Pixels": 4000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "1.8783 +- 0.1217"
+      },
+      "NumPy": {
+        "time_ms": "10.4527 +- 0.0313"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.7781 +- 0.0205"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 1,
+      "Total Pixels": 4000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "1.7087 +- 0.0085"
+      },
+      "NumPy": {
+        "time_ms": "11.0084 +- 0.1397"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "0.3752 +- 0.0006"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 3,
+      "Total Pixels": 12000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "4.8325 +- 0.1071"
+      },
+      "NumPy": {
+        "time_ms": "55.4424 +- 9.1292"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "2.3814 +- 0.0309"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 3,
+      "Total Pixels": 12000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "5.3700 +- 0.0035"
+      },
+      "NumPy": {
+        "time_ms": "33.5992 +- 0.6129"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "1.2480 +- 0.0415"
+      }
+    },
+    {
+      "Operation": "lut",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 5,
+      "Total Pixels": 20000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "7.6894 +- 0.0143"
+      },
+      "NumPy": {
+        "time_ms": "53.8727 +- 0.5377"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "3.8635 +- 0.0487"
+      }
+    },
+    {
+      "Operation": "lut_inplace",
+      "Data Type": "uint8",
+      "Size": "2000x2000",
+      "Channels": 5,
+      "Total Pixels": 20000000,
+      "Weights": null,
+      "OpenCV": {
+        "time_ms": "8.6763 +- 0.1035"
+      },
+      "NumPy": {
+        "time_ms": "55.5788 +- 0.4147"
+      },
+      "SimSIMD": null,
+      "StringZilla": {
+        "time_ms": "1.8985 +- 0.0011"
       }
     }
   ]

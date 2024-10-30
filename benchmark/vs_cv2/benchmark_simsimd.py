@@ -14,9 +14,6 @@ import simsimd as ss
 import json
 import stringzilla as sz
 
-import platform
-from pathlib import Path
-import psutil
 
 # Disable multithreading for fair comparison
 cv2.setNumThreads(0)
@@ -64,6 +61,10 @@ def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, wei
 
 
 def add_arrays_opencv(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
+    if img1.dtype == np.float16:
+        # OpenCV doesn't support float16 directly
+        result = cv2.add(img1.astype(np.float32), img2.astype(np.float32))
+        return result.astype(np.float16)
     return cv2.add(img1, img2)
 
 def add_arrays_simsimd(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
@@ -73,49 +74,27 @@ def add_arrays_numpy(img1: np.ndarray, img2: np.ndarray) -> np.ndarray:
     return np.add(img1, img2)
 
 def add_weighted_opencv(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    if img1.dtype == np.float16:
+        # OpenCV doesn't support float16 directly
+        result = cv2.addWeighted(img1.astype(np.float32), weight1, img2.astype(np.float32), weight2, 0).astype(np.float16)
+        return result.astype(np.float16)
     return cv2.addWeighted(img1, weight1, img2, weight2, 0)
 
 def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    return img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2
-
-
-def get_cpu_info() -> dict[str, str]:
-    cpu_info = {}
-
-    # Get CPU name
-    if platform.system() == "Windows":
-        cpu_info["name"] = platform.processor()
-    elif platform.system() == "Darwin":
-        import subprocess
-
-        cpu_info["name"] = (
-            subprocess.check_output(["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"]).strip().decode()  # noqa: S603
-        )
-    elif platform.system() == "Linux":
-        with Path("/proc/cpuinfo").open() as f:
-            info = f.readlines()
-        cpu_info["name"] = next(x.strip().split(":")[1] for x in info if "model name" in x)
-    else:
-        cpu_info["name"] = "Unknown"
-
-    # Get CPU frequency
-    freq = psutil.cpu_freq()
-    if freq:
-        cpu_info["freq"] = f"Current: {freq.current:.2f} MHz, Min: {freq.min:.2f} MHz, Max: {freq.max:.2f} MHz"
-    else:
-        cpu_info["freq"] = "Frequency information not available"
-
-    # Get CPU cores
-    cpu_info["physical_cores"] = psutil.cpu_count(logical=False)
-    cpu_info["total_cores"] = psutil.cpu_count(logical=True)
-
-    return cpu_info
+    if img1.dtype == np.uint8:
+        # Convert to float32 only for uint8 inputs
+        return (img1.astype(np.float32) * weight1 +
+                img2.astype(np.float32) * weight2)
+    # For float16 and float32, compute directly
+    return img1 * weight1 + img2 * weight2
 
 def generate_image(shape: tuple[int, int], channels: int = 1, dtype: type = np.uint8) -> np.ndarray:
     if dtype == np.uint8:
         return rng.integers(0, 256, size=(*shape, channels), dtype=dtype)
-    else:  # float32
-        return rng.random(size=(*shape, channels), dtype=dtype)
+    else:  # float32 or float16
+        # Generate in float32 first for better precision, then convert if needed
+        arr = rng.random(size=(*shape, channels), dtype=np.float32)
+        return arr.astype(dtype)
 
 def benchmark_operation(
     func: Any,
@@ -194,7 +173,7 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
     weight_pairs: list[tuple[float, float]] = [
         (0.5, 0.5),
     ]
-    dtypes: list[type] = [np.uint8, np.float32]
+    dtypes: list[type] = [np.uint8, np.float16, np.float32]
     results: list[dict[str, Any]] = []
 
     operations: list[tuple[str, dict[str, Any]]] = [
@@ -279,25 +258,9 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
                                 # Add SimSIMD or StringZilla results based on operation
                                 if operation_name == "lut":
                                     sz_median, sz_sem = timings["StringZilla"]
-                                    opencv_median, opencv_sem = timings["OpenCV"]
-                                    numpy_median, numpy_sem = timings["NumPy"]
-
-                                    speedup_vs_opencv = opencv_median / sz_median
-                                    speedup_vs_numpy = numpy_median / sz_median
-
-                                    speedup_opencv_error = speedup_vs_opencv * np.sqrt(
-                                        (opencv_sem / opencv_median) ** 2 +
-                                        (sz_sem / sz_median) ** 2
-                                    )
-                                    speedup_numpy_error = speedup_vs_numpy * np.sqrt(
-                                        (numpy_sem / numpy_median) ** 2 +
-                                        (sz_sem / sz_median) ** 2
-                                    )
 
                                     result["StringZilla"] = {
                                         "time_ms": f"{sz_median*1000:.4f} +- {sz_sem*1000:.4f}",
-                                        "speedup_vs_opencv": f"{speedup_vs_opencv:.4f} +- {speedup_opencv_error:.4f}",
-                                        "speedup_vs_numpy": f"{speedup_vs_numpy:.4f} +- {speedup_numpy_error:.4f}"
                                     }
                                 else:  # add_arrays or add_weighted
                                     simsimd_median, simsimd_sem = timings["SimSIMD"]
@@ -316,6 +279,43 @@ def run_benchmarks(num_runs: int) -> pd.DataFrame:
     return pd.DataFrame(results)
 
 
+def save_comparison_tables(df: pd.DataFrame, prefix: str = "comparison") -> None:
+    """Save comparison tables for easy library performance comparison."""
+    # Group by operation type first
+    for operation in df["Operation"].unique():
+        op_df = df[df["Operation"] == operation]
+
+        # Select libraries based on operation type and create data arrays
+        libraries = ["OpenCV", "NumPy"]
+        libraries += ["StringZilla"] if operation.startswith("lut") else ["SimSIMD"]
+
+        # Pre-allocate timing data list with known size
+        timing_data = []
+        valid_libraries = []
+
+        # Single pass through libraries
+        for lib in libraries:
+            times = op_df[lib].apply(lambda x: float(x["time_ms"].split(" +-")[0]) if isinstance(x, dict) else None)
+            if not times.isna().all():
+                timing_data.append(times)
+                valid_libraries.append(lib)
+
+        # Create configs list with known size
+        configs = [
+            f"{row['Size']}, {row['Channels']}ch, {row['Data Type']}" +
+            (f", {row['Weights']}" if row["Weights"] else "")
+            for _, row in op_df.iterrows()
+        ]
+
+        # Create and save timing DataFrame
+        timing_df = pd.DataFrame(
+            np.array(timing_data).T,
+            columns=valid_libraries,
+            index=configs
+        )
+        timing_df.to_csv(f"{prefix}_{operation}_timings.csv")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark array operations")
     parser.add_argument("-r", "--runs", type=int, default=100, help="Number of runs for each benchmark")
@@ -330,7 +330,6 @@ if __name__ == "__main__":
     # Convert DataFrame to a more JSON-friendly format
     json_results = {
         "metadata": {
-            "cpu_info": get_cpu_info(),
             "num_runs": args.runs,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         },
@@ -358,3 +357,6 @@ if __name__ == "__main__":
     # Save to JSON file with nice formatting
     with open("array_operations_benchmark_results.json", "w") as f:
         json.dump(json_results, f, indent=2)
+
+    print("Saving comparison tables")
+    save_comparison_tables(results_df)
