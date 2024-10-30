@@ -215,13 +215,15 @@ def multiply(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.nda
 def add_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     value = prepare_value_opencv(img, value, "add")
 
-    if img.dtype == np.uint8:
-        if isinstance(value, (int, float)) and value < 0:
-            return cv2.add(img.astype(np.float32), value)
-        if isinstance(value, np.ndarray) and value.dtype != np.uint8:
-            return cv2.add(img.astype(np.float32), value.astype(np.float32))
+    # Convert to float32 if:
+    # 1. uint8 image with negative scalar value
+    # 2. uint8 image with non-uint8 array value
+    needs_float = img.dtype == np.uint8 and (
+        (isinstance(value, (int, float)) and value < 0) or (isinstance(value, np.ndarray) and value.dtype != np.uint8)
+    )
 
-        return cv2.add(img, value)
+    if needs_float:
+        return cv2.add(img.astype(np.float32), value if isinstance(value, (int, float)) else value.astype(np.float32))
 
     return cv2.add(img, value)
 
