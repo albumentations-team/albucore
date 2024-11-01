@@ -212,7 +212,7 @@ def multiply(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.nda
 
 
 @preserve_channel_dim
-def add_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
+def add_opencv(img: np.ndarray, value: np.ndarray | float, inplace: bool = False) -> np.ndarray:
     value = prepare_value_opencv(img, value, "add")
 
     # Convert to float32 if:
@@ -225,7 +225,9 @@ def add_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     if needs_float:
         return cv2.add(img.astype(np.float32), value if isinstance(value, (int, float)) else value.astype(np.float32))
 
-    return cv2.add(img, value)
+    # Use img as the destination array if inplace=True
+    dst = img if inplace else None
+    return cv2.add(img, value, dst=dst)
 
 
 def add_numpy(img: np.ndarray, value: float | np.ndarray) -> np.ndarray:
@@ -237,20 +239,20 @@ def add_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> np.nda
 
 
 @clipped
-def add_constant(img: np.ndarray, value: float) -> np.ndarray:
-    return add_opencv(img, value)
+def add_constant(img: np.ndarray, value: float, inplace: bool = False) -> np.ndarray:
+    return add_opencv(img, value, inplace)
 
 
 @clipped
 def add_vector(img: np.ndarray, value: np.ndarray, inplace: bool) -> np.ndarray:
     if img.dtype == np.uint8:
         return add_lut(img, value, inplace)
-    return add_opencv(img, value)
+    return add_opencv(img, value, inplace)
 
 
 @clipped
-def add_array(img: np.ndarray, value: np.ndarray) -> np.ndarray:
-    return add_opencv(img, value)
+def add_array(img: np.ndarray, value: np.ndarray, inplace: bool = False) -> np.ndarray:
+    return add_opencv(img, value, inplace)
 
 
 def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
@@ -264,9 +266,9 @@ def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
         if img.dtype == np.uint8:
             value = int(value)
 
-        return add_constant(img, value)
+        return add_constant(img, value, inplace)
 
-    return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value)
+    return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value, inplace)
 
 
 def normalize_numpy(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
@@ -371,11 +373,17 @@ def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weigh
 
 @preserve_channel_dim
 def add_weighted_opencv(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    return cv2.addWeighted(img1.astype(np.float32), weight1, img2.astype(np.float32), weight2, 0)
+    return cv2.addWeighted(img1, weight1, img2, weight2, 0)
 
 
 @preserve_channel_dim
-def add_weighted_lut(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+def add_weighted_lut(
+    img1: np.ndarray,
+    weight1: float,
+    img2: np.ndarray,
+    weight2: float,
+    inplace: bool = False,
+) -> np.ndarray:
     dtype = img1.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -389,7 +397,7 @@ def add_weighted_lut(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2
         return np.zeros_like(img1)
 
     if weight1 == 1 and weight2 == 1:
-        return add_array(img1, img2)
+        return add_array(img1, img2, inplace)
 
     lut1 = np.arange(0, max_value + 1, dtype=np.float32) * weight1
     result1 = cv2.LUT(img1, lut1)
@@ -397,7 +405,7 @@ def add_weighted_lut(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2
     lut2 = np.arange(0, max_value + 1, dtype=np.float32) * weight2
     result2 = cv2.LUT(img2, lut2)
 
-    return add_opencv(result1, result2)
+    return add_opencv(result1, result2, inplace)
 
 
 @clipped
