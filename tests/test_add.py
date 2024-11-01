@@ -242,7 +242,7 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
 
     result_numpy = clip(add_numpy(img, processed_value), img_dtype)
 
-    result_opencv = clip(add_opencv(img, processed_value), img.dtype)
+    result_opencv = clip(add_opencv(img, processed_value,), img.dtype)
     np.testing.assert_array_equal(img, original_image)
     np.testing.assert_array_equal(result_opencv, result_numpy)
 
