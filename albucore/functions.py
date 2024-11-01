@@ -32,7 +32,7 @@ def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, wei
     original_dtype = img1.dtype
 
     if img2.dtype != original_dtype:
-        img2 = clip(img2.astype(original_dtype), original_dtype)
+        img2 = clip(img2.astype(original_dtype), original_dtype, inplace=True)
 
     return np.frombuffer(
         ss.wsum(img1.reshape(-1), img2.astype(original_dtype).reshape(-1), alpha=weight1, beta=weight2),
@@ -96,7 +96,7 @@ def apply_lut(
 
     num_channels = img.shape[-1]
     luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype), inplace) for i in range(num_channels)])
+    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype, inplace=False), inplace) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -445,7 +445,7 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType, inpla
     num_channels = get_num_channels(img)
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
+        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype, inplace=False)
         return sz_lut(img, lut, inplace)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
@@ -454,7 +454,7 @@ def multiply_add_lut(img: np.ndarray, factor: ValueType, value: ValueType, inpla
     if isinstance(value, np.ndarray) and value.shape != ():
         value = value.reshape(-1, 1)
 
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype)
+    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype, inplace=True)
 
     return cv2.merge([sz_lut(img[:, :, i], luts[i], inplace) for i in range(num_channels)])
 
@@ -649,7 +649,7 @@ def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
 def from_float_numpy(img: np.ndarray, target_dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
         max_value = get_max_value(target_dtype)
-    return clip(np.rint(img * max_value), target_dtype)
+    return clip(np.rint(img * max_value), target_dtype, inplace=True)
 
 
 @preserve_channel_dim
