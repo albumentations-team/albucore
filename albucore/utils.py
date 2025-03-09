@@ -77,7 +77,7 @@ def maybe_process_in_chunks(
     def __process_fn(img: np.ndarray, *process_args: P.args, **process_kwargs: P.kwargs) -> np.ndarray:
         # Merge args and kwargs
         all_args = (*args, *process_args)
-        all_kwargs: dict[str, Any] = {**kwargs, **process_kwargs}
+        all_kwargs: dict[str, Any] = kwargs | process_kwargs
 
         num_channels = get_num_channels(img)
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
