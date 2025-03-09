@@ -92,11 +92,12 @@ def apply_lut(
 
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return sz_lut(img, clip(lut, dtype), inplace)
+        return sz_lut(img, clip(lut, dtype, inplace=False), False)
 
     num_channels = img.shape[-1]
-    luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype, inplace=False), inplace) for i in range(num_channels)])
+
+    luts = clip(create_lut_array(dtype, value, operation), dtype, inplace=False)
+    return cv2.merge([sz_lut(img[:, :, i], luts[i], inplace) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -141,7 +142,7 @@ def _prepare_array_value(
     value = np.broadcast_to(value, img.shape)
     if operation == "add" and img.dtype == np.uint8:
         if np.all(value >= 0):
-            return clip(value, np.uint8)
+            return clip(value, np.uint8, inplace=False)
         return np.trunc(value).astype(np.float32, copy=False)
     return value
 
@@ -489,7 +490,7 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
             mean = np.full_like(img, mean)
             std = np.full_like(img, std)
         normalized_img = cv2.divide(cv2.subtract(img, mean), std)
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "image_per_channel":
         mean, std = cv2.meanStdDev(img)
@@ -501,7 +502,7 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
             std = np.full_like(img, std)
 
         normalized_img = cv2.divide(cv2.subtract(img, mean), std, dtype=cv2.CV_32F)
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
         img_min = img.min()
@@ -516,7 +517,12 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
             img_min = np.full_like(img, img_min)
             img_max = np.full_like(img, img_max)
 
-        return cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F).clip(-20, 20)
+        return np.clip(
+            cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F),
+            -20,
+            20,
+            out=img,
+        )
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -533,23 +539,23 @@ def normalize_per_image_numpy(img: np.ndarray, normalization: NormalizationType)
         mean = img.mean()
         std = img.std() + eps
         normalized_img = (img - mean) / std
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "image_per_channel":
         pixel_mean = img.mean(axis=(0, 1))
         pixel_std = img.std(axis=(0, 1)) + eps
         normalized_img = (img - pixel_mean) / pixel_std
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "min_max":
         img_min = img.min()
         img_max = img.max()
-        return (img - img_min) / (img_max - img_min + eps)
+        return np.clip((img - img_min) / (img_max - img_min + eps), -20, 20, out=img)
 
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=(0, 1))
         img_max = img.max(axis=(0, 1))
-        return (img - img_min) / (img_max - img_min + eps)
+        return np.clip((img - img_min) / (img_max - img_min + eps), -20, 20, out=img)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -582,7 +588,7 @@ def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -
         img_min = img.min()
         img_max = img.max()
         lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
-        return cv2.LUT(img, lut)
+        return cv2.LUT(img, lut).clip(-20, 20)
 
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=(0, 1))
@@ -667,10 +673,10 @@ def from_float_opencv(img: np.ndarray, target_dtype: np.dtype, max_value: float 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         # For images with more than 4 channels, create a full-sized multiplier
         max_value_array = np.full_like(img_float, max_value)
-        return clip(np.rint(cv2.multiply(img_float, max_value_array)), target_dtype)
+        return clip(np.rint(cv2.multiply(img_float, max_value_array)), target_dtype, inplace=False)
 
     # For images with 4 or fewer channels, use scalar multiplication
-    return clip(np.rint(img * max_value), target_dtype)
+    return clip(np.rint(img * max_value), target_dtype, inplace=False)
 
 
 def from_float(img: np.ndarray, target_dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
