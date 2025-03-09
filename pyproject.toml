@@ -5,7 +5,7 @@ requires = [ "setuptools>=45", "wheel" ]
 
 [project]
 name = "albucore"
-version = "0.0.23"
+version = "0.0.24"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
@@ -101,38 +101,17 @@ format.skip-magic-trailing-comma = false
 # Like Black, automatically detect the appropriate line ending.
 lint.select = [ "ALL" ]
 lint.ignore = [
-  "ANN101",
-  "ANN102",
-  "ANN204",
   "ANN401",
   "ARG001",
-  "ARG002",
-  "B008",
-  "B027",
   "D100",
-  "D101",
-  "D102",
   "D103",
   "D104",
-  "D105",
-  "D106",
-  "D107",
-  "D205",
-  "D415",
   "EM101",
   "EM102",
   "F403",
   "FBT001",
   "FBT002",
-  "FBT003",
-  "G004",
-  "PLR0913",
   "PLR2004",
-  "PTH123",
-  "S311",
-  "TCH001",
-  "TCH002",
-  "TCH003",
   "TRY003",
 ]
 
