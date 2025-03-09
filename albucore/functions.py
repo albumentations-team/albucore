@@ -32,10 +32,10 @@ def add_weighted_simsimd(img1: np.ndarray, weight1: float, img2: np.ndarray, wei
     original_dtype = img1.dtype
 
     if img2.dtype != original_dtype:
-        img2 = clip(img2.astype(original_dtype), original_dtype, inplace=True)
+        img2 = clip(img2.astype(original_dtype, copy=False), original_dtype, inplace=True)
 
     return np.frombuffer(
-        ss.wsum(img1.reshape(-1), img2.astype(original_dtype).reshape(-1), alpha=weight1, beta=weight2),
+        ss.wsum(img1.reshape(-1), img2.astype(original_dtype, copy=False).reshape(-1), alpha=weight1, beta=weight2),
         dtype=original_dtype,
     ).reshape(
         original_shape,
@@ -51,7 +51,7 @@ def multiply_by_constant_simsimd(img: np.ndarray, value: float) -> np.ndarray:
 
 
 def add_constant_simsimd(img: np.ndarray, value: float) -> np.ndarray:
-    return add_weighted_simsimd(img, 1, (np.ones_like(img) * value).astype(img.dtype), 1)
+    return add_weighted_simsimd(img, 1, (np.ones_like(img) * value).astype(img.dtype, copy=False), 1)
 
 
 def create_lut_array(
@@ -92,11 +92,12 @@ def apply_lut(
 
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return sz_lut(img, clip(lut, dtype), inplace)
+        return sz_lut(img, clip(lut, dtype, inplace=False), False)
 
     num_channels = img.shape[-1]
-    luts = create_lut_array(dtype, value, operation)
-    return cv2.merge([sz_lut(img[:, :, i], clip(luts[i], dtype, inplace=False), inplace) for i in range(num_channels)])
+
+    luts = clip(create_lut_array(dtype, value, operation), dtype, inplace=False)
+    return cv2.merge([sz_lut(img[:, :, i], luts[i], inplace) for i in range(num_channels)])
 
 
 def prepare_value_opencv(
@@ -135,14 +136,14 @@ def _prepare_array_value(
     operation: Literal["add", "multiply"],
 ) -> np.ndarray:
     if value.dtype == np.float64:
-        value = value.astype(np.float32)
+        value = value.astype(np.float32, copy=False)
     if value.ndim == 1:
         value = value.reshape(1, 1, -1)
     value = np.broadcast_to(value, img.shape)
     if operation == "add" and img.dtype == np.uint8:
         if np.all(value >= 0):
-            return clip(value, np.uint8)
-        return np.trunc(value).astype(np.float32)
+            return clip(value, np.uint8, inplace=False)
+        return np.trunc(value).astype(np.float32, copy=False)
     return value
 
 
@@ -154,7 +155,7 @@ def apply_numpy(
     if operation == "add" and img.dtype == np.uint8:
         value = np.int16(value)
 
-    return np_operations[operation](img.astype(np.float32), value)
+    return np_operations[operation](img.astype(np.float32, copy=False), value)
 
 
 def multiply_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> np.ndarray:
@@ -165,7 +166,7 @@ def multiply_lut(img: np.ndarray, value: np.ndarray | float, inplace: bool) -> n
 def multiply_opencv(img: np.ndarray, value: np.ndarray | float) -> np.ndarray:
     value = prepare_value_opencv(img, value, "multiply")
     if img.dtype == np.uint8:
-        return cv2.multiply(img.astype(np.float32), value)
+        return cv2.multiply(img.astype(np.float32, copy=False), value)
     return cv2.multiply(img, value)
 
 
@@ -223,7 +224,10 @@ def add_opencv(img: np.ndarray, value: np.ndarray | float, inplace: bool = False
     )
 
     if needs_float:
-        return cv2.add(img.astype(np.float32), value if isinstance(value, (int, float)) else value.astype(np.float32))
+        return cv2.add(
+            img.astype(np.float32, copy=False),
+            value if isinstance(value, (int, float)) else value.astype(np.float32, copy=False),
+        )
 
     # Use img as the destination array if inplace=True
     dst = img if inplace else None
@@ -272,14 +276,14 @@ def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
 
 
 def normalize_numpy(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
-    img = img.astype(np.float32)
+    img = img.astype(np.float32, copy=False)
     img -= mean
     return img * denominator
 
 
 @preserve_channel_dim
 def normalize_opencv(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
-    img = img.astype(np.float32)
+    img = img.astype(np.float32, copy=False)
     mean_img = np.zeros_like(img, dtype=np.float32)
     denominator_img = np.zeros_like(img, dtype=np.float32)
 
@@ -290,7 +294,7 @@ def normalize_opencv(img: np.ndarray, mean: float | np.ndarray, denominator: flo
         denominator = np.full(img.shape, denominator, dtype=np.float32)
 
     # Ensure the shapes match for broadcasting
-    mean_img = (mean_img + mean).astype(np.float32)
+    mean_img = (mean_img + mean).astype(np.float32, copy=False)
     denominator_img = denominator_img + denominator
 
     result = cv2.subtract(img, mean_img)
@@ -343,7 +347,7 @@ def power_opencv(img: np.ndarray, value: float) -> np.ndarray:
         return cv2.pow(img, value)
     if img.dtype == np.uint8 and isinstance(value, float):
         # For uint8 images, convert to float32, apply power, then convert back to uint8
-        img_float = img.astype(np.float32)
+        img_float = img.astype(np.float32, copy=False)
         return cv2.pow(img_float, value)
 
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
@@ -368,7 +372,7 @@ def power(img: np.ndarray, exponent: ValueType, inplace: bool = False) -> np.nda
 
 
 def add_weighted_numpy(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
-    return img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2
+    return img1.astype(np.float32, copy=False) * weight1 + img2.astype(np.float32, copy=False) * weight2
 
 
 @preserve_channel_dim
@@ -430,7 +434,7 @@ def multiply_add_opencv(img: np.ndarray, factor: ValueType, value: ValueType) ->
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
         return np.zeros_like(img)
 
-    result = img.astype(np.float32)
+    result = img.astype(np.float32, copy=False)
     result = (
         cv2.multiply(result, np.ones_like(result) * factor, dtype=cv2.CV_64F)
         if factor != 0
@@ -473,7 +477,7 @@ def multiply_add(img: np.ndarray, factor: ValueType, value: ValueType, inplace: 
 
 @preserve_channel_dim
 def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
-    img = img.astype(np.float32)
+    img = img.astype(np.float32, copy=False)
     eps = 1e-4
 
     if img.ndim == MONO_CHANNEL_DIMENSIONS:
@@ -486,7 +490,7 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
             mean = np.full_like(img, mean)
             std = np.full_like(img, std)
         normalized_img = cv2.divide(cv2.subtract(img, mean), std)
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "image_per_channel":
         mean, std = cv2.meanStdDev(img)
@@ -498,7 +502,7 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
             std = np.full_like(img, std)
 
         normalized_img = cv2.divide(cv2.subtract(img, mean), std, dtype=cv2.CV_32F)
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
         img_min = img.min()
@@ -513,14 +517,19 @@ def normalize_per_image_opencv(img: np.ndarray, normalization: NormalizationType
             img_min = np.full_like(img, img_min)
             img_max = np.full_like(img, img_max)
 
-        return cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F).clip(-20, 20)
+        return np.clip(
+            cv2.divide(cv2.subtract(img, img_min), (img_max - img_min + eps), dtype=cv2.CV_32F),
+            -20,
+            20,
+            out=img,
+        )
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
 
 @preserve_channel_dim
 def normalize_per_image_numpy(img: np.ndarray, normalization: NormalizationType) -> np.ndarray:
-    img = img.astype(np.float32)
+    img = img.astype(np.float32, copy=False)
     eps = 1e-4
 
     if img.ndim == MONO_CHANNEL_DIMENSIONS:
@@ -530,23 +539,23 @@ def normalize_per_image_numpy(img: np.ndarray, normalization: NormalizationType)
         mean = img.mean()
         std = img.std() + eps
         normalized_img = (img - mean) / std
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "image_per_channel":
         pixel_mean = img.mean(axis=(0, 1))
         pixel_std = img.std(axis=(0, 1)) + eps
         normalized_img = (img - pixel_mean) / pixel_std
-        return normalized_img.clip(-20, 20)
+        return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "min_max":
         img_min = img.min()
         img_max = img.max()
-        return (img - img_min) / (img_max - img_min + eps)
+        return np.clip((img - img_min) / (img_max - img_min + eps), -20, 20, out=img)
 
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=(0, 1))
         img_max = img.max(axis=(0, 1))
-        return (img - img_min) / (img_max - img_min + eps)
+        return np.clip((img - img_min) / (img_max - img_min + eps), -20, 20, out=img)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -579,7 +588,7 @@ def normalize_per_image_lut(img: np.ndarray, normalization: NormalizationType) -
         img_min = img.min()
         img_max = img.max()
         lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
-        return cv2.LUT(img, lut)
+        return cv2.LUT(img, lut).clip(-20, 20)
 
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=(0, 1))
@@ -604,7 +613,7 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
         max_value = get_max_value(img.dtype)
-    return (img / max_value).astype(np.float32)
+    return (img / max_value).astype(np.float32, copy=False)
 
 
 @preserve_channel_dim
@@ -612,7 +621,7 @@ def to_float_opencv(img: np.ndarray, max_value: float | None = None) -> np.ndarr
     if max_value is None:
         max_value = get_max_value(img.dtype)
 
-    img_float = img.astype(np.float32)
+    img_float = img.astype(np.float32, copy=False)
 
     num_channels = get_num_channels(img)
 
@@ -638,7 +647,7 @@ def to_float_lut(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
 
 def to_float(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     if img.dtype == np.float64:
-        return img.astype(np.float32)
+        return img.astype(np.float32, copy=False)
     if img.dtype == np.float32:
         return img
     if img.dtype == np.uint8:
@@ -657,17 +666,17 @@ def from_float_opencv(img: np.ndarray, target_dtype: np.dtype, max_value: float 
     if max_value is None:
         max_value = get_max_value(target_dtype)
 
-    img_float = img.astype(np.float32)
+    img_float = img.astype(np.float32, copy=False)
 
     num_channels = get_num_channels(img)
 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         # For images with more than 4 channels, create a full-sized multiplier
         max_value_array = np.full_like(img_float, max_value)
-        return clip(np.rint(cv2.multiply(img_float, max_value_array)), target_dtype)
+        return clip(np.rint(cv2.multiply(img_float, max_value_array)), target_dtype, inplace=False)
 
     # For images with 4 or fewer channels, use scalar multiplication
-    return clip(np.rint(img * max_value), target_dtype)
+    return clip(np.rint(img * max_value), target_dtype, inplace=False)
 
 
 def from_float(img: np.ndarray, target_dtype: np.dtype, max_value: float | None = None) -> np.ndarray:
@@ -695,7 +704,7 @@ def from_float(img: np.ndarray, target_dtype: np.dtype, max_value: float | None 
         return img
 
     if target_dtype == np.float64:
-        return img.astype(np.float32)
+        return img.astype(np.float32, copy=False)
 
     if img.dtype == np.float32:
         return from_float_opencv(img, target_dtype, max_value)
@@ -710,6 +719,9 @@ def hflip_numpy(img: np.ndarray) -> np.ndarray:
 
 @preserve_channel_dim
 def hflip_cv2(img: np.ndarray) -> np.ndarray:
+    # OpenCV's flip function has a limitation of 512 channels
+    if img.ndim > 2 and img.shape[2] > 512:
+        return _flip_multichannel(img, flip_code=1)
     return cv2.flip(img, 1)
 
 
@@ -719,6 +731,9 @@ def hflip(img: np.ndarray) -> np.ndarray:
 
 @preserve_channel_dim
 def vflip_cv2(img: np.ndarray) -> np.ndarray:
+    # OpenCV's flip function has a limitation of 512 channels
+    if img.ndim > 2 and img.shape[2] > 512:
+        return _flip_multichannel(img, flip_code=0)
     return cv2.flip(img, 0)
 
 
@@ -729,6 +744,48 @@ def vflip_numpy(img: np.ndarray) -> np.ndarray:
 
 def vflip(img: np.ndarray) -> np.ndarray:
     return vflip_cv2(img)
+
+
+def _flip_multichannel(img: np.ndarray, flip_code: int) -> np.ndarray:
+    """Process images with more than 512 channels by splitting into chunks.
+
+    OpenCV's flip function has a limitation where it can only handle images with up to 512 channels.
+    This function works around that limitation by splitting the image into chunks of 512 channels,
+    flipping each chunk separately, and then concatenating the results.
+
+    Args:
+        img: Input image with many channels
+        flip_code: OpenCV flip code (0 for vertical, 1 for horizontal, -1 for both)
+
+    Returns:
+        Flipped image with all channels preserved
+    """
+    # Get image dimensions
+    height, width = img.shape[:2]
+    num_channels = 1 if img.ndim == 2 else img.shape[2]
+
+    # If the image has 2 dimensions or fewer than 512 channels, use cv2.flip directly
+    if img.ndim == 2 or num_channels <= 512:
+        return cv2.flip(img, flip_code)
+
+    # Process in chunks of 512 channels
+    chunk_size = 512
+    result_chunks = []
+
+    for i in range(0, num_channels, chunk_size):
+        end_idx = min(i + chunk_size, num_channels)
+        chunk = img[:, :, i:end_idx]
+        flipped_chunk = cv2.flip(chunk, flip_code)
+
+        # Ensure the chunk maintains its dimensionality
+        # This is needed when the last chunk has only one channel and cv2.flip reduces the dimensions
+        if flipped_chunk.ndim == 2 and img.ndim == 3:
+            flipped_chunk = np.expand_dims(flipped_chunk, axis=2)
+
+        result_chunks.append(flipped_chunk)
+
+    # Concatenate the chunks along the channel dimension
+    return np.concatenate(result_chunks, axis=2)
 
 
 def float32_io(func: Callable[..., np.ndarray]) -> Callable[..., np.ndarray]:

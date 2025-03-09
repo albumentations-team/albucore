@@ -77,7 +77,7 @@ def maybe_process_in_chunks(
     def __process_fn(img: np.ndarray, *process_args: P.args, **process_kwargs: P.kwargs) -> np.ndarray:
         # Merge args and kwargs
         all_args = (*args, *process_args)
-        all_kwargs: P.kwargs = {**kwargs, **process_kwargs}
+        all_kwargs: dict[str, Any] = kwargs | process_kwargs
 
         num_channels = get_num_channels(img)
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
@@ -105,7 +105,7 @@ def clip(img: np.ndarray, dtype: Any, inplace: bool = False) -> np.ndarray:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     if inplace:
         return np.clip(img, 0, max_value, out=img)
-    return np.clip(img, 0, max_value).astype(dtype)
+    return np.clip(img, 0, max_value).astype(dtype, copy=False)
 
 
 def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
