@@ -10,9 +10,11 @@ from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_ope
     (np.array([[-300, 0], [100, 400]], dtype=np.float32), np.uint8, np.array([[0, 0], [100, 255]], dtype=np.float32)),
     (np.array([[-0.02, 0], [0.5, 2.2]], dtype=np.float32), np.float32, np.array([[0, 0], [0.5, 1.0]], dtype=np.float32))
 ])
-def test_clip(input_img, dtype, expected):
-    clipped = clip(input_img, dtype=dtype)
+@pytest.mark.parametrize("inplace", [False, True])
+def test_clip(input_img, dtype, expected, inplace):
+    clipped = clip(input_img, dtype=dtype, inplace=inplace)
     np.testing.assert_array_equal(clipped, expected)
+    assert clipped.dtype == dtype
 
 valid_cv2_types = {
     cv2.CV_8U, cv2.CV_16U, cv2.CV_32F, cv2.CV_64F, cv2.CV_32S
