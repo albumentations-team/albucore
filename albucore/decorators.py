@@ -481,6 +481,6 @@ def batch_transform(
                 keep_depth_dim,
             )
 
-        return cast(F, wrapper)
+        return cast("F", wrapper)
 
     return decorator
