@@ -4,7 +4,6 @@ import pytest
 import numpy as np
 
 from albucore.functions import from_float, from_float_numpy, from_float_opencv, to_float_numpy, to_float_opencv, to_float_lut, to_float, MAX_VALUES_BY_DTYPE
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS
 import cv2
 
 CHANNELS = [1, 3, 5]
@@ -14,17 +13,17 @@ BATCHES = [0, 2]
 
 def generate_img(max_value: int, dtype: Any, channels: int, batch: int) -> np.ndarray:
     """Function generates a random image to be used in unit tests.
-    
+
     The max_value parameter is ignored when `dtype == np.float32`.
     """
     batch_shape = (batch,) if batch > 0 else ()
     channel_shape = (channels,) if channels > 1 else ()
     shape = (*batch_shape, 100, 100, *channel_shape)
-    if dtype == np.float32:
-        img = np.random.rand(*shape).astype(np.float32)
-    else:
-        img = np.random.randint(0, max_value, shape).astype(dtype)
-    return img
+    return (
+        np.random.rand(*shape).astype(np.float32)
+        if dtype == np.float32
+        else np.random.randint(0, max_value, shape).astype(dtype)
+    )
 
 
 @pytest.mark.parametrize("dtype", DTYPES)
@@ -79,7 +78,7 @@ def test_to_float_lut_uint8_only(channels, batch):
 @pytest.mark.parametrize("batch", BATCHES)
 def test_to_float_shape_preservation(channels, batch):
     img = generate_img(256, np.uint8, channels, batch)
-    
+
     result = to_float(img)
     assert result.shape == img.shape
 
@@ -164,15 +163,15 @@ def test_from_float_opencv_channels(dtype, channels, batch):
 
     # Convert using OpenCV method
     result = from_float_opencv(float_img, dtype, max_value)
-    
+
     # Check that the result has the correct number of channels
     assert result.shape == float_img.shape
-    
+
     # Check that the result is correct
     np.testing.assert_allclose(
         result, cv2.multiply(float_img, np.full_like(float_img, max_value)), rtol=1e-5, atol=1
     )
-    
+
 
 def assert_array_equal_with_copy(original, processed):
     np.testing.assert_array_equal(original, processed)
