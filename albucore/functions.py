@@ -731,7 +731,7 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
 def normalize_per_image_batch(
     images: np.ndarray,
     normalization: NormalizationType,
-    spatial_axes: tuple[int, ...] = (0, 1, 2),
+    spatial_axes: tuple[int, ...],
 ) -> np.ndarray:
     """Normalize each image in a batch independently using per-image statistics.
 
