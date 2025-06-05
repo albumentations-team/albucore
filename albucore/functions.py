@@ -718,11 +718,11 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
         Normalized image as float32 array with values clipped to [-20, 20] range.
 
     Notes:
-        - For uint8 images (except "per_image_per_channel"), uses LUT method for maximum speed
+        - For uint8 images (except "image_per_channel"), uses LUT method for maximum speed
         - For other dtypes, uses OpenCV implementation for good performance
         - The spatial_axes parameter defaults to (0, 1) for standard 2D images
     """
-    if img.dtype == np.uint8 and normalization != "per_image_per_channel":
+    if img.dtype == np.uint8 and normalization != "image_per_channel":
         return normalize_per_image_lut(img, normalization)
 
     return normalize_per_image_opencv(img, normalization)
@@ -758,11 +758,11 @@ def normalize_per_image_batch(
 
     Notes:
         - Each image in the batch is normalized independently
-        - For uint8 images (except "per_image_per_channel"), uses LUT method for speed
+        - For uint8 images (except "image_per_channel"), uses LUT method for speed
         - For other dtypes, uses NumPy implementation for batch compatibility
         - Not to be confused with batch normalization in deep learning
     """
-    if images.dtype == np.uint8 and normalization != "per_image_per_channel":
+    if images.dtype == np.uint8 and normalization != "image_per_channel":
         return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes)
 
     return normalize_per_image_numpy(images, normalization, spatial_axes=spatial_axes)
