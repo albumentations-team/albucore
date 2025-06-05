@@ -728,6 +728,46 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
     return normalize_per_image_opencv(img, normalization)
 
 
+def normalize_per_image_batch(
+    images: np.ndarray,
+    normalization: NormalizationType,
+    spatial_axes: tuple[int, ...] = (0, 1, 2),
+) -> np.ndarray:
+    """Normalize each image in a batch independently using per-image statistics.
+
+    This function applies the same normalization as `normalize_per_image` but operates on
+    a batch of images, normalizing each image independently based on its own statistics.
+
+    Args:
+        images: Batch of images with shape (N, H, W) or (N, H, W, C) where N is batch size
+        normalization: Type of normalization to apply to each image:
+            - "image": Normalize each image using its global mean and std
+            - "image_per_channel": Normalize each channel of each image separately
+            - "min_max": Scale each image to [0, 1] using its min and max values
+            - "min_max_per_channel": Scale each channel of each image to [0, 1]
+        spatial_axes: Axes over which to compute statistics (default: (0, 1, 2) assuming
+            batch dimension is axis 0 and spatial dimensions are 1, 2)
+
+    Returns:
+        Batch of normalized images as float32 array with values clipped to [-20, 20] range.
+
+    Example:
+        >>> batch = np.random.randint(0, 255, (10, 224, 224, 3), dtype=np.uint8)
+        >>> normalized = batch_normalize_per_image(batch, "image")
+        >>> assert normalized.shape == batch.shape
+
+    Notes:
+        - Each image in the batch is normalized independently
+        - For uint8 images (except "per_image_per_channel"), uses LUT method for speed
+        - For other dtypes, uses NumPy implementation for batch compatibility
+        - Not to be confused with batch normalization in deep learning
+    """
+    if images.dtype == np.uint8 and normalization != "per_image_per_channel":
+        return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes)
+
+    return normalize_per_image_numpy(images, normalization, spatial_axes=spatial_axes)
+
+
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
     if max_value is None:
         max_value = get_max_value(img.dtype)
