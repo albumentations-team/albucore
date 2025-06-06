@@ -734,33 +734,38 @@ def normalize_per_image_batch(
 ) -> np.ndarray:
     """Normalize each image in a batch independently using per-image statistics.
 
-    This function applies the same normalization as `normalize_per_image` but operates on
-    a batch of images, normalizing each image independently based on its own statistics.
+    This function applies the same normalization as `normalize_per_image` but handles
+    various input dimensions including single images, batches, volumes, and batch of volumes.
 
     Args:
-        images: Batch of images with shape (N, H, W) or (N, H, W, C) where N is batch size
-        normalization: Type of normalization to apply to each image:
-            - "image": Normalize each image using its global mean and std
-            - "image_per_channel": Normalize each channel of each image separately
-            - "min_max": Scale each image to [0, 1] using its min and max values
-            - "min_max_per_channel": Scale each channel of each image to [0, 1]
-        spatial_axes: Axes over which to compute statistics. The function uses keepdims=True
-            internally so broadcasting works correctly for batches.
+        images: Input array that can be:
+            - Single image: (H, W) or (H, W, C)
+            - Batch of images: (N, H, W) or (N, H, W, C)
+            - Volume: (D, H, W) or (D, H, W, C)
+            - Batch of volumes: (N, D, H, W) or (N, D, H, W, C)
+        normalization: Type of normalization to apply:
+            - "image": Normalize using global mean and std across spatial dimensions
+            - "image_per_channel": Normalize each channel separately using its own mean and std
+            - "min_max": Scale to [0, 1] using global min and max values
+            - "min_max_per_channel": Scale each channel to [0, 1] using per-channel min and max
+        spatial_axes: Axes over which to compute statistics for normalization.
+            IMPORTANT: Should include only spatial dimensions, not batch or channel dimensions.
+
+    Examples:
+            - Single image (H, W, C): use spatial_axes=(0, 1)
+            - Batch of images (N, H, W, C): use spatial_axes=(1, 2)
+            - Volume (D, H, W, C): use spatial_axes=(0, 1, 2)
+            - Batch of volumes (N, D, H, W, C): use spatial_axes=(1, 2, 3)
 
     Returns:
-        Batch of normalized images as float32 array with values clipped to [-20, 20] range.
-
-    Example:
-        >>> batch = np.random.randint(0, 255, (10, 224, 224, 3), dtype=np.uint8)
-        >>> normalized = normalize_per_image_batch(batch, "image", spatial_axes=(1, 2))
-        >>> assert normalized.shape == batch.shape
+        Normalized array as float32 with values clipped to [-20, 20] range.
 
     Notes:
-        - Each image in the batch is normalized independently using keepdims=True
-        - For uint8 images (except per-channel normalizations), uses LUT method for speed
-        - For other dtypes, uses NumPy implementation for batch compatibility
+        - The NumPy implementation uses keepdims=True for correct broadcasting with batches
+        - For uint8 images, uses LUT method for speed (except for per-channel normalizations)
+        - For other dtypes, uses NumPy implementation for proper batch support
+        - Ensure spatial_axes excludes batch and channel dimensions to get correct statistics
     """
-    images = images.copy()
     if images.dtype == np.uint8:
         return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
 
