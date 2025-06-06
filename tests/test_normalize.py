@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from albucore.functions import normalize, normalize, normalize, normalize_numpy, normalize_opencv, normalize_lut
+from albucore.functions import normalize, normalize_numpy, normalize_opencv, normalize_lut
 from albucore.utils import MAX_VALUES_BY_DTYPE, convert_value, get_num_channels
 from numpy.testing import assert_array_almost_equal_nulp
 
@@ -84,10 +84,71 @@ def test_normalize(dtype, shape) -> None:
     img = np.ones(shape, dtype=dtype) * 0.4
     mean = np.array(50, dtype=np.float32)
     denominator = np.array(1 / 3, dtype=np.float32)
-    normalized = normalize(img, mean=mean, denominator=denominator)
 
-    assert normalized.shape == img.shape
-    assert normalized.dtype == np.float32
+    volume = np.stack([img.copy()] * 4, axis=0)  # (4, H, W) or (4, H, W, C)
+    images = np.stack([img.copy()] * 3, axis=0)  # (3, H, W) or (3, H, W, C)
+    volumes = np.stack([volume.copy()] * 2, axis=0)
 
-    expected = (np.ones(img.shape, dtype=np.float32) * 0.4 - 50) / 3
-    np.testing.assert_array_almost_equal_nulp(normalized, expected)
+    normalized_image = normalize(img, mean=mean, denominator=denominator)
+    assert normalized_image.shape == img.shape
+    assert normalized_image.dtype == np.float32
+
+    expected_image = (np.ones(img.shape, dtype=np.float32) * 0.4 - 50) / 3
+    np.testing.assert_array_almost_equal_nulp(normalized_image, expected_image)
+
+    normalized_images = normalize(images, mean=mean, denominator=denominator)
+    assert normalized_images.shape == images.shape
+    assert normalized_images.dtype == np.float32
+
+    normalized_volume = normalize(volume, mean=mean, denominator=denominator)
+    assert normalized_volume.shape == volume.shape
+    assert normalized_volume.dtype == np.float32
+
+    normalized_volumes = normalize(volumes, mean=mean, denominator=denominator)
+    assert normalized_volumes.shape == volumes.shape
+    assert normalized_volumes.dtype == np.float32
+
+    np.testing.assert_allclose(normalized_image[0], normalized_image[1], atol=4, rtol=1e-5)
+    np.testing.assert_allclose(normalized_images[0], normalized_images[1], atol=4, rtol=1e-5)
+    np.testing.assert_allclose(normalized_volume[0], normalized_volume[1], atol=4, rtol=1e-5)
+    np.testing.assert_allclose(normalized_volumes[0], normalized_volumes[1], atol=4, rtol=1e-5)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+def test_normalize_with_1d_arrays(dtype):
+    """Test normalize function with 1D array mean and denominator for single channel images."""
+    # Test 1: Single channel image (H, W) with 1D arrays
+    img = np.ones((50, 50), dtype=dtype) * 100
+    mean = np.array([50.0], dtype=np.float32)  # 1D array with single element
+    denominator = np.array([2.0], dtype=np.float32)  # 1D array with single element
+
+    result = normalize(img, mean, denominator)
+    expected = (img.astype(np.float32) - 50.0) * 2.0
+
+    assert result.shape == img.shape
+    assert result.dtype == np.float32
+    np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+    # Test 2: Batch of single channel images (N, H, W) with 1D arrays
+    batch = np.stack([img] * 3, axis=0)
+    result_batch = normalize(batch, mean, denominator)
+
+    assert result_batch.shape == batch.shape
+    assert result_batch.dtype == np.float32
+    # All images should be normalized identically
+    np.testing.assert_allclose(result_batch[0], result_batch[1], rtol=1e-5)
+    np.testing.assert_allclose(result_batch[0], result_batch[2], rtol=1e-5)
+
+    # Test 3: Multi-channel image (H, W, C) with matching 1D arrays
+    img_3ch = np.ones((50, 50, 3), dtype=dtype) * np.array([100, 150, 200])
+    mean_3ch = np.array([50.0, 75.0, 100.0], dtype=np.float32)
+    denominator_3ch = np.array([2.0, 3.0, 4.0], dtype=np.float32)
+
+    result_3ch = normalize(img_3ch, mean_3ch, denominator_3ch)
+    expected_3ch = np.zeros_like(img_3ch, dtype=np.float32)
+    for c in range(3):
+        expected_3ch[..., c] = (img_3ch[..., c].astype(np.float32) - mean_3ch[c]) * denominator_3ch[c]
+
+    assert result_3ch.shape == img_3ch.shape
+    assert result_3ch.dtype == np.float32
+    np.testing.assert_allclose(result_3ch, expected_3ch, rtol=1e-5)
