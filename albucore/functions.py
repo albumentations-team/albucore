@@ -679,7 +679,7 @@ def normalize_per_image_lut(
         luts = [
             (np.arange(0, max_value + 1, dtype=np.float32) - pixel_mean[c]) / pixel_std[c] for c in range(num_channels)
         ]
-        return cv2.merge([cv2.LUT(img[:, :, i], luts[i]).clip(-20, 20) for i in range(num_channels)])
+        return np.stack([cv2.LUT(img[..., i], luts[i]).clip(-20, 20) for i in range(num_channels)], axis=-1)
 
     if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
         img_min = img.min()
@@ -694,8 +694,7 @@ def normalize_per_image_lut(
             (np.arange(0, max_value + 1, dtype=np.float32) - img_min[c]) / (img_max[c] - img_min[c] + eps)
             for c in range(num_channels)
         ]
-
-        return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+        return np.stack([cv2.LUT(img[..., i], luts[i]) for i in range(num_channels)], axis=-1)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -745,27 +744,27 @@ def normalize_per_image_batch(
             - "image_per_channel": Normalize each channel of each image separately
             - "min_max": Scale each image to [0, 1] using its min and max values
             - "min_max_per_channel": Scale each channel of each image to [0, 1]
-        spatial_axes: Axes over which to compute statistics (default: (0, 1, 2) assuming
-            batch dimension is axis 0 and spatial dimensions are 1, 2)
+        spatial_axes: Axes over which to compute statistics. The function uses keepdims=True
+            internally so broadcasting works correctly for batches.
 
     Returns:
         Batch of normalized images as float32 array with values clipped to [-20, 20] range.
 
     Example:
         >>> batch = np.random.randint(0, 255, (10, 224, 224, 3), dtype=np.uint8)
-        >>> normalized = batch_normalize_per_image(batch, "image")
+        >>> normalized = normalize_per_image_batch(batch, "image", spatial_axes=(1, 2))
         >>> assert normalized.shape == batch.shape
 
     Notes:
-        - Each image in the batch is normalized independently
-        - For uint8 images (except "image_per_channel"), uses LUT method for speed
+        - Each image in the batch is normalized independently using keepdims=True
+        - For uint8 images (except per-channel normalizations), uses LUT method for speed
         - For other dtypes, uses NumPy implementation for batch compatibility
-        - Not to be confused with batch normalization in deep learning
     """
-    if images.dtype == np.uint8 and normalization != "image_per_channel":
-        return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes)
+    images = images.copy()
+    if images.dtype == np.uint8:
+        return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
 
-    return normalize_per_image_numpy(images, normalization, spatial_axes=spatial_axes)
+    return normalize_per_image_numpy(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
 
 
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
