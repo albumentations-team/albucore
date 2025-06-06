@@ -148,7 +148,7 @@ def test_normalize_per_image(shape, normalization, dtype):
 
 @pytest.mark.parametrize("normalization", ["image", "image_per_channel", "min_max", "min_max_per_channel"])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_normalize_per_image_batch_simple(normalization, dtype):
+def test_normalize_per_image_batch(normalization, dtype):
     """Simple test for normalize_per_image_batch with image, volume, batch of images, and batch of volumes."""
     np.random.seed(42)
 

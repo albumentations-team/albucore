@@ -319,7 +319,7 @@ def normalize_lut(img: np.ndarray, mean: float | np.ndarray, denominator: float 
 
     luts = (np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator
 
-    return cv2.merge([cv2.LUT(img[:, :, i], luts[i]) for i in range(num_channels)])
+    return np.stack([cv2.LUT(img[..., i], luts[i]) for i in range(num_channels)], axis=-1)
 
 
 def normalize(img: np.ndarray, mean: ValueType, denominator: ValueType) -> np.ndarray:
