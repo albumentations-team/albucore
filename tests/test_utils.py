@@ -339,31 +339,32 @@ def test_is_grayscale_image(shape, has_batch_dim, has_depth_dim, expected_graysc
     assert result == expected_grayscale, f"Failed for {description} with shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}"
 
 
-def test_get_num_channels_and_is_grayscale_consistency():
+@pytest.mark.parametrize("shape, has_batch_dim, has_depth_dim", [
+    # Basic 2D cases
+    ((100, 200), False, False),
+    ((100, 200, 1), False, False),
+    ((100, 200, 3), False, False),
+    # Batch cases (NHW/NHWC)
+    ((10, 100, 200), True, False),
+    ((10, 100, 200, 1), True, False),
+    ((10, 100, 200, 3), True, False),
+    # Depth cases (DHW/DHWC)
+    ((5, 100, 200), False, True),
+    ((5, 100, 200, 1), False, True),
+    ((5, 100, 200, 3), False, True),
+    # Batch and depth cases (DNHW/DNHWC)
+    ((5, 10, 100, 200), True, True),
+    ((5, 10, 100, 200, 1), True, True),
+    ((5, 10, 100, 200, 3), True, True),
+])
+def test_get_num_channels_and_is_grayscale_consistency(shape, has_batch_dim, has_depth_dim):
     """Test that get_num_channels and is_grayscale_image are consistent."""
-    test_cases = [
-        # (shape, has_batch_dim, has_depth_dim)
-        ((100, 200), False, False),
-        ((100, 200, 1), False, False),
-        ((100, 200, 3), False, False),
-        ((10, 100, 200), True, False),
-        ((10, 100, 200, 1), True, False),
-        ((10, 100, 200, 3), True, False),
-        ((5, 100, 200), False, True),
-        ((5, 100, 200, 1), False, True),
-        ((5, 100, 200, 3), False, True),
-        ((5, 10, 100, 200), True, True),
-        ((5, 10, 100, 200, 1), True, True),
-        ((5, 10, 100, 200, 3), True, True),
-    ]
+    image = np.zeros(shape)
+    num_channels = get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
+    is_grayscale = is_grayscale_image(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
 
-    for shape, has_batch_dim, has_depth_dim in test_cases:
-        image = np.zeros(shape)
-        num_channels = get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
-        is_grayscale = is_grayscale_image(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
-
-        # is_grayscale should be True if and only if num_channels == 1
-        assert (num_channels == 1) == is_grayscale, (
-            f"Inconsistency for shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}: "
-            f"num_channels={num_channels}, is_grayscale={is_grayscale}"
-        )
+    # is_grayscale should be True if and only if num_channels == 1
+    assert (num_channels == 1) == is_grayscale, (
+        f"Inconsistency for shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}: "
+        f"num_channels={num_channels}, is_grayscale={is_grayscale}"
+    )
