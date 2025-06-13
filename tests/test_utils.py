@@ -3,7 +3,7 @@ import pytest
 import cv2
 from albucore.decorators import contiguous
 from albucore.functions import float32_io, from_float, to_float, uint8_io
-from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels
+from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels, is_grayscale_image
 
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
@@ -257,3 +257,114 @@ def test_get_num_channels(shape, expected_channels, description):
     """Test get_num_channels for various array dimensions."""
     image = np.zeros(shape)
     assert get_num_channels(image) == expected_channels, f"Failed for {description} with shape {shape}"
+
+
+@pytest.mark.parametrize("shape, has_batch_dim, has_depth_dim, expected_channels, description", [
+    # HW: shape=(100, 200) → channels=1
+    ((100, 200), False, False, 1, "HW: grayscale image"),
+
+    # HWC: shape=(100, 200, 3) → channels=3
+    ((100, 200, 3), False, False, 3, "HWC: RGB image"),
+    ((100, 200, 1), False, False, 1, "HWC: single channel image"),
+    ((100, 200, 4), False, False, 4, "HWC: RGBA image"),
+
+    # NHW: shape=(10, 100, 200) → channels=1 (batch of grayscale)
+    ((10, 100, 200), True, False, 1, "NHW: batch of grayscale images"),
+
+    # NHWC: shape=(10, 100, 200, 3) → channels=3 (batch of RGB)
+    ((10, 100, 200, 3), True, False, 3, "NHWC: batch of RGB images"),
+    ((10, 100, 200, 1), True, False, 1, "NHWC: batch of single channel images"),
+
+    # DHW: shape=(5, 100, 200) → channels=1 (3D volume)
+    ((5, 100, 200), False, True, 1, "DHW: 3D volume"),
+
+    # DHWC: shape=(5, 100, 200, 3) → channels=3 (3D volume with RGB slices)
+    ((5, 100, 200, 3), False, True, 3, "DHWC: 3D volume with RGB slices"),
+    ((5, 100, 200, 1), False, True, 1, "DHWC: 3D volume with single channel"),
+
+    # DNHW: shape=(5, 10, 100, 200) → channels=1 (batch of 3D volumes)
+    ((5, 10, 100, 200), True, True, 1, "DNHW: batch of 3D volumes"),
+
+    # DNHWC: shape=(5, 10, 100, 200, 3) → channels=3 (batch of 3D volumes with RGB)
+    ((5, 10, 100, 200, 3), True, True, 3, "DNHWC: batch of 3D volumes with RGB"),
+    ((5, 10, 100, 200, 1), True, True, 1, "DNHWC: batch of 3D volumes with single channel"),
+
+    # Additional edge cases
+    ((32, 32), False, False, 1, "HW: square grayscale"),
+    ((224, 224, 3), False, False, 3, "HWC: standard RGB image size"),
+    ((1, 512, 512), True, False, 1, "NHW: single image in batch"),
+    ((1, 512, 512, 3), True, False, 3, "NHWC: single RGB image in batch"),
+])
+def test_get_num_channels_with_dimension_flags(shape, has_batch_dim, has_depth_dim, expected_channels, description):
+    """Test get_num_channels with batch and depth dimension flags."""
+    image = np.zeros(shape)
+    result = get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
+    assert result == expected_channels, f"Failed for {description} with shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}"
+
+
+@pytest.mark.parametrize("shape, has_batch_dim, has_depth_dim, expected_grayscale, description", [
+    # HW: shape=(100, 200) → grayscale=True
+    ((100, 200), False, False, True, "HW: grayscale image"),
+
+    # HWC: shape=(100, 200, 3) → grayscale=False
+    ((100, 200, 3), False, False, False, "HWC: RGB image"),
+    ((100, 200, 1), False, False, True, "HWC: single channel image"),
+    ((100, 200, 4), False, False, False, "HWC: RGBA image"),
+
+    # NHW: shape=(10, 100, 200) → grayscale=True
+    ((10, 100, 200), True, False, True, "NHW: batch of grayscale images"),
+
+    # NHWC: shape=(10, 100, 200, 3) → grayscale=False
+    ((10, 100, 200, 3), True, False, False, "NHWC: batch of RGB images"),
+    ((10, 100, 200, 1), True, False, True, "NHWC: batch of single channel images"),
+
+    # DHW: shape=(5, 100, 200) → grayscale=True
+    ((5, 100, 200), False, True, True, "DHW: 3D volume"),
+
+    # DHWC: shape=(5, 100, 200, 3) → grayscale=False
+    ((5, 100, 200, 3), False, True, False, "DHWC: 3D volume with RGB slices"),
+    ((5, 100, 200, 1), False, True, True, "DHWC: 3D volume with single channel"),
+
+    # DNHW: shape=(5, 10, 100, 200) → grayscale=True
+    ((5, 10, 100, 200), True, True, True, "DNHW: batch of 3D volumes"),
+
+    # DNHWC: shape=(5, 10, 100, 200, 3) → grayscale=False
+    ((5, 10, 100, 200, 3), True, True, False, "DNHWC: batch of 3D volumes with RGB"),
+    ((5, 10, 100, 200, 1), True, True, True, "DNHWC: batch of 3D volumes with single channel"),
+])
+def test_is_grayscale_image(shape, has_batch_dim, has_depth_dim, expected_grayscale, description):
+    """Test is_grayscale_image with various shape combinations."""
+    image = np.zeros(shape)
+    result = is_grayscale_image(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
+    assert result == expected_grayscale, f"Failed for {description} with shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}"
+
+
+@pytest.mark.parametrize("shape, has_batch_dim, has_depth_dim", [
+    # Basic 2D cases
+    ((100, 200), False, False),
+    ((100, 200, 1), False, False),
+    ((100, 200, 3), False, False),
+    # Batch cases (NHW/NHWC)
+    ((10, 100, 200), True, False),
+    ((10, 100, 200, 1), True, False),
+    ((10, 100, 200, 3), True, False),
+    # Depth cases (DHW/DHWC)
+    ((5, 100, 200), False, True),
+    ((5, 100, 200, 1), False, True),
+    ((5, 100, 200, 3), False, True),
+    # Batch and depth cases (DNHW/DNHWC)
+    ((5, 10, 100, 200), True, True),
+    ((5, 10, 100, 200, 1), True, True),
+    ((5, 10, 100, 200, 3), True, True),
+])
+def test_get_num_channels_and_is_grayscale_consistency(shape, has_batch_dim, has_depth_dim):
+    """Test that get_num_channels and is_grayscale_image are consistent."""
+    image = np.zeros(shape)
+    num_channels = get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
+    is_grayscale = is_grayscale_image(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
+
+    # is_grayscale should be True if and only if num_channels == 1
+    assert (num_channels == 1) == is_grayscale, (
+        f"Inconsistency for shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}: "
+        f"num_channels={num_channels}, is_grayscale={is_grayscale}"
+    )
