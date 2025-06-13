@@ -122,12 +122,126 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     return wrapped_function
 
 
-def get_num_channels(image: np.ndarray) -> int:
-    return image.shape[-1] if image.ndim >= NUM_MULTI_CHANNEL_DIMENSIONS else 1
+def get_num_channels(image: np.ndarray, has_batch_dim: bool = False, has_depth_dim: bool = False) -> int:
+    """Get the number of channels in an image array.
+
+    This function determines the number of channels in an image array by analyzing its shape
+    and accounting for optional batch and depth dimensions. The function assumes that the
+    last dimension represents channels when the array has more than 2 spatial dimensions
+    after accounting for any batch or depth dimensions.
+
+    Args:
+        image: Input image array. Can have various shapes:
+            - HW: (height, width) - grayscale image
+            - HWC: (height, width, channels) - multi-channel image
+            - NHW: (batch, height, width) - batch of grayscale images
+            - NHWC: (batch, height, width, channels) - batch of multi-channel images
+            - DHW: (depth, height, width) - 3D grayscale volume
+            - DHWC: (depth, height, width, channels) - 3D multi-channel volume
+            - DNHW: (depth, batch, height, width) - batch of 3D grayscale volumes
+            - DNHWC: (depth, batch, height, width, channels) - batch of 3D multi-channel volumes
+        has_batch_dim: If True, the first dimension is treated as a batch dimension (N).
+        has_depth_dim: If True, the first dimension (or second if has_batch_dim is True)
+                       is treated as a depth dimension (D).
+
+    Returns:
+        int: Number of channels in the image. Returns 1 for grayscale images and the size
+             of the last dimension for multi-channel images.
+
+    Examples:
+        >>> # 2D grayscale image
+        >>> img = np.zeros((100, 200))
+        >>> get_num_channels(img)
+        1
+
+        >>> # RGB image
+        >>> img = np.zeros((100, 200, 3))
+        >>> get_num_channels(img)
+        3
+
+        >>> # Batch of grayscale images
+        >>> img = np.zeros((10, 100, 200))
+        >>> get_num_channels(img, has_batch_dim=True)
+        1
+
+        >>> # Batch of RGB images
+        >>> img = np.zeros((10, 100, 200, 3))
+        >>> get_num_channels(img, has_batch_dim=True)
+        3
+
+        >>> # 3D volume
+        >>> img = np.zeros((5, 100, 200))
+        >>> get_num_channels(img, has_depth_dim=True)
+        1
+
+        >>> # Batch of 3D volumes with RGB
+        >>> img = np.zeros((5, 10, 100, 200, 3))
+        >>> get_num_channels(img, has_batch_dim=True, has_depth_dim=True)
+        3
+
+    Note:
+        The function assumes that after accounting for batch and depth dimensions,
+        the remaining dimensions follow the pattern HW (grayscale) or HWC (multi-channel).
+    """
+    # Calculate how many dimensions to skip from the beginning
+    dims_to_skip = int(has_depth_dim) + int(has_batch_dim)
+
+    # After skipping D and/or N dimensions, we should have HW or HWC
+    remaining_dims = image.ndim - dims_to_skip
+
+    # If we have more than 2 spatial dimensions (H, W), the last one is channels
+    # Otherwise, it's single channel
+    return image.shape[-1] if remaining_dims > 2 else 1
 
 
-def is_grayscale_image(image: np.ndarray) -> bool:
-    return get_num_channels(image) == 1
+def is_grayscale_image(image: np.ndarray, has_batch_dim: bool = False, has_depth_dim: bool = False) -> bool:
+    """Check if an image array represents a grayscale (single-channel) image.
+
+    This function determines whether an image has only one channel by calling get_num_channels
+    and checking if the result equals 1. It properly handles various array shapes including
+    batched images and 3D volumes.
+
+    Args:
+        image: Input image array. Can have various shapes as described in get_num_channels.
+        has_batch_dim: If True, the first dimension is treated as a batch dimension (N).
+        has_depth_dim: If True, the first dimension (or second if has_batch_dim is True)
+                       is treated as a depth dimension (D).
+
+    Returns:
+        bool: True if the image has only 1 channel (grayscale), False otherwise.
+
+    Examples:
+        >>> # 2D grayscale image
+        >>> img = np.zeros((100, 200))
+        >>> is_grayscale_image(img)
+        True
+
+        >>> # RGB image
+        >>> img = np.zeros((100, 200, 3))
+        >>> is_grayscale_image(img)
+        False
+
+        >>> # Single channel image with explicit channel dimension
+        >>> img = np.zeros((100, 200, 1))
+        >>> is_grayscale_image(img)
+        True
+
+        >>> # Batch of grayscale images
+        >>> img = np.zeros((10, 100, 200))
+        >>> is_grayscale_image(img, has_batch_dim=True)
+        True
+
+        >>> # Batch of RGB images
+        >>> img = np.zeros((10, 100, 200, 3))
+        >>> is_grayscale_image(img, has_batch_dim=True)
+        False
+
+    See Also:
+        get_num_channels: For getting the exact number of channels.
+        is_rgb_image: For checking if an image has exactly 3 channels (RGB).
+        is_multispectral_image: For checking if an image has channels other than 1 or 3.
+    """
+    return get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim) == 1
 
 
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
