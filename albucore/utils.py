@@ -122,12 +122,20 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     return wrapped_function
 
 
-def get_num_channels(image: np.ndarray) -> int:
-    return image.shape[-1] if image.ndim >= NUM_MULTI_CHANNEL_DIMENSIONS else 1
+def get_num_channels(image: np.ndarray, has_batch_dim: bool = False, has_depth_dim: bool = False) -> int:
+    # Calculate how many dimensions to skip from the beginning
+    dims_to_skip = int(has_depth_dim) + int(has_batch_dim)
+
+    # After skipping D and/or N dimensions, we should have HW or HWC
+    remaining_dims = image.ndim - dims_to_skip
+
+    # If we have more than 2 spatial dimensions (H, W), the last one is channels
+    # Otherwise, it's single channel
+    return image.shape[-1] if remaining_dims > 2 else 1
 
 
-def is_grayscale_image(image: np.ndarray) -> bool:
-    return get_num_channels(image) == 1
+def is_grayscale_image(image: np.ndarray, has_batch_dim: bool = False, has_depth_dim: bool = False) -> bool:
+    return get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim) == 1
 
 
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
