@@ -3,7 +3,7 @@ import pytest
 import cv2
 from albucore.decorators import contiguous
 from albucore.functions import float32_io, from_float, to_float, uint8_io
-from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels, is_grayscale_image
+from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels, is_grayscale_image, get_image_shape
 
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
@@ -368,3 +368,90 @@ def test_get_num_channels_and_is_grayscale_consistency(shape, has_batch_dim, has
         f"Inconsistency for shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}: "
         f"num_channels={num_channels}, is_grayscale={is_grayscale}"
     )
+
+
+@pytest.mark.parametrize("shape, has_batch_dim, has_depth_dim, expected_hwc, description", [
+    # HW: shape=(101, 99) → (101, 99, 1)
+    ((101, 99), False, False, (101, 99, 1), "HW: grayscale image"),
+    ((150, 200), False, False, (150, 200, 1), "HW: another grayscale image"),
+
+    # HWC: shape=(101, 99, 3) → (101, 99, 3)
+    ((101, 99, 3), False, False, (101, 99, 3), "HWC: RGB image"),
+    ((101, 99, 1), False, False, (101, 99, 1), "HWC: single channel image"),
+    ((256, 512, 4), False, False, (256, 512, 4), "HWC: RGBA image"),
+
+    # BHW: shape=(3, 201, 99) → (201, 99, 1)
+    ((3, 201, 99), True, False, (201, 99, 1), "BHW: batch of grayscale images"),
+    ((10, 150, 200), True, False, (150, 200, 1), "BHW: larger batch of grayscale"),
+
+    # BHWC: shape=(3, 201, 99, 3) → (201, 99, 3)
+    ((3, 201, 99, 3), True, False, (201, 99, 3), "BHWC: batch of RGB images"),
+    ((1, 512, 512, 3), True, False, (512, 512, 3), "BHWC: single RGB image in batch"),
+    ((5, 224, 224, 1), True, False, (224, 224, 1), "BHWC: batch of single channel images"),
+
+    # DHW: shape=(4, 101, 99) → (101, 99, 1)
+    ((4, 101, 99), False, True, (101, 99, 1), "DHW: 3D volume"),
+    ((10, 256, 256), False, True, (256, 256, 1), "DHW: larger 3D volume"),
+
+    # DHWC: shape=(4, 101, 99, 3) → (101, 99, 3)
+    ((4, 101, 99, 3), False, True, (101, 99, 3), "DHWC: 3D volume with RGB slices"),
+    ((8, 128, 128, 1), False, True, (128, 128, 1), "DHWC: 3D volume with single channel"),
+
+    # BDHW: shape=(2, 4, 101, 99) → (101, 99, 1)
+    ((2, 4, 101, 99), True, True, (101, 99, 1), "BDHW: batch of 3D volumes"),
+    ((1, 5, 256, 256), True, True, (256, 256, 1), "BDHW: single 3D volume in batch"),
+
+    # BDHWC: shape=(2, 4, 101, 99, 3) → (101, 99, 3)
+    ((2, 4, 101, 99, 3), True, True, (101, 99, 3), "BDHWC: batch of 3D volumes with RGB"),
+    ((3, 8, 64, 64, 1), True, True, (64, 64, 1), "BDHWC: batch of 3D volumes with single channel"),
+    ((5, 10, 224, 224, 4), True, True, (224, 224, 4), "BDHWC: batch of 3D volumes with RGBA"),
+
+    # Edge cases
+    ((1, 1), False, False, (1, 1, 1), "HW: minimal 2D array"),
+    ((1, 1, 1), False, False, (1, 1, 1), "HWC: minimal 3D array"),
+    ((1, 2, 3), True, False, (2, 3, 1), "BHW: minimal batch"),
+    ((1, 1, 2, 3, 4), True, True, (2, 3, 4), "BDHWC: minimal batch of volumes"),
+])
+def test_get_image_shape(shape, has_batch_dim, has_depth_dim, expected_hwc, description):
+    """Test get_image_shape for various array dimensions and configurations."""
+    image = np.zeros(shape)
+    result = get_image_shape(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
+    assert result == expected_hwc, f"Failed for {description} with shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}"
+
+
+def test_get_image_shape_errors():
+    """Test that get_image_shape raises appropriate errors for invalid inputs."""
+    # Not enough dimensions - expecting HW but only have 1D
+    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
+        get_image_shape(np.zeros(10), has_batch_dim=False, has_depth_dim=False)
+
+    # Not enough dimensions - expecting BHW but only have 2D
+    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
+        get_image_shape(np.zeros((10, 20)), has_batch_dim=True, has_depth_dim=False)
+
+    # Not enough dimensions - expecting DHW but only have 2D
+    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
+        get_image_shape(np.zeros((10, 20)), has_batch_dim=False, has_depth_dim=True)
+
+    # Not enough dimensions - expecting BDHW but only have 3D
+    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
+        get_image_shape(np.zeros((10, 20, 30)), has_batch_dim=True, has_depth_dim=True)
+
+
+def test_get_image_shape_consistency_with_examples():
+    """Test get_image_shape with the exact examples from the user's request."""
+    # 1. Single image (101, 99, 3) -> (101, 99, 3)
+    img1 = np.zeros((101, 99, 3))
+    assert get_image_shape(img1) == (101, 99, 3)
+
+    # 2. Batch of images (3, 201, 99, 3) -> (201, 99, 3)
+    img2 = np.zeros((3, 201, 99, 3))
+    assert get_image_shape(img2, has_batch_dim=True) == (201, 99, 3)
+
+    # 3. Volume (4, 101, 99, 3) -> (101, 99, 3)
+    img3 = np.zeros((4, 101, 99, 3))
+    assert get_image_shape(img3, has_depth_dim=True) == (101, 99, 3)
+
+    # 4. Batch of volumes (2, 4, 101, 99, 3) -> (101, 99, 3)
+    img4 = np.zeros((2, 4, 101, 99, 3))
+    assert get_image_shape(img4, has_batch_dim=True, has_depth_dim=True) == (101, 99, 3)
