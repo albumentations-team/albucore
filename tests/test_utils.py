@@ -369,89 +369,80 @@ def test_get_num_channels_and_is_grayscale_consistency(shape, has_batch_dim, has
         f"num_channels={num_channels}, is_grayscale={is_grayscale}"
     )
 
-def test_get_image_data_single_image():
+@pytest.mark.parametrize("dtype, shape", [
+    (np.uint8, (100, 200, 3)),
+    (np.uint16, (150, 250)),
+    (np.float32, (224, 224, 3)),
+    (np.float64, (64, 128, 4)),
+    (np.int32, (32, 32)),
+])
+def test_get_image_data_single_image(dtype, shape):
     """Test get_image_data with single image."""
-    # Test with different dtypes and shapes
-    test_cases = [
-        (np.uint8, (100, 200, 3)),
-        (np.uint16, (150, 250)),
-        (np.float32, (224, 224, 3)),
-        (np.float64, (64, 128, 4)),
-        (np.int32, (32, 32)),
-    ]
+    img = np.zeros(shape, dtype=dtype)
+    data = {"image": img}
+    result = get_image_data(data)
 
-    for dtype, shape in test_cases:
-        img = np.zeros(shape, dtype=dtype)
-        data = {"image": img}
-        result = get_image_data(data)
-
-        assert isinstance(result, dict)
-        assert "dtype" in result
-        assert "height" in result
-        assert "width" in result
-        assert result["dtype"] == dtype
-        assert result["height"] == shape[0]
-        assert result["width"] == shape[1]
+    assert isinstance(result, dict)
+    assert "dtype" in result
+    assert "height" in result
+    assert "width" in result
+    assert result["dtype"] == dtype
+    assert result["height"] == shape[0]
+    assert result["width"] == shape[1]
 
 
-def test_get_image_data_batch_of_images():
+@pytest.mark.parametrize("dtype, shape", [
+    (np.uint8, (5, 100, 200, 3)),
+    (np.float32, (10, 256, 256)),
+    (np.uint16, (3, 128, 128, 1)),
+])
+def test_get_image_data_batch_of_images(dtype, shape):
     """Test get_image_data with batch of images."""
-    test_cases = [
-        (np.uint8, (5, 100, 200, 3)),
-        (np.float32, (10, 256, 256)),
-        (np.uint16, (3, 128, 128, 1)),
-    ]
+    imgs = np.zeros(shape, dtype=dtype)
+    data = {"images": imgs}
+    result = get_image_data(data)
 
-    for dtype, shape in test_cases:
-        imgs = np.zeros(shape, dtype=dtype)
-        data = {"images": imgs}
-        result = get_image_data(data)
-
-        assert isinstance(result, dict)
-        assert result["dtype"] == dtype
-        # For batch of images, should return actual image dimensions
-        assert result["height"] == shape[1]  # Actual height
-        assert result["width"] == shape[2]   # Actual width
+    assert isinstance(result, dict)
+    assert result["dtype"] == dtype
+    # For batch of images, should return actual image dimensions
+    assert result["height"] == shape[1]  # Actual height
+    assert result["width"] == shape[2]   # Actual width
 
 
-def test_get_image_data_volume():
+@pytest.mark.parametrize("dtype, shape", [
+    (np.uint16, (10, 100, 200)),
+    (np.float64, (5, 256, 256, 3)),
+    (np.float32, (20, 64, 64)),
+])
+def test_get_image_data_volume(dtype, shape):
     """Test get_image_data with volume."""
-    test_cases = [
-        (np.uint16, (10, 100, 200)),
-        (np.float64, (5, 256, 256, 3)),
-        (np.float32, (20, 64, 64)),
-    ]
+    vol = np.zeros(shape, dtype=dtype)
+    data = {"volume": vol}
+    result = get_image_data(data)
 
-    for dtype, shape in test_cases:
-        vol = np.zeros(shape, dtype=dtype)
-        data = {"volume": vol}
-        result = get_image_data(data)
-
-        assert isinstance(result, dict)
-        assert result["dtype"] == dtype
-        # For volumes, should return actual image dimensions (skip depth)
-        assert result["height"] == shape[1]  # Actual height
-        assert result["width"] == shape[2]   # Actual width
+    assert isinstance(result, dict)
+    assert result["dtype"] == dtype
+    # For volumes, should return actual image dimensions (skip depth)
+    assert result["height"] == shape[1]  # Actual height
+    assert result["width"] == shape[2]   # Actual width
 
 
-def test_get_image_data_batch_of_volumes():
+@pytest.mark.parametrize("dtype, shape", [
+    (np.float32, (4, 10, 100, 200, 3)),
+    (np.uint8, (2, 5, 128, 128)),
+    (np.float64, (3, 8, 64, 64, 1)),
+])
+def test_get_image_data_batch_of_volumes(dtype, shape):
     """Test get_image_data with batch of volumes."""
-    test_cases = [
-        (np.float32, (4, 10, 100, 200, 3)),
-        (np.uint8, (2, 5, 128, 128)),
-        (np.float64, (3, 8, 64, 64, 1)),
-    ]
+    vols = np.zeros(shape, dtype=dtype)
+    data = {"volumes": vols}
+    result = get_image_data(data)
 
-    for dtype, shape in test_cases:
-        vols = np.zeros(shape, dtype=dtype)
-        data = {"volumes": vols}
-        result = get_image_data(data)
-
-        assert isinstance(result, dict)
-        assert result["dtype"] == dtype
-        # For batch of volumes, should return actual image dimensions (skip batch and depth)
-        assert result["height"] == shape[2]  # Actual height
-        assert result["width"] == shape[3]   # Actual width
+    assert isinstance(result, dict)
+    assert result["dtype"] == dtype
+    # For batch of volumes, should return actual image dimensions (skip batch and depth)
+    assert result["height"] == shape[2]  # Actual height
+    assert result["width"] == shape[3]   # Actual width
 
 
 def test_get_image_data_priority_order():
