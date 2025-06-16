@@ -3,7 +3,7 @@ import pytest
 import cv2
 from albucore.decorators import contiguous
 from albucore.functions import float32_io, from_float, to_float, uint8_io
-from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels, is_grayscale_image, get_image_shape
+from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels, is_grayscale_image, get_image_data
 
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
@@ -369,89 +369,242 @@ def test_get_num_channels_and_is_grayscale_consistency(shape, has_batch_dim, has
         f"num_channels={num_channels}, is_grayscale={is_grayscale}"
     )
 
+def test_get_image_data_single_image():
+    """Test get_image_data with single image."""
+    # Test with different dtypes and shapes
+    test_cases = [
+        (np.uint8, (100, 200, 3)),
+        (np.uint16, (150, 250)),
+        (np.float32, (224, 224, 3)),
+        (np.float64, (64, 128, 4)),
+        (np.int32, (32, 32)),
+    ]
 
-@pytest.mark.parametrize("shape, has_batch_dim, has_depth_dim, expected_hwc, description", [
-    # HW: shape=(101, 99) → (101, 99, 1)
-    ((101, 99), False, False, (101, 99, 1), "HW: grayscale image"),
-    ((150, 200), False, False, (150, 200, 1), "HW: another grayscale image"),
+    for dtype, shape in test_cases:
+        img = np.zeros(shape, dtype=dtype)
+        data = {"image": img}
+        result = get_image_data(data)
 
-    # HWC: shape=(101, 99, 3) → (101, 99, 3)
-    ((101, 99, 3), False, False, (101, 99, 3), "HWC: RGB image"),
-    ((101, 99, 1), False, False, (101, 99, 1), "HWC: single channel image"),
-    ((256, 512, 4), False, False, (256, 512, 4), "HWC: RGBA image"),
+        assert isinstance(result, dict)
+        assert "dtype" in result
+        assert "height" in result
+        assert "width" in result
+        assert result["dtype"] == dtype
+        assert result["height"] == shape[0]
+        assert result["width"] == shape[1]
 
-    # BHW: shape=(3, 201, 99) → (201, 99, 1)
-    ((3, 201, 99), True, False, (201, 99, 1), "BHW: batch of grayscale images"),
-    ((10, 150, 200), True, False, (150, 200, 1), "BHW: larger batch of grayscale"),
 
-    # BHWC: shape=(3, 201, 99, 3) → (201, 99, 3)
-    ((3, 201, 99, 3), True, False, (201, 99, 3), "BHWC: batch of RGB images"),
-    ((1, 512, 512, 3), True, False, (512, 512, 3), "BHWC: single RGB image in batch"),
-    ((5, 224, 224, 1), True, False, (224, 224, 1), "BHWC: batch of single channel images"),
+def test_get_image_data_batch_of_images():
+    """Test get_image_data with batch of images."""
+    test_cases = [
+        (np.uint8, (5, 100, 200, 3)),
+        (np.float32, (10, 256, 256)),
+        (np.uint16, (3, 128, 128, 1)),
+    ]
 
-    # DHW: shape=(4, 101, 99) → (101, 99, 1)
-    ((4, 101, 99), False, True, (101, 99, 1), "DHW: 3D volume"),
-    ((10, 256, 256), False, True, (256, 256, 1), "DHW: larger 3D volume"),
+    for dtype, shape in test_cases:
+        imgs = np.zeros(shape, dtype=dtype)
+        data = {"images": imgs}
+        result = get_image_data(data)
 
-    # DHWC: shape=(4, 101, 99, 3) → (101, 99, 3)
-    ((4, 101, 99, 3), False, True, (101, 99, 3), "DHWC: 3D volume with RGB slices"),
-    ((8, 128, 128, 1), False, True, (128, 128, 1), "DHWC: 3D volume with single channel"),
+        assert isinstance(result, dict)
+        assert result["dtype"] == dtype
+        # For batch of images, should return actual image dimensions
+        assert result["height"] == shape[1]  # Actual height
+        assert result["width"] == shape[2]   # Actual width
 
-    # BDHW: shape=(2, 4, 101, 99) → (101, 99, 1)
-    ((2, 4, 101, 99), True, True, (101, 99, 1), "BDHW: batch of 3D volumes"),
-    ((1, 5, 256, 256), True, True, (256, 256, 1), "BDHW: single 3D volume in batch"),
 
-    # BDHWC: shape=(2, 4, 101, 99, 3) → (101, 99, 3)
-    ((2, 4, 101, 99, 3), True, True, (101, 99, 3), "BDHWC: batch of 3D volumes with RGB"),
-    ((3, 8, 64, 64, 1), True, True, (64, 64, 1), "BDHWC: batch of 3D volumes with single channel"),
-    ((5, 10, 224, 224, 4), True, True, (224, 224, 4), "BDHWC: batch of 3D volumes with RGBA"),
+def test_get_image_data_volume():
+    """Test get_image_data with volume."""
+    test_cases = [
+        (np.uint16, (10, 100, 200)),
+        (np.float64, (5, 256, 256, 3)),
+        (np.float32, (20, 64, 64)),
+    ]
 
-    # Edge cases
-    ((1, 1), False, False, (1, 1, 1), "HW: minimal 2D array"),
-    ((1, 1, 1), False, False, (1, 1, 1), "HWC: minimal 3D array"),
-    ((1, 2, 3), True, False, (2, 3, 1), "BHW: minimal batch"),
-    ((1, 1, 2, 3, 4), True, True, (2, 3, 4), "BDHWC: minimal batch of volumes"),
+    for dtype, shape in test_cases:
+        vol = np.zeros(shape, dtype=dtype)
+        data = {"volume": vol}
+        result = get_image_data(data)
+
+        assert isinstance(result, dict)
+        assert result["dtype"] == dtype
+        # For volumes, should return actual image dimensions (skip depth)
+        assert result["height"] == shape[1]  # Actual height
+        assert result["width"] == shape[2]   # Actual width
+
+
+def test_get_image_data_batch_of_volumes():
+    """Test get_image_data with batch of volumes."""
+    test_cases = [
+        (np.float32, (4, 10, 100, 200, 3)),
+        (np.uint8, (2, 5, 128, 128)),
+        (np.float64, (3, 8, 64, 64, 1)),
+    ]
+
+    for dtype, shape in test_cases:
+        vols = np.zeros(shape, dtype=dtype)
+        data = {"volumes": vols}
+        result = get_image_data(data)
+
+        assert isinstance(result, dict)
+        assert result["dtype"] == dtype
+        # For batch of volumes, should return actual image dimensions (skip batch and depth)
+        assert result["height"] == shape[2]  # Actual height
+        assert result["width"] == shape[3]   # Actual width
+
+
+def test_get_image_data_priority_order():
+    """Test that get_image_data follows the priority order: image > images > volume > volumes."""
+    # Create arrays with different dtypes and shapes
+    img_uint8 = np.zeros((100, 200, 3), dtype=np.uint8)
+    imgs_uint16 = np.zeros((5, 150, 250, 3), dtype=np.uint16)
+    vol_float32 = np.zeros((10, 120, 220, 3), dtype=np.float32)
+    vols_float64 = np.zeros((4, 10, 130, 230, 3), dtype=np.float64)
+
+    # Test with all keys present - should return data from "image"
+    data = {"image": img_uint8, "images": imgs_uint16, "volume": vol_float32, "volumes": vols_float64}
+    result = get_image_data(data)
+    assert result["dtype"] == np.uint8
+    assert result["height"] == 100
+    assert result["width"] == 200
+
+    # Test without "image" - should return data from "images"
+    data = {"images": imgs_uint16, "volume": vol_float32, "volumes": vols_float64}
+    result = get_image_data(data)
+    assert result["dtype"] == np.uint16
+    assert result["height"] == 150  # actual height
+    assert result["width"] == 250  # actual width
+
+    # Test without "image" and "images" - should return data from "volume"
+    data = {"volume": vol_float32, "volumes": vols_float64}
+    result = get_image_data(data)
+    assert result["dtype"] == np.float32
+    assert result["height"] == 120  # actual height
+    assert result["width"] == 220  # actual width
+
+    # Test with only "volumes"
+    data = {"volumes": vols_float64}
+    result = get_image_data(data)
+    assert result["dtype"] == np.float64
+    assert result["height"] == 130  # actual height
+    assert result["width"] == 230  # actual width
+
+
+def test_get_image_data_missing_keys():
+    """Test that get_image_data raises ValueError when no valid keys are present."""
+    # Empty dict
+    with pytest.raises(ValueError, match="No valid image/volume data found"):
+        get_image_data({})
+
+    # Dict with irrelevant keys
+    with pytest.raises(ValueError, match="No valid image/volume data found"):
+        get_image_data({"mask": np.zeros((100, 100)), "label": 5})
+
+    # Dict with similar but incorrect keys
+    with pytest.raises(ValueError, match="No valid image/volume data found"):
+        get_image_data({"img": np.zeros((100, 100)), "imgs": np.zeros((5, 100, 100))})
+
+
+def test_get_image_data_with_additional_keys():
+    """Test that get_image_data works correctly when additional keys are present."""
+    dtype = np.uint8
+    img = np.zeros((100, 200, 3), dtype=dtype)
+    data = {
+        "image": img,
+        "mask": np.zeros((100, 200), dtype=np.float32),
+        "label": 1,
+        "metadata": {"source": "test"}
+    }
+
+    result = get_image_data(data)
+    assert isinstance(result, dict)
+    assert result["dtype"] == dtype
+    assert result["height"] == 100
+    assert result["width"] == 200
+
+
+@pytest.mark.parametrize("key, shape, expected_height_idx, expected_width_idx", [
+    ("image", (100, 200, 3), 0, 1),          # Direct H, W
+    ("images", (5, 100, 200, 3), 1, 2),      # Skip batch
+    ("volume", (10, 100, 200), 1, 2),        # Skip depth
+    ("volumes", (2, 10, 100, 200, 3), 2, 3)  # Skip batch and depth
 ])
-def test_get_image_shape(shape, has_batch_dim, has_depth_dim, expected_hwc, description):
-    """Test get_image_shape for various array dimensions and configurations."""
-    image = np.zeros(shape)
-    result = get_image_shape(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
-    assert result == expected_hwc, f"Failed for {description} with shape {shape}, has_batch_dim={has_batch_dim}, has_depth_dim={has_depth_dim}"
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64, np.int32])
+def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_width_idx, dtype):
+    """Parametrized test for get_image_data with different keys, shapes, and dtypes."""
+    arr = np.zeros(shape, dtype=dtype)
+    data = {key: arr}
+
+    result = get_image_data(data)
+    assert isinstance(result, dict)
+    assert result["dtype"] == dtype
+    assert result["height"] == shape[expected_height_idx]
+    assert result["width"] == shape[expected_width_idx]
 
 
-def test_get_image_shape_errors():
-    """Test that get_image_shape raises appropriate errors for invalid inputs."""
-    # Not enough dimensions - expecting HW but only have 1D
-    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
-        get_image_shape(np.zeros(10), has_batch_dim=False, has_depth_dim=False)
+def test_get_image_data_preserves_numpy_dtype_object():
+    """Test that get_image_data returns the actual numpy dtype object."""
+    # Test that we get the same dtype object, not just equivalent
+    img = np.zeros((100, 100), dtype=np.dtype('uint8'))
+    data = {"image": img}
+    result = get_image_data(data)
 
-    # Not enough dimensions - expecting BHW but only have 2D
-    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
-        get_image_shape(np.zeros((10, 20)), has_batch_dim=True, has_depth_dim=False)
+    # Check it's a numpy dtype
+    assert isinstance(result["dtype"], np.dtype)
+    # Check it's exactly uint8
+    assert result["dtype"] == np.dtype('uint8')
+    # Check dimensions
+    assert result["height"] == 100
+    assert result["width"] == 100
 
-    # Not enough dimensions - expecting DHW but only have 2D
-    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
-        get_image_shape(np.zeros((10, 20)), has_batch_dim=False, has_depth_dim=True)
+    # Test with a more complex dtype
+    img_complex = np.zeros((50, 75), dtype=np.dtype('complex64'))
+    data_complex = {"image": img_complex}
+    result_complex = get_image_data(data_complex)
+    assert result_complex["dtype"] == np.dtype('complex64')
+    assert result_complex["height"] == 50
+    assert result_complex["width"] == 75
 
-    # Not enough dimensions - expecting BDHW but only have 3D
-    with pytest.raises(ValueError, match="doesn't have enough dimensions"):
-        get_image_shape(np.zeros((10, 20, 30)), has_batch_dim=True, has_depth_dim=True)
+
+def test_get_image_data_returns_correct_keys():
+    """Test that get_image_data returns a dictionary with exactly the expected keys."""
+    img = np.zeros((224, 224, 3), dtype=np.float32)
+    data = {"image": img}
+    result = get_image_data(data)
+
+    # Check that we have exactly the expected keys
+    expected_keys = {"dtype", "height", "width"}
+    assert set(result.keys()) == expected_keys
+
+    # Verify the values are of correct types
+    assert isinstance(result["dtype"], np.dtype)
+    assert isinstance(result["height"], (int, np.integer))
+    assert isinstance(result["width"], (int, np.integer))
 
 
-def test_get_image_shape_consistency_with_examples():
-    """Test get_image_shape with the exact examples from the user's request."""
-    # 1. Single image (101, 99, 3) -> (101, 99, 3)
-    img1 = np.zeros((101, 99, 3))
-    assert get_image_shape(img1) == (101, 99, 3)
+def test_get_image_data_shape_extraction_behavior():
+    """Test documenting the correct behavior of shape extraction.
 
-    # 2. Batch of images (3, 201, 99, 3) -> (201, 99, 3)
-    img2 = np.zeros((3, 201, 99, 3))
-    assert get_image_shape(img2, has_batch_dim=True) == (201, 99, 3)
+    The implementation should correctly identify image dimensions by skipping
+    batch and depth dimensions based on the key type.
+    """
+    # For single image: shape[0] and shape[1] are H, W
+    img = np.zeros((100, 200, 3))
+    result = get_image_data({"image": img})
+    assert (result["height"], result["width"]) == (100, 200)
 
-    # 3. Volume (4, 101, 99, 3) -> (101, 99, 3)
-    img3 = np.zeros((4, 101, 99, 3))
-    assert get_image_shape(img3, has_depth_dim=True) == (101, 99, 3)
+    # For batch of images: skip batch dimension to get H, W
+    imgs = np.zeros((5, 100, 200, 3))
+    result = get_image_data({"images": imgs})
+    assert (result["height"], result["width"]) == (100, 200)
 
-    # 4. Batch of volumes (2, 4, 101, 99, 3) -> (101, 99, 3)
-    img4 = np.zeros((2, 4, 101, 99, 3))
-    assert get_image_shape(img4, has_batch_dim=True, has_depth_dim=True) == (101, 99, 3)
+    # For volume: skip depth dimension to get H, W
+    vol = np.zeros((10, 100, 200))
+    result = get_image_data({"volume": vol})
+    assert (result["height"], result["width"]) == (100, 200)
+
+    # For batch of volumes: skip batch and depth dimensions to get H, W
+    vols = np.zeros((2, 10, 100, 200, 3))
+    result = get_image_data({"volumes": vols})
+    assert (result["height"], result["width"]) == (100, 200)

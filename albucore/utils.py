@@ -309,85 +309,54 @@ def get_max_value(dtype: np.dtype) -> float:
     return MAX_VALUES_BY_DTYPE[dtype]
 
 
-def get_image_shape(
-    image: np.ndarray,
-    has_batch_dim: bool = False,
-    has_depth_dim: bool = False,
-) -> tuple[int, int, int]:
-    """Get the spatial dimensions (height, width) and number of channels of an image array.
+def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
+    """Extract image metadata (dtype, height, width) from a dictionary.
 
-    This function extracts the height, width, and channel count from various image array formats
-    by properly accounting for optional batch and depth dimensions. It assumes the spatial
-    dimensions (H, W) always come after any batch/depth dimensions and before the channel
-    dimension (if present).
+    This function checks for image data under specific keys in priority order:
+    'image' > 'images' > 'volume' > 'volumes'
+
+    The function correctly extracts height and width by accounting for batch
+    and depth dimensions based on the key type:
+    - 'image': Direct H, W from shape[0], shape[1]
+    - 'images': Skip batch dimension (shape[1], shape[2])
+    - 'volume': Skip depth dimension (shape[1], shape[2])
+    - 'volumes': Skip batch and depth dimensions (shape[2], shape[3])
 
     Args:
-        image: Input image array. Can have various shapes:
-            - HW: (height, width) - grayscale image
-            - HWC: (height, width, channels) - multi-channel image
-            - BHW: (batch, height, width) - batch of grayscale images
-            - BHWC: (batch, height, width, channels) - batch of multi-channel images
-            - DHW: (depth, height, width) - 3D grayscale volume
-            - DHWC: (depth, height, width, channels) - 3D multi-channel volume
-            - BDHW: (batch, depth, height, width) - batch of 3D grayscale volumes
-            - BDHWC: (batch, depth, height, width, channels) - batch of 3D multi-channel volumes
-        has_batch_dim: If True, the first dimension is treated as a batch dimension (B).
-        has_depth_dim: If True, the first dimension (or second if has_batch_dim is True)
-                       is treated as a depth dimension (D).
+        data: Dictionary potentially containing image/volume arrays under specific keys.
 
     Returns:
-        tuple[int, int, int]: A tuple of (height, width, channels) representing the spatial
-                              dimensions and number of channels.
-
-    Examples:
-        >>> # Single image
-        >>> img = np.zeros((101, 99, 3))
-        >>> get_image_shape(img)
-        (101, 99, 3)
-
-        >>> # Batch of images
-        >>> img = np.zeros((3, 201, 99, 3))
-        >>> get_image_shape(img, has_batch_dim=True)
-        (201, 99, 3)
-
-        >>> # Volume
-        >>> img = np.zeros((4, 101, 99, 3))
-        >>> get_image_shape(img, has_depth_dim=True)
-        (101, 99, 3)
-
-        >>> # Batch of volumes
-        >>> img = np.zeros((2, 4, 101, 99, 3))
-        >>> get_image_shape(img, has_batch_dim=True, has_depth_dim=True)
-        (101, 99, 3)
-
-        >>> # Grayscale image
-        >>> img = np.zeros((150, 200))
-        >>> get_image_shape(img)
-        (150, 200, 1)
+        dict: Dictionary with 'dtype', 'height', and 'width' keys.
 
     Raises:
-        ValueError: If the array doesn't have enough dimensions after accounting for
-                   batch and depth dimensions.
-
-    Note:
-        The function assumes that spatial dimensions (H, W) always appear before
-        the channel dimension (if present) and after any batch/depth dimensions.
+        ValueError: If no valid image/volume data keys are found in the dictionary.
     """
-    # Calculate how many dimensions to skip from the beginning
-    dims_to_skip = int(has_batch_dim) + int(has_depth_dim)
-
-    # Check if we have enough dimensions
-    if image.ndim < dims_to_skip + 2:
-        raise ValueError(
-            f"Image with shape {image.shape} doesn't have enough dimensions. "
-            f"Expected at least {dims_to_skip + 2} dimensions after accounting for "
-            f"batch_dim={has_batch_dim} and depth_dim={has_depth_dim}.",
-        )
-
-    # The spatial dimensions (H, W) are always right after the skipped dimensions
-    height_idx = dims_to_skip
-    width_idx = dims_to_skip + 1
-
-    num_channels = get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim)
-
-    return image.shape[height_idx], image.shape[width_idx], num_channels
+    if "image" in data:
+        image = data["image"].shape
+        return {
+            "dtype": data["image"].dtype,
+            "height": image[0],
+            "width": image[1],
+        }
+    if "images" in data:
+        images = data["images"].shape
+        return {
+            "dtype": data["images"].dtype,
+            "height": images[1],
+            "width": images[2],
+        }
+    if "volume" in data:
+        volume = data["volume"].shape
+        return {
+            "dtype": data["volume"].dtype,
+            "height": volume[1],
+            "width": volume[2],
+        }
+    if "volumes" in data:
+        volumes = data["volumes"].shape
+        return {
+            "dtype": data["volumes"].dtype,
+            "height": volumes[2],
+            "width": volumes[3],
+        }
+    raise ValueError("No valid image/volume data found in data dict")
