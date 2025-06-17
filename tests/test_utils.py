@@ -445,49 +445,55 @@ def test_get_image_data_batch_of_volumes(dtype, shape):
     assert result["width"] == shape[3]   # Actual width
 
 
-@pytest.mark.parametrize("data_setup, expected_dtype, expected_height, expected_width, description", [
+
+
+
+@pytest.mark.parametrize("array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description", [
     (
-        lambda: {
-            "image": np.zeros((100, 200, 3), dtype=np.uint8),
-            "images": np.zeros((5, 150, 250, 3), dtype=np.uint16),
-            "volume": np.zeros((10, 120, 220, 3), dtype=np.float32),
-            "volumes": np.zeros((4, 10, 130, 230, 3), dtype=np.float64)
+        {
+            "image": {"shape": (100, 200, 3), "dtype": np.uint8},
+            "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
+            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
-        np.uint8, 100, 200,
+        np.uint8, 100, 200, 3,
         "All keys present - should use 'image'"
     ),
     (
-        lambda: {
-            "images": np.zeros((5, 150, 250, 3), dtype=np.uint16),
-            "volume": np.zeros((10, 120, 220, 3), dtype=np.float32),
-            "volumes": np.zeros((4, 10, 130, 230, 3), dtype=np.float64)
+        {
+            "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
+            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
-        np.uint16, 150, 250,
+        np.uint16, 150, 250, 3,
         "No 'image' - should use 'images'"
     ),
     (
-        lambda: {
-            "volume": np.zeros((10, 120, 220, 3), dtype=np.float32),
-            "volumes": np.zeros((4, 10, 130, 230, 3), dtype=np.float64)
+        {
+            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
-        np.float32, 120, 220,
+        np.float32, 120, 220, 3,
         "No 'image' or 'images' - should use 'volume'"
     ),
     (
-        lambda: {
-            "volumes": np.zeros((4, 10, 130, 230, 3), dtype=np.float64)
+        {
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
-        np.float64, 130, 230,
+        np.float64, 130, 230, 3,
         "Only 'volumes' - should use it"
     ),
 ])
-def test_get_image_data_priority_order(data_setup, expected_dtype, expected_height, expected_width, description):
+def test_get_image_data_priority_order(array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description):
     """Test that get_image_data follows the priority order: image > images > volume > volumes."""
-    data = data_setup()
+    # Create data dictionary from specifications
+    data = {key: np.zeros(spec["shape"], dtype=spec["dtype"]) for key, spec in array_specs.items()}
+
     result = get_image_data(data)
     assert result["dtype"] == expected_dtype
     assert result["height"] == expected_height
     assert result["width"] == expected_width
+    assert result["num_channels"] == expected_num_channels
 
 
 @pytest.mark.parametrize("invalid_data, error_message", [
