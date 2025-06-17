@@ -307,3 +307,56 @@ def get_max_value(dtype: np.dtype) -> float:
         )
         raise RuntimeError(msg)
     return MAX_VALUES_BY_DTYPE[dtype]
+
+
+def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
+    """Extract image metadata (dtype, height, width) from a dictionary.
+
+    This function checks for image data under specific keys in priority order:
+    'image' > 'images' > 'volume' > 'volumes'
+
+    The function correctly extracts height and width by accounting for batch
+    and depth dimensions based on the key type:
+    - 'image': Direct H, W from shape[0], shape[1]
+    - 'images': Skip batch dimension (shape[1], shape[2])
+    - 'volume': Skip depth dimension (shape[1], shape[2])
+    - 'volumes': Skip batch and depth dimensions (shape[2], shape[3])
+
+    Args:
+        data: Dictionary potentially containing image/volume arrays under specific keys.
+
+    Returns:
+        dict: Dictionary with 'dtype', 'height', and 'width' keys.
+
+    Raises:
+        ValueError: If no valid image/volume data keys are found in the dictionary.
+    """
+    if "image" in data:
+        shape = data["image"].shape
+        return {
+            "dtype": data["image"].dtype,
+            "height": shape[0],
+            "width": shape[1],
+        }
+    if "images" in data:
+        shape = data["images"].shape
+        return {
+            "dtype": data["images"].dtype,
+            "height": shape[1],
+            "width": shape[2],
+        }
+    if "volume" in data:
+        shape = data["volume"].shape
+        return {
+            "dtype": data["volume"].dtype,
+            "height": shape[1],
+            "width": shape[2],
+        }
+    if "volumes" in data:
+        shape = data["volumes"].shape
+        return {
+            "dtype": data["volumes"].dtype,
+            "height": shape[2],
+            "width": shape[3],
+        }
+    raise ValueError("No valid image/volume data found in data dict")
