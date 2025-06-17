@@ -247,11 +247,11 @@ def is_grayscale_image(image: np.ndarray, has_batch_dim: bool = False, has_depth
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
     if isinstance(value, np.ndarray):
         value = value.dtype
-    return NPDTYPE_TO_OPENCV_DTYPE[value]
+    return int(NPDTYPE_TO_OPENCV_DTYPE[value])
 
 
 def is_rgb_image(image: np.ndarray) -> bool:
-    return get_num_channels(image) == NUM_RGB_CHANNELS
+    return bool(get_num_channels(image) == NUM_RGB_CHANNELS)
 
 
 def is_multispectral_image(image: np.ndarray) -> bool:
@@ -278,7 +278,7 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
         return float(value) if isinstance(value, (float, int)) else value.item()
 
     # Handle numpy arrays
-    if isinstance(value, np.ndarray):
+    if isinstance(value, np.ndarray):  # type: ignore[unreachable]
         # Return scalars and 0-dim arrays as float
         if value.ndim == 0:
             return value.item()

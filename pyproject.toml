@@ -138,3 +138,8 @@ no_implicit_reexport = true
 
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
+
+# more strict rules
+warn_return_any = true
+strict_equality = true
+warn_unreachable = true
