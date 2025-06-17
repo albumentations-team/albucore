@@ -550,7 +550,7 @@ def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_w
     ('float16', (224, 224, 3), 224, 224),
     ('int64', (32, 64), 32, 64),
 ])
-def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_height, expected_width):
+def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_height, expected_width, expected_num_channels):
     """Test that get_image_data returns the actual numpy dtype object."""
     img = np.zeros(shape, dtype=np.dtype(dtype_str))
     data = {"image": img}
@@ -560,7 +560,7 @@ def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_
     assert result["dtype"] == np.dtype(dtype_str)
     assert result["height"] == expected_height
     assert result["width"] == expected_width
-
+    assert result["num_channels"] == expected_num_channels
 
 def test_get_image_data_returns_correct_keys():
     """Test that get_image_data returns a dictionary with exactly the expected keys."""
@@ -583,7 +583,7 @@ def test_get_image_data_returns_correct_keys():
     ("volume", (10, 100, 200), 100, 200, "Volume: skip depth dimension to get H, W"),
     ("volumes", (2, 10, 100, 200, 3), 100, 200, "Batch of volumes: skip batch and depth dimensions to get H, W"),
 ])
-def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, expected_width, description):
+def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, expected_width, expected_num_channels, description):
     """Test documenting the correct behavior of shape extraction.
 
     The implementation should correctly identify image dimensions by skipping
@@ -591,4 +591,4 @@ def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, e
     """
     arr = np.zeros(shape)
     result = get_image_data({key: arr})
-    assert (result["height"], result["width"]) == (expected_height, expected_width)
+    assert (result["height"], result["width"], result["num_channels"]) == (expected_height, expected_width, expected_num_channels)
