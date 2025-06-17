@@ -445,68 +445,78 @@ def test_get_image_data_batch_of_volumes(dtype, shape):
     assert result["width"] == shape[3]   # Actual width
 
 
-def test_get_image_data_priority_order():
+
+
+
+@pytest.mark.parametrize("array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description", [
+    (
+        {
+            "image": {"shape": (100, 200, 3), "dtype": np.uint8},
+            "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
+            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
+        },
+        np.uint8, 100, 200, 3,
+        "All keys present - should use 'image'"
+    ),
+    (
+        {
+            "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
+            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
+        },
+        np.uint16, 150, 250, 3,
+        "No 'image' - should use 'images'"
+    ),
+    (
+        {
+            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
+        },
+        np.float32, 120, 220, 3,
+        "No 'image' or 'images' - should use 'volume'"
+    ),
+    (
+        {
+            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
+        },
+        np.float64, 130, 230, 3,
+        "Only 'volumes' - should use it"
+    ),
+])
+def test_get_image_data_priority_order(array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description):
     """Test that get_image_data follows the priority order: image > images > volume > volumes."""
-    # Create arrays with different dtypes and shapes
-    img_uint8 = np.zeros((100, 200, 3), dtype=np.uint8)
-    imgs_uint16 = np.zeros((5, 150, 250, 3), dtype=np.uint16)
-    vol_float32 = np.zeros((10, 120, 220, 3), dtype=np.float32)
-    vols_float64 = np.zeros((4, 10, 130, 230, 3), dtype=np.float64)
+    # Create data dictionary from specifications
+    data = {key: np.zeros(spec["shape"], dtype=spec["dtype"]) for key, spec in array_specs.items()}
 
-    # Test with all keys present - should return data from "image"
-    data = {"image": img_uint8, "images": imgs_uint16, "volume": vol_float32, "volumes": vols_float64}
     result = get_image_data(data)
-    assert result["dtype"] == np.uint8
-    assert result["height"] == 100
-    assert result["width"] == 200
-
-    # Test without "image" - should return data from "images"
-    data = {"images": imgs_uint16, "volume": vol_float32, "volumes": vols_float64}
-    result = get_image_data(data)
-    assert result["dtype"] == np.uint16
-    assert result["height"] == 150  # actual height
-    assert result["width"] == 250  # actual width
-
-    # Test without "image" and "images" - should return data from "volume"
-    data = {"volume": vol_float32, "volumes": vols_float64}
-    result = get_image_data(data)
-    assert result["dtype"] == np.float32
-    assert result["height"] == 120  # actual height
-    assert result["width"] == 220  # actual width
-
-    # Test with only "volumes"
-    data = {"volumes": vols_float64}
-    result = get_image_data(data)
-    assert result["dtype"] == np.float64
-    assert result["height"] == 130  # actual height
-    assert result["width"] == 230  # actual width
+    assert result["dtype"] == expected_dtype
+    assert result["height"] == expected_height
+    assert result["width"] == expected_width
+    assert result["num_channels"] == expected_num_channels
 
 
-def test_get_image_data_missing_keys():
+@pytest.mark.parametrize("invalid_data, error_message", [
+    ({}, "No valid image/volume data found"),
+    ({"mask": np.zeros((100, 100)), "label": 5}, "No valid image/volume data found"),
+    ({"img": np.zeros((100, 100)), "imgs": np.zeros((5, 100, 100))}, "No valid image/volume data found"),
+])
+def test_get_image_data_missing_keys(invalid_data, error_message):
     """Test that get_image_data raises ValueError when no valid keys are present."""
-    # Empty dict
-    with pytest.raises(ValueError, match="No valid image/volume data found"):
-        get_image_data({})
-
-    # Dict with irrelevant keys
-    with pytest.raises(ValueError, match="No valid image/volume data found"):
-        get_image_data({"mask": np.zeros((100, 100)), "label": 5})
-
-    # Dict with similar but incorrect keys
-    with pytest.raises(ValueError, match="No valid image/volume data found"):
-        get_image_data({"img": np.zeros((100, 100)), "imgs": np.zeros((5, 100, 100))})
+    with pytest.raises(ValueError, match=error_message):
+        get_image_data(invalid_data)
 
 
-def test_get_image_data_with_additional_keys():
+@pytest.mark.parametrize("additional_keys", [
+    {"mask": np.zeros((100, 200), dtype=np.float32), "label": 1, "metadata": {"source": "test"}},
+    {"segmentation": np.zeros((100, 200)), "class_id": 42},
+    {"annotations": [1, 2, 3], "timestamp": 123456},
+])
+def test_get_image_data_with_additional_keys(additional_keys):
     """Test that get_image_data works correctly when additional keys are present."""
     dtype = np.uint8
     img = np.zeros((100, 200, 3), dtype=dtype)
-    data = {
-        "image": img,
-        "mask": np.zeros((100, 200), dtype=np.float32),
-        "label": 1,
-        "metadata": {"source": "test"}
-    }
+    data = {"image": img, **additional_keys}
 
     result = get_image_data(data)
     assert isinstance(result, dict)
@@ -534,29 +544,23 @@ def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_w
     assert result["width"] == shape[expected_width_idx]
 
 
-def test_get_image_data_preserves_numpy_dtype_object():
+@pytest.mark.parametrize("dtype_str, shape, expected_height, expected_width, expected_num_channels", [
+    ('uint8', (100, 100), 100, 100, 1),
+    ('complex64', (50, 75), 50, 75, 1),
+    ('float16', (224, 224, 3), 224, 224, 3),
+    ('int64', (32, 64), 32, 64, 1),
+])
+def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_height, expected_width, expected_num_channels):
     """Test that get_image_data returns the actual numpy dtype object."""
-    # Test that we get the same dtype object, not just equivalent
-    img = np.zeros((100, 100), dtype=np.dtype('uint8'))
+    img = np.zeros(shape, dtype=np.dtype(dtype_str))
     data = {"image": img}
     result = get_image_data(data)
 
-    # Check it's a numpy dtype
     assert isinstance(result["dtype"], np.dtype)
-    # Check it's exactly uint8
-    assert result["dtype"] == np.dtype('uint8')
-    # Check dimensions
-    assert result["height"] == 100
-    assert result["width"] == 100
-
-    # Test with a more complex dtype
-    img_complex = np.zeros((50, 75), dtype=np.dtype('complex64'))
-    data_complex = {"image": img_complex}
-    result_complex = get_image_data(data_complex)
-    assert result_complex["dtype"] == np.dtype('complex64')
-    assert result_complex["height"] == 50
-    assert result_complex["width"] == 75
-
+    assert result["dtype"] == np.dtype(dtype_str)
+    assert result["height"] == expected_height
+    assert result["width"] == expected_width
+    assert result["num_channels"] == expected_num_channels
 
 def test_get_image_data_returns_correct_keys():
     """Test that get_image_data returns a dictionary with exactly the expected keys."""
@@ -564,38 +568,27 @@ def test_get_image_data_returns_correct_keys():
     data = {"image": img}
     result = get_image_data(data)
 
-    # Check that we have exactly the expected keys
-    expected_keys = {"dtype", "height", "width"}
+    expected_keys = {"dtype", "height", "width", "num_channels"}
     assert set(result.keys()) == expected_keys
 
-    # Verify the values are of correct types
     assert isinstance(result["dtype"], np.dtype)
     assert isinstance(result["height"], (int, np.integer))
     assert isinstance(result["width"], (int, np.integer))
+    assert isinstance(result["num_channels"], (int, np.integer))
 
 
-def test_get_image_data_shape_extraction_behavior():
+@pytest.mark.parametrize("key, shape, expected_height, expected_width, expected_num_channels, description", [
+    ("image", (100, 200, 3), 100, 200, 3, "Single image: shape[0] and shape[1] are H, W"),
+    ("images", (5, 100, 200, 3), 100, 200, 3, "Batch of images: skip batch dimension to get H, W"),
+    ("volume", (10, 100, 200), 100, 200, 1, "Volume: skip depth dimension to get H, W"),
+    ("volumes", (2, 10, 100, 200, 3), 100, 200, 3, "Batch of volumes: skip batch and depth dimensions to get H, W"),
+])
+def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, expected_width, expected_num_channels, description):
     """Test documenting the correct behavior of shape extraction.
 
     The implementation should correctly identify image dimensions by skipping
     batch and depth dimensions based on the key type.
     """
-    # For single image: shape[0] and shape[1] are H, W
-    img = np.zeros((100, 200, 3))
-    result = get_image_data({"image": img})
-    assert (result["height"], result["width"]) == (100, 200)
-
-    # For batch of images: skip batch dimension to get H, W
-    imgs = np.zeros((5, 100, 200, 3))
-    result = get_image_data({"images": imgs})
-    assert (result["height"], result["width"]) == (100, 200)
-
-    # For volume: skip depth dimension to get H, W
-    vol = np.zeros((10, 100, 200))
-    result = get_image_data({"volume": vol})
-    assert (result["height"], result["width"]) == (100, 200)
-
-    # For batch of volumes: skip batch and depth dimensions to get H, W
-    vols = np.zeros((2, 10, 100, 200, 3))
-    result = get_image_data({"volumes": vols})
-    assert (result["height"], result["width"]) == (100, 200)
+    arr = np.zeros(shape)
+    result = get_image_data({key: arr})
+    assert (result["height"], result["width"], result["num_channels"]) == (expected_height, expected_width, expected_num_channels)
