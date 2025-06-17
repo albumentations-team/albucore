@@ -544,11 +544,11 @@ def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_w
     assert result["width"] == shape[expected_width_idx]
 
 
-@pytest.mark.parametrize("dtype_str, shape, expected_height, expected_width", [
-    ('uint8', (100, 100), 100, 100),
-    ('complex64', (50, 75), 50, 75),
-    ('float16', (224, 224, 3), 224, 224),
-    ('int64', (32, 64), 32, 64),
+@pytest.mark.parametrize("dtype_str, shape, expected_height, expected_width, expected_num_channels", [
+    ('uint8', (100, 100), 100, 100, 1),
+    ('complex64', (50, 75), 50, 75, 1),
+    ('float16', (224, 224, 3), 224, 224, 3),
+    ('int64', (32, 64), 32, 64, 1),
 ])
 def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_height, expected_width, expected_num_channels):
     """Test that get_image_data returns the actual numpy dtype object."""
@@ -577,11 +577,11 @@ def test_get_image_data_returns_correct_keys():
     assert isinstance(result["num_channels"], (int, np.integer))
 
 
-@pytest.mark.parametrize("key, shape, expected_height, expected_width, description", [
-    ("image", (100, 200, 3), 100, 200, "Single image: shape[0] and shape[1] are H, W"),
-    ("images", (5, 100, 200, 3), 100, 200, "Batch of images: skip batch dimension to get H, W"),
-    ("volume", (10, 100, 200), 100, 200, "Volume: skip depth dimension to get H, W"),
-    ("volumes", (2, 10, 100, 200, 3), 100, 200, "Batch of volumes: skip batch and depth dimensions to get H, W"),
+@pytest.mark.parametrize("key, shape, expected_height, expected_width, expected_num_channels, description", [
+    ("image", (100, 200, 3), 100, 200, 3, "Single image: shape[0] and shape[1] are H, W"),
+    ("images", (5, 100, 200, 3), 100, 200, 3, "Batch of images: skip batch dimension to get H, W"),
+    ("volume", (10, 100, 200), 100, 200, 1, "Volume: skip depth dimension to get H, W"),
+    ("volumes", (2, 10, 100, 200, 3), 100, 200, 3, "Batch of volumes: skip batch and depth dimensions to get H, W"),
 ])
 def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, expected_width, expected_num_channels, description):
     """Test documenting the correct behavior of shape extraction.
