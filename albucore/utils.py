@@ -337,6 +337,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["image"].dtype,
             "height": shape[0],
             "width": shape[1],
+            "num_channels": shape[2] if len(shape) == 3 else 1,
         }
     if "images" in data:
         shape = data["images"].shape
@@ -344,6 +345,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["images"].dtype,
             "height": shape[1],
             "width": shape[2],
+            "num_channels": shape[3] if len(shape) == 4 else 1,
         }
     if "volume" in data:
         shape = data["volume"].shape
@@ -351,6 +353,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["volume"].dtype,
             "height": shape[1],
             "width": shape[2],
+            "num_channels": shape[3] if len(shape) == 4 else 1,
         }
     if "volumes" in data:
         shape = data["volumes"].shape
@@ -358,5 +361,6 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["volumes"].dtype,
             "height": shape[2],
             "width": shape[3],
+            "num_channels": shape[4] if len(shape) == 5 else 1,
         }
     raise ValueError("No valid image/volume data found in data dict")

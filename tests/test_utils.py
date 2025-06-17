@@ -565,13 +565,14 @@ def test_get_image_data_returns_correct_keys():
     result = get_image_data(data)
 
     # Check that we have exactly the expected keys
-    expected_keys = {"dtype", "height", "width"}
+    expected_keys = {"dtype", "height", "width", "num_channels"}
     assert set(result.keys()) == expected_keys
 
     # Verify the values are of correct types
     assert isinstance(result["dtype"], np.dtype)
     assert isinstance(result["height"], (int, np.integer))
     assert isinstance(result["width"], (int, np.integer))
+    assert isinstance(result["num_channels"], (int, np.integer))
 
 
 def test_get_image_data_shape_extraction_behavior():
