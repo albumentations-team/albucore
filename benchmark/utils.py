@@ -33,7 +33,7 @@ class MarkdownGenerator:
             elif isinstance(result, (int, float)):
                 parsed_results.append((float(result), 0))
             else:
-                parsed_results.append((np.nan, np.nan))
+                parsed_results.append((np.nan, np.nan))  # type: ignore[unreachable]
 
         if not parsed_results or all(np.isnan(mean) for mean, _ in parsed_results):
             return [str(r) for r in results]
@@ -71,21 +71,40 @@ class MarkdownGenerator:
         return value_matrix
 
     def generate_markdown_table(self) -> str:
-        # Convert DataFrame to markdown
-        md_table = self.df.to_markdown()
+        # Template for the markdown report
+        REPORT_TEMPLATE = """
+            # Benchmark Results: {benchmark_name}
 
-        # Add header
-        header = f"# Benchmark Results: {self.df.index[0]}\n\n"
-        header += f"Number of images: {self.num_images}\n\n"
-        header += "## CPU Information\n\n"
-        header += f"- CPU: {self.cpu_info['name']}\n"
-        header += f"- Frequency: {self.cpu_info['freq']}\n"
-        header += f"- Physical cores: {self.cpu_info['physical_cores']}\n"
-        header += f"- Total cores: {self.cpu_info['total_cores']}\n\n"
-        header += "## Package Versions\n\n"
-        header += pd.DataFrame([self.package_versions]).to_markdown(index=False) + "\n\n"
-        header += "## Performance (images/second)\n\n"
-        return header + md_table
+            Number of images: {num_images}
+
+            ## CPU Information
+
+            - CPU: {cpu_name}
+            - Frequency: {cpu_freq}
+            - Physical cores: {physical_cores}
+            - Total cores: {total_cores}
+
+            ## Package Versions
+
+            {package_versions_table}
+
+            ## Performance (images/second)
+
+            {performance_table}"""
+
+        # Prepare the data for the template
+        template_data = {
+            'benchmark_name': self.df.index[0],
+            'num_images': self.num_images,
+            'cpu_name': self.cpu_info['name'],
+            'cpu_freq': self.cpu_info['freq'],
+            'physical_cores': self.cpu_info['physical_cores'],
+            'total_cores': self.cpu_info['total_cores'],
+            'package_versions_table': pd.DataFrame([self.package_versions]).to_markdown(index=False),
+            'performance_table': self.df.to_markdown()
+        }
+
+        return REPORT_TEMPLATE.format(**template_data)
 
     def _make_versions_text(self) -> str:
         libraries = ["numpy", "opencv-python-headless"]

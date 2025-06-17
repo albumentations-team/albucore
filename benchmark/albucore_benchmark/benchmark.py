@@ -84,6 +84,17 @@ def get_package_versions() -> dict[str, str]:
 
 
 class BenchmarkTest(ABC):
+    # Direct mapping of library names to their transform method names
+    LIBRARY_ATTR_MAP: dict[str, str] = {
+        "albucore": "albucore_transform",
+        "opencv": "opencv_transform",
+        "numpy": "numpy_transform",
+        "lut": "lut_transform",
+        "kornia-rs": "kornia_transform",
+        "torchvision": "torchvision_transform",
+        "simsimd": "simsimd_transform",
+    }
+
     def __init__(self, num_channels: int) -> None:
         self.num_channels = num_channels
         self.img_type = None
@@ -131,30 +142,17 @@ class BenchmarkTest(ABC):
         return clip(self.simsimd_transform(img), img.dtype)
 
     def is_supported_by(self, library: str) -> bool:
-        library_attr_map = {
-            "albucore": "albucore_transform",
-            "opencv": "opencv_transform",
-            "numpy": "numpy_transform",
-            "lut": "lut_transform",
-            "kornia-rs": "kornia_transform",
-            "torchvision": "torchvision_transform",
-            "simsimd": "simsimd_transform",
-        }
+        # Check if the library has a specific mapping
+        transform_attr = self.LIBRARY_ATTR_MAP.get(library, f"{library}_transform")
 
-        # Check if the library is in the map
-        if library in library_attr_map:
-            attrs = library_attr_map[library]
-            # Ensure attrs is a list for uniform processing
-            if not isinstance(attrs, list):
-                attrs = [attrs]  # type: ignore[assignment]
-            # Return True if any of the specified attributes exist
-            return any(hasattr(self, attr) for attr in attrs)
-
-        # Fallback: checks if the class has an attribute with the library's name
-        return hasattr(self, library)
+        # Return True if the transform method exists
+        return hasattr(self, transform_attr)
 
     def run(self, library: str, imgs: list[np.ndarray]) -> list[np.ndarray] | None:
-        transform = getattr(self, library)
+        # Get the appropriate transform method
+        transform_attr = self.LIBRARY_ATTR_MAP.get(library, f"{library}_transform")
+        transform = getattr(self, transform_attr)
+
         transformed_images = []
         for img in imgs:
             result = transform(img)
