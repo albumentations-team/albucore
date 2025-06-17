@@ -332,31 +332,31 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
         ValueError: If no valid image/volume data keys are found in the dictionary.
     """
     if "image" in data:
-        image = data["image"].shape
+        shape = data["image"].shape
         return {
             "dtype": data["image"].dtype,
-            "height": image[0],
-            "width": image[1],
+            "height": shape[0],
+            "width": shape[1],
         }
     if "images" in data:
-        images = data["images"].shape
+        shape = data["images"].shape
         return {
             "dtype": data["images"].dtype,
-            "height": images[1],
-            "width": images[2],
+            "height": shape[1],
+            "width": shape[2],
         }
     if "volume" in data:
-        volume = data["volume"].shape
+        shape = data["volume"].shape
         return {
             "dtype": data["volume"].dtype,
-            "height": volume[1],
-            "width": volume[2],
+            "height": shape[1],
+            "width": shape[2],
         }
     if "volumes" in data:
-        volumes = data["volumes"].shape
+        shape = data["volumes"].shape
         return {
             "dtype": data["volumes"].dtype,
-            "height": volumes[2],
-            "width": volumes[3],
+            "height": shape[2],
+            "width": shape[3],
         }
     raise ValueError("No valid image/volume data found in data dict")
