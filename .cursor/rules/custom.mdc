@@ -11,9 +11,21 @@ images: (N, H, W, C)
 grayscale images: (N, H, W, 1)
 volume: (D, H, W, C)
 grayscale volume: (D, H, W, 1)
+volumes: (N, D, H, W, C)
+grayscale volumes: (N, D, H, W, 1)
 
 i.e, we always know as given:
 
 num_channels = shape[-1]
 width = shape[-2]
 height = shape[-3]
+
+---
+WE DO NOT EXPECT:
+
+grayscale image with shape: (H, W)
+graysclae volume with shape: (D, H, W)
+etc
+
+There is always channel given, even if it is 1.
+---

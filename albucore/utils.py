@@ -77,7 +77,7 @@ def maybe_process_in_chunks(
         all_args = (*args, *process_args)
         all_kwargs: dict[str, Any] = kwargs | process_kwargs
 
-        num_channels = get_num_channels(img)
+        num_channels = img.shape[-1]
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             chunks = []
             for index in range(0, num_channels, 4):
@@ -212,7 +212,7 @@ def is_grayscale_image(image: np.ndarray) -> bool:
         is_rgb_image: For checking if an image has exactly 3 channels (RGB).
         is_multispectral_image: For checking if an image has channels other than 1 or 3.
     """
-    return get_num_channels(image) == 1
+    return bool(image.shape[-1] == 1)
 
 
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
@@ -222,12 +222,11 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
 
 
 def is_rgb_image(image: np.ndarray) -> bool:
-    return bool(get_num_channels(image) == NUM_RGB_CHANNELS)
+    return bool(image.shape[-1] == NUM_RGB_CHANNELS)
 
 
 def is_multispectral_image(image: np.ndarray) -> bool:
-    num_channels = get_num_channels(image)
-    return num_channels not in {1, 3}
+    return image.shape[-1] not in {1, 3}
 
 
 def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.ndarray:
