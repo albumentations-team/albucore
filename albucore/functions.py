@@ -12,7 +12,6 @@ from albucore.decorators import contiguous, preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
-    MONO_CHANNEL_DIMENSIONS,
     NormalizationType,
     ValueType,
     clip,
@@ -487,7 +486,7 @@ def normalize_per_image_opencv(
     for better performance on standard image types.
 
     Args:
-        img: Input image as a numpy array. Can be 2D (grayscale) or 3D (multi-channel).
+        img: Input image as a numpy array with shape (H, W, C).
         normalization: Type of normalization to apply. Options are:
             - "image": Normalize using global mean and std across all pixels
             - "image_per_channel": Normalize each channel separately using its own mean and std
@@ -512,9 +511,6 @@ def normalize_per_image_opencv(
     img = img.astype(np.float32, copy=False)
     eps = 1e-4
 
-    if img.ndim == MONO_CHANNEL_DIMENSIONS:
-        img = np.expand_dims(img, axis=-1)
-
     if normalization == "image" or (img.shape[-1] == 1 and normalization == "image_per_channel"):
         mean = img.mean().item()
         std = img.std().item() + eps
@@ -537,8 +533,6 @@ def normalize_per_image_opencv(
         return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
-        img_min = img.min()
-        img_max = img.max()
         return cv2.normalize(img, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
 
     if normalization == "min_max_per_channel":
@@ -571,7 +565,7 @@ def normalize_per_image_numpy(
     pure NumPy operations. This can be useful for compatibility or when OpenCV is not available.
 
     Args:
-        img: Input image as a numpy array. Can be 2D (grayscale) or 3D (multi-channel).
+        img: Input image as a numpy array with shape (H, W, C).
         normalization: Type of normalization to apply. Options are:
             - "image": Normalize using global mean and std across all pixels
             - "image_per_channel": Normalize each channel separately using its own mean and std
@@ -595,9 +589,6 @@ def normalize_per_image_numpy(
     """
     img = img.astype(np.float32, copy=False)
     eps = 1e-4
-
-    if img.ndim == MONO_CHANNEL_DIMENSIONS:
-        img = np.expand_dims(img, axis=-1)
 
     if normalization == "image":
         mean = img.mean()
@@ -636,7 +627,7 @@ def normalize_per_image_lut(
     for extremely fast normalization of uint8 images. This is the fastest method for uint8 data.
 
     Args:
-        img: Input image as a numpy array with uint8 dtype. Can be 2D (grayscale) or 3D (multi-channel).
+        img: Input image as a numpy array with uint8 dtype and shape (H, W, C).
         normalization: Type of normalization to apply. Options are:
             - "image": Normalize using global mean and std across all pixels
             - "image_per_channel": Normalize each channel separately using its own mean and std
@@ -664,14 +655,11 @@ def normalize_per_image_lut(
     eps = 1e-4
     num_channels = get_num_channels(img)
 
-    if img.ndim == MONO_CHANNEL_DIMENSIONS:
-        img = np.expand_dims(img, axis=-1)
-
     if normalization == "image" or (img.shape[-1] == 1 and normalization == "image_per_channel"):
         mean = img.mean()
         std = img.std() + eps
         lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) / std
-        return cv2.LUT(img, lut).clip(-20, 20)
+        return cv2.LUT(img, lut).clip(-20, 20).astype(np.float32)
 
     if normalization == "image_per_channel":
         pixel_mean = img.mean(axis=spatial_axes)
@@ -685,7 +673,7 @@ def normalize_per_image_lut(
         img_min = img.min()
         img_max = img.max()
         lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
-        return cv2.LUT(img, lut).clip(-20, 20)
+        return cv2.LUT(img, lut).clip(-20, 20).astype(np.float32)
 
     if normalization == "min_max_per_channel":
         img_min = img.min(axis=spatial_axes)
@@ -694,7 +682,7 @@ def normalize_per_image_lut(
             (np.arange(0, max_value + 1, dtype=np.float32) - img_min[c]) / (img_max[c] - img_min[c] + eps)
             for c in range(num_channels)
         ]
-        return np.stack([cv2.LUT(img[..., i], luts[i]) for i in range(num_channels)], axis=-1)
+        return np.stack([cv2.LUT(img[..., i], luts[i]) for i in range(num_channels)], axis=-1).astype(np.float32)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -706,7 +694,7 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
     implementation based on the input image data type.
 
     Args:
-        img: Input image as a numpy array. Can be 2D (grayscale) or 3D (multi-channel).
+        img: Input image as a numpy array with shape (H, W, C).
         normalization: Type of normalization to apply. Options are:
             - "image": Normalize using global mean and std across all pixels
             - "image_per_channel": Normalize each channel separately using its own mean and std
@@ -739,10 +727,10 @@ def normalize_per_image_batch(
 
     Args:
         images: Input array that can be:
-            - Single image: (H, W) or (H, W, C)
-            - Batch of images: (N, H, W) or (N, H, W, C)
-            - Volume: (D, H, W) or (D, H, W, C)
-            - Batch of volumes: (N, D, H, W) or (N, D, H, W, C)
+            - Single image: (H, W, C)
+            - Batch of images: (N, H, W, C)
+            - Volume: (D, H, W, C)
+            - Batch of volumes: (N, D, H, W, C)
         normalization: Type of normalization to apply:
             - "image": Normalize using global mean and std across spatial dimensions
             - "image_per_channel": Normalize each channel separately using its own mean and std
@@ -924,10 +912,10 @@ def _flip_multichannel(img: np.ndarray, flip_code: int) -> np.ndarray:
     """
     # Get image dimensions
     height, width = img.shape[:2]
-    num_channels = 1 if img.ndim == 2 else img.shape[2]
+    num_channels = img.shape[2]
 
-    # If the image has 2 dimensions or fewer than 512 channels, use cv2.flip directly
-    if img.ndim == 2 or num_channels <= 512:
+    # If the image has fewer than 512 channels, use cv2.flip directly
+    if num_channels <= 512:
         return cv2.flip(img, flip_code)
 
     # Process in chunks of 512 channels

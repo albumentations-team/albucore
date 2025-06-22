@@ -42,7 +42,7 @@ def test_normalize_per_image(img, normalization, expected, dtype):
         [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), "image"],
         [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), "image_per_channel"],
         [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), "min_max"],
-        [np.random.randint(0, 256, [101, 99], dtype=np.uint8), "min_max_per_channel"],
+        [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), "min_max_per_channel"],
     ],
 )
 def test_normalize_np_cv_equal(image, normalization):
@@ -68,8 +68,7 @@ def test_normalize_np_cv_equal(image, normalization):
 
 # Parameterize tests for all combinations
 @pytest.mark.parametrize("shape", [
-    (100, 100),  # height, width
-    (100, 100, 1),  # height, width, 1 channel
+    (100, 100, 1),  # height, width, 1 channel (grayscale)
     (100, 100, 3),  # height, width, 3 channels
     (100, 100, 7),  # height, width, 7 channels
 ])
@@ -125,8 +124,7 @@ def test_normalize_per_image(shape, normalization, dtype):
 
 # Check that for constant array min max and min max per channel give 0
 @pytest.mark.parametrize("shape", [
-    (100, 100),  # height, width
-    (100, 100, 1),  # height, width, 1 channel
+    (100, 100, 1),  # height, width, 1 channel (grayscale)
     (100, 100, 3),  # height, width, 3 channels
     (100, 100, 7),  # height, width, 7 channels
 ])
@@ -138,7 +136,7 @@ def test_normalize_per_image(shape, normalization, dtype):
     np.uint8,
     np.float32,
 ])
-def test_normalize_per_image(shape, normalization, dtype):
+def test_normalize_per_image_constant(shape, normalization, dtype):
     img = np.ones(shape).astype(dtype)
 
     # Normalize the image

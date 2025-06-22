@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from functools import wraps
-from typing import Any, Callable, Literal, Union
+from typing import Any, Callable, Literal, Union, cast
 
 if sys.version_info >= (3, 10):
     from typing import Concatenate, ParamSpec
@@ -13,8 +13,6 @@ import cv2
 import numpy as np
 
 NUM_RGB_CHANNELS = 3
-MONO_CHANNEL_DIMENSIONS = 2
-NUM_MULTI_CHANNEL_DIMENSIONS = 3
 FOUR = 4
 TWO = 2
 
@@ -79,7 +77,7 @@ def maybe_process_in_chunks(
         all_args = (*args, *process_args)
         all_kwargs: dict[str, Any] = kwargs | process_kwargs
 
-        num_channels = get_num_channels(img)
+        num_channels = img.shape[-1]
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             chunks = []
             for index in range(0, num_channels, 4):
@@ -122,35 +120,25 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     return wrapped_function
 
 
-def get_num_channels(image: np.ndarray, has_batch_dim: bool = False, has_depth_dim: bool = False) -> int:
+def get_num_channels(image: np.ndarray) -> int:
     """Get the number of channels in an image array.
 
-    This function determines the number of channels in an image array by analyzing its shape
-    and accounting for optional batch and depth dimensions. The function assumes that the
-    last dimension represents channels when the array has more than 2 spatial dimensions
-    after accounting for any batch or depth dimensions.
+    This function returns the size of the last dimension, which always represents
+    the number of channels in our convention.
 
     Args:
-        image: Input image array. Can have various shapes:
-            - HW: (height, width) - grayscale image
+        image: Input image array. Expected shapes:
             - HWC: (height, width, channels) - multi-channel image
-            - NHW: (batch, height, width) - batch of grayscale images
             - NHWC: (batch, height, width, channels) - batch of multi-channel images
-            - DHW: (depth, height, width) - 3D grayscale volume
             - DHWC: (depth, height, width, channels) - 3D multi-channel volume
-            - DNHW: (depth, batch, height, width) - batch of 3D grayscale volumes
-            - DNHWC: (depth, batch, height, width, channels) - batch of 3D multi-channel volumes
-        has_batch_dim: If True, the first dimension is treated as a batch dimension (N).
-        has_depth_dim: If True, the first dimension (or second if has_batch_dim is True)
-                       is treated as a depth dimension (D).
+            - NDHWC: (batch, depth, height, width, channels) - batch of 3D multi-channel volumes
 
     Returns:
-        int: Number of channels in the image. Returns 1 for grayscale images and the size
-             of the last dimension for multi-channel images.
+        int: Number of channels (the size of the last dimension).
 
     Examples:
-        >>> # 2D grayscale image
-        >>> img = np.zeros((100, 200))
+        >>> # Grayscale image with explicit channel
+        >>> img = np.zeros((100, 200, 1))
         >>> get_num_channels(img)
         1
 
@@ -160,59 +148,47 @@ def get_num_channels(image: np.ndarray, has_batch_dim: bool = False, has_depth_d
         3
 
         >>> # Batch of grayscale images
-        >>> img = np.zeros((10, 100, 200))
-        >>> get_num_channels(img, has_batch_dim=True)
+        >>> img = np.zeros((10, 100, 200, 1))
+        >>> get_num_channels(img)
         1
 
         >>> # Batch of RGB images
         >>> img = np.zeros((10, 100, 200, 3))
-        >>> get_num_channels(img, has_batch_dim=True)
+        >>> get_num_channels(img)
         3
 
-        >>> # 3D volume
-        >>> img = np.zeros((5, 100, 200))
-        >>> get_num_channels(img, has_depth_dim=True)
+        >>> # 3D grayscale volume
+        >>> img = np.zeros((5, 100, 200, 1))
+        >>> get_num_channels(img)
         1
 
         >>> # Batch of 3D volumes with RGB
         >>> img = np.zeros((5, 10, 100, 200, 3))
-        >>> get_num_channels(img, has_batch_dim=True, has_depth_dim=True)
+        >>> get_num_channels(img)
         3
 
     Note:
-        The function assumes that after accounting for batch and depth dimensions,
-        the remaining dimensions follow the pattern HW (grayscale) or HWC (multi-channel).
+        Since we always expect the channel dimension to be present (even for grayscale
+        images which have shape[..., 1]), this function simply returns shape[-1].
     """
-    # Calculate how many dimensions to skip from the beginning
-    dims_to_skip = int(has_depth_dim) + int(has_batch_dim)
-
-    # After skipping D and/or N dimensions, we should have HW or HWC
-    remaining_dims = image.ndim - dims_to_skip
-
-    # If we have more than 2 spatial dimensions (H, W), the last one is channels
-    # Otherwise, it's single channel
-    return image.shape[-1] if remaining_dims > 2 else 1
+    return int(image.shape[-1])
 
 
-def is_grayscale_image(image: np.ndarray, has_batch_dim: bool = False, has_depth_dim: bool = False) -> bool:
+def is_grayscale_image(image: np.ndarray) -> bool:
     """Check if an image array represents a grayscale (single-channel) image.
 
-    This function determines whether an image has only one channel by calling get_num_channels
-    and checking if the result equals 1. It properly handles various array shapes including
-    batched images and 3D volumes.
+    This function determines whether an image has only one channel by checking if
+    shape[-1] == 1.
 
     Args:
-        image: Input image array. Can have various shapes as described in get_num_channels.
-        has_batch_dim: If True, the first dimension is treated as a batch dimension (N).
-        has_depth_dim: If True, the first dimension (or second if has_batch_dim is True)
-                       is treated as a depth dimension (D).
+        image: Input image array with explicit channel dimension.
 
     Returns:
-        bool: True if the image has only 1 channel (grayscale), False otherwise.
+        bool: True if the image has only 1 channel (shape[-1] == 1), False otherwise.
 
     Examples:
-        >>> # 2D grayscale image
-        >>> img = np.zeros((100, 200))
+        >>> # Grayscale image with explicit channel
+        >>> img = np.zeros((100, 200, 1))
         >>> is_grayscale_image(img)
         True
 
@@ -221,19 +197,14 @@ def is_grayscale_image(image: np.ndarray, has_batch_dim: bool = False, has_depth
         >>> is_grayscale_image(img)
         False
 
-        >>> # Single channel image with explicit channel dimension
-        >>> img = np.zeros((100, 200, 1))
-        >>> is_grayscale_image(img)
-        True
-
         >>> # Batch of grayscale images
-        >>> img = np.zeros((10, 100, 200))
-        >>> is_grayscale_image(img, has_batch_dim=True)
+        >>> img = np.zeros((10, 100, 200, 1))
+        >>> is_grayscale_image(img)
         True
 
         >>> # Batch of RGB images
         >>> img = np.zeros((10, 100, 200, 3))
-        >>> is_grayscale_image(img, has_batch_dim=True)
+        >>> is_grayscale_image(img)
         False
 
     See Also:
@@ -241,7 +212,7 @@ def is_grayscale_image(image: np.ndarray, has_batch_dim: bool = False, has_depth
         is_rgb_image: For checking if an image has exactly 3 channels (RGB).
         is_multispectral_image: For checking if an image has channels other than 1 or 3.
     """
-    return get_num_channels(image, has_batch_dim=has_batch_dim, has_depth_dim=has_depth_dim) == 1
+    return cast("bool", image.shape[-1] == 1)
 
 
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
@@ -251,12 +222,11 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
 
 
 def is_rgb_image(image: np.ndarray) -> bool:
-    return bool(get_num_channels(image) == NUM_RGB_CHANNELS)
+    return cast("bool", image.shape[-1] == NUM_RGB_CHANNELS)
 
 
 def is_multispectral_image(image: np.ndarray) -> bool:
-    num_channels = get_num_channels(image)
-    return num_channels not in {1, 3}
+    return image.shape[-1] not in {1, 3}
 
 
 def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.ndarray:
@@ -310,7 +280,7 @@ def get_max_value(dtype: np.dtype) -> float:
 
 
 def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
-    """Extract image metadata (dtype, height, width) from a dictionary.
+    """Extract image metadata (dtype, height, width, num_channels) from a dictionary.
 
     This function checks for image data under specific keys in priority order:
     'image' > 'images' > 'volume' > 'volumes'
@@ -326,7 +296,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
         data: Dictionary potentially containing image/volume arrays under specific keys.
 
     Returns:
-        dict: Dictionary with 'dtype', 'height', and 'width' keys.
+        dict: Dictionary with 'dtype', 'height', 'width', and 'num_channels' keys.
 
     Raises:
         ValueError: If no valid image/volume data keys are found in the dictionary.
@@ -337,7 +307,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["image"].dtype,
             "height": shape[0],
             "width": shape[1],
-            "num_channels": shape[2] if len(shape) == 3 else 1,
+            "num_channels": shape[-1],
         }
     if "images" in data:
         shape = data["images"].shape
@@ -345,7 +315,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["images"].dtype,
             "height": shape[1],
             "width": shape[2],
-            "num_channels": shape[3] if len(shape) == 4 else 1,
+            "num_channels": shape[-1],
         }
     if "volume" in data:
         shape = data["volume"].shape
@@ -353,7 +323,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["volume"].dtype,
             "height": shape[1],
             "width": shape[2],
-            "num_channels": shape[3] if len(shape) == 4 else 1,
+            "num_channels": shape[-1],
         }
     if "volumes" in data:
         shape = data["volumes"].shape
@@ -361,6 +331,6 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "dtype": data["volumes"].dtype,
             "height": shape[2],
             "width": shape[3],
-            "num_channels": shape[4] if len(shape) == 5 else 1,
+            "num_channels": shape[-1],
         }
     raise ValueError("No valid image/volume data found in data dict")
