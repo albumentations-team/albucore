@@ -1,0 +1,19 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+For image shapes we assume as given:
+
+image: (H, W, C)
+grayscale image: (H, W, 1)
+images: (N, H, W, C)
+grayscale images: (N, H, W, 1)
+volume: (D, H, W, C)
+grayscale volume: (D, H, W, 1)
+
+i.e, we always know as given:
+
+num_channels = shape[-1]
+width = shape[-2]
+height = shape[-3]
