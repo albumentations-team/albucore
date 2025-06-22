@@ -1,6 +1,6 @@
 # Albucore: High-Performance Image Processing Functions
 
-Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [Albumentations](https://github.com/albumentations-team/albumentations), a popular image augmentation library.
+Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), a popular image augmentation library.
 
 ## Overview
 
@@ -24,13 +24,57 @@ pip install albucore
 ```python
 import numpy as np
 import albucore
-# Create a sample image
+
+# Create a sample RGB image
 image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+
 # Apply a function
 result = albucore.multiply(image, 1.5)
+
+# For grayscale images, ensure the channel dimension is present
+gray_image = np.random.randint(0, 256, (100, 100, 1), dtype=np.uint8)
+gray_result = albucore.multiply(gray_image, 1.5)
 ```
 
 Albucore automatically selects the most efficient implementation based on the input image type and characteristics.
+
+## Shape Conventions
+
+Albucore expects images to follow specific shape conventions, with the channel dimension always present:
+
+- **Single image**: `(H, W, C)` - Height, Width, Channels
+- **Grayscale image**: `(H, W, 1)` - Height, Width, 1 channel
+- **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
+- **3D volume**: `(D, H, W, C)` - Depth, Height, Width, Channels
+- **Batch of volumes**: `(N, D, H, W, C)` - Number of volumes, Depth, Height, Width, Channels
+
+### Important Notes:
+
+1. **Channel dimension is always required**, even for grayscale images (use shape `(H, W, 1)`)
+2. Single-channel images should have shape `(H, W, 1)` not `(H, W)`
+3. Batches and volumes are treated uniformly - a 4D array `(N, H, W, C)` can represent either a batch of images or a 3D volume
+
+### Examples:
+
+```python
+import numpy as np
+import albucore
+
+# Grayscale image - MUST have explicit channel dimension
+gray_image = np.random.randint(0, 256, (100, 100, 1), dtype=np.uint8)
+
+# RGB image
+rgb_image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
+
+# Batch of 10 grayscale images
+batch_gray = np.random.randint(0, 256, (10, 100, 100, 1), dtype=np.uint8)
+
+# 3D volume with 20 slices
+volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
+
+# Batch of 5 RGB volumes, each with 20 slices
+batch_volumes = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
+```
 
 ## Functions
 
@@ -41,6 +85,25 @@ Albucore includes optimized implementations for various image processing operati
 - Geometric transformations (vertical flip, horizontal flip)
 - Helper decorators (to_float, to_uint8)
 
+### Batch Processing
+
+Many functions in Albucore support batch processing out of the box. The library automatically handles different input shapes:
+
+- Single images: `(H, W, C)`
+- Batches: `(N, H, W, C)`
+- Volumes: `(D, H, W, C)`
+- Batch of volumes: `(N, D, H, W, C)`
+
+Functions will preserve the input shape structure, applying operations efficiently across all images/slices in the batch.
+
+### Decorators
+
+Albucore provides several useful decorators:
+
+- `@preserve_channel_dim`: Ensures single-channel images maintain their shape `(H, W, 1)` when OpenCV operations might drop the channel dimension
+- `@contiguous`: Ensures arrays are C-contiguous for optimal performance
+- `@uint8_io` and `@float32_io`: Handle automatic type conversions for functions that work best with specific data types
+
 ## Performance
 
 Albucore uses a combination of techniques to achieve high performance:
@@ -49,14 +112,10 @@ Albucore uses a combination of techniques to achieve high performance:
 2. **Automatic Selection**: The library automatically chooses the fastest implementation based on the input image type, size, and number of channels.
 3. **Optimized Algorithms**: Custom implementations are optimized for specific use cases, often outperforming general-purpose libraries.
 
-### Benchmarks
-
-We maintain an extensive benchmark suite to ensure Albucore's performance across various scenarios. You can find the benchmarks and their results in the [benchmarks](./benchmarks/README.md) directory.
-
 ## License
 
 MIT
 
 ## Acknowledgements
 
-Albucore is part of the [Albumentations](https://github.com/albumentations-team/albumentations) project. We'd like to thank all contributors to [Albumentations](https://albumentations.ai/) and the broader computer vision community for their inspiration and support.
+Albucore is part of the [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX) project. We'd like to thank all contributors to [AlbumentationsX](https://albumentations.ai/people) and the broader computer vision community for their inspiration and support.
