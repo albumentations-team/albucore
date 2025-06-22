@@ -143,14 +143,10 @@ def restore_from_spatial(
     """Choose appropriate restore function based on data dimensions."""
     shape_type = get_shape_type(original_shape)
 
-    if keep_depth_dim:
-        if shape_type == "NDHWC":
-            result = restore_batch_3d_keep_depth(data, original_shape)
-        else:
-            # For other cases, use the standard restore
-            restore_func = SPATIAL_RESTORE_FUNCS[shape_type]
-            result = restore_func(data, original_shape)
+    if keep_depth_dim and shape_type == "NDHWC":
+        result = restore_batch_3d_keep_depth(data, original_shape)
     else:
+        # For all other cases, use the standard restore
         restore_func = SPATIAL_RESTORE_FUNCS[shape_type]
         result = restore_func(data, original_shape)
 

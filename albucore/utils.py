@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from functools import wraps
-from typing import Any, Callable, Literal, Union
+from typing import Any, Callable, Literal, Union, cast
 
 if sys.version_info >= (3, 10):
     from typing import Concatenate, ParamSpec
@@ -212,7 +212,7 @@ def is_grayscale_image(image: np.ndarray) -> bool:
         is_rgb_image: For checking if an image has exactly 3 channels (RGB).
         is_multispectral_image: For checking if an image has channels other than 1 or 3.
     """
-    return bool(image.shape[-1] == 1)
+    return cast("bool", image.shape[-1] == 1)
 
 
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
@@ -222,7 +222,7 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
 
 
 def is_rgb_image(image: np.ndarray) -> bool:
-    return bool(image.shape[-1] == NUM_RGB_CHANNELS)
+    return cast("bool", image.shape[-1] == NUM_RGB_CHANNELS)
 
 
 def is_multispectral_image(image: np.ndarray) -> bool:
