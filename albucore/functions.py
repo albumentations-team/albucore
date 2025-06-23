@@ -757,7 +757,7 @@ def normalize_per_image_batch(
     if images.dtype == np.uint8:
         return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
 
-    return normalize_per_image_numpy(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
+    return normalize_per_image_opencv(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
 
 
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
