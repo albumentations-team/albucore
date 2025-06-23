@@ -13,6 +13,10 @@ Key features:
 - Seamless integration with Albumentations
 - Extensive benchmarking for performance validation
 
+## GitAds Sponsored
+[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=albumentations-team/albucore@github)](https://gitads.dev/v1/ad-track?source=albumentations-team/albucore@github)
+
+
 ## Installation
 
 ```bash
