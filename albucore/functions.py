@@ -709,55 +709,10 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
         - For other dtypes, uses OpenCV implementation for good performance
         - The spatial_axes parameter defaults to (0, 1) for standard 2D images
     """
-    if img.dtype == np.uint8 and normalization != "image_per_channel":
+    if img.dtype == np.uint8 and normalization != "image_per_channel" and img.ndim == 3:
         return normalize_per_image_lut(img, normalization)
 
     return normalize_per_image_opencv(img, normalization)
-
-
-def normalize_per_image_batch(
-    images: np.ndarray,
-    normalization: NormalizationType,
-    spatial_axes: tuple[int, ...],
-) -> np.ndarray:
-    """Normalize each image in a batch independently using per-image statistics.
-
-    This function applies the same normalization as `normalize_per_image` but handles
-    various input dimensions including single images, batches, volumes, and batch of volumes.
-
-    Args:
-        images: Input array that can be:
-            - Single image: (H, W, C)
-            - Batch of images: (N, H, W, C)
-            - Volume: (D, H, W, C)
-            - Batch of volumes: (N, D, H, W, C)
-        normalization: Type of normalization to apply:
-            - "image": Normalize using global mean and std across spatial dimensions
-            - "image_per_channel": Normalize each channel separately using its own mean and std
-            - "min_max": Scale to [0, 1] using global min and max values
-            - "min_max_per_channel": Scale each channel to [0, 1] using per-channel min and max
-        spatial_axes: Axes over which to compute statistics for normalization.
-            IMPORTANT: Should include only spatial dimensions, not batch or channel dimensions.
-
-    Examples:
-            - Single image (H, W, C): use spatial_axes=(0, 1)
-            - Batch of images (N, H, W, C): use spatial_axes=(1, 2)
-            - Volume (D, H, W, C): use spatial_axes=(0, 1, 2)
-            - Batch of volumes (N, D, H, W, C): use spatial_axes=(1, 2, 3)
-
-    Returns:
-        Normalized array as float32 with values clipped to [-20, 20] range.
-
-    Notes:
-        - The NumPy implementation uses keepdims=True for correct broadcasting with batches
-        - For uint8 images, uses LUT method for speed (except for per-channel normalizations)
-        - For other dtypes, uses NumPy implementation for proper batch support
-        - Ensure spatial_axes excludes batch and channel dimensions to get correct statistics
-    """
-    if images.dtype == np.uint8:
-        return normalize_per_image_lut(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
-
-    return normalize_per_image_numpy(images, normalization, spatial_axes=spatial_axes).astype(np.float32)
 
 
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:

@@ -7,7 +7,6 @@ from albucore.functions import (
     normalize_per_image_numpy,
     normalize_per_image_lut,
     normalize_per_image,
-    normalize_per_image_batch,
 )
 
 
@@ -142,46 +141,3 @@ def test_normalize_per_image_constant(shape, normalization, dtype):
     # Normalize the image
     normalized_img = normalize_per_image(img, normalization)
     np.testing.assert_array_equal(normalized_img, np.zeros_like(normalized_img))
-
-
-@pytest.mark.parametrize("normalization", ["image", "image_per_channel", "min_max", "min_max_per_channel"])
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_normalize_per_image_batch(normalization, dtype):
-    """Simple test for normalize_per_image_batch with image, volume, batch of images, and batch of volumes."""
-    np.random.seed(42)
-
-    shape = (100, 99, 3)
-    height, width, num_channels = shape
-
-    base_channel = np.random.rand(height, width)
-    if dtype == np.uint8:
-        base_channel = (base_channel * 255).astype(dtype)
-    else:
-        base_channel = base_channel.astype(dtype)
-
-    image = np.stack([base_channel] * num_channels, axis=-1)
-
-    volume = np.stack([image.copy()] * 4, axis=0)  # (4, H, W) or (4, H, W, C)
-    images = np.stack([image.copy()] * 3, axis=0)  # (3, H, W) or (3, H, W, C)
-    volumes = np.stack([volume.copy()] * 2, axis=0)  # (2, 4, H, W) or (2, 4, H, W, C)
-
-    normalized_image = normalize_per_image_batch(image, normalization, spatial_axes=(0, 1))
-    assert normalized_image.shape == image.shape
-    assert normalized_image.dtype == np.float32
-
-    normalized_images = normalize_per_image_batch(images, normalization, spatial_axes=(0, 1, 2))
-    assert normalized_images.shape == images.shape
-    assert normalized_images.dtype == np.float32
-
-    normalized_volume = normalize_per_image_batch(volume, normalization, spatial_axes=(0, 1, 2))
-    assert normalized_volume.shape == volume.shape
-    assert normalized_volume.dtype == np.float32
-
-    normalized_volumes = normalize_per_image_batch(volumes, normalization, spatial_axes=(0, 1, 2, 3))
-    assert normalized_volumes.shape == volumes.shape
-    assert normalized_volumes.dtype == np.float32
-
-    np.testing.assert_allclose(normalized_image[0], normalized_image[1], atol=4, rtol=1e-5)
-    np.testing.assert_allclose(normalized_images[0], normalized_images[1], atol=4, rtol=1e-5)
-    np.testing.assert_allclose(normalized_volume[0], normalized_volume[1], atol=4, rtol=1e-5)
-    np.testing.assert_allclose(normalized_volumes[0], normalized_volumes[1], atol=4, rtol=1e-5)
