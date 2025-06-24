@@ -141,3 +141,90 @@ def test_normalize_per_image_constant(shape, normalization, dtype):
     # Normalize the image
     normalized_img = normalize_per_image(img, normalization)
     np.testing.assert_array_equal(normalized_img, np.zeros_like(normalized_img))
+
+
+@pytest.mark.parametrize("normalization", [
+    "image",
+    "image_per_channel",
+    "min_max",
+    "min_max_per_channel",
+])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+def test_normalize_consistency_across_shapes(normalization, dtype):
+    """Test that normalization is consistent across different tensor shapes.
+
+    Verifies that:
+    - normalized_image == normalized_images[0] (for batch of identical images)
+    - normalized_image == normalized_volumes[0][0] (for volume of identical images)
+    """
+    # Set random seed for reproducibility
+    np.random.seed(42)
+
+    # Create a base image
+    H, W, C = 64, 64, 3
+    if dtype == np.uint8:
+        image = np.random.randint(0, 256, size=(H, W, C), dtype=dtype)
+    else:
+        image = np.random.randn(H, W, C).astype(dtype)
+
+    # Create batch of identical images
+    N = 4
+    images = np.stack([image] * N, axis=0)  # (N, H, W, C)
+
+    # Create volume of identical images
+    D = 5
+    volumes = np.stack([images] * D, axis=1)  # (N, D, H, W, C)
+
+    # Normalize each shape
+    normalized_image = normalize_per_image(image, normalization)
+    normalized_images = normalize_per_image(images, normalization)
+    normalized_volumes = normalize_per_image(volumes, normalization)
+
+    # Verify shapes are preserved
+    assert normalized_image.shape == image.shape, "Single image shape mismatch"
+    assert normalized_images.shape == images.shape, "Batch shape mismatch"
+    assert normalized_volumes.shape == volumes.shape, "Volume shape mismatch"
+
+    # Verify consistency
+    # normalized_image should equal normalized_images[0]
+    # For image_per_channel, we need slightly higher tolerance due to
+    # differences between OpenCV and numpy implementations
+    tolerance = 1e-3 if (normalization == "image_per_channel") else 1e-5
+
+    np.testing.assert_allclose(
+        normalized_image,
+        normalized_images[0],
+        rtol=tolerance,
+        atol=tolerance,
+        err_msg=f"Normalization inconsistent between single image and batch for {normalization}"
+    )
+
+    # normalized_image should equal normalized_volumes[0][0]
+    np.testing.assert_allclose(
+        normalized_image,
+        normalized_volumes[0][0],
+        rtol=tolerance,
+        atol=tolerance,
+        err_msg=f"Normalization inconsistent between single image and volume for {normalization}"
+    )
+
+    # Also verify all images in batch are identical (since input was identical)
+    for i in range(N):
+        np.testing.assert_allclose(
+            normalized_images[i],
+            normalized_image,
+            rtol=tolerance,
+            atol=tolerance,
+            err_msg=f"Batch image {i} differs from expected normalized image"
+        )
+
+    # Verify all images in volume are identical
+    for i in range(N):
+        for j in range(D):
+            np.testing.assert_allclose(
+                normalized_volumes[i][j],
+                normalized_image,
+                rtol=tolerance,
+                atol=tolerance,
+                err_msg=f"Volume image [{i}][{j}] differs from expected normalized image"
+            )
