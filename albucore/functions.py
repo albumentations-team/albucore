@@ -281,14 +281,14 @@ def add(img: np.ndarray, value: ValueType, inplace: bool = False) -> np.ndarray:
 
 
 def normalize_numpy(img: np.ndarray, mean: float | np.ndarray, denominator: float | np.ndarray) -> np.ndarray:
-    img = img.astype(np.float32, copy=False)
+    img = img.astype(np.float32, copy=True)
     # Ensure mean and denominator are float32 to avoid dtype promotion
     mean = mean.astype(np.float32, copy=False) if isinstance(mean, np.ndarray) else np.float32(mean)
     denominator = (
         denominator.astype(np.float32, copy=False) if isinstance(denominator, np.ndarray) else np.float32(denominator)
     )
     img -= mean
-    return (img * denominator).astype(np.float32, copy=False)
+    return (img * denominator).astype(np.float32, copy=True)
 
 
 @preserve_channel_dim
@@ -655,13 +655,15 @@ def normalize_per_image_numpy(
     if normalization == "min_max":
         img_min = img.min()
         img_max = img.max()
-        return np.clip((img - img_min) / (img_max - img_min + eps), -20, 20, out=img)
+        normalized_img = (img - img_min) / (img_max - img_min + eps)
+        return np.clip(normalized_img, 0, 1)
 
     if normalization == "min_max_per_channel":
         axes = tuple(range(img.ndim - 1))  # All axes except channel
         img_min = img.min(axis=axes)
         img_max = img.max(axis=axes)
-        return np.clip((img - img_min) / (img_max - img_min + eps), -20, 20, out=img)
+        normalized_img = (img - img_min) / (img_max - img_min + eps)
+        return np.clip(normalized_img, 0, 1)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -737,7 +739,7 @@ def normalize_per_image_lut(
         img_max = img.max()
         lut = (
             ((np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps))
-            .clip(-20, 20)
+            .clip(0, 1)
             .astype(np.float32)
         )
         return cv2.LUT(img, lut)
@@ -750,7 +752,7 @@ def normalize_per_image_lut(
         # Create all LUTs at once using vectorized operations
         arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
         # LUTs shape will be (256, num_channels)
-        luts = ((arange_vals[:, np.newaxis] - img_min) / (img_max - img_min + eps)).clip(-20, 20).astype(np.float32)
+        luts = ((arange_vals[:, np.newaxis] - img_min) / (img_max - img_min + eps)).clip(0, 1).astype(np.float32)
 
         result = np.empty_like(img, dtype=np.float32)
         for i in range(num_channels):

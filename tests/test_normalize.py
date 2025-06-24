@@ -156,3 +156,52 @@ def test_normalize_with_1d_arrays(dtype):
     assert result_3ch.shape == img_3ch.shape
     assert result_3ch.dtype == np.float32
     np.testing.assert_allclose(result_3ch, expected_3ch, rtol=1e-5)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("shape", [(100, 100, 1), (100, 100, 3)])
+def test_normalize_preserves_original_image(dtype, shape):
+    """Test that normalize functions don't modify the original image."""
+    # Create test image
+    if dtype == np.uint8:
+        original_img = np.random.randint(0, 256, size=shape, dtype=dtype)
+    else:
+        original_img = np.random.randn(*shape).astype(dtype)
+
+    # Make a copy to compare later
+    img_copy = original_img.copy()
+
+    # Define normalization parameters
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32) if shape[-1] == 3 else np.array(0.5, dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32) if shape[-1] == 3 else np.array(0.5, dtype=np.float32)
+
+    # Convert std to denominator
+    max_pixel_value = MAX_VALUES_BY_DTYPE[dtype] if dtype == np.uint8 else 1.0
+    denominator = np.reciprocal(std * max_pixel_value)
+
+    # Test main normalize function
+    _ = normalize(original_img, mean, denominator)
+    np.testing.assert_array_equal(original_img, img_copy,
+                                  err_msg="normalize() modified the original image")
+
+    # Test normalize_numpy
+    original_img = img_copy.copy()
+    _ = normalize_numpy(original_img, mean, denominator)
+    np.testing.assert_array_equal(original_img, img_copy,
+                                  err_msg="normalize_numpy() modified the original image")
+
+    # Test normalize_opencv
+    original_img = img_copy.copy()
+    _ = normalize_opencv(original_img, mean, denominator)
+    np.testing.assert_array_equal(original_img, img_copy,
+                                  err_msg="normalize_opencv() modified the original image")
+
+    # Test normalize_lut for uint8 only
+    if dtype == np.uint8:
+        original_img = img_copy.copy()
+        num_channels = get_num_channels(original_img)
+        converted_denominator = convert_value(denominator, num_channels)
+        converted_mean = convert_value(mean, num_channels)
+        _ = normalize_lut(original_img, converted_mean, converted_denominator)
+        np.testing.assert_array_equal(original_img, img_copy,
+                                      err_msg="normalize_lut() modified the original image")
