@@ -181,9 +181,9 @@ def test_normalize_consistency_across_shapes(normalization, dtype):
     normalized_volumes = normalize_per_image(volumes, normalization)
 
     # Verify shapes are preserved
-    assert normalized_image.shape == image.shape, f"Single image shape mismatch"
-    assert normalized_images.shape == images.shape, f"Batch shape mismatch"
-    assert normalized_volumes.shape == volumes.shape, f"Volume shape mismatch"
+    assert normalized_image.shape == image.shape, "Single image shape mismatch"
+    assert normalized_images.shape == images.shape, "Batch shape mismatch"
+    assert normalized_volumes.shape == volumes.shape, "Volume shape mismatch"
 
     # Verify consistency
     # normalized_image should equal normalized_images[0]
