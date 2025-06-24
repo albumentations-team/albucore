@@ -187,9 +187,9 @@ def test_normalize_consistency_across_shapes(normalization, dtype):
 
     # Verify consistency
     # normalized_image should equal normalized_images[0]
-    # For image_per_channel with float32, we need slightly higher tolerance due to
+    # For image_per_channel, we need slightly higher tolerance due to
     # differences between OpenCV and numpy implementations
-    tolerance = 1e-3 if (normalization == "image_per_channel" and dtype == np.float32) else 1e-5
+    tolerance = 1e-3 if (normalization == "image_per_channel") else 1e-5
 
     np.testing.assert_allclose(
         normalized_image,

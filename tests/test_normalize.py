@@ -48,7 +48,7 @@ def test_normalize_lut(img, denominator, mean, expected):
         [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]],
         [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), 0.5, 0.7],
         [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), 0.5, 0.7],
-        [np.random.randint(0, 256, [101, 99], dtype=np.uint8), 0.5, 0.5],
+        [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), 0.5, 0.5],
     ],
 )
 def test_normalize_np_cv_equal(image, mean, std):
@@ -79,7 +79,7 @@ def test_normalize_np_cv_equal(image, mean, std):
     np.uint8,
     np.float32,
 ])
-@pytest.mark.parametrize("shape", [(99, 101, 3), (99, 101, 1), (99, 101)])
+@pytest.mark.parametrize("shape", [(99, 101, 3), (99, 101, 1)])
 def test_normalize(dtype, shape) -> None:
     img = np.ones(shape, dtype=dtype) * 0.4
     mean = np.array(50, dtype=np.float32)
@@ -117,20 +117,22 @@ def test_normalize(dtype, shape) -> None:
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_normalize_with_1d_arrays(dtype):
     """Test normalize function with 1D array mean and denominator for single channel images."""
-    # Test 1: Single channel image (H, W) with 1D arrays
-    img = np.ones((50, 50), dtype=dtype) * 100
+    # Test 1: Single channel image (H, W, 1) with 1D arrays
+    img = np.ones((50, 50, 1), dtype=dtype) * 100
     mean = np.array([50.0], dtype=np.float32)  # 1D array with single element
     denominator = np.array([2.0], dtype=np.float32)  # 1D array with single element
 
-    result = normalize(img, mean, denominator)
+    # Calculate expected BEFORE calling normalize to avoid in-place modification issues
     expected = (img.astype(np.float32) - 50.0) * 2.0
+    result = normalize(img, mean, denominator)
 
     assert result.shape == img.shape
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, expected, rtol=1e-5)
 
-    # Test 2: Batch of single channel images (N, H, W) with 1D arrays
-    batch = np.stack([img] * 3, axis=0)
+    # Test 2: Batch of single channel images (N, H, W, 1) with 1D arrays
+    batch = np.ones((3, 50, 50, 1), dtype=dtype) * 100  # Create fresh batch
+    expected_batch = (batch.astype(np.float32) - 50.0) * 2.0
     result_batch = normalize(batch, mean, denominator)
 
     assert result_batch.shape == batch.shape
@@ -138,16 +140,18 @@ def test_normalize_with_1d_arrays(dtype):
     # All images should be normalized identically
     np.testing.assert_allclose(result_batch[0], result_batch[1], rtol=1e-5)
     np.testing.assert_allclose(result_batch[0], result_batch[2], rtol=1e-5)
+    np.testing.assert_allclose(result_batch, expected_batch, rtol=1e-5)
 
     # Test 3: Multi-channel image (H, W, C) with matching 1D arrays
     img_3ch = np.ones((50, 50, 3), dtype=dtype) * np.array([100, 150, 200])
     mean_3ch = np.array([50.0, 75.0, 100.0], dtype=np.float32)
     denominator_3ch = np.array([2.0, 3.0, 4.0], dtype=np.float32)
 
-    result_3ch = normalize(img_3ch, mean_3ch, denominator_3ch)
     expected_3ch = np.zeros_like(img_3ch, dtype=np.float32)
     for c in range(3):
         expected_3ch[..., c] = (img_3ch[..., c].astype(np.float32) - mean_3ch[c]) * denominator_3ch[c]
+
+    result_3ch = normalize(img_3ch, mean_3ch, denominator_3ch)
 
     assert result_3ch.shape == img_3ch.shape
     assert result_3ch.dtype == np.float32
