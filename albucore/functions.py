@@ -694,7 +694,7 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
     implementation based on the input image data type.
 
     Args:
-        img: Input image as a numpy array with shape (H, W, C).
+        img: Input image as a numpy array with shape (H, W, C), (N, H, W, C), or (N, D, H, W, C).
         normalization: Type of normalization to apply. Options are:
             - "image": Normalize using global mean and std across all pixels
             - "image_per_channel": Normalize each channel separately using its own mean and std
@@ -707,12 +707,30 @@ def normalize_per_image(img: np.ndarray, normalization: NormalizationType) -> np
     Notes:
         - For uint8 images (except "image_per_channel"), uses LUT method for maximum speed
         - For other dtypes, uses OpenCV implementation for good performance
-        - The spatial_axes parameter defaults to (0, 1) for standard 2D images
+        - Automatically determines spatial axes based on input dimensions
     """
-    if img.dtype == np.uint8 and normalization != "image_per_channel" and img.ndim == 3:
-        return normalize_per_image_lut(img, normalization)
+    # Determine spatial axes based on input dimensions
+    if img.ndim == 3:
+        spatial_axes: tuple[int, ...] = (0, 1)  # (H, W, C)
+    elif img.ndim == 4:
+        spatial_axes = (0, 1, 2)  # (N, H, W, C)
+    elif img.ndim == 5:
+        spatial_axes = (0, 1, 2, 3)  # (N, D, H, W, C)
+    else:
+        raise ValueError(f"Unsupported image dimensions: {img.ndim}. Expected 3, 4, or 5 dimensions.")
 
-    return normalize_per_image_opencv(img, normalization)
+    if img.dtype == np.uint8 and (
+        (normalization != "image_per_channel" and img.ndim == 3)
+        or (normalization == "min_max_per_channel" and img.ndim > 3)
+        or (normalization == "image_per_channel" and img.ndim > 3)
+    ):
+        return normalize_per_image_lut(img, normalization, spatial_axes)
+
+    # For ndim > 3, use numpy implementation as OpenCV doesn't handle batch dimensions well
+    if img.ndim > 3:
+        return normalize_per_image_numpy(img, normalization, spatial_axes)
+
+    return normalize_per_image_opencv(img, normalization, spatial_axes)
 
 
 def to_float_numpy(img: np.ndarray, max_value: float | None = None) -> np.ndarray:
