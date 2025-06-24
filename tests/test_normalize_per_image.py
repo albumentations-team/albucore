@@ -228,3 +228,47 @@ def test_normalize_consistency_across_shapes(normalization, dtype):
                 atol=tolerance,
                 err_msg=f"Volume image [{i}][{j}] differs from expected normalized image"
             )
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("shape", [(100, 100, 1), (100, 100, 3)])
+@pytest.mark.parametrize("normalization", [
+    "image",
+    "image_per_channel",
+    "min_max",
+    "min_max_per_channel",
+])
+def test_normalize_per_image_preserves_original(dtype, shape, normalization):
+    """Test that normalize_per_image functions don't modify the original image."""
+    # Create test image
+    if dtype == np.uint8:
+        original_img = np.random.randint(0, 256, size=shape, dtype=dtype)
+    else:
+        original_img = np.random.randn(*shape).astype(dtype)
+
+    # Make a copy to compare later
+    img_copy = original_img.copy()
+
+    # Test main normalize_per_image function
+    _ = normalize_per_image(original_img, normalization)
+    np.testing.assert_array_equal(original_img, img_copy,
+                                  err_msg=f"normalize_per_image('{normalization}') modified the original image")
+
+    # Test normalize_per_image_numpy
+    original_img = img_copy.copy()
+    _ = normalize_per_image_numpy(original_img, normalization)
+    np.testing.assert_array_equal(original_img, img_copy,
+                                  err_msg=f"normalize_per_image_numpy('{normalization}') modified the original image")
+
+    # Test normalize_per_image_opencv
+    original_img = img_copy.copy()
+    _ = normalize_per_image_opencv(original_img, normalization)
+    np.testing.assert_array_equal(original_img, img_copy,
+                                  err_msg=f"normalize_per_image_opencv('{normalization}') modified the original image")
+
+    # Test normalize_per_image_lut for uint8 only
+    if dtype == np.uint8:
+        original_img = img_copy.copy()
+        _ = normalize_per_image_lut(original_img, normalization)
+        np.testing.assert_array_equal(original_img, img_copy,
+                                      err_msg=f"normalize_per_image_lut('{normalization}') modified the original image")
