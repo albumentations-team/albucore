@@ -13,3 +13,13 @@ except Exception:  # noqa: BLE001
 from .decorators import *
 from .functions import *
 from .utils import *
+
+# Export type aliases for public API
+from .utils import ImageFloat32, ImageType, ImageUInt8, SupportedDType
+
+__all__ = [
+    "ImageFloat32",
+    "ImageType",
+    "ImageUInt8",
+    "SupportedDType",
+]
