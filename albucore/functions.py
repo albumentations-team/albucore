@@ -401,7 +401,8 @@ def add_weighted_lut(
     img2: ImageUInt8,
     weight2: float,
     inplace: bool = False,
-) -> ImageType:
+) -> ImageFloat32:
+    """Add weighted using LUT. Only works with uint8 images."""
     dtype = img1.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
@@ -446,7 +447,7 @@ def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> I
 @preserve_channel_dim
 def multiply_add_opencv(img: ImageType, factor: ValueType, value: ValueType) -> ImageFloat32:
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
-        return np.zeros_like(img)
+        return np.zeros_like(img, dtype=np.float32)
 
     result = img.astype(np.float32, copy=False)
     result = (
@@ -674,6 +675,73 @@ def normalize_per_image_numpy(
     raise ValueError(f"Unknown normalization method: {normalization}")
 
 
+def _create_mean_std_lut(mean: float, std: float, max_value: float, clip_range: tuple[float, float]) -> np.ndarray:
+    """Create a mean-std normalization LUT."""
+    lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) / std
+    return lut.clip(*clip_range).astype(np.float32)
+
+
+def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: float) -> np.ndarray:
+    """Create a min-max normalization LUT."""
+    lut = (np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps)
+    return lut.clip(0, 1).astype(np.float32)
+
+
+def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
+    """Apply per-channel LUTs to an image."""
+    result = np.empty_like(img, dtype=np.float32)
+    for i in range(num_channels):
+        result[..., i] = cv2.LUT(img[..., i], luts[:, i])
+    return result
+
+
+def _normalize_image_lut(img: ImageUInt8, max_value: float, eps: float) -> ImageFloat32:
+    """Normalize using global mean and std with LUT."""
+    if img.ndim > 3:
+        mean, std = cv2.meanStdDev(img)
+        mean, std = mean[0, 0], std[0, 0] + eps
+    else:
+        mean, std = img.mean(), img.std() + eps
+
+    lut = _create_mean_std_lut(mean, std, max_value, (-20, 20))
+    return cv2.LUT(img, lut)
+
+
+def _normalize_image_per_channel_lut(img: ImageUInt8, max_value: float, eps: float, num_channels: int) -> ImageFloat32:
+    """Normalize per-channel using mean and std with LUT."""
+    axes = tuple(range(img.ndim - 1))
+    pixel_mean = img.mean(axis=axes)
+    pixel_std = img.std(axis=axes) + eps
+
+    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
+    luts = ((arange_vals[:, np.newaxis] - pixel_mean) / pixel_std).clip(-20, 20).astype(np.float32)
+
+    return _apply_per_channel_lut(img, luts, num_channels)
+
+
+def _normalize_min_max_lut(img: ImageUInt8, max_value: float, eps: float) -> ImageFloat32:
+    """Normalize using global min-max with LUT."""
+    img_min, img_max = img.min(), img.max()
+    lut = _create_min_max_lut(img_min, img_max, max_value, eps)
+    return cv2.LUT(img, lut)
+
+
+def _normalize_min_max_per_channel_lut(
+    img: ImageUInt8,
+    max_value: float,
+    eps: float,
+    num_channels: int,
+) -> ImageFloat32:
+    """Normalize per-channel using min-max with LUT."""
+    axes = tuple(range(img.ndim - 1))
+    img_min, img_max = img.min(axis=axes), img.max(axis=axes)
+
+    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
+    luts = ((arange_vals[:, np.newaxis] - img_min) / (img_max - img_min + eps)).clip(0, 1).astype(np.float32)
+
+    return _apply_per_channel_lut(img, luts, num_channels)
+
+
 @preserve_channel_dim
 def normalize_per_image_lut(
     img: ImageUInt8,
@@ -706,64 +774,26 @@ def normalize_per_image_lut(
         - For per-channel normalization, creates separate LUTs for each channel
         - Single channel images treated as "image" normalization when "image_per_channel" is specified
     """
-    dtype = img.dtype
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    max_value = MAX_VALUES_BY_DTYPE[img.dtype]
     eps = 1e-4
     num_channels = get_num_channels(img)
+    is_single_channel = img.shape[-1] == 1
 
-    if normalization == "image" or (img.shape[-1] == 1 and normalization == "image_per_channel"):
-        if img.ndim > 3:
-            # For 4D/5D arrays (video/volume), OpenCV returns global mean/std directly
-            mean, std = cv2.meanStdDev(img)
-            mean = mean[0, 0]
-            std = std[0, 0] + eps
-        else:
-            # For 3D images, use numpy for accurate global statistics
-            mean = img.mean()
-            std = img.std() + eps
+    # Handle single-channel edge cases
+    if is_single_channel and normalization in ("image_per_channel", "min_max_per_channel"):
+        normalization = "image" if normalization == "image_per_channel" else "min_max"
 
-        lut = ((np.arange(0, max_value + 1, dtype=np.float32) - mean) / std).clip(-20, 20).astype(np.float32)
-        return cv2.LUT(img, lut)
+    if normalization == "image":
+        return _normalize_image_lut(img, max_value, eps)
 
     if normalization == "image_per_channel":
-        axes = tuple(range(img.ndim - 1))  # All axes except channel
-        pixel_mean = img.mean(axis=axes)
-        pixel_std = img.std(axis=axes) + eps
+        return _normalize_image_per_channel_lut(img, max_value, eps, num_channels)
 
-        # Create all LUTs at once using vectorized operations
-        arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-        # LUTs shape will be (256, num_channels)
-        luts = ((arange_vals[:, np.newaxis] - pixel_mean) / pixel_std).clip(-20, 20).astype(np.float32)
-
-        result = np.empty_like(img, dtype=np.float32)
-        for i in range(num_channels):
-            result[..., i] = cv2.LUT(img[..., i], luts[:, i])
-        return result
-
-    if normalization == "min_max" or (img.shape[-1] == 1 and normalization == "min_max_per_channel"):
-        img_min = img.min()
-        img_max = img.max()
-        lut = (
-            ((np.arange(0, max_value + 1, dtype=np.float32) - img_min) / (img_max - img_min + eps))
-            .clip(0, 1)
-            .astype(np.float32)
-        )
-        return cv2.LUT(img, lut)
+    if normalization == "min_max":
+        return _normalize_min_max_lut(img, max_value, eps)
 
     if normalization == "min_max_per_channel":
-        axes = tuple(range(img.ndim - 1))  # All axes except channel
-        img_min = img.min(axis=axes)
-        img_max = img.max(axis=axes)
-
-        # Create all LUTs at once using vectorized operations
-        arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-        # LUTs shape will be (256, num_channels)
-        luts = ((arange_vals[:, np.newaxis] - img_min) / (img_max - img_min + eps)).clip(0, 1).astype(np.float32)
-
-        result = np.empty_like(img, dtype=np.float32)
-        for i in range(num_channels):
-            result[..., i] = cv2.LUT(img[..., i], luts[:, i])
-        return result
+        return _normalize_min_max_per_channel_lut(img, max_value, eps, num_channels)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 

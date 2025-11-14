@@ -23,7 +23,7 @@ ImageFloat32: TypeAlias = NDArray[float32]
 ImageType: TypeAlias = ImageUInt8 | ImageFloat32
 
 # Supported dtypes
-SupportedDType: TypeAlias = type[uint8] | type[float32]
+SupportedDType: TypeAlias = np.dtype[np.uint8] | np.dtype[np.float32]
 
 MAX_VALUES_BY_DTYPE = {
     np.dtype("uint8"): 255,
@@ -102,7 +102,7 @@ def maybe_process_in_chunks(
     return __process_fn
 
 
-def clip(img: ImageType, dtype: Any, inplace: bool = False) -> ImageType:
+def clip(img: ImageType, dtype: SupportedDType, inplace: bool = False) -> ImageType:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     if inplace and img.dtype == dtype:
         return np.clip(img, 0, max_value, out=img).astype(dtype, copy=False)

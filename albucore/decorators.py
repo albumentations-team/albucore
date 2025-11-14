@@ -12,7 +12,13 @@ F = TypeVar("F", bound=Callable[..., Any])
 def contiguous(
     func: Callable[Concatenate[ImageType, P], ImageType],
 ) -> Callable[Concatenate[ImageType, P], ImageType]:
-    """Ensure that input img is contiguous and the output array is also contiguous."""
+    """Ensure that input img is contiguous and the output array is also contiguous.
+
+    Note: This decorator enforces C-contiguous memory layout. Fortran-contiguous
+    arrays will be converted to C-contiguous, which involves copying the data.
+    This may impact performance for large arrays but is required for compatibility
+    with certain operations (e.g., stringzilla).
+    """
 
     @wraps(func)
     def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
