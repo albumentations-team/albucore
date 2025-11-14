@@ -1,15 +1,10 @@
-import sys
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Literal, TypeVar, cast
+from typing import Any, Concatenate, Literal, TypeVar, cast
 
 import numpy as np
 
 from albucore.utils import P
-
-if sys.version_info >= (3, 10):
-    from typing import Concatenate
-else:
-    from typing_extensions import Concatenate
 
 F = TypeVar("F", bound=Callable[..., Any])
 

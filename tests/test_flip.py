@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-import cv2
 from albucore.functions import hflip_numpy, hflip_cv2, vflip, vflip_cv2, vflip_numpy, hflip, _flip_multichannel
 
 @pytest.mark.parametrize("channels", [1, 3, 5])

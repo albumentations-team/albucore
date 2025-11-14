@@ -1,7 +1,6 @@
-from __future__ import annotations
-
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import cv2
 import numpy as np
