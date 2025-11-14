@@ -76,7 +76,8 @@ def create_lut_array(
 
 
 @contiguous
-def sz_lut(img: ImageType, lut: np.ndarray, inplace: bool = True) -> ImageType:
+def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8:
+    """Apply lookup table using stringzilla. Only works with uint8 images and uint8 LUTs."""
     if not inplace:
         img = img.copy()
 
@@ -85,11 +86,12 @@ def sz_lut(img: ImageType, lut: np.ndarray, inplace: bool = True) -> ImageType:
 
 
 def apply_lut(
-    img: ImageType,
+    img: ImageUInt8,
     value: float | np.ndarray,
     operation: Literal["add", "multiply", "power"],
     inplace: bool,
-) -> ImageFloat32:
+) -> ImageUInt8:
+    """Apply lookup table operation. Only works with uint8 images."""
     dtype = img.dtype
 
     if isinstance(value, (int, float)):
@@ -100,7 +102,7 @@ def apply_lut(
 
     luts = clip(create_lut_array(dtype, value, operation), dtype, inplace=False)
 
-    result = np.empty_like(img, dtype=np.float32)
+    result = np.empty_like(img, dtype=dtype)
 
     for i in range(num_channels):
         result[..., i] = sz_lut(img[..., i], luts[i], inplace)
@@ -166,7 +168,7 @@ def apply_numpy(
     return np_operations[operation](img.astype(np.float32, copy=False), value)
 
 
-def multiply_lut(img: ImageType, value: np.ndarray | float, inplace: bool) -> ImageFloat32:
+def multiply_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool) -> ImageUInt8:
     return apply_lut(img, value, "multiply", inplace)
 
 
@@ -246,7 +248,7 @@ def add_numpy(img: ImageType, value: float | np.ndarray) -> ImageFloat32:
     return apply_numpy(img, value, "add")
 
 
-def add_lut(img: ImageType, value: np.ndarray | float, inplace: bool) -> ImageFloat32:
+def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool) -> ImageUInt8:
     return apply_lut(img, value, "add", inplace)
 
 
@@ -366,7 +368,7 @@ def power_opencv(img: ImageType, value: float) -> ImageFloat32:
     raise ValueError(f"Unsupported image type {img.dtype} for power operation with value {value}")
 
 
-def power_lut(img: ImageUInt8, exponent: float | np.ndarray, inplace: bool = False) -> ImageFloat32:
+def power_lut(img: ImageUInt8, exponent: float | np.ndarray, inplace: bool = False) -> ImageUInt8:
     return apply_lut(img, exponent, "power", inplace)
 
 
@@ -455,7 +457,8 @@ def multiply_add_opencv(img: ImageType, factor: ValueType, value: ValueType) -> 
     return result if value == 0 else cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_32F)
 
 
-def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inplace: bool) -> ImageFloat32:
+def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inplace: bool) -> ImageUInt8:
+    """Apply multiply-add operation using LUT. Only works with uint8 images."""
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     num_channels = get_num_channels(img)
@@ -472,7 +475,7 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
 
     luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype, inplace=False)
 
-    result = np.empty_like(img, dtype=np.float32)
+    result = np.empty_like(img, dtype=dtype)
     for i in range(num_channels):
         result[..., i] = sz_lut(img[..., i], luts[i], inplace)
 
