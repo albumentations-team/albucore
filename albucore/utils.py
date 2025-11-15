@@ -1,9 +1,11 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Literal, ParamSpec, cast
+from typing import Any, Concatenate, Literal, ParamSpec, TypeAlias, cast
 
 import cv2
 import numpy as np
+from numpy import float32, uint8
+from numpy.typing import NDArray
 
 NUM_RGB_CHANNELS = 3
 FOUR = 4
@@ -14,6 +16,14 @@ MAX_OPENCV_WORKING_CHANNELS = 4
 NormalizationType = Literal["image", "image_per_channel", "min_max", "min_max_per_channel"]
 
 P = ParamSpec("P")
+
+# Core image types - restrict to uint8 and float32 only
+ImageUInt8: TypeAlias = NDArray[uint8]
+ImageFloat32: TypeAlias = NDArray[float32]
+ImageType: TypeAlias = ImageUInt8 | ImageFloat32
+
+# Supported dtypes
+SupportedDType: TypeAlias = np.dtype[np.uint8] | np.dtype[np.float32]
 
 MAX_VALUES_BY_DTYPE = {
     np.dtype("uint8"): 255,
@@ -92,16 +102,16 @@ def maybe_process_in_chunks(
     return __process_fn
 
 
-def clip(img: np.ndarray, dtype: Any, inplace: bool = False) -> np.ndarray:
+def clip(img: ImageType, dtype: SupportedDType, inplace: bool = False) -> ImageType:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     if inplace and img.dtype == dtype:
         return np.clip(img, 0, max_value, out=img).astype(dtype, copy=False)
     return np.clip(img, 0, max_value).astype(dtype, copy=False)
 
 
-def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
+def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Concatenate[ImageType, P], ImageType]:
     @wraps(func)
-    def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
+    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
         dtype = img.dtype
         result = func(img, *args, **kwargs)
 
@@ -113,7 +123,7 @@ def clipped(func: Callable[Concatenate[np.ndarray, P], np.ndarray]) -> Callable[
     return wrapped_function
 
 
-def get_num_channels(image: np.ndarray) -> int:
+def get_num_channels(image: ImageType) -> int:
     """Get the number of channels in an image array.
 
     This function returns the size of the last dimension, which always represents
@@ -167,7 +177,7 @@ def get_num_channels(image: np.ndarray) -> int:
     return int(image.shape[-1])
 
 
-def is_grayscale_image(image: np.ndarray) -> bool:
+def is_grayscale_image(image: ImageType) -> bool:
     """Check if an image array represents a grayscale (single-channel) image.
 
     This function determines whether an image has only one channel by checking if
@@ -214,11 +224,11 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
     return int(NPDTYPE_TO_OPENCV_DTYPE[value])
 
 
-def is_rgb_image(image: np.ndarray) -> bool:
+def is_rgb_image(image: ImageType) -> bool:
     return cast("bool", image.shape[-1] == NUM_RGB_CHANNELS)
 
 
-def is_multispectral_image(image: np.ndarray) -> bool:
+def is_multispectral_image(image: ImageType) -> bool:
     return image.shape[-1] not in {1, 3}
 
 

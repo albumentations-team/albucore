@@ -4,18 +4,24 @@ from typing import Any, Concatenate, Literal, TypeVar, cast
 
 import numpy as np
 
-from albucore.utils import P
+from albucore.utils import ImageType, P
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
 def contiguous(
-    func: Callable[Concatenate[np.ndarray, P], np.ndarray],
-) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
-    """Ensure that input img is contiguous and the output array is also contiguous."""
+    func: Callable[Concatenate[ImageType, P], ImageType],
+) -> Callable[Concatenate[ImageType, P], ImageType]:
+    """Ensure that input img is contiguous and the output array is also contiguous.
+
+    Note: This decorator enforces C-contiguous memory layout. Fortran-contiguous
+    arrays will be converted to C-contiguous, which involves copying the data.
+    This may impact performance for large arrays but is required for compatibility
+    with certain operations (e.g., stringzilla).
+    """
 
     @wraps(func)
-    def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
+    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
         # Ensure the input array is contiguous
         img = np.require(img, requirements=["C_CONTIGUOUS"])
         # Call the original function with the contiguous input
@@ -27,12 +33,12 @@ def contiguous(
 
 
 def preserve_channel_dim(
-    func: Callable[Concatenate[np.ndarray, P], np.ndarray],
-) -> Callable[Concatenate[np.ndarray, P], np.ndarray]:
+    func: Callable[Concatenate[ImageType, P], ImageType],
+) -> Callable[Concatenate[ImageType, P], ImageType]:
     """Preserve single channel dimension when OpenCV drops it."""
 
     @wraps(func)
-    def wrapped_function(img: np.ndarray, *args: P.args, **kwargs: P.kwargs) -> np.ndarray:
+    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
         shape = img.shape
         result = func(img, *args, **kwargs)
         # If input had 3 dims with last dim = 1, and OpenCV dropped it to 2 dims
