@@ -1,10 +1,16 @@
-# Performance Optimization Guidelines
+---
+description: Performance optimization guidelines for Albucore
+globs:
+alwaysApply: false
+---
 
-## OpenCV LUT (Look-Up Table) Operations
+**IMPORTANT**: For complete performance guidelines, see [docs/performance-optimization.md](../../docs/performance-optimization.md).
+
+## Quick Reference: OpenCV LUT Operations
 
 ### Critical: Maintain float32 dtype for LUT arrays
 
-When using `cv2.LUT()` with floating-point lookup tables, **always ensure the LUT array is float32, not float64**. This can have a dramatic performance impact, especially on large arrays like videos.
+When using `cv2.LUT()` with floating-point lookup tables, **always ensure the LUT array is float32, not float64**.
 
 #### The Problem
 
@@ -16,11 +22,6 @@ mean, std = cv2.meanStdDev(img)  # Returns float64
 lut = (np.arange(0, 256, dtype=np.float32) - mean[0, 0]) / std[0, 0]
 # lut.dtype is now float64!
 ```
-
-This causes:
-1. `cv2.LUT()` returns a float64 array (slower operations)
-2. Subsequent operations (clip, etc.) are slower on float64
-3. Often requires `.astype(np.float32)` on the large result array (very expensive)
 
 #### The Solution
 
@@ -44,21 +45,4 @@ For a video of shape (200, 256, 256, 3):
 2. **Always check dtype**: Use `.astype(np.float32)` on small LUT arrays (256 elements) rather than large result arrays
 3. **Avoid dtype promotion**: Be aware that numpy operations with mixed dtypes promote to the higher precision type
 
-#### Example: Image Normalization with LUT
-
-```python
-def normalize_with_lut(img: np.ndarray) -> np.ndarray:
-    """Fast normalization for uint8 images using LUT"""
-    # Get statistics
-    mean, std = cv2.meanStdDev(img)
-    mean = mean[0, 0]
-    std = std[0, 0] + 1e-4
-
-    # Create LUT - ensure float32!
-    lut = ((np.arange(0, 256, dtype=np.float32) - mean) / std).astype(np.float32)
-
-    # Apply LUT - result will be float32
-    return cv2.LUT(img, lut).clip(-20, 20)
-```
-
-This optimization applies to any LUT-based operation where floating-point precision is needed.
+For complete guidelines, see [docs/performance-optimization.md](../../docs/performance-optimization.md).

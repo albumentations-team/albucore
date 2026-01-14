@@ -19,9 +19,32 @@ Key features:
 
 ## Installation
 
+**Basic installation** (you manage OpenCV separately):
+
 ```bash
 pip install albucore
 ```
+
+**With OpenCV headless** (recommended for servers/CI):
+
+```bash
+pip install albucore[headless]
+```
+
+**With OpenCV GUI support** (for local development with cv2.imshow):
+
+```bash
+pip install albucore[gui]
+```
+
+**With OpenCV contrib modules:**
+
+```bash
+pip install albucore[contrib]              # GUI version
+pip install albucore[contrib-headless]     # Headless version
+```
+
+**Note:** If you already have `opencv-python` or `opencv-contrib-python` installed, just use `pip install albucore` to avoid package conflicts. Albucore will detect and use your existing OpenCV installation.
 
 ## Usage
 
@@ -108,6 +131,8 @@ Albucore provides several useful decorators:
 - `@contiguous`: Ensures arrays are C-contiguous for optimal performance
 - `@uint8_io` and `@float32_io`: Handle automatic type conversions for functions that work best with specific data types
 
+See [docs/decorators.md](docs/decorators.md) for detailed documentation on all decorators.
+
 ## Performance
 
 Albucore uses a combination of techniques to achieve high performance:
@@ -115,6 +140,15 @@ Albucore uses a combination of techniques to achieve high performance:
 1. **Multiple Implementations**: Each function may have several implementations using different backends (NumPy, OpenCV, custom code).
 2. **Automatic Selection**: The library automatically chooses the fastest implementation based on the input image type, size, and number of channels.
 3. **Optimized Algorithms**: Custom implementations are optimized for specific use cases, often outperforming general-purpose libraries.
+
+See [docs/performance-optimization.md](docs/performance-optimization.md) for detailed performance guidelines and best practices.
+
+## Documentation
+
+- [CLAUDE.md](CLAUDE.md) - AI development guidelines for working with this codebase
+- [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
+- [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
+- [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
 
 ## License
 
