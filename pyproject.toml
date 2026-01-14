@@ -42,10 +42,11 @@ dependencies = [
   "stringzilla>=3.10.4",
 ]
 
-optional-dependencies.contrib = [ "opencv-contrib-python>=4.9.0.80" ]
-optional-dependencies.contrib-headless = [ "opencv-contrib-python-headless>=4.9.0.80" ]
-optional-dependencies.gui = [ "opencv-python>=4.9.0.80" ]
-optional-dependencies.headless = [ "opencv-python-headless>=4.9.0.80" ]
+[project.optional-dependencies]
+contrib = ["opencv-contrib-python>=4.9.0.80"]
+contrib-headless = ["opencv-contrib-python-headless>=4.9.0.80"]
+gui = ["opencv-python>=4.9.0.80"]
+headless = ["opencv-python-headless>=4.9.0.80"]
 
 [tool.setuptools]
 packages = { find = { include = [
