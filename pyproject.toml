@@ -5,7 +5,7 @@ requires = [ "setuptools>=45", "wheel" ]
 
 [project]
 name = "albucore"
-version = "0.0.34"
+version = "0.0.35"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
@@ -35,7 +35,18 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
-dynamic = [ "dependencies" ]
+
+dependencies = [
+  "numpy>=1.24.4",
+  "simsimd>=5.9.2",
+  "stringzilla>=3.10.4",
+]
+
+[project.optional-dependencies]
+contrib = ["opencv-contrib-python>=4.9.0.80"]
+contrib-headless = ["opencv-contrib-python-headless>=4.9.0.80"]
+gui = ["opencv-python>=4.9.0.80"]
+headless = ["opencv-python-headless>=4.9.0.80"]
 
 [tool.setuptools]
 packages = { find = { include = [

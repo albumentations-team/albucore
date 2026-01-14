@@ -1,0 +1,129 @@
+# Performance Optimization Guidelines
+
+## OpenCV LUT (Look-Up Table) Operations
+
+### Critical: Maintain float32 dtype for LUT arrays
+
+When using `cv2.LUT()` with floating-point lookup tables, **always ensure the LUT array is float32, not float64**. This can have a dramatic performance impact, especially on large arrays like videos.
+
+#### The Problem
+
+OpenCV's statistics functions (`cv2.meanStdDev`, etc.) return float64 values. When these are used in LUT creation:
+
+```python
+# BAD: Creates float64 LUT due to numpy promotion
+mean, std = cv2.meanStdDev(img)  # Returns float64
+lut = (np.arange(0, 256, dtype=np.float32) - mean[0, 0]) / std[0, 0]
+# lut.dtype is now float64!
+```
+
+This causes:
+1. `cv2.LUT()` returns a float64 array (slower operations)
+2. Subsequent operations (clip, etc.) are slower on float64
+3. Often requires `.astype(np.float32)` on the large result array (very expensive)
+
+#### The Solution
+
+Cast the LUT array to float32 after creation:
+
+```python
+# GOOD: Maintain float32 throughout
+lut = ((np.arange(0, 256, dtype=np.float32) - mean[0, 0]) / std[0, 0]).astype(np.float32)
+# lut.dtype is float32
+```
+
+#### Performance Impact
+
+For a video of shape (200, 256, 256, 3):
+- With float64 LUT: ~111ms (includes expensive astype on result)
+- With float32 LUT: ~55ms (2x faster!)
+
+#### Best Practices
+
+1. **For uint8 images**: LUT operations are extremely fast and should be preferred when possible
+2. **Always check dtype**: Use `.astype(np.float32)` on small LUT arrays (256 elements) rather than large result arrays
+3. **Avoid dtype promotion**: Be aware that numpy operations with mixed dtypes promote to the higher precision type
+
+#### Example: Image Normalization with LUT
+
+```python
+def normalize_with_lut(img: np.ndarray) -> np.ndarray:
+    """Fast normalization for uint8 images using LUT"""
+    # Get statistics
+    mean, std = cv2.meanStdDev(img)
+    mean = mean[0, 0]
+    std = std[0, 0] + 1e-4
+
+    # Create LUT - ensure float32!
+    lut = ((np.arange(0, 256, dtype=np.float32) - mean) / std).astype(np.float32)
+
+    # Apply LUT - result will be float32
+    return cv2.LUT(img, lut).clip(-20, 20)
+```
+
+This optimization applies to any LUT-based operation where floating-point precision is needed.
+
+## General Performance Tips
+
+### 1. Use the Right Backend
+
+Albucore automatically selects the optimal backend (NumPy, OpenCV, or custom implementations) based on:
+- Image dtype (uint8, float32, etc.)
+- Number of channels
+- Image dimensions
+- Operation type
+
+### 2. Leverage Vectorization
+
+For multi-channel operations, albucore uses vectorized implementations when possible:
+
+```python
+# Efficient: Single vectorized operation for all channels
+result = albucore.multiply(rgb_image, [1.2, 1.0, 0.8])  # Per-channel multipliers
+```
+
+### 3. In-place Operations
+
+When appropriate, use in-place operations to reduce memory allocation:
+
+```python
+# When the original image is no longer needed
+result = albucore.add(image, 10, inplace=True)
+```
+
+### 4. Batch Processing
+
+Process multiple images in batches when possible:
+
+```python
+# More efficient than processing individually
+batch = np.stack([img1, img2, img3, ...])  # Shape: (N, H, W, C)
+results = albucore.multiply(batch, 1.5)
+```
+
+### 5. Type Conversion
+
+Minimize type conversions by working in the appropriate dtype:
+- Use uint8 for storage and I/O
+- Use float32 for computation
+- Albucore's decorators handle conversions efficiently when needed
+
+### 6. Memory Layout
+
+Ensure arrays are C-contiguous for optimal performance:
+- The `@contiguous` decorator handles this automatically
+- Most albucore functions expect C-contiguous arrays
+
+## Benchmarking
+
+To verify performance improvements, use the provided benchmarking tools:
+
+```bash
+./benchmark.sh
+```
+
+This runs comprehensive benchmarks across different:
+- Image types (uint8, float32)
+- Image sizes
+- Number of channels
+- Operations

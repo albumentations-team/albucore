@@ -1,31 +1,40 @@
 ---
-description:
+description: Image shape conventions for Albucore
 globs:
 alwaysApply: true
 ---
+
+**IMPORTANT**: For complete development guidelines, see [CLAUDE.md](../../CLAUDE.md) in the project root.
+
+For detailed documentation on image conventions, see [docs/image-conventions.md](../../docs/image-conventions.md).
+
+## Quick Reference: Image Shape Convention
+
 For image shapes we assume as given:
 
-image: (H, W, C)
-grayscale image: (H, W, 1)
-images: (N, H, W, C)
-grayscale images: (N, H, W, 1)
-volume: (D, H, W, C)
-grayscale volume: (D, H, W, 1)
-volumes: (N, D, H, W, C)
-grayscale volumes: (N, D, H, W, 1)
+- image: `(H, W, C)`
+- grayscale image: `(H, W, 1)`
+- images: `(N, H, W, C)`
+- grayscale images: `(N, H, W, 1)`
+- volume: `(D, H, W, C)`
+- grayscale volume: `(D, H, W, 1)`
+- volumes: `(N, D, H, W, C)`
+- grayscale volumes: `(N, D, H, W, 1)`
 
-i.e, we always know as given:
+i.e., we always know as given:
 
+```python
 num_channels = shape[-1]
 width = shape[-2]
 height = shape[-3]
+```
 
 ---
-WE DO NOT EXPECT:
+**WE DO NOT EXPECT:**
 
-grayscale image with shape: (H, W)
-graysclae volume with shape: (D, H, W)
-etc
+- grayscale image with shape: `(H, W)`
+- grayscale volume with shape: `(D, H, W)`
+- etc.
 
-There is always channel given, even if it is 1.
+**There is always a channel dimension given, even if it is 1.**
 ---
