@@ -56,7 +56,7 @@ packages = { find = { include = [
   "benchmark",
 ] } }
 
-package-data = { albumentations = [ "*.txt", "*.md" ] }
+package-data = { albucore = [ "py.typed" ] }
 
 [tool.setuptools.exclude-package-data]
 "*" = [ "tests*", "tools*", "benchmark*", "conda.recipe*" ]
