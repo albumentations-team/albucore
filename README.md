@@ -19,9 +19,32 @@ Key features:
 
 ## Installation
 
+**Basic installation** (you manage OpenCV separately):
+
 ```bash
 pip install albucore
 ```
+
+**With OpenCV headless** (recommended for servers/CI):
+
+```bash
+pip install albucore[headless]
+```
+
+**With OpenCV GUI support** (for local development with cv2.imshow):
+
+```bash
+pip install albucore[gui]
+```
+
+**With OpenCV contrib modules:**
+
+```bash
+pip install albucore[contrib]              # GUI version
+pip install albucore[contrib-headless]     # Headless version
+```
+
+**Note:** If you already have `opencv-python` or `opencv-contrib-python` installed, just use `pip install albucore` to avoid package conflicts. Albucore will detect and use your existing OpenCV installation.
 
 ## Usage
 
