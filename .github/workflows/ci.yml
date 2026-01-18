@@ -1,97 +1,50 @@
 name: CI
+
 on:
+  push:
+    branches: [main, master]
   pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - 'benchmarks/albucore_benchmark/results/**'
-      - '**.md'  # Ignore all markdown files
-      - 'docs/**'  # Ignore documentation changes
+    branches: [main, master]
+
 jobs:
-  test_and_lint:
-    name: Test and lint
-    runs-on: ${{ matrix.operating-system }}
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        operating-system: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-        include:
-          - operating-system: ubuntu-latest
-            path: ~/.cache/pip
-          - operating-system: windows-latest
-            path: ~\AppData\Local\pip\Cache
-          - operating-system: macos-latest
-            path: ~/Library/Caches/pip
-      fail-fast: true
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: |
-          requirements-dev.txt
-          setup.py
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Cache Python packages
-      uses: actions/cache@v4
-      with:
-        path: ${{ matrix.path }}
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-${{ matrix.python-version }}-
-          ${{ runner.os }}-pip-
+      - name: Install uv and set Python version ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: |
+            requirements-dev.txt
+            pyproject.toml
 
-    - name: Install uv
-      run: pip install uv
+      - name: Install dependencies
+        run: |
+          uv pip install -e .
+          uv pip install -r requirements-dev.txt
 
-    - name: Install dependencies
-      run: |
-        uv pip install --system --upgrade pip wheel
-        uv pip install --system -r requirements-dev.txt
-        uv pip install --system .
+      - name: Check code formatting with pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run PyTest with coverage
-      run: pytest --cov . --cov-report=xml
+      - name: Run mypy
+        run: mypy albucore
 
-    - name: Upload coverage reports to Codecov
-      if: matrix.operating-system == 'ubuntu-latest' && matrix.python-version == '3.12'
-      uses: codecov/codecov-action@v4.3.0
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        slug: albumentations-team/albucore
-        files: ./coverage.xml
+      - name: Run tests with coverage
+        run: pytest tests/ --cov=albucore --cov-report=xml --cov-report=term
 
-  check_code_formatting_types:
-    name: Check code formatting with ruff and mypy
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        python-version: ['3.10']
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: |
-          requirements-dev.txt
-          setup.py
-
-    - name: Install uv
-      run: pip install uv
-
-    - name: Install requirements
-      run: |
-        uv pip install --system --upgrade pip
-        uv pip install --system -r requirements-dev.txt
-        uv pip install --system .
-
-    - name: Run checks
-      run: pre-commit run --all-files
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.10'
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
