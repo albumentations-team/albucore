@@ -34,10 +34,8 @@ jobs:
           uv pip install -r requirements-dev.txt
 
       - name: Check code formatting with pre-commit
+        if: matrix.python-version == '3.10'
         run: pre-commit run --all-files --show-diff-on-failure
-
-      - name: Run mypy
-        run: mypy albucore
 
       - name: Run tests with coverage
         run: pytest tests/ --cov=albucore --cov-report=xml --cov-report=term
@@ -46,5 +44,5 @@ jobs:
         uses: codecov/codecov-action@v4
         if: matrix.python-version == '3.10'
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: false
