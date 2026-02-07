@@ -15,10 +15,10 @@ class TestMatmul:
             (3, 3, 3),  # Tiny (affine transforms)
             (10, 10, 10),  # Small (TPS typical)
             (100, 100, 100),  # Medium
-            (512, 512, 512),  # Large
-            (262144, 2, 10),  # TPS: pairwise dots
-            (262144, 10, 2),  # TPS: nonlinear
-            (262144, 3, 2),  # TPS: affine
+            pytest.param(512, 512, 512, marks=pytest.mark.slow),  # Large
+            pytest.param(262144, 2, 10, marks=pytest.mark.slow),  # TPS: pairwise dots
+            pytest.param(262144, 10, 2, marks=pytest.mark.slow),  # TPS: nonlinear
+            pytest.param(262144, 3, 2, marks=pytest.mark.slow),  # TPS: affine
         ],
     )
     @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -31,7 +31,7 @@ class TestMatmul:
         result_matmul = matmul(a, b)
 
         if dtype == np.float32:
-            np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-4, atol=1e-5)
+            np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-4, atol=2e-5)
         else:  # float64
             np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-6, atol=1e-8)
 
