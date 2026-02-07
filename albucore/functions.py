@@ -1172,6 +1172,10 @@ def pairwise_distances_squared(
         and avoids the expensive sqrt operation.
 
         For actual Euclidean distances: np.sqrt(result)
+
+        The computation can produce very small negative values (e.g., -1e-6)
+        due to floating-point rounding with float32 inputs. The result is
+        automatically clamped to enforce non-negativity (distances >= 0).
     """
     points1 = np.ascontiguousarray(points1, dtype=np.float32)
     points2 = np.ascontiguousarray(points2, dtype=np.float32)
@@ -1181,7 +1185,10 @@ def pairwise_distances_squared(
     # Use simsimd for small point sets (benchmarked: 5.93x faster)
     # For larger point sets, NumPy is faster or similar
     if n1 * n2 < 1000:
-        return np.asarray(ss.cdist(points1, points2, metric="sqeuclidean"), dtype=np.float32)
+        result = np.asarray(ss.cdist(points1, points2, metric="sqeuclidean"), dtype=np.float32)
+        # Clamp to zero to handle numerical errors that can produce small negative values
+        np.maximum(result, 0.0, out=result)
+        return result
 
     # NumPy vectorized implementation for larger point sets
     # Vectorized computation: ||a-b||² = ||a||² + ||b||² - 2(a·b)
@@ -1189,4 +1196,7 @@ def pairwise_distances_squared(
     p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
     dot_product = points1 @ points2.T  # (N, M)
 
-    return p1_squared + p2_squared - 2 * dot_product
+    result = p1_squared + p2_squared - 2 * dot_product
+    # Clamp to zero to handle numerical errors that can produce small negative values
+    np.maximum(result, 0.0, out=result)
+    return result

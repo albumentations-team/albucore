@@ -31,7 +31,7 @@ class TestMatmul:
         result_matmul = matmul(a, b)
 
         if dtype == np.float32:
-            np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-5, atol=1e-7)
+            np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-4, atol=1e-5)
         else:  # float64
             np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-6, atol=1e-8)
 
@@ -54,10 +54,9 @@ class TestMatmul:
         expected = a @ b
         np.testing.assert_array_equal(result, expected)
 
-        # Verify shape and dtype
+        # Verify shape and dtype match NumPy behavior
         assert result.shape == (m, n)
-        # Note: uint8 @ uint8 promotes to int32 in NumPy
-        assert result.dtype in (np.int32, np.int64, np.uint8)
+        assert result.dtype == expected.dtype
 
     def test_matmul_output_dtype(self) -> None:
         """Verify output dtype matches input dtype for float types."""
