@@ -1102,7 +1102,10 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         b: Second matrix, shape (K, N), dtype float32, float64, or uint8
 
     Returns:
-        Result matrix, shape (M, N), same dtype as inputs
+        Result matrix, shape (M, N). Output dtype follows NumPy's @ promotion rules:
+        - float32 @ float32 -> float32
+        - float64 @ float64 -> float64
+        - uint8 @ uint8 -> int32 (promoted by NumPy)
 
     Examples:
         >>> import numpy as np
