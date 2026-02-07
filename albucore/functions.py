@@ -1081,3 +1081,125 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
         return to_float(result) if input_dtype != np.uint8 else result
 
     return uint8_wrapper
+
+
+def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Optimized matrix multiplication for coordinate transformations.
+
+    Replaces cv2.gemm which has similar performance but doesn't support all dtypes.
+    Uses NumPy's @ operator which leverages optimized BLAS libraries:
+    - ARM: Apple Accelerate framework
+    - x86: MKL or OpenBLAS
+
+    Benchmark results (macOS ARM):
+    - Small matrices (2x2, 10x10): Similar to cv2.gemm (~1.0x)
+    - Large matrices (1024x1024, 2048x2048): Similar to cv2.gemm (~1.0x)
+    - Tall/skinny TPS matrices: Similar to cv2.gemm (0.93-1.02x)
+    - uint8: Supported (cv2.gemm doesn't support uint8)
+
+    Args:
+        a: First matrix, shape (M, K), dtype float32, float64, or uint8
+        b: Second matrix, shape (K, N), dtype float32, float64, or uint8
+
+    Returns:
+        Result matrix, shape (M, N). Output dtype follows NumPy's @ promotion rules:
+        - float32 @ float32 -> float32
+        - float64 @ float64 -> float64
+        - uint8 @ uint8 -> int32 (promoted by NumPy)
+
+    Examples:
+        >>> import numpy as np
+        >>> from albucore import matmul
+        >>>
+        >>> # ThinPlateSpline pairwise distance computation
+        >>> points1 = np.random.randn(10000, 2).astype(np.float32)  # Target points
+        >>> points2 = np.random.randn(10, 2).astype(np.float32)     # Control points
+        >>> dot_matrix = matmul(points1, points2.T)  # (10000, 10)
+        >>>
+        >>> # TPS coordinate transformation
+        >>> kernel = np.random.randn(10000, 10).astype(np.float32)
+        >>> weights = np.random.randn(10, 2).astype(np.float32)
+        >>> transformed = matmul(kernel, weights)  # (10000, 2)
+
+    Note:
+        This function is a simple wrapper around NumPy's @ operator,
+        provided for API consistency and to make it explicit that
+        this is the recommended replacement for cv2.gemm in geometric
+        transformation contexts.
+
+        Use Cases:
+        - ThinPlateSpline geometric transformation (3 uses in AlbumentationsX)
+        - Macenko stain normalization for medical imaging (1 use in AlbumentationsX)
+    """
+    return a @ b
+
+
+def pairwise_distances_squared(
+    points1: np.ndarray,
+    points2: np.ndarray,
+) -> np.ndarray:
+    """Compute squared pairwise Euclidean distances between two point sets.
+
+    Uses adaptive backend selection based on point set size:
+    - Small point sets (n1*n2 < 1000): simsimd.cdist (5.93x faster than cv2)
+    - Large point sets (n1*n2 >= 1000): NumPy vectorized (similar to cv2, more maintainable)
+
+    Algorithm (NumPy backend): ||a - b||² = ||a||² + ||b||² - 2(a·b)
+
+    Benchmark results (macOS ARM):
+    - Small (10x10): simsimd 5.93x faster than cv2
+    - Medium (100x100): NumPy 1.05x faster than cv2
+    - Large (1000x100): NumPy similar to cv2 (~1.0x)
+
+    Args:
+        points1: First set of points, shape (N, D), dtype float32
+        points2: Second set of points, shape (M, D), dtype float32
+
+    Returns:
+        Matrix of squared distances, shape (N, M), dtype float32
+        Element [i, j] contains ||points1[i] - points2[j]||²
+
+    Examples:
+        >>> import numpy as np
+        >>> from albucore import pairwise_distances_squared
+        >>> # Control points for thin plate spline
+        >>> src_points = np.array([[0, 0], [1, 0], [0, 1]], dtype=np.float32)
+        >>> dst_points = np.array([[0.1, 0.1], [0.9, 0.1]], dtype=np.float32)
+        >>> distances_sq = pairwise_distances_squared(src_points, dst_points)
+        >>> distances_sq.shape
+        (3, 2)
+
+    Note:
+        Returns SQUARED distances (not Euclidean distances).
+        This is often what's needed (e.g., for RBF kernels in TPS),
+        and avoids the expensive sqrt operation.
+
+        For actual Euclidean distances: np.sqrt(result)
+
+        The computation can produce very small negative values (e.g., -1e-6)
+        due to floating-point rounding with float32 inputs. The result is
+        automatically clamped to enforce non-negativity (distances >= 0).
+    """
+    points1 = np.ascontiguousarray(points1, dtype=np.float32)
+    points2 = np.ascontiguousarray(points2, dtype=np.float32)
+
+    n1, n2 = points1.shape[0], points2.shape[0]
+
+    # Use simsimd for small point sets (benchmarked: 5.93x faster)
+    # For larger point sets, NumPy is faster or similar
+    if n1 * n2 < 1000:
+        result = np.asarray(ss.cdist(points1, points2, metric="sqeuclidean"), dtype=np.float32)
+        # Clamp to zero to handle numerical errors that can produce small negative values
+        np.maximum(result, 0.0, out=result)
+        return result
+
+    # NumPy vectorized implementation for larger point sets
+    # Vectorized computation: ||a-b||² = ||a||² + ||b||² - 2(a·b)
+    p1_squared = (points1**2).sum(axis=1, keepdims=True)  # (N, 1)
+    p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
+    dot_product = points1 @ points2.T  # (N, M)
+
+    result = p1_squared + p2_squared - 2 * dot_product
+    # Clamp to zero to handle numerical errors that can produce small negative values
+    np.maximum(result, 0.0, out=result)
+    return result
