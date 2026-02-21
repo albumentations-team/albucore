@@ -26,17 +26,11 @@ def test_valid_cv2_types(cv_type):
 
 
 def test_cv_dtype_from_np():
+    # Albucore supports uint8 and float32 only
     assert get_opencv_dtype_from_numpy(np.uint8) == cv2.CV_8U
-    assert get_opencv_dtype_from_numpy(np.uint16) == cv2.CV_16U
     assert get_opencv_dtype_from_numpy(np.float32) == cv2.CV_32F
-    assert get_opencv_dtype_from_numpy(np.float64) == cv2.CV_64F
-    assert get_opencv_dtype_from_numpy(np.int32) == cv2.CV_32S
-
     assert get_opencv_dtype_from_numpy(np.dtype("uint8")) == cv2.CV_8U
-    assert get_opencv_dtype_from_numpy(np.dtype("uint16")) == cv2.CV_16U
     assert get_opencv_dtype_from_numpy(np.dtype("float32")) == cv2.CV_32F
-    assert get_opencv_dtype_from_numpy(np.dtype("float64")) == cv2.CV_64F
-    assert get_opencv_dtype_from_numpy(np.dtype("int32")) == cv2.CV_32S
 
 
 @pytest.mark.parametrize(
@@ -159,7 +153,7 @@ def test_uint8_io_preserves_uint8(test_image):
         assert result.dtype == np.uint8
 
 
-@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_float32_io_does_not_modify_input(dtype):
     @float32_io
     def identity(img):
@@ -176,7 +170,7 @@ def test_float32_io_does_not_modify_input(dtype):
 
     np.testing.assert_array_equal(original, original_copy)
 
-@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_uint8_io_does_not_modify_input(dtype):
     @uint8_io
     def identity(img):
