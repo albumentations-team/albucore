@@ -1,25 +1,29 @@
 # Albucore: High-Performance Image Processing Functions
 
+[![PyPI version](https://img.shields.io/pypi/v/albucore.svg)](https://pypi.org/project/albucore/)
+[![Python 3.10+](https://img.shields.io/pypi/pyversions/albucore.svg)](https://pypi.org/project/albucore/)
+[![CI](https://github.com/albumentations-team/albucore/actions/workflows/ci.yml/badge.svg)](https://github.com/albumentations-team/albucore/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=albumentations-team/albucore@github)](https://gitads.dev/v1/ad-track?source=albumentations-team/albucore@github)
+
 Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), a popular image augmentation library.
 
 ## Overview
 
 Image processing operations can be implemented in various ways, each with its own performance characteristics depending on the image type, size, and number of channels. Albucore aims to provide the fastest implementation for each operation by leveraging different backends such as NumPy, OpenCV, and custom optimized code.
 
+**Supported dtypes:** `uint8` and `float32` only.
+
 Key features:
 
 - Optimized atomic image processing functions
 - Automatic selection of the fastest implementation based on input image characteristics
-- Seamless integration with Albumentations
-- Extensive benchmarking for performance validation
-
-## GitAds Sponsored
-[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=albumentations-team/albucore@github)](https://gitads.dev/v1/ad-track?source=albumentations-team/albucore@github)
-
+- Seamless integration with AlbumentationsX
+- Benchmark scripts available (see `./benchmark.sh <data_dir>`)
 
 ## Installation
 
-**Basic installation** (you manage OpenCV separately):
+**Requires Python 3.10+.** Basic installation (you manage OpenCV separately):
 
 ```bash
 pip install albucore
@@ -105,12 +109,12 @@ batch_volumes = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
 
 ## Functions
 
-Albucore includes optimized implementations for various image processing operations, including:
+Albucore includes optimized implementations for various image processing operations:
 
-- Arithmetic operations (add, multiply, power)
-- Normalization (per-channel, global)
-- Geometric transformations (vertical flip, horizontal flip)
-- Helper decorators (to_float, to_uint8)
+- **Arithmetic:** add, multiply, power, add_weighted, multiply_add
+- **Normalization:** normalize (per-channel, global), normalize_per_image
+- **Geometric:** hflip, vflip, warp_affine, warp_perspective, remap, copy_make_border
+- **Type conversion:** to_float, from_float
 
 ### Batch Processing
 
@@ -129,7 +133,9 @@ Albucore provides several useful decorators:
 
 - `@preserve_channel_dim`: Ensures single-channel images maintain their shape `(H, W, 1)` when OpenCV operations might drop the channel dimension
 - `@contiguous`: Ensures arrays are C-contiguous for optimal performance
+- `@clipped`: Clips results to valid dtype range after arithmetic operations
 - `@uint8_io` and `@float32_io`: Handle automatic type conversions for functions that work best with specific data types
+- `@batch_transform`: Batch processing patterns for images, volumes, and batches
 
 See [docs/decorators.md](docs/decorators.md) for detailed documentation on all decorators.
 

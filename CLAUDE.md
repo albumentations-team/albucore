@@ -7,7 +7,8 @@ This document provides guidelines and conventions for AI assistants (particularl
 Albucore is a high-performance image processing library that provides optimized atomic functions for image manipulation. It serves as the foundation for AlbumentationsX and focuses on:
 
 - Maximum performance through multiple backend implementations (NumPy, OpenCV, custom)
-- Automatic selection of optimal implementations based on input characteristics
+- **Supported dtypes: uint8 and float32 only** (no float64)
+- **Backend routing is based ONLY on performance** — benchmark before choosing. If LUT is slower, don't use it.
 - Consistent API across different image types and shapes
 
 ## Core Documentation
@@ -51,12 +52,11 @@ Given any image, you can always assume:
 - `width = image.shape[-2]`
 - `height = image.shape[-3]`
 
-### 2. Performance First
+### 2. Performance First — Routing by Benchmark Only
 
-- Prefer LUT-based operations for uint8 images
-- Use OpenCV when it provides the best performance
-- Fall back to NumPy when necessary (many channels, specific dtypes)
-- Always benchmark when adding new implementations
+- **Choose implementations ONLY based on benchmark results.** No conventions. If LUT is slower for a given case, use something else.
+- Always benchmark when adding new implementations or changing routing
+- OpenCV, NumPy, LUT — pick whichever is fastest for the target dtype/shape
 
 ### 3. Type Safety
 
@@ -66,7 +66,7 @@ Given any image, you can always assume:
 
 ### 4. Multiple Implementations Pattern
 
-Most functions follow this pattern:
+Route based on **benchmarked performance**, not convention:
 
 ```python
 @clipped
@@ -74,14 +74,14 @@ def operation(img: ImageType, value: ValueType, inplace: bool = False) -> ImageT
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
-    # Route to optimal implementation based on dtype
+    # Route based on what benchmarks show is fastest for this dtype/shape
     if img.dtype == np.uint8:
-        return operation_lut(img, value, inplace)  # Fastest for uint8
+        return operation_lut(img, value, inplace)  # Only if LUT wins the benchmark
 
     if img.dtype == np.float32:
-        return operation_numpy(img, value)  # Good for float32
+        return operation_numpy(img, value)  # Or opencv — whichever is faster
 
-    return operation_opencv(img, value)  # Fallback
+    raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
 ```
 
 ### 5. Use Decorators
@@ -95,7 +95,7 @@ Albucore provides several useful decorators:
 
 ### 6. Testing
 
-- Write tests for all dtype variants (uint8, float32, float64, etc.)
+- Write tests for uint8 and float32 only
 - Test single images, batches, volumes, and batch of volumes
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
@@ -191,20 +191,18 @@ return operation_opencv(img, value)
 
 ## Performance Guidelines
 
-1. **LUT operations** are fastest for uint8 (256-element lookup table)
-2. **OpenCV** is usually fastest for standard operations on 1-4 channel images
-3. **NumPy** is best for >4 channels or when OpenCV doesn't support the operation
-4. **Always cast LUTs to float32** to avoid dtype promotion issues
-5. **Use in-place operations** when safe to reduce memory allocation
+1. **Routing is benchmark-driven** — LUT, OpenCV, NumPy: use whichever is fastest. Don't assume LUT wins for uint8.
+2. **NumPy** is best for >4 channels (OpenCV limit)
+3. **Always cast LUTs to float32** to avoid dtype promotion issues
+4. **Use in-place operations** when safe to reduce memory allocation
 
 ## Questions to Ask
 
 When implementing a new function, consider:
 
-1. What dtypes should be supported? (uint8, float32, float64, int, etc.)
-2. Should there be a LUT implementation for uint8?
-3. Does OpenCV support this operation efficiently?
-4. What's the behavior for >4 channels?
+1. **Supported dtypes: uint8 and float32 only**
+2. Benchmark LUT vs OpenCV vs NumPy — use the fastest. Don't assume LUT wins.
+3. Does OpenCV support this operation? What's the behavior for >4 channels?
 5. Should this support batches/volumes?
 6. Are there any edge cases with single-channel images?
 7. What should the output dtype be?

@@ -1,4 +1,4 @@
-"""Tests for geometric module: median_blur, warp_affine, warp_perspective, copy_make_border, remap."""
+"""Tests for geometric module: warp_affine, warp_perspective, copy_make_border, remap."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 
 from albucore.geometric import (
-    median_blur,
     warp_affine,
     warp_perspective,
     copy_make_border,
@@ -36,61 +35,6 @@ def make_image(h: int, w: int, channels: int, dtype: type, rng: np.random.Genera
     else:
         img = rng.random((h, w, channels), dtype=np.float32)
     return np.ascontiguousarray(img)
-
-
-# -----------------------------------------------------------------------------
-# median_blur
-# -----------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("channels", CHANNEL_COUNTS, ids=[f"c{c}" for c in CHANNEL_COUNTS])
-@pytest.mark.parametrize("dtype", DTYPES, ids=["uint8", "float32"])
-def test_median_blur_shape_dtype(channels: int, dtype: type, rng: np.random.Generator) -> None:
-    """median_blur preserves shape and dtype for any channel count."""
-    img = make_image(32, 32, channels, dtype, rng)
-    result = median_blur(img, ksize=3)
-    assert result.shape == img.shape
-    assert result.dtype == img.dtype
-    assert result.flags["C_CONTIGUOUS"]
-
-
-@pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
-@pytest.mark.parametrize("dtype", DTYPES, ids=["uint8", "float32"])
-def test_median_blur_equiv_cv2(channels: int, dtype: type, rng: np.random.Generator) -> None:
-    """median_blur matches cv2.medianBlur when C <= 4 (albucore preserves (H,W,1))."""
-    img = make_image(16, 16, channels, dtype, rng)
-    expected = cv2.medianBlur(img, 3)
-    if channels == 1 and expected.ndim == 2:
-        expected = np.expand_dims(expected, -1)
-    result = median_blur(img, ksize=3)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
-@pytest.mark.parametrize("dtype", DTYPES, ids=["uint8", "float32"])
-def test_median_blur_inplace(channels: int, dtype: type, rng: np.random.Generator) -> None:
-    """median_blur inplace writes into img when C <= 4."""
-    img = make_image(16, 16, channels, dtype, rng)
-    ptr_before = img.__array_interface__["data"][0]
-    result = median_blur(img, ksize=3, inplace=True)
-    assert result is img
-    assert result.__array_interface__["data"][0] == ptr_before
-
-
-@pytest.mark.parametrize("channels", [8, 16], ids=["8ch", "16ch"])
-def test_median_blur_multi_channel_no_crash(channels: int, rng: np.random.Generator) -> None:
-    """median_blur handles >4 channels without error."""
-    img = make_image(16, 16, channels, np.uint8, rng)
-    result = median_blur(img, ksize=3)
-    assert result.shape == img.shape
-    assert result.dtype == img.dtype
-
-
-def test_median_blur_preserve_channel_dim(rng: np.random.Generator) -> None:
-    """median_blur preserves (H, W, 1) for grayscale."""
-    img = make_image(16, 16, 1, np.uint8, rng)
-    result = median_blur(img, ksize=3)
-    assert result.shape == (16, 16, 1)
 
 
 # -----------------------------------------------------------------------------
@@ -291,6 +235,94 @@ def test_remap_preserve_channel_dim(rng: np.random.Generator) -> None:
     assert result.shape == (h, w, 1)
 
 
+# Interpolations supported by cv2.remap (INTER_LINEAR_EXACT is not)
+REMAP_INTERPOLATIONS = [
+    cv2.INTER_NEAREST,
+    cv2.INTER_LINEAR,
+    cv2.INTER_CUBIC,
+    cv2.INTER_AREA,
+    cv2.INTER_LANCZOS4,
+]
+REMAP_BORDER_MODES = [
+    cv2.BORDER_CONSTANT,
+    cv2.BORDER_REPLICATE,
+    cv2.BORDER_REFLECT,
+    cv2.BORDER_REFLECT_101,
+    cv2.BORDER_WRAP,
+]
+
+
+@pytest.mark.parametrize("channels", [6, 8, 16, 32], ids=[f"c{c}" for c in [6, 8, 16, 32]])
+@pytest.mark.parametrize("interpolation", REMAP_INTERPOLATIONS, ids=["nearest", "linear", "cubic", "area", "lanczos4"])
+@pytest.mark.parametrize("border_mode", REMAP_BORDER_MODES, ids=["constant", "replicate", "reflect", "reflect101", "wrap"])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+def test_remap_many_channels_all_modes(
+    channels: int,
+    interpolation: int,
+    border_mode: int,
+    dtype: type,
+    rng: np.random.Generator,
+) -> None:
+    """remap works for C > 5 with any interpolation and border mode."""
+    h, w = 32, 32
+    img = make_image(h, w, channels, dtype, rng)
+    map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
+    map_y = np.tile(np.arange(h, dtype=np.float32).reshape(-1, 1), (1, w))
+
+    result = remap(img, map_x, map_y, interpolation=interpolation, border_mode=border_mode)
+
+    assert result.shape == img.shape
+    assert result.dtype == img.dtype
+
+    # For interpolations that cv2.remap supports for >4ch, compare with direct call
+    if interpolation in (cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_AREA):
+        expected = cv2.remap(img, map_x, map_y, interpolation, borderMode=border_mode)
+        np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("border_value", [0, 128, (0, 0, 0), (128,) * 4], ids=["0", "128", "tuple3", "tuple4"])
+def test_remap_border_value_const(border_value: int | tuple, rng: np.random.Generator) -> None:
+    """remap with constant border_value (scalar or len<=4) works for 8ch."""
+    h, w = 32, 32
+    img = make_image(h, w, 8, np.uint8, rng)
+    map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
+    map_y = np.tile(np.arange(h, dtype=np.float32).reshape(-1, 1), (1, w))
+
+    result = remap(
+        img, map_x, map_y, border_mode=cv2.BORDER_CONSTANT, border_value=border_value
+    )
+    assert result.shape == img.shape
+
+    expected = cv2.remap(
+        img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=border_value
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_remap_border_value_per_channel(rng: np.random.Generator) -> None:
+    """remap with per-channel border_value (1,2,3,4,5,6,7,8) works for 8ch via chunking."""
+    h, w = 32, 32
+    img = make_image(h, w, 8, np.uint8, rng)
+    map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
+    map_y = np.tile(np.arange(h, dtype=np.float32).reshape(-1, 1), (1, w))
+    border_value = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
+
+    result = remap(
+        img, map_x, map_y, border_mode=cv2.BORDER_CONSTANT, border_value=border_value
+    )
+    assert result.shape == img.shape
+
+    # Compare with manual chunked reference
+    ref_chunks = []
+    for i in range(8):
+        ch = img[:, :, i : i + 1]
+        bv = (border_value[i],) * 4
+        out = cv2.remap(ch, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=bv)
+        ref_chunks.append(np.expand_dims(out, -1) if out.ndim == 2 else out)
+    expected = np.concatenate(ref_chunks, axis=-1)
+    np.testing.assert_array_equal(result, expected)
+
+
 # -----------------------------------------------------------------------------
 # Edge cases
 # -----------------------------------------------------------------------------
@@ -310,10 +342,3 @@ def test_copy_make_border_dtypes(dtype: type, rng: np.random.Generator) -> None:
     img = make_image(16, 16, 3, dtype, rng)
     result = copy_make_border(img, 2, 2, 2, 2, value=0)
     assert result.dtype == img.dtype
-
-
-def test_median_blur_ksize_5(rng: np.random.Generator) -> None:
-    """median_blur with ksize=5 works."""
-    img = make_image(32, 32, 3, np.uint8, rng)
-    result = median_blur(img, ksize=5)
-    assert result.shape == img.shape
