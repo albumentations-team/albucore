@@ -104,6 +104,50 @@ def test_warp_affine_preserve_channel_dim(rng: np.random.Generator) -> None:
     assert result.shape == (16, 16, 1)
 
 
+def test_warp_affine_accepts_3x3_matrix(rng: np.random.Generator) -> None:
+    """warp_affine accepts 3x3 matrix (e.g. from create_affine_transformation_matrix)."""
+    img = make_image(16, 16, 3, np.uint8, rng)
+    M_2x3 = np.float32([[1, 0, 2], [0, 1, 2]])
+    M_3x3 = np.eye(3, dtype=np.float32)
+    M_3x3[:2, :] = M_2x3
+    result_2x3 = warp_affine(img, M_2x3, (16, 16), border_value=0)
+    result_3x3 = warp_affine(img, M_3x3, (16, 16), border_value=0)
+    np.testing.assert_array_equal(result_2x3, result_3x3)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+def test_warp_affine_3x3_matrix_dtype(dtype: type, rng: np.random.Generator) -> None:
+    """warp_affine with 3x3 matrix works for uint8 and float32."""
+    img = make_image(16, 16, 3, dtype, rng)
+    M_3x3 = np.eye(3, dtype=np.float32)
+    M_3x3[:2, :] = [[1, 0, 2], [0, 1, 2]]
+    result = warp_affine(img, M_3x3, (16, 16), border_value=0)
+    assert result.shape == (16, 16, 3)
+    assert result.dtype == dtype
+
+
+def test_warp_affine_3x3_matrix_chunked_path(rng: np.random.Generator) -> None:
+    """warp_affine with 3x3 matrix works in chunked path (8ch)."""
+    img = make_image(16, 16, 8, np.uint8, rng)
+    M_3x3 = np.eye(3, dtype=np.float32)
+    M_3x3[:2, :] = [[1, 0, 2], [0, 1, 2]]
+    result = warp_affine(img, M_3x3, (16, 16), border_value=0)
+    assert result.shape == (16, 16, 8)
+
+
+def test_warp_affine_3x3_matrix_rotation(rng: np.random.Generator) -> None:
+    """warp_affine with 3x3 rotation matrix produces same result as 2x3."""
+    img = make_image(16, 16, 3, np.uint8, rng)
+    angle = np.pi / 4
+    c, s = np.cos(angle), np.sin(angle)
+    M_2x3 = np.float32([[c, -s, 8], [s, c, 8]])
+    M_3x3 = np.eye(3, dtype=np.float32)
+    M_3x3[:2, :] = M_2x3
+    result_2x3 = warp_affine(img, M_2x3, (16, 16), border_value=0)
+    result_3x3 = warp_affine(img, M_3x3, (16, 16), border_value=0)
+    np.testing.assert_array_equal(result_2x3, result_3x3)
+
+
 # -----------------------------------------------------------------------------
 # warp_perspective
 # -----------------------------------------------------------------------------
