@@ -31,6 +31,7 @@ except ImportError as e:
 
 from .decorators import *
 from .functions import *
+from .geometric import *
 from .utils import *
 
 # Export type aliases for public API

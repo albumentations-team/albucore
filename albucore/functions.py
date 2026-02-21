@@ -878,8 +878,6 @@ def to_float_lut(img: ImageUInt8, max_value: float | None = None) -> ImageFloat3
 
 
 def to_float(img: ImageType, max_value: float | None = None) -> ImageFloat32:
-    if img.dtype == np.float64:
-        return img.astype(np.float32, copy=False)
     if img.dtype == np.float32:
         return img
     if img.dtype == np.uint8:
@@ -934,9 +932,6 @@ def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | Non
     """
     if target_dtype == np.float32:
         return img
-
-    if target_dtype == np.float64:
-        return img.astype(np.float32, copy=False)
 
     if img.dtype == np.float32:
         return from_float_opencv(img, target_dtype, max_value)
@@ -999,24 +994,25 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     if num_channels <= 512:
         return cv2.flip(img, flip_code)
 
-    # Process in chunks of 512 channels
     chunk_size = 512
-    result_chunks = []
+    result: np.ndarray | None = None
+    offset = 0
 
     for i in range(0, num_channels, chunk_size):
         end_idx = min(i + chunk_size, num_channels)
         chunk = img[:, :, i:end_idx]
         flipped_chunk = cv2.flip(chunk, flip_code)
 
-        # Ensure the chunk maintains its dimensionality
-        # This is needed when the last chunk has only one channel and cv2.flip reduces the dimensions
         if flipped_chunk.ndim == 2 and img.ndim == 3:
             flipped_chunk = np.expand_dims(flipped_chunk, axis=2)
 
-        result_chunks.append(flipped_chunk)
+        if result is None:
+            result = np.empty((*flipped_chunk.shape[:2], num_channels), dtype=img.dtype)
+        n = flipped_chunk.shape[-1]
+        result[:, :, offset : offset + n] = flipped_chunk
+        offset += n
 
-    # Concatenate the chunks along the channel dimension
-    return np.concatenate(result_chunks, axis=2)
+    return result
 
 
 def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:

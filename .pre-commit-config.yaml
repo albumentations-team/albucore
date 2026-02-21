@@ -16,6 +16,8 @@ repos:
     hooks:
       - id: check-added-large-files
       - id: check-ast
+      - id: check-merge-conflict
+      - id: check-yaml
       - id: check-builtin-literals
       - id: check-case-conflict
       - id: check-docstring-first
@@ -41,7 +43,6 @@ repos:
       - id: python-check-mock-methods
       - id: python-use-type-annotations
       - id: python-check-blanket-noqa
-      - id: python-use-type-annotations
       - id: text-unicode-replacement-char
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
@@ -50,7 +51,7 @@ repos:
         additional_dependencies: ["tomli"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.15.0
+    rev: v0.15.2
     hooks:
       # Run the linter.
       - id: ruff-check
@@ -58,6 +59,12 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.19.1
+    hooks:
+      - id: pyupgrade
+        args: [--py310-plus]
+        exclude: ^(tests|benchmark)/
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.19.1
     hooks:
