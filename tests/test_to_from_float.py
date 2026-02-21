@@ -7,7 +7,7 @@ from albucore.functions import from_float, from_float_numpy, from_float_opencv, 
 import cv2
 
 CHANNELS = [1, 3, 5]
-DTYPES = [np.uint8, np.uint16]
+DTYPES = [np.uint8, np.float32]
 BATCHES = [0, 2]
 
 
@@ -70,9 +70,9 @@ def test_to_float_lut_uint8_only(channels, batch):
     result_uint8 = to_float_lut(img_uint8, MAX_VALUES_BY_DTYPE[np.uint8])
     assert result_uint8.dtype == np.float32
 
-    # Should raise an error for uint16
+    # Should raise an error for uint16 (unsupported dtype)
     with pytest.raises(ValueError):
-        to_float_lut(img_uint16, MAX_VALUES_BY_DTYPE[np.uint16])
+        to_float_lut(img_uint16, 65535.0)
 
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
@@ -122,7 +122,7 @@ def test_from_float_numpy_vs_opencv(dtype, channels, batch):
     assert opencv_result.dtype == dtype
     assert result.dtype == dtype
 
-@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("dtype", [np.uint8])  # float32 roundtrip is lossy (quantizes to 0/1)
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
 def test_to_float_from_float_roundtrip(dtype, channels, batch):

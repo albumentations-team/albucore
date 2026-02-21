@@ -22,36 +22,21 @@ ImageUInt8: TypeAlias = NDArray[uint8]
 ImageFloat32: TypeAlias = NDArray[float32]
 ImageType: TypeAlias = ImageUInt8 | ImageFloat32
 
-# Supported dtypes
+# Supported dtypes — uint8 and float32 only
 SupportedDType: TypeAlias = np.dtype[np.uint8] | np.dtype[np.float32]
 
-MAX_VALUES_BY_DTYPE = {
+MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
     np.dtype("uint8"): 255,
-    np.dtype("uint16"): 65535,
-    np.dtype("uint32"): 4294967295,
-    np.dtype("float16"): 1.0,
     np.dtype("float32"): 1.0,
-    np.dtype("float64"): 1.0,
     np.uint8: 255,
-    np.uint16: 65535,
-    np.uint32: 4294967295,
-    np.float16: 1.0,
     np.float32: 1.0,
-    np.float64: 1.0,
-    np.int32: 2147483647,
 }
 
-NPDTYPE_TO_OPENCV_DTYPE = {
+NPDTYPE_TO_OPENCV_DTYPE: dict[np.dtype | type, int] = {
     np.uint8: cv2.CV_8U,
-    np.uint16: cv2.CV_16U,
     np.float32: cv2.CV_32F,
-    np.float64: cv2.CV_64F,
-    np.int32: cv2.CV_32S,
     np.dtype("uint8"): cv2.CV_8U,
-    np.dtype("uint16"): cv2.CV_16U,
     np.dtype("float32"): cv2.CV_32F,
-    np.dtype("float64"): cv2.CV_64F,
-    np.dtype("int32"): cv2.CV_32S,
 }
 
 
@@ -82,7 +67,8 @@ def maybe_process_in_chunks(
 
         num_channels = img.shape[-1]
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-            chunks = []
+            out: np.ndarray | None = None
+            offset = 0
             for index in range(0, num_channels, 4):
                 if num_channels - index == TWO:
                     # Many OpenCV functions cannot work with 2-channel images
@@ -90,12 +76,21 @@ def maybe_process_in_chunks(
                         chunk = img[:, :, index + i : index + i + 1]
                         chunk = process_fn(chunk, *all_args, **all_kwargs)
                         chunk = np.expand_dims(chunk, -1)
-                        chunks.append(chunk)
+                        if out is None:
+                            out = np.empty((*chunk.shape[:2], num_channels), dtype=img.dtype)
+                        out[:, :, offset : offset + 1] = chunk
+                        offset += 1
                 else:
                     chunk = img[:, :, index : index + 4]
                     chunk = process_fn(chunk, *all_args, **all_kwargs)
-                    chunks.append(chunk)
-            return np.dstack(chunks)
+                    if chunk.ndim == 2:
+                        chunk = np.expand_dims(chunk, -1)
+                    if out is None:
+                        out = np.empty((*chunk.shape[:2], num_channels), dtype=img.dtype)
+                    n = chunk.shape[-1]
+                    out[:, :, offset : offset + n] = chunk
+                    offset += n
+            return out
 
         return process_fn(img, *all_args, **all_kwargs)
 
