@@ -104,7 +104,7 @@ def test_warp_affine_shape(channels: int, rng: np.random.Generator) -> None:
     img = make_image(16, 16, channels, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
     dsize = (16, 16)
-    result = warp_affine(img, M, dsize, borderValue=0)
+    result = warp_affine(img, M, dsize, border_value=0)
     assert result.shape == (16, 16, channels)
 
 
@@ -117,7 +117,7 @@ def test_warp_affine_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
     expected = cv2.warpAffine(img, M, dsize, flags=cv2.INTER_LINEAR, borderValue=0)
     if channels == 1 and expected.ndim == 2:
         expected = np.expand_dims(expected, -1)
-    result = warp_affine(img, M, dsize, flags=cv2.INTER_LINEAR, borderValue=0)
+    result = warp_affine(img, M, dsize, flags=cv2.INTER_LINEAR, border_value=0)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -130,7 +130,7 @@ def test_warp_affine_interpolations(flags: int, rng: np.random.Generator) -> Non
     """warp_affine works with INTER_NEAREST, INTER_LINEAR, INTER_AREA for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.float32([[1, 0, 0], [0, 1, 0]])
-    result = warp_affine(img, M, (16, 16), flags=flags, borderValue=0)
+    result = warp_affine(img, M, (16, 16), flags=flags, border_value=0)
     assert result.shape == (16, 16, 8)
 
 
@@ -139,7 +139,7 @@ def test_warp_affine_border_values(border_value: int | tuple, rng: np.random.Gen
     """warp_affine accepts scalar and len<=4 borderValue for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
-    result = warp_affine(img, M, (16, 16), borderValue=border_value)
+    result = warp_affine(img, M, (16, 16), border_value=border_value)
     assert result.shape == (16, 16, 8)
 
 
@@ -148,7 +148,7 @@ def test_warp_affine_per_channel_border_value(rng: np.random.Generator) -> None:
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
     border_value = tuple(range(8))  # per-channel
-    result = warp_affine(img, M, (16, 16), borderValue=border_value)
+    result = warp_affine(img, M, (16, 16), border_value=border_value)
     assert result.shape == (16, 16, 8)
 
 
@@ -156,7 +156,7 @@ def test_warp_affine_preserve_channel_dim(rng: np.random.Generator) -> None:
     """warp_affine preserves (H, W, 1) for grayscale."""
     img = make_image(16, 16, 1, np.uint8, rng)
     M = np.float32([[1, 0, 0], [0, 1, 0]])
-    result = warp_affine(img, M, (16, 16), borderValue=0)
+    result = warp_affine(img, M, (16, 16), border_value=0)
     assert result.shape == (16, 16, 1)
 
 
@@ -173,7 +173,7 @@ def test_warp_perspective_shape(channels: int, rng: np.random.Generator) -> None
     M[0, 2] = 1
     M[1, 2] = 1
     dsize = (16, 16)
-    result = warp_perspective(img, M, dsize, borderValue=0)
+    result = warp_perspective(img, M, dsize, border_value=0)
     assert result.shape == (16, 16, channels)
 
 
@@ -188,7 +188,7 @@ def test_warp_perspective_equiv_cv2(channels: int, rng: np.random.Generator) -> 
     expected = cv2.warpPerspective(img, M, dsize, borderValue=0)
     if channels == 1 and expected.ndim == 2:
         expected = np.expand_dims(expected, -1)
-    result = warp_perspective(img, M, dsize, borderValue=0)
+    result = warp_perspective(img, M, dsize, border_value=0)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -197,7 +197,7 @@ def test_warp_perspective_per_channel_border_value(rng: np.random.Generator) -> 
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.eye(3, dtype=np.float32)
     border_value = (0,) * 8
-    result = warp_perspective(img, M, (16, 16), borderValue=border_value)
+    result = warp_perspective(img, M, (16, 16), border_value=border_value)
     assert result.shape == (16, 16, 8)
 
 
@@ -300,7 +300,7 @@ def test_warp_affine_dsize_change(rng: np.random.Generator) -> None:
     """warp_affine with different dsize produces correct shape."""
     img = make_image(32, 32, 3, np.uint8, rng)
     M = np.float32([[0.5, 0, 0], [0, 0.5, 0]])
-    result = warp_affine(img, M, (16, 16), borderValue=0)
+    result = warp_affine(img, M, (16, 16), border_value=0)
     assert result.shape == (16, 16, 3)
 
 

@@ -5,7 +5,7 @@ cv2.copyMakeBorder, cv2.remap. Chunking when OpenCV limits apply.
 blur, GaussianBlur, resize, filter2D work out of the box for >4ch — use cv2 directly.
 Run: python tools/verify_opencv_channel_limits.py
 """
-# ruff: noqa: N803, PLR0911, PLR0913  # cv2 API uses M, borderMode, borderValue; chunked fns need many args
+# ruff: noqa: PLR0911 PLR0913  # chunked fns need many args
 
 import cv2
 import numpy as np
@@ -93,13 +93,13 @@ def median_blur(img: ImageType, ksize: int, inplace: bool = False) -> ImageType:
 
 def _warp_affine_chunked(
     img: ImageType,
-    M: np.ndarray,
+    m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
-    borderMode: int,
-    borderValue: tuple[float, ...] | np.ndarray | None,
+    border_mode: int,
+    border_value: tuple[float, ...] | np.ndarray | None,
 ) -> ImageType:
-    """Chunk warpAffine when per-channel borderValue has len > 4.
+    """Chunk warpAffine when per-channel border_value has len > 4.
 
     OpenCV warpAffine accepts at most 4 border values. When the user passes
     per-channel values (e.g. (r,g,b,a,b2,b3,...) for 8ch), we must process in
@@ -111,11 +111,11 @@ def _warp_affine_chunked(
 
     Args:
         img: (H, W, C) image.
-        M: 2x3 affine matrix.
+        m: 2x3 affine matrix.
         dsize: (width, height) output size.
         flags: Interpolation flags.
-        borderMode: cv2.BORDER_* constant.
-        borderValue: Per-channel values, len == C. Flattened to 1D.
+        border_mode: cv2.BORDER_* constant.
+        border_value: Per-channel values, len == C. Flattened to 1D.
 
     Returns:
         Warped image (dsize[1], dsize[0], C).
@@ -123,13 +123,13 @@ def _warp_affine_chunked(
     num_channels = img.shape[-1]
     result: np.ndarray | None = None
     offset = 0
-    val = np.array(borderValue, dtype=np.float64).flatten() if borderValue is not None else None
+    val = np.array(border_value, dtype=np.float64).flatten() if border_value is not None else None
     for i in range(0, num_channels, 4):
         if num_channels - i == 2:
             for j in range(2):
                 ch = img[:, :, i + j : i + j + 1]
                 bv = (float(val[i + j]),) * 4 if val is not None else 0
-                out = cv2.warpAffine(ch, M, dsize, flags=flags, borderMode=borderMode, borderValue=bv)
+                out = cv2.warpAffine(ch, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv)
                 out = np.expand_dims(out, -1)
                 if result is None:
                     result = np.empty((*out.shape[:2], num_channels), dtype=img.dtype)
@@ -138,7 +138,7 @@ def _warp_affine_chunked(
         else:
             ch = img[:, :, i : min(i + 4, num_channels)]
             bv = tuple(val[i : i + 4].tolist()) if val is not None and len(val) >= i + 4 else 0
-            out = cv2.warpAffine(ch, M, dsize, flags=flags, borderMode=borderMode, borderValue=bv or 0)
+            out = cv2.warpAffine(ch, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv or 0)
             if result is None:
                 result = np.empty((*out.shape[:2], num_channels), dtype=img.dtype)
             n = out.shape[-1]
@@ -150,69 +150,69 @@ def _warp_affine_chunked(
 @preserve_channel_dim
 def warp_affine(
     img: ImageType,
-    M: np.ndarray,
+    m: np.ndarray,
     dsize: tuple[int, int],
     flags: int = cv2.INTER_LINEAR,
-    borderMode: int = cv2.BORDER_CONSTANT,
-    borderValue: float | tuple[float, ...] | np.ndarray | None = None,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
 ) -> ImageType:
     """Affine warp. Drop-in for cv2.warpAffine with multi-channel support.
 
     OpenCV warpAffine accepts >4 channels when:
     - Interpolation is INTER_NEAREST, INTER_LINEAR, or INTER_AREA
-    - borderValue is scalar or len <= 4
+    - border_value is scalar or len <= 4
 
     We chunk when:
     - C > 4 AND (flags in {INTER_CUBIC, INTER_LANCZOS4, INTER_LINEAR_EXACT} OR bv is None)
-    - bv is None: per-channel borderValue len>4 → _warp_affine_chunked
-    - bv is not None: uniform borderValue → maybe_process_in_chunks
+    - bv is None: per-channel border_value len>4 → _warp_affine_chunked
+    - bv is not None: uniform border_value → maybe_process_in_chunks
 
     Args:
         img: (H, W, C) image. uint8 or float32.
-        M: 2x3 affine transformation matrix.
+        m: 2x3 affine transformation matrix.
         dsize: (width, height) output size.
         flags: Interpolation flags (cv2.INTER_*).
-        borderMode: Border mode (cv2.BORDER_*).
-        borderValue: Scalar, tuple, or array. Per-channel len>4 triggers chunking.
+        border_mode: Border mode (cv2.BORDER_*).
+        border_value: Scalar, tuple, or array. Per-channel len>4 triggers chunking.
 
     Returns:
         Warped image, shape (dsize[1], dsize[0], C).
     """
     num_channels = get_num_channels(img)
-    bv = _border_value_for_cv2(borderValue, num_channels) if borderValue is not None else 0
+    bv = _border_value_for_cv2(border_value, num_channels) if border_value is not None else 0
 
     needs_chunk = num_channels > MAX_OPENCV_WORKING_CHANNELS and (flags in _INTERP_NEEDS_CHUNK or bv is None)
     if needs_chunk:
         if bv is None:
-            return _warp_affine_chunked(img, M, dsize, flags, borderMode, borderValue)
+            return _warp_affine_chunked(img, m, dsize, flags, border_mode, border_value)
         return maybe_process_in_chunks(
             cv2.warpAffine,
-            M=M,
+            M=m,
             dsize=dsize,
             flags=flags,
-            borderMode=borderMode,
+            borderMode=border_mode,
             borderValue=bv,
         )(img)
 
-    return cv2.warpAffine(img, M, dsize, flags=flags, borderMode=borderMode, borderValue=bv or 0)
+    return cv2.warpAffine(img, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv or 0)
 
 
 def _warp_perspective_chunked(
     img: ImageType,
-    M: np.ndarray,
+    m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
-    borderMode: int,
-    borderValue: tuple[float, ...] | np.ndarray,
+    border_mode: int,
+    border_value: tuple[float, ...] | np.ndarray,
 ) -> ImageType:
-    """Chunk warpPerspective when per-channel borderValue has len > 4.
+    """Chunk warpPerspective when per-channel border_value has len > 4.
 
     Same logic as _warp_affine_chunked: split into chunks of 4 (or 1 when
-    remainder is 2), apply per-channel borderValue slice to each, pre-allocate
-    output, copy chunks into place. borderValue is required (not None).
+    remainder is 2), apply per-channel border_value slice to each, pre-allocate
+    output, copy chunks into place. border_value is required (not None).
     """
     num_channels = img.shape[-1]
-    val = np.array(borderValue, dtype=np.float64).flatten()
+    val = np.array(border_value, dtype=np.float64).flatten()
     result: np.ndarray | None = None
     offset = 0
     for i in range(0, num_channels, 4):
@@ -220,7 +220,7 @@ def _warp_perspective_chunked(
             for j in range(2):
                 ch = img[:, :, i + j : i + j + 1]
                 bv = (float(val[i + j]),) * 4
-                out = cv2.warpPerspective(ch, M, dsize, flags=flags, borderMode=borderMode, borderValue=bv)
+                out = cv2.warpPerspective(ch, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv)
                 out = np.expand_dims(out, -1)
                 if result is None:
                     result = np.empty((*out.shape[:2], num_channels), dtype=img.dtype)
@@ -229,7 +229,7 @@ def _warp_perspective_chunked(
         else:
             ch = img[:, :, i : min(i + 4, num_channels)]
             bv = tuple(val[i : i + 4].tolist())
-            out = cv2.warpPerspective(ch, M, dsize, flags=flags, borderMode=borderMode, borderValue=bv)
+            out = cv2.warpPerspective(ch, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv)
             if result is None:
                 result = np.empty((*out.shape[:2], num_channels), dtype=img.dtype)
             n = out.shape[-1]
@@ -241,43 +241,43 @@ def _warp_perspective_chunked(
 @preserve_channel_dim
 def warp_perspective(
     img: ImageType,
-    M: np.ndarray,
+    m: np.ndarray,
     dsize: tuple[int, int],
     flags: int = cv2.INTER_LINEAR,
-    borderMode: int = cv2.BORDER_CONSTANT,
-    borderValue: float | tuple[float, ...] | np.ndarray | None = None,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
 ) -> ImageType:
     """Perspective warp. Drop-in for cv2.warpPerspective with multi-channel support.
 
     OpenCV warpPerspective has a 4-channel limit on some builds (CI). For C > 4,
-    we chunk into groups of 4 and reassemble. If borderValue is per-channel (len>4),
+    we chunk into groups of 4 and reassemble. If border_value is per-channel (len>4),
     use _warp_perspective_chunked; otherwise maybe_process_in_chunks with uniform bv.
 
     Args:
         img: (H, W, C) image.
-        M: 3x3 perspective matrix.
+        m: 3x3 perspective matrix.
         dsize: (width, height) output size.
         flags: Interpolation flags.
-        borderMode: Border mode.
-        borderValue: Scalar, tuple, or array. Per-channel len>4 → chunked path.
+        border_mode: Border mode.
+        border_value: Scalar, tuple, or array. Per-channel len>4 → chunked path.
 
     Returns:
         Warped image, shape (dsize[1], dsize[0], C).
     """
     num_channels = get_num_channels(img)
-    bv = _border_value_for_cv2(borderValue, num_channels) if borderValue is not None else 0
+    bv = _border_value_for_cv2(border_value, num_channels) if border_value is not None else 0
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         if bv is None:
-            return _warp_perspective_chunked(img, M, dsize, flags, borderMode, borderValue)
+            return _warp_perspective_chunked(img, m, dsize, flags, border_mode, border_value)
         return maybe_process_in_chunks(
             cv2.warpPerspective,
-            M=M,
+            M=m,
             dsize=dsize,
             flags=flags,
-            borderMode=borderMode,
+            borderMode=border_mode,
             borderValue=bv,
         )(img)
-    return cv2.warpPerspective(img, M, dsize, flags=flags, borderMode=borderMode, borderValue=bv or 0)
+    return cv2.warpPerspective(img, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv or 0)
 
 
 def _copy_make_border_chunked(
@@ -286,7 +286,7 @@ def _copy_make_border_chunked(
     bottom: int,
     left: int,
     right: int,
-    borderType: int,
+    border_type: int,
     value: tuple[float, ...] | np.ndarray,
 ) -> ImageType:
     """Chunk copyMakeBorder when per-channel value has len > 4.
@@ -304,7 +304,7 @@ def _copy_make_border_chunked(
             for j in range(2):
                 ch = img[:, :, i + j : i + j + 1]
                 v = (float(val[i + j]),) * 4
-                out = cv2.copyMakeBorder(ch, top, bottom, left, right, borderType=borderType, value=v)
+                out = cv2.copyMakeBorder(ch, top, bottom, left, right, borderType=border_type, value=v)
                 out = np.expand_dims(out, -1)
                 if result is None:
                     result = np.empty((*out.shape[:2], num_channels), dtype=img.dtype)
@@ -313,7 +313,7 @@ def _copy_make_border_chunked(
         else:
             ch = img[:, :, i : min(i + 4, num_channels)]
             v = tuple(val[i : i + 4].tolist())
-            out = cv2.copyMakeBorder(ch, top, bottom, left, right, borderType=borderType, value=v)
+            out = cv2.copyMakeBorder(ch, top, bottom, left, right, borderType=border_type, value=v)
             if result is None:
                 result = np.empty((*out.shape[:2], num_channels), dtype=img.dtype)
             n = out.shape[-1]
@@ -329,7 +329,7 @@ def copy_make_border(
     bottom: int,
     left: int,
     right: int,
-    borderType: int = cv2.BORDER_CONSTANT,
+    border_type: int = cv2.BORDER_CONSTANT,
     value: float | tuple[float, ...] | np.ndarray | None = None,
 ) -> ImageType:
     """Pad image with border. Drop-in for cv2.copyMakeBorder with multi-channel support.
@@ -344,7 +344,7 @@ def copy_make_border(
         bottom: Padding in pixels on bottom.
         left: Padding in pixels on left.
         right: Padding in pixels on right.
-        borderType: cv2.BORDER_CONSTANT, BORDER_REPLICATE, etc.
+        border_type: cv2.BORDER_CONSTANT, BORDER_REPLICATE, etc.
         value: Fill value for BORDER_CONSTANT. Scalar or per-channel array.
 
     Returns:
@@ -354,14 +354,14 @@ def copy_make_border(
     bv = _border_value_for_cv2(value, num_channels) if value is not None else 0
 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS and bv is None:
-        return _copy_make_border_chunked(img, top, bottom, left, right, borderType, value)
+        return _copy_make_border_chunked(img, top, bottom, left, right, border_type, value)
     return cv2.copyMakeBorder(
         img,
         top,
         bottom,
         left,
         right,
-        borderType=borderType,
+        borderType=border_type,
         value=bv if value is not None else 0,
     )
 
@@ -372,7 +372,7 @@ def remap(
     map_x: np.ndarray,
     map_y: np.ndarray,
     interpolation: int = cv2.INTER_LINEAR,
-    borderMode: int = cv2.BORDER_CONSTANT,
+    border_mode: int = cv2.BORDER_CONSTANT,
 ) -> ImageType:
     """Remap image. Drop-in for cv2.remap with multi-channel support.
 
@@ -385,7 +385,7 @@ def remap(
         map_x: X-coordinate map, shape (H, W), float32.
         map_y: Y-coordinate map, shape (H, W), float32.
         interpolation: cv2.INTER_*.
-        borderMode: cv2.BORDER_*.
+        border_mode: cv2.BORDER_*.
 
     Returns:
         Remapped image, same shape as input.
@@ -397,6 +397,6 @@ def remap(
             map_x,
             map_y,
             interpolation=interpolation,
-            borderMode=borderMode,
+            borderMode=border_mode,
         )(img)
-    return cv2.remap(img, map_x, map_y, interpolation=interpolation, borderMode=borderMode)
+    return cv2.remap(img, map_x, map_y, interpolation=interpolation, borderMode=border_mode)
