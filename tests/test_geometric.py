@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from itertools import product
+
 import pytest
 import cv2
 import numpy as np
@@ -146,6 +149,463 @@ def test_warp_affine_3x3_matrix_rotation(rng: np.random.Generator) -> None:
     result_2x3 = warp_affine(img, M_2x3, (16, 16), border_value=0)
     result_3x3 = warp_affine(img, M_3x3, (16, 16), border_value=0)
     np.testing.assert_array_equal(result_2x3, result_3x3)
+
+
+# From Albumentations geometric tests (fgeometric.warp_affine -> albucore.warp_affine)
+_WARP_AFFINE_IMAGE_SHAPES = [(100, 100, 1), (100, 100, 2), (100, 100, 3), (100, 100, 7)]
+_WARP_AFFINE_TRANSFORM_PARAMS = [
+    (0, (0, 0), 1, (0, 0), (100, 100)),  # No change
+    (45, (0, 0), 1, (0, 0), (100, 100)),  # Rotation
+    (0, (10, 10), 1, (0, 0), (100, 100)),  # Translation
+    (0, (0, 0), 2, (0, 0), (200, 200)),  # Scaling
+    (0, (0, 0), 1, (20, 0), (100, 100)),  # Shear in x only
+    (0, (0, 0), 1, (0, 20), (100, 100)),  # Shear in y only
+    (0, (0, 0), 1, (20, 20), (100, 100)),  # Shear in both x and y
+]
+
+
+@pytest.mark.parametrize(
+    "params,image_shape",
+    list(product(_WARP_AFFINE_TRANSFORM_PARAMS, _WARP_AFFINE_IMAGE_SHAPES)),
+)
+def test_warp_affine_transforms(params: tuple, image_shape: tuple[int, ...]) -> None:
+    """warp_affine with create_affine_transformation_matrix produces correct output shape."""
+    angle, translation, scale, shear, output_shape = params
+    image = np.ones(image_shape, dtype=np.uint8) * 255
+
+    translate: Mapping[str, float] = {"x": translation[0], "y": translation[1]}
+    shear_dict: Mapping[str, float] = {"x": shear[0], "y": shear[1]}
+    scale_dict: Mapping[str, float] = {"x": scale, "y": scale}
+    shift = _center(image_shape)
+
+    affine_matrix = _create_affine_matrix(
+        translate=translate,
+        shear=shear_dict,
+        scale=scale_dict,
+        rotate=angle,
+        shift=shift,
+    )
+
+    height_out, width_out = output_shape
+    warped = warp_affine(
+        image,
+        affine_matrix,
+        dsize=(width_out, height_out),
+        flags=cv2.INTER_LINEAR,
+        border_value=0,
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+
+    assert warped.shape[:2] == output_shape
+
+
+@pytest.mark.parametrize("image_shape", _WARP_AFFINE_IMAGE_SHAPES)
+@pytest.mark.parametrize(
+    "translation,padding_value",
+    [
+        ((10, 0), 0),
+        ((-10, 0), 0),
+        ((0, 10), 0),
+        ((0, -10), 0),
+    ],
+)
+def test_warp_affine_edge_padding(
+    image_shape: tuple[int, ...],
+    translation: tuple[int, int],
+    padding_value: int,
+) -> None:
+    """warp_affine applies correct edge padding for translation."""
+    image = np.ones(image_shape, dtype=np.uint8) * 255
+
+    translate: Mapping[str, float] = {"x": translation[0], "y": translation[1]}
+    shear_dict: Mapping[str, float] = {"x": 0, "y": 0}
+    scale_dict: Mapping[str, float] = {"x": 1, "y": 1}
+    shift = _center(image_shape)
+
+    affine_matrix = _create_affine_matrix(
+        translate=translate,
+        shear=shear_dict,
+        scale=scale_dict,
+        rotate=0,
+        shift=shift,
+    )
+
+    height, width = image_shape[:2]
+    warped = warp_affine(
+        image,
+        affine_matrix,
+        dsize=(width, height),
+        flags=cv2.INTER_LINEAR,
+        border_value=padding_value,
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+
+    if translation[0] > 0:
+        assert np.all(warped[:, : translation[0]] == padding_value)
+    elif translation[0] < 0:
+        assert np.all(warped[:, translation[0] :] == padding_value)
+    if translation[1] > 0:
+        assert np.all(warped[: translation[1], :] == padding_value)
+    elif translation[1] < 0:
+        assert np.all(warped[translation[1] :, :] == padding_value)
+
+    if translation[0] > 0:
+        assert np.all(warped[:, translation[0] :] == 255)
+    elif translation[0] < 0:
+        assert np.all(warped[:, : translation[0]] == 255)
+    if translation[1] > 0:
+        assert np.all(warped[translation[1] :, :] == 255)
+    elif translation[1] < 0:
+        assert np.all(warped[: translation[1], :] == 255)
+
+
+# Helpers for warp_affine integration tests (match Albumentations create_affine_transformation_matrix)
+def _center(image_shape: tuple[int, ...]) -> tuple[float, float]:
+    """Center (x, y) for image. Matches albumentations geometric.functional.center."""
+    height, width = image_shape[:2]
+    return width / 2 - 0.5, height / 2 - 0.5
+
+
+def _create_affine_matrix(
+    translate: Mapping[str, float],
+    shear: Mapping[str, float],
+    scale: Mapping[str, float],
+    rotate: float,
+    shift: tuple[float, float],
+) -> np.ndarray:
+    """3x3 affine matrix. Matches albumentations create_affine_transformation_matrix."""
+    rotate_rad = np.deg2rad(rotate % 360)
+    shear_x_rad = np.deg2rad(shear["x"])
+    shear_y_rad = np.deg2rad(shear["y"])
+
+    m_shift_topleft = np.array([[1, 0, -shift[0]], [0, 1, -shift[1]], [0, 0, 1]], dtype=np.float32)
+    m_scale = np.array([[scale["x"], 0, 0], [0, scale["y"], 0], [0, 0, 1]], dtype=np.float32)
+    m_rotate = np.array(
+        [
+            [np.cos(rotate_rad), np.sin(rotate_rad), 0],
+            [-np.sin(rotate_rad), np.cos(rotate_rad), 0],
+            [0, 0, 1],
+        ],
+        dtype=np.float32,
+    )
+    m_shear = np.array(
+        [[1, np.tan(shear_x_rad), 0], [np.tan(shear_y_rad), 1, 0], [0, 0, 1]],
+        dtype=np.float32,
+    )
+    m_translate = np.array(
+        [[1, 0, translate["x"]], [0, 1, translate["y"]], [0, 0, 1]],
+        dtype=np.float32,
+    )
+    m_shift_center = np.array([[1, 0, shift[0]], [0, 1, shift[1]], [0, 0, 1]], dtype=np.float32)
+
+    m = m_shift_center @ m_translate @ m_shear @ m_rotate @ m_scale @ m_shift_topleft
+    m[2] = [0, 0, 1]
+    return m
+
+
+def _ensure_hwc(img: np.ndarray) -> np.ndarray:
+    """Ensure image has shape (H, W, C) for albucore."""
+    if img.ndim == 2:
+        return np.expand_dims(img, -1)
+    return img
+
+
+@pytest.mark.parametrize("image_shape", [(100, 100, 3)])  # 1ch has lower IoU after round-trip
+@pytest.mark.parametrize("angle", [45, 90, 180])
+@pytest.mark.parametrize("shape", ["circle", "rectangle"])
+@pytest.mark.parametrize("scale", [1, 0.8, 1.2])
+def test_warp_affine_inverse_angle_scale(
+    image_shape: tuple[int, ...],
+    angle: int,
+    shape: str,
+    scale: float,
+) -> None:
+    """Forward then inverse affine (rotate+scale) restores image (IoU > 0.97)."""
+    image = np.zeros(image_shape, dtype=np.uint8)
+    if shape == "rectangle":
+        cv2.rectangle(image, (25, 25), (75, 75), 255, -1)
+    else:
+        cv2.circle(image, (50, 50), 25, 255, -1)
+
+    center_pt = _center(image_shape)
+    forward_matrix = _create_affine_matrix(
+        translate={"x": 0, "y": 0},
+        shear={"x": 0, "y": 0},
+        scale={"x": scale, "y": scale},
+        rotate=angle,
+        shift=center_pt,
+    )
+    inverse_matrix = _create_affine_matrix(
+        translate={"x": 0, "y": 0},
+        shear={"x": 0, "y": 0},
+        scale={"x": 1 / scale, "y": 1 / scale},
+        rotate=-angle,
+        shift=center_pt,
+    )
+
+    height, width = image_shape[:2]
+    img_hwc = _ensure_hwc(image)
+    warped = warp_affine(
+        img_hwc,
+        forward_matrix,
+        flags=cv2.INTER_NEAREST,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    restored = warp_affine(
+        warped,
+        inverse_matrix,
+        flags=cv2.INTER_NEAREST,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+
+    intersection = np.logical_and(image > 0, restored.squeeze() > 0)
+    union = np.logical_or(image > 0, restored.squeeze() > 0)
+    iou = np.sum(intersection) / np.sum(union)
+    assert iou > 0.97, f"IoU {iou} too low"
+
+
+@pytest.mark.parametrize(
+    "img,expected",
+    [
+        (
+            np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]], dtype=np.uint8),
+            np.array([[4, 8, 12, 16], [3, 7, 11, 15], [2, 6, 10, 14], [1, 5, 9, 13]], dtype=np.uint8),
+        ),
+        (
+            np.array(
+                [
+                    [0.01, 0.02, 0.03, 0.04],
+                    [0.05, 0.06, 0.07, 0.08],
+                    [0.09, 0.10, 0.11, 0.12],
+                    [0.13, 0.14, 0.15, 0.16],
+                ],
+                dtype=np.float32,
+            ),
+            np.array(
+                [
+                    [0.04, 0.08, 0.12, 0.16],
+                    [0.03, 0.07, 0.11, 0.15],
+                    [0.02, 0.06, 0.10, 0.14],
+                    [0.01, 0.05, 0.09, 0.13],
+                ],
+                dtype=np.float32,
+            ),
+        ),
+    ],
+)
+def test_warp_affine_rotate_90(img: np.ndarray, expected: np.ndarray) -> None:
+    """90 deg rotation with warp_affine matches expected."""
+    angle = 90
+    center_pt = _center(img.shape[:2])
+    transform = _create_affine_matrix(
+        translate={"x": 0, "y": 0},
+        shear={"x": 0, "y": 0},
+        scale={"x": 1, "y": 1},
+        rotate=angle,
+        shift=center_pt,
+    )
+    height, width = img.shape[:2]
+    img_hwc = _ensure_hwc(img)
+    result = warp_affine(
+        img_hwc,
+        transform,
+        flags=cv2.INTER_LINEAR,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    out = result.squeeze() if result.shape[-1] == 1 else result
+    np.testing.assert_array_almost_equal(out, expected, decimal=5)
+
+
+@pytest.mark.parametrize(
+    "img,expected,translate",
+    [
+        (
+            np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]], dtype=np.uint8),
+            np.array([[0, 0, 1, 2], [0, 0, 5, 6], [0, 0, 9, 10], [0, 0, 13, 14]], dtype=np.uint8),
+            (0, 2),
+        ),
+        (
+            np.array(
+                [
+                    [0.01, 0.02, 0.03, 0.04],
+                    [0.05, 0.06, 0.07, 0.08],
+                    [0.09, 0.10, 0.11, 0.12],
+                    [0.13, 0.14, 0.15, 0.16],
+                ],
+                dtype=np.float32,
+            ),
+            np.array(
+                [
+                    [0.00, 0.00, 0.01, 0.02],
+                    [0.00, 0.00, 0.05, 0.06],
+                    [0.00, 0.00, 0.09, 0.10],
+                    [0.00, 0.00, 0.13, 0.14],
+                ],
+                dtype=np.float32,
+            ),
+            (0, 2),
+        ),
+        (
+            np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]], dtype=np.uint8),
+            np.array([[0, 0, 0, 0], [0, 0, 0, 0], [1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.uint8),
+            (2, 0),
+        ),
+        (
+            np.array(
+                [
+                    [0.01, 0.02, 0.03, 0.04],
+                    [0.05, 0.06, 0.07, 0.08],
+                    [0.09, 0.10, 0.11, 0.12],
+                    [0.13, 0.14, 0.15, 0.16],
+                ],
+                dtype=np.float32,
+            ),
+            np.array(
+                [
+                    [0.00, 0.00, 0.00, 0.00],
+                    [0.00, 0.00, 0.00, 0.00],
+                    [0.01, 0.02, 0.03, 0.04],
+                    [0.05, 0.06, 0.07, 0.08],
+                ],
+                dtype=np.float32,
+            ),
+            (2, 0),
+        ),
+    ],
+)
+def test_warp_affine_translate(img: np.ndarray, expected: np.ndarray, translate: tuple[int, int]) -> None:
+    """Translation with warp_affine matches expected."""
+    transform = _create_affine_matrix(
+        translate={"x": translate[1], "y": translate[0]},
+        shear={"x": 0, "y": 0},
+        scale={"x": 1, "y": 1},
+        rotate=0,
+        shift=(0, 0),
+    )
+    height, width = img.shape[:2]
+    img_hwc = _ensure_hwc(img)
+    result = warp_affine(
+        img_hwc,
+        transform,
+        flags=cv2.INTER_LINEAR,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    out = result.squeeze() if result.shape[-1] == 1 else result
+    np.testing.assert_array_almost_equal(out, expected, decimal=5)
+
+
+@pytest.mark.parametrize("image_shape", [(100, 100, 1), (100, 100, 3)])
+@pytest.mark.parametrize("shape", ["circle", "rectangle"])
+@pytest.mark.parametrize("shear", [0, 20, -20])
+def test_warp_affine_inverse_shear(
+    image_shape: tuple[int, ...],
+    shear: int,
+    shape: str,
+) -> None:
+    """Forward then inverse shear restores image."""
+    image = np.zeros(image_shape, dtype=np.uint8)
+    if shape == "rectangle":
+        cv2.rectangle(image, (25, 25), (75, 75), 255, -1)
+    else:
+        cv2.circle(image, (50, 50), 25, 255, -1)
+
+    center_pt = _center(image_shape[:2])
+    forward_matrix = _create_affine_matrix(
+        translate={"x": 0, "y": 0},
+        shear={"x": shear, "y": 0},
+        scale={"x": 1, "y": 1},
+        rotate=0,
+        shift=center_pt,
+    )
+    inverse_matrix = _create_affine_matrix(
+        translate={"x": 0, "y": 0},
+        shear={"x": -shear, "y": 0},
+        scale={"x": 1, "y": 1},
+        rotate=0,
+        shift=center_pt,
+    )
+
+    height, width = image_shape[:2]
+    warped = warp_affine(
+        image,
+        forward_matrix,
+        flags=cv2.INTER_NEAREST,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    restored = warp_affine(
+        warped,
+        inverse_matrix,
+        flags=cv2.INTER_NEAREST,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    np.testing.assert_allclose(image, restored, atol=1)
+    if shear != 0:
+        assert not np.array_equal(image, warped)
+
+
+@pytest.mark.parametrize("image_shape", [(100, 100, 1), (100, 100, 3)])
+@pytest.mark.parametrize("shape", ["circle", "rectangle"])
+@pytest.mark.parametrize("translate", [(0, 0), (10, -10), (-10, 10)])
+def test_warp_affine_inverse_translate(
+    image_shape: tuple[int, ...],
+    translate: tuple[int, int],
+    shape: str,
+) -> None:
+    """Forward then inverse translation restores image."""
+    image = np.zeros(image_shape, dtype=np.uint8)
+    if shape == "rectangle":
+        cv2.rectangle(image, (25, 25), (75, 75), 255, -1)
+    else:
+        cv2.circle(image, (50, 50), 25, 255, -1)
+
+    center_pt = _center(image_shape[:2])
+    forward_matrix = _create_affine_matrix(
+        translate={"x": translate[0], "y": translate[1]},
+        shear={"x": 0, "y": 0},
+        scale={"x": 1, "y": 1},
+        rotate=0,
+        shift=center_pt,
+    )
+    inverse_matrix = _create_affine_matrix(
+        translate={"x": -translate[0], "y": -translate[1]},
+        shear={"x": 0, "y": 0},
+        scale={"x": 1, "y": 1},
+        rotate=0,
+        shift=center_pt,
+    )
+
+    height, width = image_shape[:2]
+    warped = warp_affine(
+        image,
+        forward_matrix,
+        flags=cv2.INTER_NEAREST,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    restored = warp_affine(
+        warped,
+        inverse_matrix,
+        flags=cv2.INTER_NEAREST,
+        border_value=0,
+        dsize=(width, height),
+        border_mode=cv2.BORDER_CONSTANT,
+    )
+    np.testing.assert_allclose(image, restored, atol=1)
+    if translate != (0, 0):
+        assert not np.array_equal(image, warped)
 
 
 # -----------------------------------------------------------------------------
