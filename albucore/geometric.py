@@ -146,6 +146,8 @@ def warp_affine(
 ) -> ImageType:
     """Affine warp. Drop-in for cv2.warpAffine with multi-channel support.
 
+    Accepts 2x3 or 3x3 affine matrix (3x3 uses first two rows).
+
     OpenCV warpAffine accepts >4 channels when:
     - Interpolation is INTER_NEAREST, INTER_LINEAR, or INTER_AREA
     - border_value is scalar or len <= 4
@@ -157,7 +159,7 @@ def warp_affine(
 
     Args:
         img: (H, W, C) image. uint8 or float32.
-        m: 2x3 affine transformation matrix.
+        m: 2x3 or 3x3 affine matrix (3x3 uses first two rows).
         dsize: (width, height) output size.
         flags: Interpolation flags (cv2.INTER_*).
         border_mode: Border mode (cv2.BORDER_*).
@@ -166,6 +168,7 @@ def warp_affine(
     Returns:
         Warped image, shape (dsize[1], dsize[0], C).
     """
+    m = np.asarray(m[:2, :], dtype=np.float32)
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
 
