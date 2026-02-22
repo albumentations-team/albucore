@@ -22,6 +22,7 @@ from albucore.utils import (
     convert_value,
     get_max_value,
     get_num_channels,
+    maybe_process_in_chunks,
 )
 
 np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
@@ -1077,6 +1078,35 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
         return to_float(result) if input_dtype != np.uint8 else result
 
     return uint8_wrapper
+
+
+@contiguous
+@preserve_channel_dim
+@uint8_io
+def median_blur(img: ImageType, ksize: int) -> ImageType:
+    """Median blur with optimal routing for multi-channel images.
+
+    cv2.medianBlur supports >4 channels only for ksize 3 and 5 (GHA-built OpenCV).
+    For ksize 7+, the SIMD path asserts cn <= 4. Uses uint8_io for float32 input.
+
+    Args:
+        img: (H, W, C) image, uint8 or float32.
+        ksize: Kernel size (odd: 3, 5, 7, 9, ...).
+
+    Returns:
+        Median-filtered image, same shape and dtype.
+    """
+    if ksize % 2 != 1 or ksize < 3:
+        raise ValueError(f"ksize must be odd and >= 3, got {ksize}")
+
+    num_channels = get_num_channels(img)
+
+    if ksize in (3, 5):
+        return cv2.medianBlur(img, ksize)
+
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        return maybe_process_in_chunks(cv2.medianBlur, ksize)(img)
+    return cv2.medianBlur(img, ksize)
 
 
 def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
