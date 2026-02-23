@@ -67,14 +67,16 @@ def maybe_process_in_chunks(
 
         num_channels = img.shape[-1]
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-            out: np.ndarray | None = None
+            # dst shape = full image, not chunk shape — strip before passing to cv2
+            chunk_kwargs = {k: v for k, v in all_kwargs.items() if k != "dst"}
+            out: np.ndarray | None = all_kwargs.get("dst")  # pre-allocated buffer or None
             offset = 0
             for index in range(0, num_channels, 4):
                 if num_channels - index == TWO:
                     # Many OpenCV functions cannot work with 2-channel images
                     for i in range(2):
                         chunk = img[:, :, index + i : index + i + 1]
-                        chunk = process_fn(chunk, *all_args, **all_kwargs)
+                        chunk = process_fn(chunk, *all_args, **chunk_kwargs)
                         chunk = np.expand_dims(chunk, -1)
                         if out is None:
                             out = np.empty((*chunk.shape[:2], num_channels), dtype=img.dtype)
@@ -82,7 +84,7 @@ def maybe_process_in_chunks(
                         offset += 1
                 else:
                     chunk = img[:, :, index : index + 4]
-                    chunk = process_fn(chunk, *all_args, **all_kwargs)
+                    chunk = process_fn(chunk, *all_args, **chunk_kwargs)
                     if chunk.ndim == 2:
                         chunk = np.expand_dims(chunk, -1)
                     if out is None:
