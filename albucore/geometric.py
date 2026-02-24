@@ -180,7 +180,13 @@ def warp_affine(
         )(img)
 
     return cv2.warpAffine(
-        img, m, dsize, flags=flags, borderMode=border_mode, borderValue=border_value_cv2 or 0, dst=dst,
+        img,
+        m,
+        dsize,
+        flags=flags,
+        borderMode=border_mode,
+        borderValue=border_value_cv2 or 0,
+        dst=dst,
     )
 
 
@@ -256,7 +262,13 @@ def warp_perspective(
         )(img)
 
     return cv2.warpPerspective(
-        img, m, dsize, flags=flags, borderMode=border_mode, borderValue=border_value_cv2 or 0, dst=dst,
+        img,
+        m,
+        dsize,
+        flags=flags,
+        borderMode=border_mode,
+        borderValue=border_value_cv2 or 0,
+        dst=dst,
     )
 
 
