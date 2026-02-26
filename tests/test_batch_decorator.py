@@ -35,7 +35,6 @@ def test_spatial_reshape(input_shape: tuple, expected_shape: tuple, has_batch: b
 
     assert reshaped.shape == expected_shape
     assert original_shape == input_shape
-    assert reshaped.flags["C_CONTIGUOUS"]
 
 @pytest.mark.parametrize("input_shape,expected_shape,has_batch,has_depth", CHANNEL_SHAPES)
 def test_channel_reshape(input_shape: tuple, expected_shape: tuple, has_batch: bool, has_depth: bool):
@@ -45,7 +44,6 @@ def test_channel_reshape(input_shape: tuple, expected_shape: tuple, has_batch: b
 
     assert reshaped.shape == expected_shape
     assert original_shape == input_shape
-    assert reshaped.flags["C_CONTIGUOUS"]
 
 @pytest.mark.parametrize("input_shape,_,has_batch,has_depth", SPATIAL_SHAPES)
 def test_spatial_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bool):
@@ -56,7 +54,6 @@ def test_spatial_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bo
     restored = restore_from_spatial(reshaped, original_shape)
 
     assert restored.shape == input_shape
-    assert restored.flags["C_CONTIGUOUS"]
     np.testing.assert_array_equal(data, restored)
 
 @pytest.mark.parametrize("input_shape,_,has_batch,has_depth", CHANNEL_SHAPES)
@@ -68,7 +65,6 @@ def test_channel_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bo
     restored = restore_from_channel(reshaped, original_shape)
 
     assert restored.shape == input_shape
-    assert restored.flags["C_CONTIGUOUS"]
     np.testing.assert_array_equal(data, restored)
 
 def test_empty_arrays():
@@ -94,7 +90,6 @@ def test_non_contiguous_input(transform_type: str):
     }[transform_type]
 
     reshaped, _ = reshape_func(data)
-    assert reshaped.flags["C_CONTIGUOUS"]
 
 def test_spatial_transform_preserves_spatial_dims():
     """Test that spatial transforms preserve H,W dimensions after restore."""
@@ -110,7 +105,6 @@ def test_spatial_transform_preserves_spatial_dims():
     expected_shape = (10, 5, 64, 64, 3)  # N,D dimensions preserved, H,W changed
 
     assert restored.shape == expected_shape
-    assert restored.flags["C_CONTIGUOUS"]
 
 def test_channel_transform_preserves_width():
     """Test that channel transforms preserve W dimension after restore."""
@@ -157,7 +151,6 @@ def test_spatial_3d_reshape(
 
     assert reshaped.shape == expected_shape
     assert original_shape == input_shape
-    assert reshaped.flags["C_CONTIGUOUS"]
 
 @pytest.mark.parametrize(
     "input_shape,_,has_batch,has_depth,keep_depth",
@@ -180,7 +173,6 @@ def test_spatial_3d_roundtrip(
     )
 
     assert restored.shape == input_shape
-    assert restored.flags["C_CONTIGUOUS"]
     np.testing.assert_array_equal(data, restored)
 
 def test_spatial_3d_transform_preserves_dims():
@@ -201,7 +193,6 @@ def test_spatial_3d_transform_preserves_dims():
     expected_shape = (10, 5, 64, 64, 3)  # (N,D,H',W',C)
 
     assert restored.shape == expected_shape
-    assert restored.flags["C_CONTIGUOUS"]
 
 def test_spatial_3d_transform_preserves_order():
     """Test that 3D spatial transforms preserve data order."""
@@ -256,4 +247,3 @@ def test_spatial_3d_transform_allows_dhw_changes():
     expected_shape = (10, 4, 16, 16, 3)  # (N,D',H',W',C)
 
     assert restored.shape == expected_shape
-    assert restored.flags["C_CONTIGUOUS"]

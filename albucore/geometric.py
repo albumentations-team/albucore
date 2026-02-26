@@ -23,6 +23,7 @@ _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
 __all__ = [
     "copy_make_border",
     "remap",
+    "resize",
     "warp_affine",
     "warp_perspective",
 ]
@@ -415,3 +416,58 @@ def remap(
         borderValue=border_value_cv2 or 0,
         dst=dst,
     )
+
+
+@preserve_channel_dim
+def resize(
+    img: ImageType,
+    dsize: tuple[int, int],
+    fx: float = 0.0,
+    fy: float = 0.0,
+    interpolation: int = cv2.INTER_LINEAR,
+) -> ImageType:
+    """Resize image. Drop-in for cv2.resize with multi-channel support and optimized performance.
+
+    For images with 5 or more channels, cv2.warpAffine is often faster than cv2.resize.
+    This function dynamically selects the fastest OpenCV implementation.
+
+    Args:
+        img: (H, W, C) image. uint8 or float32.
+        dsize: (width, height) output size.
+        fx: Scale factor along the horizontal axis.
+        fy: Scale factor along the vertical axis.
+        interpolation: Interpolation flag (e.g., cv2.INTER_LINEAR).
+
+    Returns:
+        Resized image.
+    """
+    num_channels = get_num_channels(img)
+
+    # Calculate actual output size if dsize is (0, 0)
+    if dsize[0] == 0 or dsize[1] == 0:
+        dsize = (round(img.shape[1] * fx), round(img.shape[0] * fy))
+
+    # Use warpAffine for 5+ channels if it's a simple interpolation
+    if num_channels >= 5 and interpolation in {cv2.INTER_LINEAR, cv2.INTER_NEAREST}:
+        height, width = img.shape[:2]
+        scale_x = dsize[0] / width
+        scale_y = dsize[1] / height
+
+        # Shift to match cv2.resize pixel center mapping
+        m = np.float32(
+            [
+                [scale_x, 0.0, scale_x * 0.5 - 0.5],
+                [0.0, scale_y, scale_y * 0.5 - 0.5],
+            ],
+        )
+
+        return cv2.warpAffine(
+            img,
+            m,
+            dsize,
+            flags=interpolation,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        )
+
+    return cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation)
