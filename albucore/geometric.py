@@ -443,9 +443,17 @@ def resize(
     """
     num_channels = get_num_channels(img)
 
-    # Calculate actual output size if dsize is (0, 0)
-    if dsize[0] == 0 or dsize[1] == 0:
-        dsize = (round(img.shape[1] * fx), round(img.shape[0] * fy))
+    # Calculate actual output size only if dsize is (0, 0), matching cv2.resize semantics
+    if dsize[0] == 0 and dsize[1] == 0:
+        if fx <= 0 or fy <= 0:
+            msg = "When dsize is (0, 0), fx and fy must be positive to compute the output size."
+            raise ValueError(msg)
+        width = round(img.shape[1] * fx)
+        height = round(img.shape[0] * fy)
+        if width <= 0 or height <= 0:
+            msg = f"Computed dsize from fx and fy is invalid: ({width}, {height})."
+            raise ValueError(msg)
+        dsize = (width, height)
 
     # Use warpAffine for 5+ channels if it's a simple interpolation
     if num_channels >= 5 and interpolation in {cv2.INTER_LINEAR, cv2.INTER_NEAREST}:

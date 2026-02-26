@@ -97,6 +97,9 @@ def test_non_contiguous_input(transform_type: str):
 
     reshaped, _ = reshape_func(data)
 
+    expected_shape = (32, 32, 15) if transform_type == "spatial" else (160, 32, 3)
+    assert reshaped.shape == expected_shape
+
 def test_spatial_transform_preserves_spatial_dims():
     """Test that spatial transforms preserve H,W dimensions after restore."""
     input_shape = (10, 5, 32, 32, 3)  # N,D,H,W,C
