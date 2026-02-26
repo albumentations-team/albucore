@@ -883,18 +883,59 @@ def test_resize_preserve_channel_dim(rng: np.random.Generator) -> None:
     assert result.shape == (20, 20, 1)
 
 
-@pytest.mark.parametrize("channels", [5, 8, 16], ids=["5ch", "8ch", "16ch"])
-@pytest.mark.parametrize("interpolation", [cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC])
-def test_resize_many_channels_interpolations(channels: int, interpolation: int, rng: np.random.Generator) -> None:
-    """resize works without crashing for various interpolations and many channels."""
-    img = make_image(16, 16, channels, np.uint8, rng)
-    dsize = (32, 24)
+ALL_INTERPOLATIONS = [
+    cv2.INTER_NEAREST,
+    cv2.INTER_LINEAR,
+    cv2.INTER_CUBIC,
+    cv2.INTER_AREA,
+    cv2.INTER_LANCZOS4,
+]
+INTERP_IDS = ["nearest", "linear", "cubic", "area", "lanczos4"]
 
-    # Just checking it runs and produces correct shape and type
+
+@pytest.mark.parametrize("channels", [5, 8, 16], ids=["5ch", "8ch", "16ch"])
+@pytest.mark.parametrize("interpolation", ALL_INTERPOLATIONS, ids=INTERP_IDS)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+def test_resize_many_channels_interpolations(
+    channels: int,
+    interpolation: int,
+    dtype: type,
+    rng: np.random.Generator,
+) -> None:
+    # Use downscale (100->37) to exercise INTER_AREA's actual area averaging code path,
+    # which is the one that asserts cn <= 4 in cv2 for 5+ channels.
+    img = make_image(100, 100, channels, dtype, rng)
+    dsize = (37, 37)
+
     result = resize(img, dsize, interpolation=interpolation)
 
-    assert result.shape == (24, 32, channels)
-    assert result.dtype == img.dtype
+    assert result.shape == (37, 37, channels)
+    assert result.dtype == dtype
+
+    # INTER_AREA with 5+ channels can't be passed to cv2.resize in one call (cv2 asserts cn<=4).
+    # Verify chunk-by-chunk: each group of <=4 channels must match cv2.resize on that chunk.
+    if interpolation == cv2.INTER_AREA:
+        for start in range(0, channels, 4):
+            chunk = img[:, :, start : start + 4]
+            expected_chunk = cv2.resize(chunk, dsize, interpolation=cv2.INTER_AREA)
+            # cv2.resize drops the channel dim for single-channel input
+            if expected_chunk.ndim == 2:
+                expected_chunk = expected_chunk[:, :, np.newaxis]
+            np.testing.assert_array_equal(result[:, :, start : start + 4], expected_chunk)
+    else:
+        expected = cv2.resize(img, dsize, interpolation=interpolation)
+        np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("channels", [5, 8, 16], ids=["5ch", "8ch", "16ch"])
+def test_resize_inter_area_upscale_many_channels(channels: int, rng: np.random.Generator) -> None:
+    # Upscale with INTER_AREA and 5+ channels goes straight to cv2.resize (no chunking).
+    img = make_image(37, 37, channels, np.uint8, rng)
+    dsize = (100, 100)
+    result = resize(img, dsize, interpolation=cv2.INTER_AREA)
+    expected = cv2.resize(img, dsize, interpolation=cv2.INTER_AREA)
+    assert result.shape == (100, 100, channels)
+    np.testing.assert_array_equal(result, expected)
 
 
 def test_resize_with_fx_fy(rng: np.random.Generator) -> None:

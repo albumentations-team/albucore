@@ -426,23 +426,23 @@ def resize(
     fy: float = 0.0,
     interpolation: int = cv2.INTER_LINEAR,
 ) -> ImageType:
-    """Resize image. Drop-in for cv2.resize with multi-channel support and optimized performance.
+    """Resize image. Drop-in for cv2.resize with full multi-channel support.
 
-    For images with 5 or more channels, cv2.warpAffine is often faster than cv2.resize.
-    This function dynamically selects the fastest OpenCV implementation.
+    cv2.resize with INTER_AREA asserts cn <= 4 internally on downscale, so 5+ channel images
+    being downscaled with INTER_AREA are processed in chunks of up to 4 channels.
+    All other cases are passed directly to cv2.resize.
 
     Args:
         img: (H, W, C) image. uint8 or float32.
-        dsize: (width, height) output size.
-        fx: Scale factor along the horizontal axis.
-        fy: Scale factor along the vertical axis.
-        interpolation: Interpolation flag (e.g., cv2.INTER_LINEAR).
+        dsize: (width, height) output size. Pass (0, 0) and use fx/fy for scale factors.
+        fx: Scale factor along the horizontal axis. Used only when dsize is (0, 0).
+        fy: Scale factor along the vertical axis. Used only when dsize is (0, 0).
+        interpolation: Interpolation flag (cv2.INTER_LINEAR, INTER_NEAREST, INTER_CUBIC,
+            INTER_AREA, INTER_LANCZOS4, etc.).
 
     Returns:
-        Resized image.
+        Resized image with same dtype and channel count as input.
     """
-    num_channels = get_num_channels(img)
-
     # Calculate actual output size only if dsize is (0, 0), matching cv2.resize semantics
     if dsize[0] == 0 and dsize[1] == 0:
         if fx <= 0 or fy <= 0:
@@ -455,27 +455,9 @@ def resize(
             raise ValueError(msg)
         dsize = (width, height)
 
-    # Use warpAffine for 5+ channels if it's a simple interpolation
-    if num_channels >= 5 and interpolation in {cv2.INTER_LINEAR, cv2.INTER_NEAREST}:
-        height, width = img.shape[:2]
-        scale_x = dsize[0] / width
-        scale_y = dsize[1] / height
-
-        # Shift to match cv2.resize pixel center mapping
-        m = np.float32(
-            [
-                [scale_x, 0.0, scale_x * 0.5 - 0.5],
-                [0.0, scale_y, scale_y * 0.5 - 0.5],
-            ],
-        )
-
-        return cv2.warpAffine(
-            img,
-            m,
-            dsize,
-            flags=interpolation,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0,
-        )
+    num_channels = get_num_channels(img)
+    is_downscale = dsize[0] < img.shape[1] or dsize[1] < img.shape[0]
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS and interpolation == cv2.INTER_AREA and is_downscale:
+        return maybe_process_in_chunks(cv2.resize, dsize=dsize, fx=fx, fy=fy, interpolation=interpolation)(img)
 
     return cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation)
