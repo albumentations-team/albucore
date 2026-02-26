@@ -46,9 +46,12 @@ def test_channel_reshape(input_shape: tuple, expected_shape: tuple, has_batch: b
     assert original_shape == input_shape
 
 @pytest.mark.parametrize("input_shape,_,has_batch,has_depth", SPATIAL_SHAPES)
-def test_spatial_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bool):
+@pytest.mark.parametrize("non_contiguous", [False, True])
+def test_spatial_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bool, non_contiguous: bool):
     """Test that reshape->restore preserves data for spatial transforms."""
-    data = np.random.rand(*input_shape)
+    data = np.arange(np.prod(input_shape)).reshape(input_shape)
+    if non_contiguous:
+        data = np.asfortranarray(data)
     # Use reshape_for_spatial instead of reshape_3d directly
     reshaped, original_shape = reshape_for_spatial(data)
     restored = restore_from_spatial(reshaped, original_shape)
@@ -57,9 +60,12 @@ def test_spatial_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bo
     np.testing.assert_array_equal(data, restored)
 
 @pytest.mark.parametrize("input_shape,_,has_batch,has_depth", CHANNEL_SHAPES)
-def test_channel_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bool):
+@pytest.mark.parametrize("non_contiguous", [False, True])
+def test_channel_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bool, non_contiguous: bool):
     """Test that reshape->restore preserves data for channel transforms."""
-    data = np.random.rand(*input_shape)
+    data = np.arange(np.prod(input_shape)).reshape(input_shape)
+    if non_contiguous:
+        data = np.asfortranarray(data)
     # Use reshape_for_channel instead of reshape_batch
     reshaped, original_shape = reshape_for_channel(data)
     restored = restore_from_channel(reshaped, original_shape)
@@ -156,15 +162,19 @@ def test_spatial_3d_reshape(
     "input_shape,_,has_batch,has_depth,keep_depth",
     SPATIAL_3D_SHAPES
 )
+@pytest.mark.parametrize("non_contiguous", [False, True])
 def test_spatial_3d_roundtrip(
     input_shape: tuple,
     _: tuple,
     has_batch: bool,
     has_depth: bool,
-    keep_depth: bool
+    keep_depth: bool,
+    non_contiguous: bool,
 ):
     """Test that reshape->restore preserves data for 3D spatial transforms."""
-    data = np.random.rand(*input_shape)
+    data = np.arange(np.prod(input_shape)).reshape(input_shape)
+    if non_contiguous:
+        data = np.asfortranarray(data)
     reshaped, original_shape = reshape_for_spatial(
         data, keep_depth_dim=keep_depth
     )
