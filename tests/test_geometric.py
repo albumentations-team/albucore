@@ -14,6 +14,7 @@ from albucore.geometric import (
     warp_perspective,
     copy_make_border,
     remap,
+    resize,
 )
 
 # -----------------------------------------------------------------------------
@@ -845,4 +846,69 @@ def test_copy_make_border_dtypes(dtype: type, rng: np.random.Generator) -> None:
     """copy_make_border preserves dtype."""
     img = make_image(16, 16, 3, dtype, rng)
     result = copy_make_border(img, 2, 2, 2, 2, value=0)
+    assert result.dtype == img.dtype
+
+
+# -----------------------------------------------------------------------------
+# resize
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("channels", [1, 3, 4, 5, 8, 16], ids=[f"c{c}" for c in [1, 3, 4, 5, 8, 16]])
+def test_resize_shape(channels: int, rng: np.random.Generator) -> None:
+    """resize produces correct output shape for various channels."""
+    img = make_image(16, 16, channels, np.uint8, rng)
+    dsize = (32, 24)
+    result = resize(img, dsize)
+    assert result.shape == (24, 32, channels)
+
+
+@pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
+def test_resize_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
+    """resize matches cv2.resize exactly when C <= 4 for linear interpolation."""
+    img = make_image(16, 16, channels, np.uint8, rng)
+    dsize = (32, 24)
+    expected = cv2.resize(img, dsize, interpolation=cv2.INTER_LINEAR)
+    if channels == 1 and expected.ndim == 2:
+        expected = np.expand_dims(expected, -1)
+    result = resize(img, dsize, interpolation=cv2.INTER_LINEAR)
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_resize_preserve_channel_dim(rng: np.random.Generator) -> None:
+    """resize preserves (H, W, 1) for grayscale images."""
+    img = make_image(16, 16, 1, np.uint8, rng)
+    dsize = (20, 20)
+    result = resize(img, dsize)
+    assert result.shape == (20, 20, 1)
+
+
+@pytest.mark.parametrize("channels", [5, 8, 16], ids=["5ch", "8ch", "16ch"])
+@pytest.mark.parametrize("interpolation", [cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC])
+def test_resize_many_channels_interpolations(channels: int, interpolation: int, rng: np.random.Generator) -> None:
+    """resize works without crashing for various interpolations and many channels."""
+    img = make_image(16, 16, channels, np.uint8, rng)
+    dsize = (32, 24)
+
+    # Just checking it runs and produces correct shape and type
+    result = resize(img, dsize, interpolation=interpolation)
+
+    assert result.shape == (24, 32, channels)
+    assert result.dtype == img.dtype
+
+
+def test_resize_with_fx_fy(rng: np.random.Generator) -> None:
+    """resize works correctly when passing fx and fy instead of dsize."""
+    img = make_image(16, 16, 6, np.uint8, rng)
+    # Scale by 1.5x
+    result = resize(img, (0, 0), fx=1.5, fy=1.5, interpolation=cv2.INTER_LINEAR)
+    assert result.shape == (24, 24, 6)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+def test_resize_dtypes(dtype: type, rng: np.random.Generator) -> None:
+    """resize preserves dtype for large channel dimensions."""
+    img = make_image(16, 16, 6, dtype, rng)
+    dsize = (32, 32)
+    result = resize(img, dsize)
     assert result.dtype == img.dtype
