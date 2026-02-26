@@ -22,12 +22,15 @@ def contiguous(
 
     @wraps(func)
     def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
-        # Ensure the input array is contiguous
-        img = np.require(img, requirements=["C_CONTIGUOUS"])
+        # Ensure the input array is contiguous only if needed
+        if not img.flags["C_CONTIGUOUS"]:
+            img = np.require(img, requirements=["C_CONTIGUOUS"])
         # Call the original function with the contiguous input
         result = func(img, *args, **kwargs)
-        # Ensure the output array is contiguous
-        return np.require(result, requirements=["C_CONTIGUOUS"])
+        # Ensure the output array is contiguous only if needed
+        if not result.flags["C_CONTIGUOUS"]:
+            return np.require(result, requirements=["C_CONTIGUOUS"])
+        return result
 
     return wrapped_function
 
@@ -75,7 +78,7 @@ def reshape_batch_3d_keep_depth(data: np.ndarray) -> tuple[np.ndarray, tuple[int
     """Reshape (N,D,H,W,C) preserving depth dimension."""
     _, depth, height, width, _ = data.shape
     reshaped = np.moveaxis(data, 0, -2)  # (D,H,W,N,C)
-    final = np.require(reshaped.reshape(depth, height, width, -1), requirements=["C_CONTIGUOUS"])  # (D,H,W,N*C)
+    final = reshaped.reshape(depth, height, width, -1)  # (D,H,W,N*C)
     return final, data.shape
 
 
@@ -116,8 +119,7 @@ def restore_from_channel(
     """Choose appropriate restore function based on data dimensions."""
     shape_type = get_shape_type(original_shape)
     restore_func = CHANNEL_RESTORE_FUNCS[shape_type]
-    result = restore_func(data, original_shape)
-    return np.require(result, requirements=["C_CONTIGUOUS"])
+    return restore_func(data, original_shape)
 
 
 def reshape_for_spatial(
@@ -151,7 +153,7 @@ def restore_from_spatial(
         restore_func = SPATIAL_RESTORE_FUNCS[shape_type]
         result = restore_func(data, original_shape)
 
-    return np.require(result, requirements=["C_CONTIGUOUS"])
+    return result
 
 
 def batch_transform(
@@ -163,7 +165,8 @@ def batch_transform(
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(self: Any, data: np.ndarray, *args: Any, **params: Any) -> np.ndarray:
-            data = np.require(data, requirements=["C_CONTIGUOUS"])
+            if not data.flags["C_CONTIGUOUS"]:
+                data = np.require(data, requirements=["C_CONTIGUOUS"])
 
             if transform_type == "full":
                 return func(self, data, *args, **params)
@@ -208,7 +211,7 @@ def reshape_xhwc(data: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]]:
     # (X,H,W,C) => (H,W,X*C)
     _, height, width, _ = data.shape
     reshaped = np.moveaxis(data, 0, -2)  # (H,W,X,C)
-    final = np.require(reshaped.reshape(height, width, -1), requirements=["C_CONTIGUOUS"])  # (H,W,X*C)
+    final = reshaped.reshape(height, width, -1)  # (H,W,X*C)
     return final, data.shape
 
 
@@ -217,8 +220,8 @@ def reshape_ndhwc(data: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]]:
     # (N,D,H,W,C) => (H,W,N*D*C)
     _, _, height, width, channels = data.shape
     flat = data.reshape(-1, height, width, channels)  # (N*D,H,W,C)
-    reshaped = np.require(np.moveaxis(flat, 0, -2), requirements=["C_CONTIGUOUS"])  # (H,W,N*D,C)
-    final = np.require(reshaped.reshape(height, width, -1), requirements=["C_CONTIGUOUS"])  # (H,W,N*D*C)
+    reshaped = np.moveaxis(flat, 0, -2)  # (H,W,N*D,C)
+    final = reshaped.reshape(height, width, -1)  # (H,W,N*D*C)
     return final, data.shape
 
 
@@ -234,7 +237,7 @@ def restore_xhwc(data: np.ndarray, original_shape: tuple[int, ...]) -> np.ndarra
     # (H',W',X*C) => (X,H',W',C)
     x_dim, _, _, channels = original_shape
     reshaped = data.reshape(height, width, x_dim, channels)  # (H',W',X,C)
-    return np.require(np.moveaxis(reshaped, -2, 0), requirements=["C_CONTIGUOUS"])  # (X,H',W',C)
+    return np.moveaxis(reshaped, -2, 0)  # (X,H',W',C)
 
 
 def restore_ndhwc(data: np.ndarray, original_shape: tuple[int, ...]) -> np.ndarray:
@@ -245,7 +248,7 @@ def restore_ndhwc(data: np.ndarray, original_shape: tuple[int, ...]) -> np.ndarr
     num_images, depth, _, _, channels = original_shape
     reshaped = data.reshape(height, width, -1, channels)  # (H',W',N*D,C)
     moved = np.moveaxis(reshaped, -2, 0)  # (N*D,H',W',C)
-    return np.require(moved.reshape(num_images, depth, height, width, channels), requirements=["C_CONTIGUOUS"])
+    return moved.reshape(num_images, depth, height, width, channels)
 
 
 def reshape_hwc_channel(data: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]]:
@@ -257,7 +260,7 @@ def reshape_xhwc_channel(data: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]]
     """Reshape (X,H,W,C) for channel transforms."""
     # (X,H,W,C) => (X*H,W,C)
     x_dim, height, width, channels = data.shape
-    reshaped = np.require(data.reshape(x_dim * height, width, channels), requirements=["C_CONTIGUOUS"])
+    reshaped = data.reshape(x_dim * height, width, channels)
     return reshaped, data.shape
 
 
@@ -266,7 +269,7 @@ def reshape_ndhwc_channel(data: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]
     # (N,D,H,W,C) => (N*D*H,W,C)
     _, _, _, width, channels = data.shape
     # Flatten N,D,H together, keep W and C separate
-    reshaped = np.require(data.reshape(-1, width, channels), requirements=["C_CONTIGUOUS"])
+    reshaped = data.reshape(-1, width, channels)
     return reshaped, data.shape
 
 
