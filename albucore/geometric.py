@@ -428,9 +428,9 @@ def resize(
 ) -> ImageType:
     """Resize image. Drop-in for cv2.resize with full multi-channel support.
 
-    cv2.resize with INTER_AREA asserts cn <= 4 internally on downscale, so images with 5+
-    channels are processed in chunks of up to 4 channels for that interpolation mode.
-    All other interpolation modes are passed directly to cv2.resize.
+    cv2.resize with INTER_AREA asserts cn <= 4 internally on downscale, so 5+ channel images
+    being downscaled with INTER_AREA are processed in chunks of up to 4 channels.
+    All other cases are passed directly to cv2.resize.
 
     Args:
         img: (H, W, C) image. uint8 or float32.
@@ -456,7 +456,8 @@ def resize(
         dsize = (width, height)
 
     num_channels = get_num_channels(img)
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS and interpolation == cv2.INTER_AREA:
+    is_downscale = dsize[0] < img.shape[1] or dsize[1] < img.shape[0]
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS and interpolation == cv2.INTER_AREA and is_downscale:
         return maybe_process_in_chunks(cv2.resize, dsize=dsize, fx=fx, fy=fy, interpolation=interpolation)(img)
 
     return cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation)

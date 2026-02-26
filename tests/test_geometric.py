@@ -927,6 +927,17 @@ def test_resize_many_channels_interpolations(
         np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.parametrize("channels", [5, 8, 16], ids=["5ch", "8ch", "16ch"])
+def test_resize_inter_area_upscale_many_channels(channels: int, rng: np.random.Generator) -> None:
+    # Upscale with INTER_AREA and 5+ channels goes straight to cv2.resize (no chunking).
+    img = make_image(37, 37, channels, np.uint8, rng)
+    dsize = (100, 100)
+    result = resize(img, dsize, interpolation=cv2.INTER_AREA)
+    expected = cv2.resize(img, dsize, interpolation=cv2.INTER_AREA)
+    assert result.shape == (100, 100, channels)
+    np.testing.assert_array_equal(result, expected)
+
+
 def test_resize_with_fx_fy(rng: np.random.Generator) -> None:
     """resize works correctly when passing fx and fy instead of dsize."""
     img = make_image(16, 16, 6, np.uint8, rng)
