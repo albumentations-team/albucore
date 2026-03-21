@@ -110,7 +110,7 @@ from typing import Any, Literal
 
 import cv2
 import numpy as np
-import simsimd as ss
+import numkong as nk
 import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
@@ -214,7 +214,7 @@ When implementing a new function, consider:
 - Utilities and types: `albucore/utils.py`
 - Decorators: `albucore/decorators.py`
 - Tests: `tests/`
-- Benchmarks: Run `./benchmark.sh`
+- Benchmarks: `./benchmark.sh` (dataset I/O); Python micro-benchmarks: [`benchmarks/README.md`](benchmarks/README.md)
 
 ## Getting Help
 

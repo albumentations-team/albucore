@@ -1,13 +1,8 @@
 import pytest
 import numpy as np
 from albucore.utils import clip
-from albucore import (
-    add_lut,
-    add_numpy,
-    add_opencv,
-    add,
-    convert_value,
-)
+from albucore import add, convert_value
+from albucore.functions import add_lut, add_numpy, add_opencv
 
 
 @pytest.mark.parametrize(
