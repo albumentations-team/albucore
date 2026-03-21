@@ -83,7 +83,7 @@ Albucore expects images to follow specific shape conventions, with the channel d
 
 1. **Channel dimension is always required**, even for grayscale images (use shape `(H, W, 1)`)
 2. Single-channel images should have shape `(H, W, 1)` not `(H, W)`
-3. Batches and volumes are treated uniformly - a 4D array `(N, H, W, C)` can represent either a batch of images or a 3D volume
+3. **Batch vs volume:** `(N, H, W, C)` is **N separate images**; a single **3D volume** is `(D, H, W, C)` with **depth** `D`. Do not confuse `N` (batch) with `D` (slices).
 
 ### Examples:
 
@@ -113,7 +113,8 @@ Albucore includes optimized implementations for various image processing operati
 
 - **Arithmetic:** add, multiply, power, add_weighted, multiply_add
 - **Normalization:** normalize (per-channel, global), normalize_per_image
-- **Geometric:** hflip, vflip, warp_affine, warp_perspective, remap, copy_make_border
+- **Stats:** mean, std, mean_std (reductions over image / batch / volume tensors)
+- **Geometric:** hflip, vflip, warp_affine, warp_perspective, remap, resize, copy_make_border
 - **Type conversion:** to_float, from_float
 
 ### Batch Processing
@@ -146,6 +147,9 @@ Albucore uses a combination of techniques to achieve high performance:
 1. **Multiple Implementations**: Each function may have several implementations using different backends (NumPy, OpenCV, custom code).
 2. **Automatic Selection**: The library automatically chooses the fastest implementation based on the input image type, size, and number of channels.
 3. **Optimized Algorithms**: Custom implementations are optimized for specific use cases, often outperforming general-purpose libraries.
+4. **NumKong**: SIMD `blend` for `add_weighted`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for **uint8** global mean/std in `stats`; `scale` for **float32** `multiply_by_constant` (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+
+Micro-benchmarks vs NumPy/OpenCV: see [benchmarks/README.md](benchmarks/README.md); quick run: `uv run python benchmarks/benchmark_numkong.py` (OpenCV rows are skipped if `cv2` is not installed).
 
 See [docs/performance-optimization.md](docs/performance-optimization.md) for detailed performance guidelines and best practices.
 
@@ -155,6 +159,10 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for det
 - [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
 - [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
+- [docs/numkong-performance.md](docs/numkong-performance.md) - NumKong vs OpenCV/NumPy/LUT baselines (benchmark tables; sum/mean/std)
+- [docs/public-api.md](docs/public-api.md) - Star-exported routers vs `albucore.functions` shims
+- [benchmarks/README.md](benchmarks/README.md) - Python micro-benchmarks (`uv run python benchmarks/…`)
+- [docs/research/](docs/research/) - Research notes (extra benchmark writeups; see [`benchmarks/README.md`](benchmarks/README.md) for scripts)
 
 ## License
 
