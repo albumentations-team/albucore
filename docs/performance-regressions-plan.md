@@ -2,40 +2,27 @@
 
 This doc ties **observed** `benchmarks/compare_router_json.py` deltas (ratio = `old_ms / new_ms`; **&lt;1 ⇒ new slower**) to **code paths** and next steps.
 
-## 1. Float32 `normalize_per_image(..., "image")` — large regression
+## 1. Float32 `normalize_per_image(..., "image")`
 
-**Symptom:** e.g. `(512,512,3)` float32 new ~1.42 ms vs old ~0.95 ms (ratio ~0.67).
+**Cause (fixed in tree):** `normalize_per_image_numpy` used **`stats.mean_std`** global for float32; 0.0.40 used raw **`img.mean()` / `img.std()`** + divide.
 
-**Cause:** Router sends float32 **`"image"`** to `normalize_per_image_numpy` → `mean_std` global → **two full `np.mean` / `np.std` passes** + Python arithmetic. Older stack used **`normalize_per_image_opencv`** → `cv2.meanStdDev` + `cv2` divide pipeline on 3D.
+**Done:** **`normalize_per_image_numpy`** `"image"` branch restored to **raw ndarray mean/std**. **`_compute_image_stats_opencv`** for 3D global stats restored to **`img.mean()` / `img.std()`** (same as 0.0.40), not `mean_std`.
 
-**Plan:**
+**Note:** Routing **all** float32 `normalize_per_image` through OpenCV **hurt** some router cells vs the NumPy `"image"` path — keep **NumPy** for `"image"` only.
 
-1. Re-bench **OpenCV path vs current NumPy+stats** for float32, 3D only, all `H×W×C` in the synthetic grid (including 1024²).
-2. If OpenCV wins on reference hardware, **route float32 + `ndim==3` + `"image"`** back to `normalize_per_image_opencv` (keep `stats` for uint8 / higher rank).
-3. Optional: **fused** float32 global mean+var in one pass (Welford or single `np.add.reduce` on squares) *only if* it beats OpenCV when measured.
+## 2. Float32 `multiply` / `multiply_by_constant`
 
-## 2. Float32 `multiply` / `multiply_by_constant` — regressions on some shapes
+**Cause:** 0.0.40 used **`multiply_numpy`** for float32 scalars. Intermediate releases used NumKong / OpenCV and regressed vs that baseline.
 
-**Symptom:** e.g. `(256,256,3)` float ratio ~0.45 (new slower); uint8 often fine (LUT).
-
-**Cause (scalar):** **NumKong `scale`** for **`multiply_by_constant`** was slower than **OpenCV** on the router grid vs 0.0.40.
-
-**Done:** **`multiply_by_constant`** float32 → **`multiply_opencv`** again; **`multiply_by_constant_numkong`** remains for **`benchmark_multiply_add_numkong.py`**.
-
-**Still open — non-scalar `multiply`:** vector/array paths differ; extend **`benchmark_multiply_add_numkong.py`** / router bench (**1024²**, **C∈{1,3,9}**) and add **shape-aware routing** only where data says so.
+**Done:** **`multiply_by_constant`** float32 → **`multiply_numpy`** (matches 0.0.40). **`multiply_by_constant_numkong`** remains for **`benchmark_multiply_add_numkong.py`**.
 
 **Micro:** **`out=` / in-place** for `multiply_by_constant(..., inplace=True)` — measure first.
 
-## 3. `pairwise_distances_squared` — small regression on benchmark size
+## 3. `pairwise_distances_squared` — vs 0.0.40 SimSimd
 
-**Symptom:** Single row ratio ~0.76.
+**Cause:** 0.0.40 used **SimSimd `cdist`** for `n1*n2 < 1000`. Current stack uses **NumKong `cdist`** (pure NumPy alone was slower on the router’s small case).
 
-**Cause:** **24×16 = 384 &lt; 1000** → **NumKong `cdist`**; older code may have used **cv2** or pure NumPy for that size.
-
-**Plan:**
-
-1. Sweep **n1×n2** around 1000; adjust threshold or use fastest-of-three for small grids.
-2. Ensure **contiguous float32** input (already) and avoid extra copies in hot path.
+**Open:** Optional **`simsimd`** dependency + branch for small `cdist`, or accept gap until NumKong catches up on that shape class.
 
 ## 4. `hflip` noise / possible regression on large float RGB
 

@@ -163,8 +163,8 @@ def multiply_numpy(img: ImageType, value: float | np.ndarray) -> ImageFloat32:
 def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageType:
     if img.dtype == np.uint8:
         return multiply_lut(img, value, inplace)
-    # float32: OpenCV beats NumKong `scale` on synthetic router vs 0.0.40; see docs/numkong-performance.md
-    return multiply_opencv(img, value)
+    # float32: match 0.0.40 (`multiply_numpy`); OpenCV / NumKong scalar paths regressed on router grid
+    return multiply_numpy(img, value)
 
 
 @clipped
@@ -410,6 +410,9 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
+    # float32: OpenCV wins vs NumKong blend on large HWC in router vs 0.0.40 (SimSimd); uint8 stays NK
+    if img1.dtype == np.float32:
+        return add_weighted_opencv(img1, weight1, img2, weight2)
     return add_weighted_numkong(img1, weight1, img2, weight2)
 
 

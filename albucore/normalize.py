@@ -20,8 +20,12 @@ from albucore.utils import (
 
 def _compute_image_stats_opencv(img: ImageType) -> tuple[float, float]:
     """Compute global mean and std for an image."""
-    m, s = mean_std(img, "global", eps=DEFAULT_EPS)
-    return float(m), float(s)
+    eps = DEFAULT_EPS
+    if img.ndim > 3:
+        mean, std = cv2.meanStdDev(img)
+        return float(mean[0, 0]), float(std[0, 0]) + eps
+    # 3D (H,W,C): same as pre-stats-router 0.0.40 — two NumPy passes, avoids mean_std dispatch overhead
+    return float(img.mean()), float(img.std()) + eps
 
 
 def _compute_per_channel_stats_opencv(img: ImageType) -> tuple[np.ndarray, np.ndarray]:
@@ -155,9 +159,10 @@ def normalize_per_image_numpy(
     eps = DEFAULT_EPS
 
     if normalization == "image":
-        m, s = mean_std(img, "global", eps=eps)
-        m32, s32 = np.asarray(m, dtype=np.float32), np.asarray(s, dtype=np.float32)
-        normalized_img = (img - m32) / s32
+        # Match 0.0.40: raw ndarray mean/std (router regressed when this used stats.mean_std global float32)
+        mean_f = img.mean()
+        std_f = img.std() + eps
+        normalized_img = (img - mean_f) / std_f
         return np.clip(normalized_img, -20, 20, out=normalized_img)
 
     if normalization == "image_per_channel":
@@ -332,9 +337,8 @@ def normalize_per_image(img: ImageType, normalization: NormalizationType) -> Ima
     # Route float32 images
     if img.dtype == np.float32:
         if normalization == "image":
-            # NumPy is 1.5x faster for "image" normalization
+            # ``normalize_per_image_numpy`` uses raw ``img.mean``/``img.std`` (matches 0.0.40)
             return normalize_per_image_numpy(img, normalization)
-        # OpenCV is fastest or equal for all other normalizations
         return normalize_per_image_opencv(img, normalization)
 
     # Default fallback: OpenCV for single images, NumPy for videos/volumes

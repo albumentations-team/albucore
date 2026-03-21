@@ -244,16 +244,11 @@ def pairwise_distances_squared(
 ) -> np.ndarray:
     """Compute squared pairwise Euclidean distances between two point sets.
 
-    Uses adaptive backend selection based on point set size:
-    - Small point sets (n1*n2 < 1000): numkong.cdist (faster than cv2 on reference benchmarks)
-    - Large point sets (n1*n2 >= 1000): NumPy vectorized (similar to cv2, more maintainable)
+    Backend selection:
+    - Small (``n1 * n2 < 1000``): NumKong ``cdist`` (NumPy alone was slower on the router vs this).
+    - Large: NumPy vectorized (same as 0.0.40 big path). SimSimd ``cdist`` (0.0.40) is not a dep.
 
-    Algorithm (NumPy backend): ||a - b||² = ||a||² + ||b||² - 2(a·b)
-
-    Benchmark results (macOS ARM):
-    - Small (10x10): NumKong ~5.9x faster than cv2 (reference benchmark)
-    - Medium (100x100): NumPy 1.05x faster than cv2
-    - Large (1000x100): NumPy similar to cv2 (~1.0x)
+    Algorithm: ||a - b||² = ||a||² + ||b||² - 2(a·b)
 
     Args:
         points1: First set of points, shape (N, D), dtype float32
@@ -288,17 +283,12 @@ def pairwise_distances_squared(
     points2 = np.ascontiguousarray(points2, dtype=np.float32)
 
     n1, n2 = points1.shape[0], points2.shape[0]
-
-    # Use NumKong cdist for small point sets (benchmarked vs OpenCV on reference hardware)
-    # For larger point sets, NumPy is faster or similar
     if n1 * n2 < 1000:
         result = np.asarray(nk.cdist(points1, points2, metric="sqeuclidean"), dtype=np.float32)
-        # Clamp to zero to handle numerical errors that can produce small negative values
         np.maximum(result, 0.0, out=result)
         return result
 
-    # NumPy vectorized implementation for larger point sets
-    # Vectorized computation: ||a-b||² = ||a||² + ||b||² - 2(a·b)
+    # Vectorized: ||a-b||² = ||a||² + ||b||² - 2(a·b)
     p1_squared = (points1**2).sum(axis=1, keepdims=True)  # (N, 1)
     p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
     dot_product = points1 @ points2.T  # (N, M)
