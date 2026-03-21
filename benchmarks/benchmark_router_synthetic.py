@@ -18,6 +18,10 @@ Run::
 Reliability: default ``--repeats`` / ``--warmup`` are tuned for stable medians; JSON includes
 ``ms_std`` / ``ms_mad`` (spread of timed runs). ``sz_lut`` uses ``inplace=False`` so the shared
 bench image is not corrupted across iterations.
+
+Workload realism: thunks use non-identity parameters where it matters (e.g. ``multiply_add`` with
+per-channel factor/bias, ``normalize`` with ImageNet-scale mean/denom, ``power`` with exponents
+away from 1.0) so timings reflect real affine / LUT work, not no-ops.
 """
 
 from __future__ import annotations
@@ -296,7 +300,15 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         return thunk
 
     def pw(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        exp = np.float32(1.01) if img.dtype == np.float32 else np.array([1.01] * img.shape[-1], dtype=np.float32)
+        # Non-trivial exponent (avoid near-identity 1.01 on float32).
+        c = int(img.shape[-1])
+        if img.dtype == np.float32:
+            exp = np.float32(0.88)
+        else:
+            exp = np.array(
+                [1.06 + 0.18 * (i / max(c - 1, 1)) for i in range(c)],
+                dtype=np.float32,
+            )
 
         def thunk() -> None:
             alb.power(img, exp, False)
@@ -304,8 +316,17 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         return thunk
 
     def ma(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        c = int(img.shape[-1])
+        if img.dtype == np.float32:
+            factor = np.linspace(1.04, 1.14, num=c, dtype=np.float32)
+            bias = np.linspace(-0.02, 0.05, num=c, dtype=np.float32)
+        else:
+            # Per-channel affine in float space; LUT path clips to uint8.
+            factor = np.linspace(1.08, 1.22, num=c, dtype=np.float32)
+            bias = np.linspace(3.0, 11.0, num=c, dtype=np.float32)
+
         def thunk() -> None:
-            alb.multiply_add(img, 1.0, 0.0, False)
+            alb.multiply_add(img, factor, bias, False)
 
         return thunk
 
@@ -328,8 +349,17 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         return thunk
 
     def norm(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        # Non-trivial mean / scale (ImageNet-style order of magnitude; per-channel).
+        c = int(img.shape[-1])
+        if img.dtype == np.float32:
+            mean = np.linspace(0.42, 0.52, num=c, dtype=np.float32)
+            denom = np.linspace(1.85, 2.35, num=c, dtype=np.float32)
+        else:
+            mean = np.linspace(95.0, 135.0, num=c, dtype=np.float32)
+            denom = np.linspace(1.0 / 60.0, 1.0 / 45.0, num=c, dtype=np.float32)
+
         def thunk() -> None:
-            alb.normalize(img, 0.0, 1.0)
+            alb.normalize(img, mean, denom)
 
         return thunk
 

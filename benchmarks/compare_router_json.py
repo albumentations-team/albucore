@@ -85,11 +85,13 @@ def main() -> None:
     or_ = old_d["meta"].get("repeats", "?")
     ow = old_d["meta"].get("warmup", "?")
 
+    nv = new_d["meta"].get("distribution_version", "?")
+    ov = old_d["meta"].get("distribution_version", "?")
     lines = [
         "# Router synthetic benchmark — comparison",
         "",
-        f"- **New:** `{new_d['meta'].get('distribution_version')}` ({args.new_json.name})",
-        f"- **Old:** `{old_d['meta'].get('distribution_version')}` ({args.old_json.name})",
+        f"- **New (current run):** `{args.new_json.name}` — `distribution_version` = `{nv}`",
+        f"- **Old (baseline):** `{args.old_json.name}` — `distribution_version` = `{ov}`",
         "",
         "## Summary",
         "",
