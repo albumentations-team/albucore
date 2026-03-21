@@ -18,13 +18,13 @@ This doc ties **observed** `benchmarks/compare_router_json.py` deltas (ratio = `
 
 **Symptom:** e.g. `(256,256,3)` float ratio ~0.45 (new slower); uint8 often fine (LUT).
 
-**Cause:** New path uses **NumKong `scale`** on ravel; old used **SimSimd `wsum`**-style multiply. Different constants, alignment, and backend tuning.
+**Cause (scalar):** **NumKong `scale`** for **`multiply_by_constant`** was slower than **OpenCV** on the router grid vs 0.0.40.
 
-**Plan:**
+**Done:** **`multiply_by_constant`** float32 → **`multiply_opencv`** again; **`multiply_by_constant_numkong`** remains for **`benchmark_multiply_add_numkong.py`**.
 
-1. Extend `benchmark_multiply_add_numkong.py` / router bench to include **1024²** and **C∈{1,3,9}**.
-2. Add **shape-aware routing**: if `nk.scale` loses to OpenCV/NumPy on a cell, branch (thresholds from JSON, not guesses).
-3. Consider **`out=` / in-place** where `multiply_by_constant(..., inplace=True)` is safe and avoids alloc (micro-gain; measure first).
+**Still open — non-scalar `multiply`:** vector/array paths differ; extend **`benchmark_multiply_add_numkong.py`** / router bench (**1024²**, **C∈{1,3,9}**) and add **shape-aware routing** only where data says so.
+
+**Micro:** **`out=` / in-place** for `multiply_by_constant(..., inplace=True)` — measure first.
 
 ## 3. `pairwise_distances_squared` — small regression on benchmark size
 
