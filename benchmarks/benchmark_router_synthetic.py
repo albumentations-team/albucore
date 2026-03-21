@@ -14,6 +14,10 @@ Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``war
 Run::
 
     uv run python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/run.json
+
+Reliability: default ``--repeats`` / ``--warmup`` are tuned for stable medians; JSON includes
+``ms_std`` / ``ms_mad`` (spread of timed runs). ``sz_lut`` uses ``inplace=False`` so the shared
+bench image is not corrupted across iterations.
 """
 
 from __future__ import annotations
@@ -30,7 +34,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from timing import median_ms
+from timing import WallTimingMs, bench_wall_ms
 
 # When ``albucore.functions`` has no ``__all__`` (e.g. albucore 0.0.40), use this so compare
 # runs time the same router names. Keep in sync with ``albucore/functions.py`` ``__all__``.
@@ -73,6 +77,10 @@ class BenchRow:
     ms_median: float | None
     status: str
     detail: str = ""
+    ms_mean: float | None = None
+    ms_std: float | None = None
+    ms_mad: float | None = None
+    timing_n: int | None = None
 
 
 def _make_img(rng: np.random.Generator, shape: tuple[int, ...], dtype: np.dtype) -> np.ndarray:
@@ -114,13 +122,38 @@ def _bench(
     build: Callable[[Any, np.ndarray], Callable[[], object]],
     repeats: int,
     warmup: int,
-) -> tuple[float | None, str, str]:
+) -> tuple[WallTimingMs | None, str, str]:
     try:
         fn = build(alb, img)
-        ms = median_ms(fn, repeats=repeats, warmup=warmup)
-        return ms, "ok", ""
+        return bench_wall_ms(fn, repeats=repeats, warmup=warmup), "ok", ""
     except Exception as e:  # noqa: BLE001 — benchmark harness
         return None, "error", f"{type(e).__name__}: {e}"
+
+
+def _bench_row(
+    op_name: str,
+    layout: str,
+    shape: tuple[int, ...],
+    dname: str,
+    timing: WallTimingMs | None,
+    st: str,
+    det: str,
+) -> BenchRow:
+    if timing is not None and st == "ok":
+        return BenchRow(
+            op_name,
+            layout,
+            shape,
+            dname,
+            timing.median,
+            st,
+            det,
+            timing.mean,
+            timing.std,
+            timing.mad,
+            timing.n,
+        )
+    return BenchRow(op_name, layout, shape, dname, None, st, det)
 
 
 def _channel_vector(img: np.ndarray) -> np.ndarray:
@@ -322,7 +355,8 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         lut_u8 = np.arange(256, dtype=np.uint8)
 
         def thunk() -> None:
-            alb.sz_lut(img, lut_u8, True)
+            # inplace=True would mutate ``img`` across warmup/repeats and distort timings + semantics
+            alb.sz_lut(img, lut_u8, False)
 
         return thunk
 
@@ -382,8 +416,20 @@ def _matmul_bench(alb: Any, repeats: int, warmup: int) -> BenchRow:
         alb.matmul(a, b)
 
     try:
-        ms = median_ms(thunk, repeats=repeats, warmup=warmup)
-        return BenchRow("matmul", "2D", (128, 64, 64, 32), "float32", ms, "ok")
+        t = bench_wall_ms(thunk, repeats=repeats, warmup=warmup)
+        return BenchRow(
+            "matmul",
+            "2D",
+            (128, 64, 64, 32),
+            "float32",
+            t.median,
+            "ok",
+            "",
+            t.mean,
+            t.std,
+            t.mad,
+            t.n,
+        )
     except Exception as e:  # noqa: BLE001
         return BenchRow("matmul", "2D", (128, 64, 64, 32), "float32", None, "error", f"{type(e).__name__}: {e}")
 
@@ -397,14 +443,19 @@ def _pairwise_bench(alb: Any, repeats: int, warmup: int) -> BenchRow:
         alb.pairwise_distances_squared(x1, x2)
 
     try:
-        ms = median_ms(thunk, repeats=repeats, warmup=warmup)
+        t = bench_wall_ms(thunk, repeats=repeats, warmup=warmup)
         return BenchRow(
             "pairwise_distances_squared",
             "points",
             (x1.shape[0], x2.shape[0], 3),
             "float32",
-            ms,
+            t.median,
             "ok",
+            "",
+            t.mean,
+            t.std,
+            t.mad,
+            t.n,
         )
     except Exception as e:  # noqa: BLE001
         return BenchRow(
@@ -427,8 +478,18 @@ def main() -> None:
         action="store_true",
         help="Also benchmark geometric routers (not in functions.__all__)",
     )
-    p.add_argument("--repeats", type=int, default=7)
-    p.add_argument("--warmup", type=int, default=2)
+    p.add_argument(
+        "--repeats",
+        type=int,
+        default=21,
+        help="Timed iterations per cell (median + spread in JSON)",
+    )
+    p.add_argument(
+        "--warmup",
+        type=int,
+        default=5,
+        help="Untimed iterations before measurement (JIT, caches, alloc)",
+    )
     args = p.parse_args()
 
     import albucore as alb  # noqa: PLC0415
@@ -482,8 +543,8 @@ def main() -> None:
             if not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
-            ms, st, det = _bench(alb, img, build, args.repeats, args.warmup)
-            rows.append(BenchRow(op_name, layout, shape, dname, ms, st, det))
+            t, st, det = _bench(alb, img, build, args.repeats, args.warmup)
+            rows.append(_bench_row(op_name, layout, shape, dname, t, st, det))
 
         for op_name, build in geo_reg:
             if op_name in skip_uint8_only and dtype != np.uint8:
@@ -493,8 +554,8 @@ def main() -> None:
             if not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
-            ms, st, det = _bench(alb, img, build, args.repeats, args.warmup)
-            rows.append(BenchRow(op_name, layout, shape, dname, ms, st, det))
+            t, st, det = _bench(alb, img, build, args.repeats, args.warmup)
+            rows.append(_bench_row(op_name, layout, shape, dname, t, st, det))
 
     for layout, shape, dtype in _iter_batch_stats(args.quick):
         img = _make_img(rng, shape, dtype)
@@ -505,8 +566,8 @@ def main() -> None:
             if not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
-            ms, st, det = _bench(alb, img, build, args.repeats, args.warmup)
-            rows.append(BenchRow(op_name, layout, shape, dname, ms, st, det))
+            t, st, det = _bench(alb, img, build, args.repeats, args.warmup)
+            rows.append(_bench_row(op_name, layout, shape, dname, t, st, det))
 
     if "matmul" in export_names:
         rows.append(_matmul_bench(alb, args.repeats, args.warmup))
@@ -524,6 +585,13 @@ def main() -> None:
         "functions_all": functions_all_meta,
         "repeats": args.repeats,
         "warmup": args.warmup,
+        "timing_fields": {
+            "ms_median": "median wall time (ms) over timed runs",
+            "ms_mean": "mean wall time (ms)",
+            "ms_std": "sample std (ms) of timed runs; use as error bar with median",
+            "ms_mad": "median absolute deviation from median (robust spread)",
+            "timing_n": "number of timed runs (equals repeats)",
+        },
         "numpy": np.__version__,
         "opencv": cv2.__version__,
     }

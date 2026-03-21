@@ -6,508 +6,513 @@
 ## Summary
 
 - Comparable **ok/ok** cells: **410**
-- **New slower** (old/new &lt; 0.85): **70** cells
-- **New faster** (old/new &gt; 1.15): **65** cells
+- **New slower** (old/new &lt; 0.85): **74** cells
+- **New faster** (old/new &gt; 1.15): **39** cells
 
-Ratio **old_ms / new_ms**: **&gt;1** ⇒ new build faster on that cell.
+Ratio **old_ms / new_ms** (medians): **&gt;1** ⇒ new build faster on that cell.
+
+- **New** run: **repeats=21**, **warmup=5**
+- **Old** run: **repeats=21**, **warmup=5**
+
+**Error bars:** `ms_median ± ms_std` from repeated wall-time samples (see JSON). **MAD** = median absolute deviation from the median (robust).
 
 ### Median old/new by op
 
-- `add`: median **old/new** = **0.98x** (24 cells)
-- `add_array`: median **old/new** = **2.87x** (24 cells)
-- `add_constant`: median **old/new** = **0.99x** (24 cells)
-- `add_vector`: median **old/new** = **1.01x** (24 cells)
-- `add_weighted`: median **old/new** = **0.96x** (24 cells)
+- `add`: median **old/new** = **0.96x** (24 cells)
+- `add_array`: median **old/new** = **2.75x** (24 cells)
+- `add_constant`: median **old/new** = **0.96x** (24 cells)
+- `add_vector`: median **old/new** = **0.92x** (24 cells)
+- `add_weighted`: median **old/new** = **0.91x** (24 cells)
 - `from_float`: median **old/new** = **1.01x** (12 cells)
-- `hflip`: median **old/new** = **0.98x** (24 cells)
-- `matmul`: median **old/new** = **0.94x** (1 cells)
-- `median_blur`: median **old/new** = **1.02x** (12 cells)
-- `multiply`: median **old/new** = **1.00x** (24 cells)
-- `multiply_add`: median **old/new** = **1.04x** (24 cells)
-- `multiply_by_array`: median **old/new** = **1.02x** (24 cells)
-- `multiply_by_constant`: median **old/new** = **1.00x** (24 cells)
-- `multiply_by_vector`: median **old/new** = **1.00x** (24 cells)
-- `normalize`: median **old/new** = **1.00x** (24 cells)
-- `normalize_per_image`: median **old/new** = **2.63x** (24 cells)
-- `pairwise_distances_squared`: median **old/new** = **0.69x** (1 cells)
-- `power`: median **old/new** = **0.98x** (24 cells)
-- `sz_lut`: median **old/new** = **1.00x** (12 cells)
-- `to_float`: median **old/new** = **1.01x** (12 cells)
-- `vflip`: median **old/new** = **0.96x** (24 cells)
+- `hflip`: median **old/new** = **0.95x** (24 cells)
+- `matmul`: median **old/new** = **0.98x** (1 cells)
+- `median_blur`: median **old/new** = **0.93x** (12 cells)
+- `multiply`: median **old/new** = **0.97x** (24 cells)
+- `multiply_add`: median **old/new** = **0.96x** (24 cells)
+- `multiply_by_array`: median **old/new** = **1.01x** (24 cells)
+- `multiply_by_constant`: median **old/new** = **0.98x** (24 cells)
+- `multiply_by_vector`: median **old/new** = **0.94x** (24 cells)
+- `normalize`: median **old/new** = **0.96x** (24 cells)
+- `normalize_per_image`: median **old/new** = **3.75x** (24 cells)
+- `pairwise_distances_squared`: median **old/new** = **0.81x** (1 cells)
+- `power`: median **old/new** = **0.92x** (24 cells)
+- `sz_lut`: median **old/new** = **0.94x** (12 cells)
+- `to_float`: median **old/new** = **0.99x** (12 cells)
+- `vflip`: median **old/new** = **0.89x** (24 cells)
 
 ### Largest regressions (new slower)
 
 | op | layout | shape | dtype | old/new |
 |----|--------|-------|-------|--------:|
-| hflip | HWC | (512,512,1) | uint8 | 0.13x |
-| add | HWC | (512,512,1) | float32 | 0.30x |
-| multiply | HWC | (512,512,1) | float32 | 0.36x |
-| add_vector | HWC | (1024,1024,1) | uint8 | 0.43x |
-| normalize | HWC | (256,256,3) | float32 | 0.44x |
-| vflip | HWC | (256,256,1) | float32 | 0.48x |
-| vflip | HWC | (128,128,9) | uint8 | 0.49x |
-| vflip | HWC | (1024,1024,9) | uint8 | 0.51x |
-| add_vector | HWC | (512,512,1) | float32 | 0.53x |
-| multiply_add | HWC | (512,512,1) | float32 | 0.54x |
-| add_constant | HWC | (256,256,9) | float32 | 0.55x |
-| from_float | HWC | (512,512,9) | float32 | 0.56x |
-| add_array | HWC | (512,512,1) | float32 | 0.58x |
-| multiply | HWC | (1024,1024,1) | float32 | 0.58x |
-| multiply_by_array | HWC | (512,512,1) | uint8 | 0.58x |
-| multiply_add | HWC | (256,256,3) | float32 | 0.60x |
-| normalize | HWC | (512,512,1) | uint8 | 0.62x |
-| add_weighted | HWC | (256,256,9) | float32 | 0.63x |
-| multiply_by_constant | HWC | (512,512,9) | uint8 | 0.63x |
-| vflip | HWC | (256,256,9) | float32 | 0.63x |
-| median_blur | HWC | (1024,1024,9) | uint8 | 0.64x |
-| vflip | HWC | (512,512,3) | float32 | 0.66x |
-| vflip | HWC | (512,512,9) | uint8 | 0.66x |
-| multiply_by_constant | HWC | (1024,1024,9) | uint8 | 0.66x |
-| add_vector | HWC | (128,128,1) | uint8 | 0.68x |
+| normalize | HWC | (256,256,3) | float32 | 0.51x |
+| vflip | HWC | (1024,1024,9) | uint8 | 0.55x |
+| multiply_add | HWC | (512,512,1) | float32 | 0.60x |
+| multiply_add | HWC | (256,256,3) | float32 | 0.61x |
+| vflip | HWC | (512,512,3) | float32 | 0.65x |
+| add_weighted | HWC | (512,512,3) | float32 | 0.65x |
+| normalize | HWC | (512,512,3) | uint8 | 0.67x |
+| add_weighted | HWC | (256,256,9) | float32 | 0.70x |
+| normalize | HWC | (512,512,1) | float32 | 0.71x |
+| add_weighted | HWC | (512,512,1) | float32 | 0.71x |
+| sz_lut | HWC | (256,256,1) | uint8 | 0.71x |
+| sz_lut | HWC | (1024,1024,9) | uint8 | 0.72x |
+| multiply_by_array | HWC | (512,512,3) | float32 | 0.72x |
+| multiply | HWC | (512,512,3) | float32 | 0.72x |
+| multiply_by_constant | HWC | (512,512,3) | float32 | 0.73x |
+| normalize | HWC | (512,512,3) | float32 | 0.74x |
+| add_constant | HWC | (256,256,9) | float32 | 0.74x |
+| multiply_by_constant | HWC | (1024,1024,9) | uint8 | 0.74x |
+| median_blur | HWC | (512,512,9) | uint8 | 0.74x |
+| add_constant | HWC | (512,512,9) | uint8 | 0.75x |
+| median_blur | HWC | (256,256,1) | uint8 | 0.75x |
+| add_weighted | HWC | (128,128,1) | float32 | 0.75x |
+| multiply_by_vector | HWC | (1024,1024,1) | uint8 | 0.75x |
+| add_constant | HWC | (1024,1024,9) | float32 | 0.75x |
+| multiply_add | HWC | (256,256,1) | float32 | 0.75x |
 
 ### Largest wins (new faster)
 
 | op | layout | shape | dtype | old/new |
 |----|--------|-------|-------|--------:|
-| normalize_per_image | HWC | (1024,1024,9) | uint8 | 9.11x |
-| add_array | HWC | (128,128,1) | uint8 | 6.98x |
-| normalize_per_image | HWC | (256,256,3) | uint8 | 6.87x |
-| normalize_per_image | HWC | (512,512,9) | uint8 | 6.59x |
-| normalize_per_image | HWC | (1024,1024,3) | uint8 | 6.31x |
-| normalize_per_image | HWC | (128,128,9) | uint8 | 5.56x |
-| add_array | HWC | (1024,1024,1) | uint8 | 5.38x |
-| add_array | HWC | (512,512,1) | uint8 | 5.12x |
-| normalize_per_image | HWC | (512,512,3) | uint8 | 5.11x |
-| add_array | HWC | (256,256,1) | uint8 | 4.85x |
-| normalize_per_image | HWC | (1024,1024,1) | uint8 | 4.77x |
-| normalize_per_image | HWC | (256,256,1) | uint8 | 4.27x |
-| normalize_per_image | HWC | (256,256,9) | uint8 | 4.22x |
-| normalize_per_image | HWC | (128,128,3) | uint8 | 4.15x |
-| add_array | HWC | (128,128,3) | uint8 | 4.09x |
-| normalize_per_image | HWC | (512,512,1) | uint8 | 3.81x |
-| add_array | HWC | (1024,1024,9) | uint8 | 3.66x |
-| add_array | HWC | (1024,1024,3) | uint8 | 3.63x |
-| add_array | HWC | (256,256,3) | uint8 | 3.38x |
-| add_array | HWC | (512,512,3) | uint8 | 3.28x |
-| add_array | HWC | (128,128,9) | uint8 | 3.02x |
-| add_array | HWC | (256,256,9) | uint8 | 2.87x |
-| add_array | HWC | (512,512,9) | uint8 | 2.87x |
-| normalize_per_image | HWC | (128,128,1) | uint8 | 2.63x |
-| to_float | HWC | (512,512,1) | uint8 | 2.13x |
+| normalize_per_image | HWC | (1024,1024,9) | uint8 | 9.85x |
+| normalize_per_image | HWC | (1024,1024,3) | uint8 | 8.17x |
+| normalize_per_image | HWC | (512,512,9) | uint8 | 6.93x |
+| normalize_per_image | HWC | (512,512,3) | uint8 | 5.90x |
+| normalize_per_image | HWC | (512,512,1) | uint8 | 5.70x |
+| normalize_per_image | HWC | (256,256,3) | uint8 | 5.17x |
+| normalize_per_image | HWC | (1024,1024,1) | uint8 | 5.17x |
+| add_array | HWC | (128,128,1) | uint8 | 5.13x |
+| add_array | HWC | (128,128,3) | uint8 | 4.96x |
+| add_array | HWC | (256,256,1) | uint8 | 4.84x |
+| normalize_per_image | HWC | (128,128,3) | uint8 | 4.73x |
+| normalize_per_image | HWC | (128,128,1) | uint8 | 4.30x |
+| normalize_per_image | HWC | (256,256,9) | uint8 | 4.24x |
+| normalize_per_image | HWC | (128,128,9) | uint8 | 4.18x |
+| add_array | HWC | (256,256,9) | uint8 | 3.77x |
+| normalize_per_image | HWC | (256,256,1) | uint8 | 3.75x |
+| add_array | HWC | (512,512,1) | uint8 | 3.58x |
+| add_array | HWC | (128,128,9) | uint8 | 3.25x |
+| add_array | HWC | (512,512,3) | uint8 | 3.15x |
+| add_array | HWC | (256,256,3) | uint8 | 2.98x |
+| add_array | HWC | (1024,1024,1) | uint8 | 2.93x |
+| add_array | HWC | (512,512,9) | uint8 | 2.91x |
+| add_array | HWC | (1024,1024,3) | uint8 | 2.89x |
+| add_array | HWC | (1024,1024,9) | uint8 | 2.75x |
+| vflip | HWC | (128,128,3) | uint8 | 1.50x |
 
 ## Full table
 
-Only rows where **both** runs are `ok`.
+Only rows where **both** runs are `ok`. Times are **median ± σ** (ms) when `ms_std` is present.
 
-| op | layout | shape | dtype | new_ms | old_ms | old/new |
-|----|--------|-------|-------|-------:|-------:|--------:|
-| add | HWC | (1024,1024,1) | float32 | 0.9961 | 0.9470 | 0.95x |
-| add | HWC | (1024,1024,1) | uint8 | 0.0440 | 0.0430 | 0.98x |
-| add | HWC | (1024,1024,3) | float32 | 1.2128 | 1.2101 | 1.00x |
-| add | HWC | (1024,1024,3) | uint8 | 0.2520 | 0.2472 | 0.98x |
-| add | HWC | (1024,1024,9) | float32 | 6.5875 | 13.7321 | 2.08x |
-| add | HWC | (1024,1024,9) | uint8 | 0.3468 | 0.3395 | 0.98x |
-| add | HWC | (128,128,1) | float32 | 0.0117 | 0.0118 | 1.01x |
-| add | HWC | (128,128,1) | uint8 | 0.0050 | 0.0048 | 0.95x |
-| add | HWC | (128,128,3) | float32 | 0.0219 | 0.0224 | 1.02x |
-| add | HWC | (128,128,3) | uint8 | 0.0047 | 0.0035 | 0.75x |
-| add | HWC | (128,128,9) | float32 | 0.0625 | 0.0642 | 1.03x |
-| add | HWC | (128,128,9) | uint8 | 0.0076 | 0.0078 | 1.02x |
-| add | HWC | (256,256,1) | float32 | 0.0364 | 0.0300 | 0.83x |
-| add | HWC | (256,256,1) | uint8 | 0.0067 | 0.0066 | 0.98x |
-| add | HWC | (256,256,3) | float32 | 0.0775 | 0.0774 | 1.00x |
-| add | HWC | (256,256,3) | uint8 | 0.0100 | 0.0102 | 1.02x |
-| add | HWC | (256,256,9) | float32 | 0.6402 | 0.5542 | 0.87x |
-| add | HWC | (256,256,9) | uint8 | 0.0262 | 0.0222 | 0.85x |
-| add | HWC | (512,512,1) | float32 | 0.4128 | 0.1233 | 0.30x |
-| add | HWC | (512,512,1) | uint8 | 0.0149 | 0.0150 | 1.01x |
-| add | HWC | (512,512,3) | float32 | 0.6915 | 0.6294 | 0.91x |
-| add | HWC | (512,512,3) | uint8 | 0.0315 | 0.0307 | 0.97x |
-| add | HWC | (512,512,9) | float32 | 0.9565 | 0.9574 | 1.00x |
-| add | HWC | (512,512,9) | uint8 | 0.3520 | 0.2868 | 0.81x |
-| add_array | HWC | (1024,1024,1) | float32 | 1.1480 | 0.9440 | 0.82x |
-| add_array | HWC | (1024,1024,1) | uint8 | 0.0218 | 0.1172 | 5.38x |
-| add_array | HWC | (1024,1024,3) | float32 | 1.1762 | 1.2227 | 1.04x |
-| add_array | HWC | (1024,1024,3) | uint8 | 0.2470 | 0.8970 | 3.63x |
-| add_array | HWC | (1024,1024,9) | float32 | 6.6788 | 9.0917 | 1.36x |
-| add_array | HWC | (1024,1024,9) | uint8 | 0.2086 | 0.7644 | 3.66x |
-| add_array | HWC | (128,128,1) | float32 | 0.0103 | 0.0120 | 1.17x |
-| add_array | HWC | (128,128,1) | uint8 | 0.0017 | 0.0119 | 6.98x |
-| add_array | HWC | (128,128,3) | float32 | 0.0208 | 0.0227 | 1.09x |
-| add_array | HWC | (128,128,3) | uint8 | 0.0032 | 0.0130 | 4.09x |
-| add_array | HWC | (128,128,9) | float32 | 0.0563 | 0.0581 | 1.03x |
-| add_array | HWC | (128,128,9) | uint8 | 0.0060 | 0.0181 | 3.02x |
-| add_array | HWC | (256,256,1) | float32 | 0.0276 | 0.0294 | 1.06x |
-| add_array | HWC | (256,256,1) | uint8 | 0.0028 | 0.0133 | 4.85x |
-| add_array | HWC | (256,256,3) | float32 | 0.0773 | 0.0769 | 0.99x |
-| add_array | HWC | (256,256,3) | uint8 | 0.0065 | 0.0218 | 3.38x |
-| add_array | HWC | (256,256,9) | float32 | 0.6990 | 0.5773 | 0.83x |
-| add_array | HWC | (256,256,9) | uint8 | 0.0169 | 0.0485 | 2.87x |
-| add_array | HWC | (512,512,1) | float32 | 0.1987 | 0.1144 | 0.58x |
-| add_array | HWC | (512,512,1) | uint8 | 0.0083 | 0.0426 | 5.12x |
-| add_array | HWC | (512,512,3) | float32 | 0.7163 | 0.8647 | 1.21x |
-| add_array | HWC | (512,512,3) | uint8 | 0.0219 | 0.0717 | 3.28x |
-| add_array | HWC | (512,512,9) | float32 | 0.8683 | 0.8310 | 0.96x |
-| add_array | HWC | (512,512,9) | uint8 | 0.1879 | 0.5391 | 2.87x |
-| add_constant | HWC | (1024,1024,1) | float32 | 1.2551 | 1.1112 | 0.89x |
-| add_constant | HWC | (1024,1024,1) | uint8 | 0.0440 | 0.0406 | 0.92x |
-| add_constant | HWC | (1024,1024,3) | float32 | 1.2734 | 1.2395 | 0.97x |
-| add_constant | HWC | (1024,1024,3) | uint8 | 0.2378 | 0.2684 | 1.13x |
-| add_constant | HWC | (1024,1024,9) | float32 | 13.2763 | 13.9795 | 1.05x |
-| add_constant | HWC | (1024,1024,9) | uint8 | 0.3358 | 0.3364 | 1.00x |
-| add_constant | HWC | (128,128,1) | float32 | 0.0113 | 0.0114 | 1.00x |
-| add_constant | HWC | (128,128,1) | uint8 | 0.0053 | 0.0039 | 0.74x |
-| add_constant | HWC | (128,128,3) | float32 | 0.0219 | 0.0223 | 1.02x |
-| add_constant | HWC | (128,128,3) | uint8 | 0.0042 | 0.0038 | 0.92x |
-| add_constant | HWC | (128,128,9) | float32 | 0.0610 | 0.0629 | 1.03x |
-| add_constant | HWC | (128,128,9) | uint8 | 0.0088 | 0.0074 | 0.84x |
-| add_constant | HWC | (256,256,1) | float32 | 0.0378 | 0.0295 | 0.78x |
-| add_constant | HWC | (256,256,1) | uint8 | 0.0060 | 0.0062 | 1.03x |
-| add_constant | HWC | (256,256,3) | float32 | 0.0827 | 0.0839 | 1.01x |
-| add_constant | HWC | (256,256,3) | uint8 | 0.0096 | 0.0097 | 1.01x |
-| add_constant | HWC | (256,256,9) | float32 | 1.1379 | 0.6250 | 0.55x |
-| add_constant | HWC | (256,256,9) | uint8 | 0.0241 | 0.0219 | 0.91x |
-| add_constant | HWC | (512,512,1) | float32 | 0.1360 | 0.1220 | 0.90x |
-| add_constant | HWC | (512,512,1) | uint8 | 0.0141 | 0.0145 | 1.03x |
-| add_constant | HWC | (512,512,3) | float32 | 0.7129 | 0.6267 | 0.88x |
-| add_constant | HWC | (512,512,3) | uint8 | 0.0297 | 0.0317 | 1.07x |
-| add_constant | HWC | (512,512,9) | float32 | 0.9497 | 0.9126 | 0.96x |
-| add_constant | HWC | (512,512,9) | uint8 | 0.3690 | 0.3647 | 0.99x |
-| add_vector | HWC | (1024,1024,1) | float32 | 1.1105 | 1.4719 | 1.33x |
-| add_vector | HWC | (1024,1024,1) | uint8 | 0.2442 | 0.1056 | 0.43x |
-| add_vector | HWC | (1024,1024,3) | float32 | 4.4808 | 4.5265 | 1.01x |
-| add_vector | HWC | (1024,1024,3) | uint8 | 2.3702 | 2.6823 | 1.13x |
-| add_vector | HWC | (1024,1024,9) | float32 | 15.9253 | 16.2506 | 1.02x |
-| add_vector | HWC | (1024,1024,9) | uint8 | 6.3810 | 6.6087 | 1.04x |
-| add_vector | HWC | (128,128,1) | float32 | 0.0135 | 0.0135 | 0.99x |
-| add_vector | HWC | (128,128,1) | uint8 | 0.0102 | 0.0069 | 0.68x |
-| add_vector | HWC | (128,128,3) | float32 | 0.0747 | 0.0724 | 0.97x |
-| add_vector | HWC | (128,128,3) | uint8 | 0.0397 | 0.0394 | 0.99x |
-| add_vector | HWC | (128,128,9) | float32 | 0.1219 | 0.1227 | 1.01x |
-| add_vector | HWC | (128,128,9) | uint8 | 0.1072 | 0.1097 | 1.02x |
-| add_vector | HWC | (256,256,1) | float32 | 0.0321 | 0.0317 | 0.99x |
-| add_vector | HWC | (256,256,1) | uint8 | 0.0122 | 0.0124 | 1.01x |
-| add_vector | HWC | (256,256,3) | float32 | 0.2719 | 0.2806 | 1.03x |
-| add_vector | HWC | (256,256,3) | uint8 | 0.1252 | 0.1281 | 1.02x |
-| add_vector | HWC | (256,256,9) | float32 | 1.2414 | 0.8684 | 0.70x |
-| add_vector | HWC | (256,256,9) | uint8 | 0.3765 | 0.3659 | 0.97x |
-| add_vector | HWC | (512,512,1) | float32 | 0.2073 | 0.1101 | 0.53x |
-| add_vector | HWC | (512,512,1) | uint8 | 0.0310 | 0.0653 | 2.11x |
-| add_vector | HWC | (512,512,3) | float32 | 1.8978 | 1.5906 | 0.84x |
-| add_vector | HWC | (512,512,3) | uint8 | 0.4953 | 0.5335 | 1.08x |
-| add_vector | HWC | (512,512,9) | float32 | 1.9405 | 1.9377 | 1.00x |
-| add_vector | HWC | (512,512,9) | uint8 | 2.4379 | 2.1217 | 0.87x |
-| add_weighted | HWC | (1024,1024,1) | float32 | 0.9825 | 0.7606 | 0.77x |
-| add_weighted | HWC | (1024,1024,1) | uint8 | 0.0696 | 0.0667 | 0.96x |
-| add_weighted | HWC | (1024,1024,3) | float32 | 1.4530 | 1.2246 | 0.84x |
-| add_weighted | HWC | (1024,1024,3) | uint8 | 0.3549 | 0.3587 | 1.01x |
-| add_weighted | HWC | (1024,1024,9) | float32 | 7.2816 | 10.0016 | 1.37x |
-| add_weighted | HWC | (1024,1024,9) | uint8 | 0.6071 | 0.6089 | 1.00x |
-| add_weighted | HWC | (128,128,1) | float32 | 0.0113 | 0.0093 | 0.83x |
-| add_weighted | HWC | (128,128,1) | uint8 | 0.0023 | 0.0023 | 1.02x |
-| add_weighted | HWC | (128,128,3) | float32 | 0.0240 | 0.0206 | 0.86x |
-| add_weighted | HWC | (128,128,3) | uint8 | 0.0045 | 0.0046 | 1.01x |
-| add_weighted | HWC | (128,128,9) | float32 | 0.0659 | 0.0558 | 0.85x |
-| add_weighted | HWC | (128,128,9) | uint8 | 0.0106 | 0.0108 | 1.02x |
-| add_weighted | HWC | (256,256,1) | float32 | 0.0328 | 0.0264 | 0.81x |
-| add_weighted | HWC | (256,256,1) | uint8 | 0.0056 | 0.0056 | 1.01x |
-| add_weighted | HWC | (256,256,3) | float32 | 0.0868 | 0.0852 | 0.98x |
-| add_weighted | HWC | (256,256,3) | uint8 | 0.0137 | 0.0140 | 1.03x |
-| add_weighted | HWC | (256,256,9) | float32 | 0.7188 | 0.4505 | 0.63x |
-| add_weighted | HWC | (256,256,9) | uint8 | 0.0398 | 0.0381 | 0.96x |
-| add_weighted | HWC | (512,512,1) | float32 | 0.2048 | 0.1422 | 0.69x |
-| add_weighted | HWC | (512,512,1) | uint8 | 0.0182 | 0.0185 | 1.02x |
-| add_weighted | HWC | (512,512,3) | float32 | 0.6702 | 0.6019 | 0.90x |
-| add_weighted | HWC | (512,512,3) | uint8 | 0.0649 | 0.0506 | 0.78x |
-| add_weighted | HWC | (512,512,9) | float32 | 1.0657 | 0.8860 | 0.83x |
-| add_weighted | HWC | (512,512,9) | uint8 | 0.3376 | 0.2705 | 0.80x |
-| from_float | HWC | (1024,1024,1) | float32 | 1.5166 | 1.4633 | 0.96x |
-| from_float | HWC | (1024,1024,3) | float32 | 2.4526 | 2.5279 | 1.03x |
-| from_float | HWC | (1024,1024,9) | float32 | 14.1888 | 19.2899 | 1.36x |
-| from_float | HWC | (128,128,1) | float32 | 0.0190 | 0.0151 | 0.80x |
-| from_float | HWC | (128,128,3) | float32 | 0.0360 | 0.0363 | 1.01x |
-| from_float | HWC | (128,128,9) | float32 | 0.1117 | 0.1119 | 1.00x |
-| from_float | HWC | (256,256,1) | float32 | 0.0542 | 0.0494 | 0.91x |
-| from_float | HWC | (256,256,3) | float32 | 0.2020 | 0.2230 | 1.10x |
-| from_float | HWC | (256,256,9) | float32 | 1.2244 | 1.5162 | 1.24x |
-| from_float | HWC | (512,512,1) | float32 | 0.3875 | 0.3036 | 0.78x |
-| from_float | HWC | (512,512,3) | float32 | 1.1523 | 1.4110 | 1.22x |
-| from_float | HWC | (512,512,9) | float32 | 3.4664 | 1.9354 | 0.56x |
-| hflip | HWC | (1024,1024,1) | float32 | 0.3047 | 0.2697 | 0.89x |
-| hflip | HWC | (1024,1024,1) | uint8 | 0.0238 | 0.0222 | 0.93x |
-| hflip | HWC | (1024,1024,3) | float32 | 0.4258 | 0.4093 | 0.96x |
-| hflip | HWC | (1024,1024,3) | uint8 | 0.4905 | 0.4296 | 0.88x |
-| hflip | HWC | (1024,1024,9) | float32 | 10.0534 | 10.4154 | 1.04x |
-| hflip | HWC | (1024,1024,9) | uint8 | 2.2778 | 1.6813 | 0.74x |
-| hflip | HWC | (128,128,1) | float32 | 0.0027 | 0.0028 | 1.01x |
-| hflip | HWC | (128,128,1) | uint8 | 0.0021 | 0.0017 | 0.78x |
-| hflip | HWC | (128,128,3) | float32 | 0.0065 | 0.0068 | 1.05x |
-| hflip | HWC | (128,128,3) | uint8 | 0.0052 | 0.0050 | 0.96x |
-| hflip | HWC | (128,128,9) | float32 | 0.0985 | 0.0985 | 1.00x |
-| hflip | HWC | (128,128,9) | uint8 | 0.0276 | 0.0267 | 0.97x |
-| hflip | HWC | (256,256,1) | float32 | 0.0085 | 0.0067 | 0.79x |
-| hflip | HWC | (256,256,1) | uint8 | 0.0028 | 0.0027 | 0.99x |
-| hflip | HWC | (256,256,3) | float32 | 0.0264 | 0.0261 | 0.99x |
-| hflip | HWC | (256,256,3) | uint8 | 0.0201 | 0.0198 | 0.98x |
-| hflip | HWC | (256,256,9) | float32 | 0.5128 | 0.5404 | 1.05x |
-| hflip | HWC | (256,256,9) | uint8 | 0.1018 | 0.1028 | 1.01x |
-| hflip | HWC | (512,512,1) | float32 | 0.0217 | 0.0216 | 1.00x |
-| hflip | HWC | (512,512,1) | uint8 | 0.0516 | 0.0067 | 0.13x |
-| hflip | HWC | (512,512,3) | float32 | 0.2318 | 0.2593 | 1.12x |
-| hflip | HWC | (512,512,3) | uint8 | 0.0788 | 0.0888 | 1.13x |
-| hflip | HWC | (512,512,9) | float32 | 1.7376 | 1.6753 | 0.96x |
-| hflip | HWC | (512,512,9) | uint8 | 0.5452 | 0.4951 | 0.91x |
-| matmul | 2D | (128,64,64,32) | float32 | 0.0021 | 0.0020 | 0.94x |
-| median_blur | HWC | (1024,1024,1) | uint8 | 0.1048 | 0.1504 | 1.43x |
-| median_blur | HWC | (1024,1024,3) | uint8 | 0.5218 | 0.5744 | 1.10x |
-| median_blur | HWC | (1024,1024,9) | uint8 | 1.9975 | 1.2700 | 0.64x |
-| median_blur | HWC | (128,128,1) | uint8 | 0.0069 | 0.0083 | 1.19x |
-| median_blur | HWC | (128,128,3) | uint8 | 0.0125 | 0.0127 | 1.02x |
-| median_blur | HWC | (128,128,9) | uint8 | 0.0309 | 0.0316 | 1.02x |
-| median_blur | HWC | (256,256,1) | uint8 | 0.0156 | 0.0156 | 1.00x |
-| median_blur | HWC | (256,256,3) | uint8 | 0.0350 | 0.0376 | 1.07x |
-| median_blur | HWC | (256,256,9) | uint8 | 0.0970 | 0.0969 | 1.00x |
-| median_blur | HWC | (512,512,1) | uint8 | 0.0455 | 0.0536 | 1.18x |
-| median_blur | HWC | (512,512,3) | uint8 | 0.1310 | 0.1189 | 0.91x |
-| median_blur | HWC | (512,512,9) | uint8 | 0.5281 | 0.4745 | 0.90x |
-| multiply | HWC | (1024,1024,1) | float32 | 1.3633 | 0.7870 | 0.58x |
-| multiply | HWC | (1024,1024,1) | uint8 | 0.0972 | 0.0914 | 0.94x |
-| multiply | HWC | (1024,1024,3) | float32 | 1.0230 | 1.0830 | 1.06x |
-| multiply | HWC | (1024,1024,3) | uint8 | 0.4126 | 0.4190 | 1.02x |
-| multiply | HWC | (1024,1024,9) | float32 | 6.8408 | 9.8653 | 1.44x |
-| multiply | HWC | (1024,1024,9) | uint8 | 0.8573 | 0.8460 | 0.99x |
-| multiply | HWC | (128,128,1) | float32 | 0.0085 | 0.0085 | 1.00x |
-| multiply | HWC | (128,128,1) | uint8 | 0.0057 | 0.0059 | 1.04x |
-| multiply | HWC | (128,128,3) | float32 | 0.0191 | 0.0188 | 0.98x |
-| multiply | HWC | (128,128,3) | uint8 | 0.0093 | 0.0095 | 1.02x |
-| multiply | HWC | (128,128,9) | float32 | 0.0501 | 0.0535 | 1.07x |
-| multiply | HWC | (128,128,9) | uint8 | 0.0172 | 0.0200 | 1.16x |
-| multiply | HWC | (256,256,1) | float32 | 0.0345 | 0.0240 | 0.69x |
-| multiply | HWC | (256,256,1) | uint8 | 0.0108 | 0.0109 | 1.00x |
-| multiply | HWC | (256,256,3) | float32 | 0.0690 | 0.0732 | 1.06x |
-| multiply | HWC | (256,256,3) | uint8 | 0.0212 | 0.0217 | 1.02x |
-| multiply | HWC | (256,256,9) | float32 | 0.4332 | 0.4333 | 1.00x |
-| multiply | HWC | (256,256,9) | uint8 | 0.0616 | 0.0582 | 0.94x |
-| multiply | HWC | (512,512,1) | float32 | 0.2456 | 0.0888 | 0.36x |
-| multiply | HWC | (512,512,1) | uint8 | 0.0269 | 0.0323 | 1.20x |
-| multiply | HWC | (512,512,3) | float32 | 0.7697 | 0.6123 | 0.80x |
-| multiply | HWC | (512,512,3) | uint8 | 0.0743 | 0.0735 | 0.99x |
-| multiply | HWC | (512,512,9) | float32 | 0.7730 | 0.7967 | 1.03x |
-| multiply | HWC | (512,512,9) | uint8 | 0.3974 | 0.3464 | 0.87x |
-| multiply_add | HWC | (1024,1024,1) | float32 | 1.2025 | 1.3945 | 1.16x |
-| multiply_add | HWC | (1024,1024,1) | uint8 | 0.1021 | 0.0918 | 0.90x |
-| multiply_add | HWC | (1024,1024,3) | float32 | 1.2218 | 1.5453 | 1.26x |
-| multiply_add | HWC | (1024,1024,3) | uint8 | 0.4235 | 0.4405 | 1.04x |
-| multiply_add | HWC | (1024,1024,9) | float32 | 12.3075 | 17.0743 | 1.39x |
-| multiply_add | HWC | (1024,1024,9) | uint8 | 0.8641 | 0.8139 | 0.94x |
-| multiply_add | HWC | (128,128,1) | float32 | 0.0109 | 0.0152 | 1.40x |
-| multiply_add | HWC | (128,128,1) | uint8 | 0.0054 | 0.0056 | 1.04x |
-| multiply_add | HWC | (128,128,3) | float32 | 0.0226 | 0.0281 | 1.24x |
-| multiply_add | HWC | (128,128,3) | uint8 | 0.0094 | 0.0092 | 0.98x |
-| multiply_add | HWC | (128,128,9) | float32 | 0.0667 | 0.0787 | 1.18x |
-| multiply_add | HWC | (128,128,9) | uint8 | 0.0172 | 0.0176 | 1.02x |
-| multiply_add | HWC | (256,256,1) | float32 | 0.0444 | 0.0365 | 0.82x |
-| multiply_add | HWC | (256,256,1) | uint8 | 0.0108 | 0.0110 | 1.02x |
-| multiply_add | HWC | (256,256,3) | float32 | 0.1882 | 0.1128 | 0.60x |
-| multiply_add | HWC | (256,256,3) | uint8 | 0.0213 | 0.0227 | 1.07x |
-| multiply_add | HWC | (256,256,9) | float32 | 0.8823 | 0.9995 | 1.13x |
-| multiply_add | HWC | (256,256,9) | uint8 | 0.0598 | 0.0546 | 0.91x |
-| multiply_add | HWC | (512,512,1) | float32 | 0.2680 | 0.1441 | 0.54x |
-| multiply_add | HWC | (512,512,1) | uint8 | 0.0270 | 0.0281 | 1.04x |
-| multiply_add | HWC | (512,512,3) | float32 | 0.9902 | 1.0192 | 1.03x |
-| multiply_add | HWC | (512,512,3) | uint8 | 0.0718 | 0.0708 | 0.99x |
-| multiply_add | HWC | (512,512,9) | float32 | 0.9682 | 1.1805 | 1.22x |
-| multiply_add | HWC | (512,512,9) | uint8 | 0.3200 | 0.3185 | 1.00x |
-| multiply_by_array | HWC | (1024,1024,1) | float32 | 0.8415 | 0.9273 | 1.10x |
-| multiply_by_array | HWC | (1024,1024,1) | uint8 | 2.2695 | 2.0614 | 0.91x |
-| multiply_by_array | HWC | (1024,1024,3) | float32 | 1.1520 | 1.1510 | 1.00x |
-| multiply_by_array | HWC | (1024,1024,3) | uint8 | 3.4063 | 3.2310 | 0.95x |
-| multiply_by_array | HWC | (1024,1024,9) | float32 | 6.8496 | 9.2744 | 1.35x |
-| multiply_by_array | HWC | (1024,1024,9) | uint8 | 11.9582 | 18.5525 | 1.55x |
-| multiply_by_array | HWC | (128,128,1) | float32 | 0.0077 | 0.0117 | 1.53x |
-| multiply_by_array | HWC | (128,128,1) | uint8 | 0.0217 | 0.0214 | 0.98x |
-| multiply_by_array | HWC | (128,128,3) | float32 | 0.0199 | 0.0227 | 1.14x |
-| multiply_by_array | HWC | (128,128,3) | uint8 | 0.0502 | 0.0509 | 1.01x |
-| multiply_by_array | HWC | (128,128,9) | float32 | 0.0563 | 0.0593 | 1.05x |
-| multiply_by_array | HWC | (128,128,9) | uint8 | 0.1347 | 0.1474 | 1.09x |
-| multiply_by_array | HWC | (256,256,1) | float32 | 0.0283 | 0.0297 | 1.05x |
-| multiply_by_array | HWC | (256,256,1) | uint8 | 0.0761 | 0.0673 | 0.88x |
-| multiply_by_array | HWC | (256,256,3) | float32 | 0.0722 | 0.1023 | 1.42x |
-| multiply_by_array | HWC | (256,256,3) | uint8 | 0.2754 | 0.2588 | 0.94x |
-| multiply_by_array | HWC | (256,256,9) | float32 | 0.4880 | 0.4858 | 1.00x |
-| multiply_by_array | HWC | (256,256,9) | uint8 | 0.9493 | 0.9358 | 0.99x |
-| multiply_by_array | HWC | (512,512,1) | float32 | 0.1104 | 0.1248 | 1.13x |
-| multiply_by_array | HWC | (512,512,1) | uint8 | 0.6300 | 0.3649 | 0.58x |
-| multiply_by_array | HWC | (512,512,3) | float32 | 0.6374 | 0.6805 | 1.07x |
-| multiply_by_array | HWC | (512,512,3) | uint8 | 1.3202 | 1.2084 | 0.92x |
-| multiply_by_array | HWC | (512,512,9) | float32 | 0.8855 | 0.8990 | 1.02x |
-| multiply_by_array | HWC | (512,512,9) | uint8 | 2.7308 | 2.2587 | 0.83x |
-| multiply_by_constant | HWC | (1024,1024,1) | float32 | 0.8655 | 0.7512 | 0.87x |
-| multiply_by_constant | HWC | (1024,1024,1) | uint8 | 0.0975 | 0.0988 | 1.01x |
-| multiply_by_constant | HWC | (1024,1024,3) | float32 | 1.0570 | 1.0513 | 0.99x |
-| multiply_by_constant | HWC | (1024,1024,3) | uint8 | 0.4224 | 0.5328 | 1.26x |
-| multiply_by_constant | HWC | (1024,1024,9) | float32 | 6.1395 | 9.5621 | 1.56x |
-| multiply_by_constant | HWC | (1024,1024,9) | uint8 | 1.2192 | 0.8089 | 0.66x |
-| multiply_by_constant | HWC | (128,128,1) | float32 | 0.0081 | 0.0081 | 1.00x |
-| multiply_by_constant | HWC | (128,128,1) | uint8 | 0.0059 | 0.0055 | 0.92x |
-| multiply_by_constant | HWC | (128,128,3) | float32 | 0.0185 | 0.0187 | 1.01x |
-| multiply_by_constant | HWC | (128,128,3) | uint8 | 0.0090 | 0.0091 | 1.01x |
-| multiply_by_constant | HWC | (128,128,9) | float32 | 0.0559 | 0.0565 | 1.01x |
-| multiply_by_constant | HWC | (128,128,9) | uint8 | 0.0168 | 0.0173 | 1.03x |
-| multiply_by_constant | HWC | (256,256,1) | float32 | 0.0231 | 0.0236 | 1.02x |
-| multiply_by_constant | HWC | (256,256,1) | uint8 | 0.0104 | 0.0104 | 1.00x |
-| multiply_by_constant | HWC | (256,256,3) | float32 | 0.0745 | 0.0634 | 0.85x |
-| multiply_by_constant | HWC | (256,256,3) | uint8 | 0.0211 | 0.0212 | 1.00x |
-| multiply_by_constant | HWC | (256,256,9) | float32 | 0.5606 | 0.4316 | 0.77x |
-| multiply_by_constant | HWC | (256,256,9) | uint8 | 0.0534 | 0.0533 | 1.00x |
-| multiply_by_constant | HWC | (512,512,1) | float32 | 0.1097 | 0.1048 | 0.95x |
-| multiply_by_constant | HWC | (512,512,1) | uint8 | 0.0280 | 0.0265 | 0.95x |
-| multiply_by_constant | HWC | (512,512,3) | float32 | 0.8223 | 0.6347 | 0.77x |
-| multiply_by_constant | HWC | (512,512,3) | uint8 | 0.0727 | 0.0694 | 0.95x |
-| multiply_by_constant | HWC | (512,512,9) | float32 | 0.7814 | 0.7940 | 1.02x |
-| multiply_by_constant | HWC | (512,512,9) | uint8 | 0.6633 | 0.4162 | 0.63x |
-| multiply_by_vector | HWC | (1024,1024,1) | float32 | 1.1321 | 1.1921 | 1.05x |
-| multiply_by_vector | HWC | (1024,1024,1) | uint8 | 0.1587 | 0.1113 | 0.70x |
-| multiply_by_vector | HWC | (1024,1024,3) | float32 | 4.4605 | 4.4704 | 1.00x |
-| multiply_by_vector | HWC | (1024,1024,3) | uint8 | 2.5636 | 2.4830 | 0.97x |
-| multiply_by_vector | HWC | (1024,1024,9) | float32 | 10.5975 | 14.0733 | 1.33x |
-| multiply_by_vector | HWC | (1024,1024,9) | uint8 | 6.9825 | 6.1059 | 0.87x |
-| multiply_by_vector | HWC | (128,128,1) | float32 | 0.0137 | 0.0131 | 0.95x |
-| multiply_by_vector | HWC | (128,128,1) | uint8 | 0.0065 | 0.0062 | 0.96x |
-| multiply_by_vector | HWC | (128,128,3) | float32 | 0.0726 | 0.0725 | 1.00x |
-| multiply_by_vector | HWC | (128,128,3) | uint8 | 0.0390 | 0.0381 | 0.98x |
-| multiply_by_vector | HWC | (128,128,9) | float32 | 0.1160 | 0.1169 | 1.01x |
-| multiply_by_vector | HWC | (128,128,9) | uint8 | 0.1098 | 0.1087 | 0.99x |
-| multiply_by_vector | HWC | (256,256,1) | float32 | 0.0332 | 0.0333 | 1.01x |
-| multiply_by_vector | HWC | (256,256,1) | uint8 | 0.0118 | 0.0118 | 1.00x |
-| multiply_by_vector | HWC | (256,256,3) | float32 | 0.2760 | 0.2753 | 1.00x |
-| multiply_by_vector | HWC | (256,256,3) | uint8 | 0.1363 | 0.1260 | 0.92x |
-| multiply_by_vector | HWC | (256,256,9) | float32 | 0.6971 | 0.7669 | 1.10x |
-| multiply_by_vector | HWC | (256,256,9) | uint8 | 0.3639 | 0.4209 | 1.16x |
-| multiply_by_vector | HWC | (512,512,1) | float32 | 0.1099 | 0.1354 | 1.23x |
-| multiply_by_vector | HWC | (512,512,1) | uint8 | 0.0330 | 0.0420 | 1.27x |
-| multiply_by_vector | HWC | (512,512,3) | float32 | 1.8694 | 1.8545 | 0.99x |
-| multiply_by_vector | HWC | (512,512,3) | uint8 | 0.5433 | 0.5127 | 0.94x |
-| multiply_by_vector | HWC | (512,512,9) | float32 | 1.8551 | 1.9005 | 1.02x |
-| multiply_by_vector | HWC | (512,512,9) | uint8 | 2.1131 | 1.6445 | 0.78x |
-| normalize | HWC | (1024,1024,1) | float32 | 0.9527 | 0.8569 | 0.90x |
-| normalize | HWC | (1024,1024,1) | uint8 | 0.3298 | 0.2623 | 0.80x |
-| normalize | HWC | (1024,1024,3) | float32 | 0.7491 | 0.7500 | 1.00x |
-| normalize | HWC | (1024,1024,3) | uint8 | 0.2645 | 0.1868 | 0.71x |
-| normalize | HWC | (1024,1024,9) | float32 | 6.8295 | 10.7897 | 1.58x |
-| normalize | HWC | (1024,1024,9) | uint8 | 1.8280 | 1.3430 | 0.73x |
-| normalize | HWC | (128,128,1) | float32 | 0.0064 | 0.0061 | 0.95x |
-| normalize | HWC | (128,128,1) | uint8 | 0.0079 | 0.0079 | 1.00x |
-| normalize | HWC | (128,128,3) | float32 | 0.0138 | 0.0138 | 1.00x |
-| normalize | HWC | (128,128,3) | uint8 | 0.0152 | 0.0151 | 1.00x |
-| normalize | HWC | (128,128,9) | float32 | 0.0351 | 0.0357 | 1.02x |
-| normalize | HWC | (128,128,9) | uint8 | 0.0399 | 0.0403 | 1.01x |
-| normalize | HWC | (256,256,1) | float32 | 0.0175 | 0.0179 | 1.03x |
-| normalize | HWC | (256,256,1) | uint8 | 0.0201 | 0.0202 | 1.01x |
-| normalize | HWC | (256,256,3) | float32 | 0.1340 | 0.0584 | 0.44x |
-| normalize | HWC | (256,256,3) | uint8 | 0.0535 | 0.0525 | 0.98x |
-| normalize | HWC | (256,256,9) | float32 | 0.5701 | 0.4975 | 0.87x |
-| normalize | HWC | (256,256,9) | uint8 | 0.2632 | 0.3102 | 1.18x |
-| normalize | HWC | (512,512,1) | float32 | 0.1465 | 0.1305 | 0.89x |
-| normalize | HWC | (512,512,1) | uint8 | 0.0989 | 0.0617 | 0.62x |
-| normalize | HWC | (512,512,3) | float32 | 0.7555 | 0.8844 | 1.17x |
-| normalize | HWC | (512,512,3) | uint8 | 0.2168 | 0.2310 | 1.07x |
-| normalize | HWC | (512,512,9) | float32 | 0.5893 | 0.5357 | 0.91x |
-| normalize | HWC | (512,512,9) | uint8 | 0.1850 | 0.2095 | 1.13x |
-| normalize_per_image | HWC | (1024,1024,1) | float32 | 1.3733 | 1.3022 | 0.95x |
-| normalize_per_image | HWC | (1024,1024,1) | uint8 | 0.5817 | 2.7720 | 4.77x |
-| normalize_per_image | HWC | (1024,1024,3) | float32 | 2.7241 | 2.9116 | 1.07x |
-| normalize_per_image | HWC | (1024,1024,3) | uint8 | 0.7217 | 4.5505 | 6.31x |
-| normalize_per_image | HWC | (1024,1024,9) | float32 | 14.1273 | 15.7543 | 1.12x |
-| normalize_per_image | HWC | (1024,1024,9) | uint8 | 2.4350 | 22.1845 | 9.11x |
-| normalize_per_image | HWC | (128,128,1) | float32 | 0.0299 | 0.0270 | 0.90x |
-| normalize_per_image | HWC | (128,128,1) | uint8 | 0.0147 | 0.0388 | 2.63x |
-| normalize_per_image | HWC | (128,128,3) | float32 | 0.0561 | 0.0555 | 0.99x |
-| normalize_per_image | HWC | (128,128,3) | uint8 | 0.0212 | 0.0882 | 4.15x |
-| normalize_per_image | HWC | (128,128,9) | float32 | 0.1422 | 0.1473 | 1.04x |
-| normalize_per_image | HWC | (128,128,9) | uint8 | 0.0572 | 0.3180 | 5.56x |
-| normalize_per_image | HWC | (256,256,1) | float32 | 0.0675 | 0.0686 | 1.02x |
-| normalize_per_image | HWC | (256,256,1) | uint8 | 0.0265 | 0.1132 | 4.27x |
-| normalize_per_image | HWC | (256,256,3) | float32 | 0.1862 | 0.1844 | 0.99x |
-| normalize_per_image | HWC | (256,256,3) | uint8 | 0.0650 | 0.4463 | 6.87x |
-| normalize_per_image | HWC | (256,256,9) | float32 | 1.0177 | 0.8075 | 0.79x |
-| normalize_per_image | HWC | (256,256,9) | uint8 | 0.3397 | 1.4332 | 4.22x |
-| normalize_per_image | HWC | (512,512,1) | float32 | 0.2384 | 0.2698 | 1.13x |
-| normalize_per_image | HWC | (512,512,1) | uint8 | 0.2056 | 0.7832 | 3.81x |
-| normalize_per_image | HWC | (512,512,3) | float32 | 1.0596 | 1.1206 | 1.06x |
-| normalize_per_image | HWC | (512,512,3) | uint8 | 0.4053 | 2.0725 | 5.11x |
-| normalize_per_image | HWC | (512,512,9) | float32 | 2.1862 | 2.3230 | 1.06x |
-| normalize_per_image | HWC | (512,512,9) | uint8 | 0.5291 | 3.4847 | 6.59x |
-| pairwise_distances_squared | points | (24,16,3) | float32 | 0.0037 | 0.0025 | 0.69x |
-| power | HWC | (1024,1024,1) | float32 | 1.9576 | 1.9772 | 1.01x |
-| power | HWC | (1024,1024,1) | uint8 | 0.1008 | 0.1007 | 1.00x |
-| power | HWC | (1024,1024,3) | float32 | 4.2417 | 4.1680 | 0.98x |
-| power | HWC | (1024,1024,3) | uint8 | 2.3972 | 2.0607 | 0.86x |
-| power | HWC | (1024,1024,9) | float32 | 15.5757 | 19.5467 | 1.25x |
-| power | HWC | (1024,1024,9) | uint8 | 7.2520 | 6.2412 | 0.86x |
-| power | HWC | (128,128,1) | float32 | 0.0334 | 0.0262 | 0.78x |
-| power | HWC | (128,128,1) | uint8 | 0.0061 | 0.0074 | 1.21x |
-| power | HWC | (128,128,3) | float32 | 0.0672 | 0.0685 | 1.02x |
-| power | HWC | (128,128,3) | uint8 | 0.0524 | 0.0403 | 0.77x |
-| power | HWC | (128,128,9) | float32 | 0.1931 | 0.1938 | 1.00x |
-| power | HWC | (128,128,9) | uint8 | 0.1123 | 0.1142 | 1.02x |
-| power | HWC | (256,256,1) | float32 | 0.0986 | 0.0917 | 0.93x |
-| power | HWC | (256,256,1) | uint8 | 0.0115 | 0.0112 | 0.98x |
-| power | HWC | (256,256,3) | float32 | 0.2739 | 0.2561 | 0.93x |
-| power | HWC | (256,256,3) | uint8 | 0.1410 | 0.1265 | 0.90x |
-| power | HWC | (256,256,9) | float32 | 1.5716 | 1.1070 | 0.70x |
-| power | HWC | (256,256,9) | uint8 | 0.3918 | 0.4290 | 1.09x |
-| power | HWC | (512,512,1) | float32 | 0.3766 | 0.3483 | 0.92x |
-| power | HWC | (512,512,1) | uint8 | 0.0289 | 0.0275 | 0.95x |
-| power | HWC | (512,512,3) | float32 | 1.5092 | 1.5202 | 1.01x |
-| power | HWC | (512,512,3) | uint8 | 0.5037 | 0.5139 | 1.02x |
-| power | HWC | (512,512,9) | float32 | 3.1817 | 3.0994 | 0.97x |
-| power | HWC | (512,512,9) | uint8 | 2.2730 | 1.6308 | 0.72x |
-| sz_lut | HWC | (1024,1024,1) | uint8 | 0.0777 | 0.0779 | 1.00x |
-| sz_lut | HWC | (1024,1024,3) | uint8 | 0.2367 | 0.2376 | 1.00x |
-| sz_lut | HWC | (1024,1024,9) | uint8 | 0.6901 | 0.6895 | 1.00x |
-| sz_lut | HWC | (128,128,1) | uint8 | 0.0016 | 0.0018 | 1.16x |
-| sz_lut | HWC | (128,128,3) | uint8 | 0.0041 | 0.0042 | 1.02x |
-| sz_lut | HWC | (128,128,9) | uint8 | 0.0100 | 0.0111 | 1.11x |
-| sz_lut | HWC | (256,256,1) | uint8 | 0.0052 | 0.0051 | 0.98x |
-| sz_lut | HWC | (256,256,3) | uint8 | 0.0146 | 0.0146 | 1.00x |
-| sz_lut | HWC | (256,256,9) | uint8 | 0.0435 | 0.0425 | 0.98x |
-| sz_lut | HWC | (512,512,1) | uint8 | 0.0199 | 0.0192 | 0.97x |
-| sz_lut | HWC | (512,512,3) | uint8 | 0.0580 | 0.0573 | 0.99x |
-| sz_lut | HWC | (512,512,9) | uint8 | 0.1850 | 0.1732 | 0.94x |
-| to_float | HWC | (1024,1024,1) | uint8 | 0.2997 | 0.3285 | 1.10x |
-| to_float | HWC | (1024,1024,3) | uint8 | 0.2523 | 0.1833 | 0.73x |
-| to_float | HWC | (1024,1024,9) | uint8 | 1.3143 | 1.5747 | 1.20x |
-| to_float | HWC | (128,128,1) | uint8 | 0.0067 | 0.0074 | 1.09x |
-| to_float | HWC | (128,128,3) | uint8 | 0.0130 | 0.0147 | 1.13x |
-| to_float | HWC | (128,128,9) | uint8 | 0.0389 | 0.0390 | 1.00x |
-| to_float | HWC | (256,256,1) | uint8 | 0.0195 | 0.0192 | 0.99x |
-| to_float | HWC | (256,256,3) | uint8 | 0.0512 | 0.0512 | 1.00x |
-| to_float | HWC | (256,256,9) | uint8 | 0.3017 | 0.2728 | 0.90x |
-| to_float | HWC | (512,512,1) | uint8 | 0.0383 | 0.0816 | 2.13x |
-| to_float | HWC | (512,512,3) | uint8 | 0.2210 | 0.2089 | 0.95x |
-| to_float | HWC | (512,512,9) | uint8 | 0.1973 | 0.1997 | 1.01x |
-| vflip | HWC | (1024,1024,1) | float32 | 0.3824 | 0.3670 | 0.96x |
-| vflip | HWC | (1024,1024,1) | uint8 | 0.0531 | 0.0521 | 0.98x |
-| vflip | HWC | (1024,1024,3) | float32 | 0.5699 | 0.6225 | 1.09x |
-| vflip | HWC | (1024,1024,3) | uint8 | 0.2744 | 0.2300 | 0.84x |
-| vflip | HWC | (1024,1024,9) | float32 | 4.6672 | 4.0853 | 0.88x |
-| vflip | HWC | (1024,1024,9) | uint8 | 0.9268 | 0.4694 | 0.51x |
-| vflip | HWC | (128,128,1) | float32 | 0.0051 | 0.0043 | 0.85x |
-| vflip | HWC | (128,128,1) | uint8 | 0.0019 | 0.0018 | 0.96x |
-| vflip | HWC | (128,128,3) | float32 | 0.0097 | 0.0101 | 1.04x |
-| vflip | HWC | (128,128,3) | uint8 | 0.0020 | 0.0013 | 0.68x |
-| vflip | HWC | (128,128,9) | float32 | 0.0281 | 0.0282 | 1.00x |
-| vflip | HWC | (128,128,9) | uint8 | 0.0074 | 0.0036 | 0.49x |
-| vflip | HWC | (256,256,1) | float32 | 0.0140 | 0.0067 | 0.48x |
-| vflip | HWC | (256,256,1) | uint8 | 0.0043 | 0.0045 | 1.05x |
-| vflip | HWC | (256,256,3) | float32 | 0.0393 | 0.0378 | 0.96x |
-| vflip | HWC | (256,256,3) | uint8 | 0.0099 | 0.0097 | 0.97x |
-| vflip | HWC | (256,256,9) | float32 | 0.3285 | 0.2065 | 0.63x |
-| vflip | HWC | (256,256,9) | uint8 | 0.0280 | 0.0280 | 1.00x |
-| vflip | HWC | (512,512,1) | float32 | 0.0517 | 0.0510 | 0.99x |
-| vflip | HWC | (512,512,1) | uint8 | 0.0147 | 0.0137 | 0.93x |
-| vflip | HWC | (512,512,3) | float32 | 0.3915 | 0.2592 | 0.66x |
-| vflip | HWC | (512,512,3) | uint8 | 0.0388 | 0.0373 | 0.96x |
-| vflip | HWC | (512,512,9) | float32 | 0.4490 | 0.4501 | 1.00x |
-| vflip | HWC | (512,512,9) | uint8 | 0.2542 | 0.1686 | 0.66x |
+| op | layout | shape | dtype | new_ms | old_ms | new_MAD | old_MAD | old/new |
+|----|--------|-------|-------|--------|--------|--------:|--------:|--------:|
+| add | HWC | (1024,1024,1) | float32 | 0.6928 ± 0.1379 | 0.6210 ± 0.0248 | 0.0418 | 0.0140 | 0.90x |
+| add | HWC | (1024,1024,1) | uint8 | 0.0395 ± 0.0045 | 0.0416 ± 0.0021 | 0.0019 | 0.0009 | 1.05x |
+| add | HWC | (1024,1024,3) | float32 | 1.1165 ± 0.0715 | 1.1502 ± 0.0144 | 0.0357 | 0.0064 | 1.03x |
+| add | HWC | (1024,1024,3) | uint8 | 0.2045 ± 0.0343 | 0.2157 ± 0.0182 | 0.0083 | 0.0114 | 1.05x |
+| add | HWC | (1024,1024,9) | float32 | 6.1945 ± 0.3385 | 8.0296 ± 0.1544 | 0.1323 | 0.1111 | 1.30x |
+| add | HWC | (1024,1024,9) | uint8 | 0.3026 ± 0.0299 | 0.3085 ± 0.0189 | 0.0162 | 0.0136 | 1.02x |
+| add | HWC | (128,128,1) | float32 | 0.0121 ± 0.0005 | 0.0115 ± 0.0009 | 0.0001 | 0.0011 | 0.95x |
+| add | HWC | (128,128,1) | uint8 | 0.0042 ± 0.0003 | 0.0039 ± 0.0002 | 0.0001 | 0.0001 | 0.94x |
+| add | HWC | (128,128,3) | float32 | 0.0232 ± 0.0006 | 0.0227 ± 0.0011 | 0.0001 | 0.0002 | 0.98x |
+| add | HWC | (128,128,3) | uint8 | 0.0036 ± 0.0001 | 0.0033 ± 0.0002 | 0.0001 | 0.0001 | 0.92x |
+| add | HWC | (128,128,9) | float32 | 0.0633 ± 0.0064 | 0.0615 ± 0.0052 | 0.0066 | 0.0034 | 0.97x |
+| add | HWC | (128,128,9) | uint8 | 0.0077 ± 0.0001 | 0.0070 ± 0.0003 | 0.0000 | 0.0001 | 0.90x |
+| add | HWC | (256,256,1) | float32 | 0.0322 ± 0.0037 | 0.0299 ± 0.0017 | 0.0028 | 0.0003 | 0.93x |
+| add | HWC | (256,256,1) | uint8 | 0.0066 ± 0.0003 | 0.0060 ± 0.0011 | 0.0002 | 0.0002 | 0.91x |
+| add | HWC | (256,256,3) | float32 | 0.0802 ± 0.0057 | 0.0771 ± 0.0051 | 0.0027 | 0.0017 | 0.96x |
+| add | HWC | (256,256,3) | uint8 | 0.0100 ± 0.0008 | 0.0090 ± 0.0011 | 0.0002 | 0.0004 | 0.90x |
+| add | HWC | (256,256,9) | float32 | 0.5947 ± 0.0933 | 0.4576 ± 0.0414 | 0.0498 | 0.0318 | 0.77x |
+| add | HWC | (256,256,9) | uint8 | 0.0285 ± 0.0348 | 0.0225 ± 0.0030 | 0.0096 | 0.0024 | 0.79x |
+| add | HWC | (512,512,1) | float32 | 0.1060 ± 0.0163 | 0.1033 ± 0.0183 | 0.0109 | 0.0119 | 0.97x |
+| add | HWC | (512,512,1) | uint8 | 0.0130 ± 0.0041 | 0.0141 ± 0.0010 | 0.0001 | 0.0003 | 1.08x |
+| add | HWC | (512,512,3) | float32 | 0.5562 ± 0.1109 | 0.4738 ± 0.0343 | 0.0443 | 0.0279 | 0.85x |
+| add | HWC | (512,512,3) | uint8 | 0.0295 ± 0.0022 | 0.0307 ± 0.0011 | 0.0010 | 0.0004 | 1.04x |
+| add | HWC | (512,512,9) | float32 | 0.8998 ± 0.0642 | 0.8967 ± 0.0327 | 0.0442 | 0.0131 | 1.00x |
+| add | HWC | (512,512,9) | uint8 | 0.2398 ± 0.0493 | 0.2025 ± 0.0221 | 0.0234 | 0.0130 | 0.84x |
+| add_array | HWC | (1024,1024,1) | float32 | 0.6928 ± 0.1132 | 0.6225 ± 0.0355 | 0.0695 | 0.0192 | 0.90x |
+| add_array | HWC | (1024,1024,1) | uint8 | 0.0279 ± 0.0035 | 0.0819 ± 0.0153 | 0.0024 | 0.0093 | 2.93x |
+| add_array | HWC | (1024,1024,3) | float32 | 1.0665 ± 0.0541 | 1.1040 ± 0.0140 | 0.0326 | 0.0092 | 1.04x |
+| add_array | HWC | (1024,1024,3) | uint8 | 0.1680 ± 0.0153 | 0.4860 ± 0.0368 | 0.0128 | 0.0181 | 2.89x |
+| add_array | HWC | (1024,1024,9) | float32 | 6.3592 ± 0.4478 | 6.4423 ± 0.2298 | 0.2597 | 0.1720 | 1.01x |
+| add_array | HWC | (1024,1024,9) | uint8 | 0.2443 ± 0.0273 | 0.6713 ± 0.0242 | 0.0146 | 0.0140 | 2.75x |
+| add_array | HWC | (128,128,1) | float32 | 0.0101 ± 0.0002 | 0.0106 ± 0.0002 | 0.0001 | 0.0001 | 1.05x |
+| add_array | HWC | (128,128,1) | uint8 | 0.0016 ± 0.0001 | 0.0081 ± 0.0005 | 0.0001 | 0.0002 | 5.13x |
+| add_array | HWC | (128,128,3) | float32 | 0.0216 ± 0.0007 | 0.0233 ± 0.0011 | 0.0002 | 0.0001 | 1.08x |
+| add_array | HWC | (128,128,3) | uint8 | 0.0023 ± 0.0001 | 0.0112 ± 0.0013 | 0.0000 | 0.0002 | 4.96x |
+| add_array | HWC | (128,128,9) | float32 | 0.0514 ± 0.0203 | 0.0570 ± 0.0023 | 0.0003 | 0.0004 | 1.11x |
+| add_array | HWC | (128,128,9) | uint8 | 0.0054 ± 0.0001 | 0.0176 ± 0.0010 | 0.0000 | 0.0004 | 3.25x |
+| add_array | HWC | (256,256,1) | float32 | 0.0273 ± 0.0031 | 0.0292 ± 0.0025 | 0.0028 | 0.0002 | 1.07x |
+| add_array | HWC | (256,256,1) | uint8 | 0.0028 ± 0.0001 | 0.0137 ± 0.0021 | 0.0000 | 0.0018 | 4.84x |
+| add_array | HWC | (256,256,3) | float32 | 0.0825 ± 0.0346 | 0.0743 ± 0.0037 | 0.0050 | 0.0005 | 0.90x |
+| add_array | HWC | (256,256,3) | uint8 | 0.0067 ± 0.0005 | 0.0200 ± 0.0011 | 0.0001 | 0.0010 | 2.98x |
+| add_array | HWC | (256,256,9) | float32 | 0.4078 ± 0.0377 | 0.3770 ± 0.0435 | 0.0205 | 0.0301 | 0.92x |
+| add_array | HWC | (256,256,9) | uint8 | 0.0131 ± 0.0002 | 0.0494 ± 0.0057 | 0.0001 | 0.0049 | 3.77x |
+| add_array | HWC | (512,512,1) | float32 | 0.1303 ± 0.0605 | 0.1099 ± 0.0126 | 0.0199 | 0.0097 | 0.84x |
+| add_array | HWC | (512,512,1) | uint8 | 0.0075 ± 0.0001 | 0.0270 ± 0.0072 | 0.0000 | 0.0029 | 3.58x |
+| add_array | HWC | (512,512,3) | float32 | 0.6006 ± 0.1380 | 0.4720 ± 0.0369 | 0.0405 | 0.0232 | 0.79x |
+| add_array | HWC | (512,512,3) | uint8 | 0.0198 ± 0.0020 | 0.0623 ± 0.0077 | 0.0000 | 0.0054 | 3.15x |
+| add_array | HWC | (512,512,9) | float32 | 0.8536 ± 0.0528 | 0.8271 ± 0.0090 | 0.0300 | 0.0067 | 0.97x |
+| add_array | HWC | (512,512,9) | uint8 | 0.1235 ± 0.0481 | 0.3600 ± 0.0277 | 0.0070 | 0.0230 | 2.91x |
+| add_constant | HWC | (1024,1024,1) | float32 | 0.7148 ± 0.1607 | 0.6286 ± 0.0743 | 0.0492 | 0.0181 | 0.88x |
+| add_constant | HWC | (1024,1024,1) | uint8 | 0.0429 ± 0.0064 | 0.0392 ± 0.0029 | 0.0047 | 0.0017 | 0.91x |
+| add_constant | HWC | (1024,1024,3) | float32 | 1.1625 ± 0.0609 | 1.1578 ± 0.0149 | 0.0362 | 0.0055 | 1.00x |
+| add_constant | HWC | (1024,1024,3) | uint8 | 0.2093 ± 0.0781 | 0.1888 ± 0.0239 | 0.0218 | 0.0139 | 0.90x |
+| add_constant | HWC | (1024,1024,9) | float32 | 10.8218 ± 0.6606 | 8.1453 ± 0.6940 | 0.5211 | 0.1232 | 0.75x |
+| add_constant | HWC | (1024,1024,9) | uint8 | 0.2835 ± 0.0371 | 0.3100 ± 0.0141 | 0.0012 | 0.0098 | 1.09x |
+| add_constant | HWC | (128,128,1) | float32 | 0.0114 ± 0.0004 | 0.0100 ± 0.0005 | 0.0001 | 0.0000 | 0.88x |
+| add_constant | HWC | (128,128,1) | uint8 | 0.0041 ± 0.0001 | 0.0034 ± 0.0002 | 0.0000 | 0.0000 | 0.84x |
+| add_constant | HWC | (128,128,3) | float32 | 0.0226 ± 0.0002 | 0.0221 ± 0.0022 | 0.0002 | 0.0006 | 0.98x |
+| add_constant | HWC | (128,128,3) | uint8 | 0.0032 ± 0.0001 | 0.0032 ± 0.0002 | 0.0000 | 0.0001 | 1.00x |
+| add_constant | HWC | (128,128,9) | float32 | 0.0538 ± 0.0018 | 0.0606 ± 0.0025 | 0.0003 | 0.0006 | 1.13x |
+| add_constant | HWC | (128,128,9) | uint8 | 0.0073 ± 0.0001 | 0.0071 ± 0.0003 | 0.0000 | 0.0001 | 0.97x |
+| add_constant | HWC | (256,256,1) | float32 | 0.0304 ± 0.0017 | 0.0292 ± 0.0016 | 0.0003 | 0.0009 | 0.96x |
+| add_constant | HWC | (256,256,1) | uint8 | 0.0062 ± 0.0002 | 0.0055 ± 0.0010 | 0.0001 | 0.0000 | 0.88x |
+| add_constant | HWC | (256,256,3) | float32 | 0.0792 ± 0.0007 | 0.0779 ± 0.0131 | 0.0005 | 0.0056 | 0.98x |
+| add_constant | HWC | (256,256,3) | uint8 | 0.0095 ± 0.0008 | 0.0090 ± 0.0003 | 0.0001 | 0.0002 | 0.95x |
+| add_constant | HWC | (256,256,9) | float32 | 0.5591 ± 0.0782 | 0.4128 ± 0.0314 | 0.0344 | 0.0222 | 0.74x |
+| add_constant | HWC | (256,256,9) | uint8 | 0.0190 ± 0.0093 | 0.0215 ± 0.0011 | 0.0007 | 0.0003 | 1.13x |
+| add_constant | HWC | (512,512,1) | float32 | 0.1126 ± 0.0194 | 0.1050 ± 0.0124 | 0.0146 | 0.0107 | 0.93x |
+| add_constant | HWC | (512,512,1) | uint8 | 0.0124 ± 0.0015 | 0.0124 ± 0.0010 | 0.0002 | 0.0007 | 1.00x |
+| add_constant | HWC | (512,512,3) | float32 | 0.5909 ± 0.1478 | 0.4796 ± 0.0269 | 0.0568 | 0.0212 | 0.81x |
+| add_constant | HWC | (512,512,3) | uint8 | 0.0302 ± 0.0025 | 0.0303 ± 0.0016 | 0.0013 | 0.0005 | 1.00x |
+| add_constant | HWC | (512,512,9) | float32 | 0.8824 ± 0.0494 | 0.9048 ± 0.0123 | 0.0222 | 0.0068 | 1.03x |
+| add_constant | HWC | (512,512,9) | uint8 | 0.2736 ± 0.1568 | 0.2046 ± 0.0221 | 0.0351 | 0.0149 | 0.75x |
+| add_vector | HWC | (1024,1024,1) | float32 | 0.8389 ± 0.1695 | 0.7325 ± 0.0564 | 0.0510 | 0.0286 | 0.87x |
+| add_vector | HWC | (1024,1024,1) | uint8 | 0.1174 ± 0.0473 | 0.0957 ± 0.0046 | 0.0052 | 0.0017 | 0.82x |
+| add_vector | HWC | (1024,1024,3) | float32 | 4.2788 ± 0.1088 | 4.3810 ± 0.0815 | 0.0785 | 0.0226 | 1.02x |
+| add_vector | HWC | (1024,1024,3) | uint8 | 1.9905 ± 0.2508 | 1.8881 ± 0.0391 | 0.0904 | 0.0214 | 0.95x |
+| add_vector | HWC | (1024,1024,9) | float32 | 14.6640 ± 0.5381 | 12.5121 ± 1.9369 | 0.3720 | 0.8318 | 0.85x |
+| add_vector | HWC | (1024,1024,9) | uint8 | 5.7217 ± 0.1628 | 5.7686 ± 0.0733 | 0.1107 | 0.0495 | 1.01x |
+| add_vector | HWC | (128,128,1) | float32 | 0.0133 ± 0.0003 | 0.0118 ± 0.0001 | 0.0002 | 0.0000 | 0.89x |
+| add_vector | HWC | (128,128,1) | uint8 | 0.0066 ± 0.0004 | 0.0061 ± 0.0005 | 0.0002 | 0.0001 | 0.92x |
+| add_vector | HWC | (128,128,3) | float32 | 0.0754 ± 0.0025 | 0.0728 ± 0.0028 | 0.0002 | 0.0004 | 0.97x |
+| add_vector | HWC | (128,128,3) | uint8 | 0.0393 ± 0.0003 | 0.0352 ± 0.0019 | 0.0001 | 0.0003 | 0.90x |
+| add_vector | HWC | (128,128,9) | float32 | 0.1193 ± 0.0064 | 0.1217 ± 0.0030 | 0.0040 | 0.0006 | 1.02x |
+| add_vector | HWC | (128,128,9) | uint8 | 0.0985 ± 0.0061 | 0.1073 ± 0.0077 | 0.0022 | 0.0055 | 1.09x |
+| add_vector | HWC | (256,256,1) | float32 | 0.0335 ± 0.0026 | 0.0319 ± 0.0017 | 0.0007 | 0.0002 | 0.95x |
+| add_vector | HWC | (256,256,1) | uint8 | 0.0123 ± 0.0001 | 0.0110 ± 0.0002 | 0.0001 | 0.0001 | 0.89x |
+| add_vector | HWC | (256,256,3) | float32 | 0.2749 ± 0.0214 | 0.2696 ± 0.0055 | 0.0034 | 0.0041 | 0.98x |
+| add_vector | HWC | (256,256,3) | uint8 | 0.1385 ± 0.0100 | 0.1199 ± 0.0056 | 0.0056 | 0.0052 | 0.87x |
+| add_vector | HWC | (256,256,9) | float32 | 0.7741 ± 0.1014 | 0.6500 ± 0.0350 | 0.0450 | 0.0238 | 0.84x |
+| add_vector | HWC | (256,256,9) | uint8 | 0.3505 ± 0.0559 | 0.3384 ± 0.0158 | 0.0248 | 0.0106 | 0.97x |
+| add_vector | HWC | (512,512,1) | float32 | 0.1442 ± 0.0327 | 0.1182 ± 0.0139 | 0.0180 | 0.0060 | 0.82x |
+| add_vector | HWC | (512,512,1) | uint8 | 0.0280 ± 0.0025 | 0.0304 ± 0.0018 | 0.0002 | 0.0008 | 1.09x |
+| add_vector | HWC | (512,512,3) | float32 | 1.5542 ± 0.2767 | 1.3445 ± 0.0299 | 0.1266 | 0.0239 | 0.87x |
+| add_vector | HWC | (512,512,3) | uint8 | 0.4813 ± 0.0696 | 0.4331 ± 0.0167 | 0.0228 | 0.0033 | 0.90x |
+| add_vector | HWC | (512,512,9) | float32 | 1.7983 ± 0.1064 | 1.8118 ± 0.0708 | 0.0754 | 0.0298 | 1.01x |
+| add_vector | HWC | (512,512,9) | uint8 | 1.5138 ± 0.1456 | 1.3998 ± 0.0488 | 0.0469 | 0.0216 | 0.92x |
+| add_weighted | HWC | (1024,1024,1) | float32 | 0.7340 ± 0.1338 | 0.6248 ± 0.0355 | 0.0406 | 0.0271 | 0.85x |
+| add_weighted | HWC | (1024,1024,1) | uint8 | 0.0598 ± 0.0043 | 0.0665 ± 0.0027 | 0.0001 | 0.0001 | 1.11x |
+| add_weighted | HWC | (1024,1024,3) | float32 | 1.3369 ± 0.0586 | 1.1552 ± 0.0146 | 0.0329 | 0.0054 | 0.86x |
+| add_weighted | HWC | (1024,1024,3) | uint8 | 0.2803 ± 0.0342 | 0.2917 ± 0.0114 | 0.0233 | 0.0114 | 1.04x |
+| add_weighted | HWC | (1024,1024,9) | float32 | 6.5319 ± 0.5208 | 7.3437 ± 0.4963 | 0.3721 | 0.1559 | 1.12x |
+| add_weighted | HWC | (1024,1024,9) | uint8 | 0.5936 ± 0.0360 | 0.5935 ± 0.0161 | 0.0288 | 0.0105 | 1.00x |
+| add_weighted | HWC | (128,128,1) | float32 | 0.0111 ± 0.0010 | 0.0083 ± 0.0001 | 0.0003 | 0.0000 | 0.75x |
+| add_weighted | HWC | (128,128,1) | uint8 | 0.0022 ± 0.0001 | 0.0020 ± 0.0001 | 0.0000 | 0.0000 | 0.91x |
+| add_weighted | HWC | (128,128,3) | float32 | 0.0251 ± 0.0001 | 0.0206 ± 0.0008 | 0.0001 | 0.0000 | 0.82x |
+| add_weighted | HWC | (128,128,3) | uint8 | 0.0045 ± 0.0001 | 0.0039 ± 0.0001 | 0.0000 | 0.0000 | 0.87x |
+| add_weighted | HWC | (128,128,9) | float32 | 0.0666 ± 0.0029 | 0.0554 ± 0.0034 | 0.0002 | 0.0006 | 0.83x |
+| add_weighted | HWC | (128,128,9) | uint8 | 0.0095 ± 0.0001 | 0.0105 ± 0.0001 | 0.0000 | 0.0000 | 1.11x |
+| add_weighted | HWC | (256,256,1) | float32 | 0.0340 ± 0.0024 | 0.0264 ± 0.0013 | 0.0005 | 0.0002 | 0.78x |
+| add_weighted | HWC | (256,256,1) | uint8 | 0.0056 ± 0.0001 | 0.0054 ± 0.0002 | 0.0000 | 0.0001 | 0.96x |
+| add_weighted | HWC | (256,256,3) | float32 | 0.0901 ± 0.0226 | 0.0724 ± 0.0028 | 0.0011 | 0.0004 | 0.80x |
+| add_weighted | HWC | (256,256,3) | uint8 | 0.0126 ± 0.0001 | 0.0136 ± 0.0001 | 0.0000 | 0.0000 | 1.08x |
+| add_weighted | HWC | (256,256,9) | float32 | 0.4786 ± 0.0740 | 0.3367 ± 0.0241 | 0.0353 | 0.0132 | 0.70x |
+| add_weighted | HWC | (256,256,9) | uint8 | 0.0408 ± 0.0144 | 0.0381 ± 0.0025 | 0.0015 | 0.0000 | 0.93x |
+| add_weighted | HWC | (512,512,1) | float32 | 0.1250 ± 0.0161 | 0.0888 ± 0.0065 | 0.0112 | 0.0030 | 0.71x |
+| add_weighted | HWC | (512,512,1) | uint8 | 0.0180 ± 0.0006 | 0.0177 ± 0.0005 | 0.0001 | 0.0000 | 0.99x |
+| add_weighted | HWC | (512,512,3) | float32 | 0.6725 ± 0.1399 | 0.4404 ± 0.0456 | 0.0502 | 0.0205 | 0.65x |
+| add_weighted | HWC | (512,512,3) | uint8 | 0.0464 ± 0.0058 | 0.0502 ± 0.0036 | 0.0004 | 0.0025 | 1.08x |
+| add_weighted | HWC | (512,512,9) | float32 | 0.9798 ± 0.0603 | 0.8295 ± 0.0103 | 0.0257 | 0.0056 | 0.85x |
+| add_weighted | HWC | (512,512,9) | uint8 | 0.2112 ± 0.0257 | 0.2093 ± 0.0123 | 0.0045 | 0.0110 | 0.99x |
+| from_float | HWC | (1024,1024,1) | float32 | 1.2182 ± 0.3138 | 1.0784 ± 0.0382 | 0.1226 | 0.0262 | 0.89x |
+| from_float | HWC | (1024,1024,3) | float32 | 2.1575 ± 0.1803 | 2.3190 ± 0.0935 | 0.0856 | 0.0832 | 1.07x |
+| from_float | HWC | (1024,1024,9) | float32 | 12.4918 ± 0.5729 | 13.5225 ± 0.5825 | 0.3972 | 0.2490 | 1.08x |
+| from_float | HWC | (128,128,1) | float32 | 0.0133 ± 0.0002 | 0.0135 ± 0.0002 | 0.0001 | 0.0001 | 1.01x |
+| from_float | HWC | (128,128,3) | float32 | 0.0360 ± 0.0109 | 0.0364 ± 0.0026 | 0.0003 | 0.0003 | 1.01x |
+| from_float | HWC | (128,128,9) | float32 | 0.1823 ± 0.0360 | 0.1470 ± 0.0204 | 0.0188 | 0.0032 | 0.81x |
+| from_float | HWC | (256,256,1) | float32 | 0.0469 ± 0.0053 | 0.0475 ± 0.0027 | 0.0011 | 0.0005 | 1.01x |
+| from_float | HWC | (256,256,3) | float32 | 0.1419 ± 0.0164 | 0.1814 ± 0.0099 | 0.0054 | 0.0078 | 1.28x |
+| from_float | HWC | (256,256,9) | float32 | 0.9401 ± 0.2678 | 0.7119 ± 0.0319 | 0.0787 | 0.0199 | 0.76x |
+| from_float | HWC | (512,512,1) | float32 | 0.2741 ± 0.0714 | 0.2424 ± 0.0176 | 0.0289 | 0.0109 | 0.88x |
+| from_float | HWC | (512,512,3) | float32 | 1.0166 ± 0.3503 | 0.8290 ± 0.0337 | 0.1435 | 0.0270 | 0.82x |
+| from_float | HWC | (512,512,9) | float32 | 1.7529 ± 0.1298 | 1.7847 ± 0.0502 | 0.0799 | 0.0220 | 1.02x |
+| hflip | HWC | (1024,1024,1) | float32 | 0.2067 ± 0.0928 | 0.1923 ± 0.0169 | 0.0185 | 0.0155 | 0.93x |
+| hflip | HWC | (1024,1024,1) | uint8 | 0.0229 ± 0.0055 | 0.0194 ± 0.0035 | 0.0034 | 0.0002 | 0.85x |
+| hflip | HWC | (1024,1024,3) | float32 | 0.3892 ± 0.0451 | 0.4242 ± 0.0099 | 0.0087 | 0.0067 | 1.09x |
+| hflip | HWC | (1024,1024,3) | uint8 | 0.4095 ± 0.0952 | 0.3870 ± 0.0186 | 0.0211 | 0.0097 | 0.95x |
+| hflip | HWC | (1024,1024,9) | float32 | 8.9518 ± 0.4365 | 7.7097 ± 0.1373 | 0.2088 | 0.0530 | 0.86x |
+| hflip | HWC | (1024,1024,9) | uint8 | 1.8963 ± 0.2133 | 1.5544 ± 0.0221 | 0.1074 | 0.0164 | 0.82x |
+| hflip | HWC | (128,128,1) | float32 | 0.0028 ± 0.0000 | 0.0025 ± 0.0004 | 0.0000 | 0.0000 | 0.87x |
+| hflip | HWC | (128,128,1) | uint8 | 0.0014 ± 0.0000 | 0.0015 ± 0.0000 | 0.0000 | 0.0000 | 1.03x |
+| hflip | HWC | (128,128,3) | float32 | 0.0068 ± 0.0001 | 0.0065 ± 0.0001 | 0.0001 | 0.0000 | 0.96x |
+| hflip | HWC | (128,128,3) | uint8 | 0.0045 ± 0.0001 | 0.0049 ± 0.0002 | 0.0000 | 0.0001 | 1.07x |
+| hflip | HWC | (128,128,9) | float32 | 0.1003 ± 0.0074 | 0.0982 ± 0.0149 | 0.0059 | 0.0017 | 0.98x |
+| hflip | HWC | (128,128,9) | uint8 | 0.0272 ± 0.0082 | 0.0258 ± 0.0012 | 0.0006 | 0.0005 | 0.95x |
+| hflip | HWC | (256,256,1) | float32 | 0.0068 ± 0.0000 | 0.0066 ± 0.0000 | 0.0000 | 0.0000 | 0.98x |
+| hflip | HWC | (256,256,1) | uint8 | 0.0028 ± 0.0003 | 0.0024 ± 0.0001 | 0.0001 | 0.0001 | 0.86x |
+| hflip | HWC | (256,256,3) | float32 | 0.0250 ± 0.0013 | 0.0262 ± 0.0010 | 0.0011 | 0.0000 | 1.05x |
+| hflip | HWC | (256,256,3) | uint8 | 0.0203 ± 0.0018 | 0.0196 ± 0.0013 | 0.0016 | 0.0000 | 0.97x |
+| hflip | HWC | (256,256,9) | float32 | 0.5017 ± 0.1923 | 0.4361 ± 0.0254 | 0.0339 | 0.0108 | 0.87x |
+| hflip | HWC | (256,256,9) | uint8 | 0.0987 ± 0.0043 | 0.1011 ± 0.0055 | 0.0031 | 0.0010 | 1.02x |
+| hflip | HWC | (512,512,1) | float32 | 0.0225 ± 0.0023 | 0.0216 ± 0.0026 | 0.0005 | 0.0019 | 0.96x |
+| hflip | HWC | (512,512,1) | uint8 | 0.0068 ± 0.0007 | 0.0060 ± 0.0001 | 0.0000 | 0.0001 | 0.88x |
+| hflip | HWC | (512,512,3) | float32 | 0.2217 ± 0.0989 | 0.1805 ± 0.0203 | 0.0167 | 0.0070 | 0.81x |
+| hflip | HWC | (512,512,3) | uint8 | 0.0777 ± 0.0055 | 0.0692 ± 0.0044 | 0.0031 | 0.0014 | 0.89x |
+| hflip | HWC | (512,512,9) | float32 | 1.5266 ± 0.1056 | 1.5635 ± 0.0144 | 0.0492 | 0.0070 | 1.02x |
+| hflip | HWC | (512,512,9) | uint8 | 0.4917 ± 0.0731 | 0.4588 ± 0.0241 | 0.0405 | 0.0150 | 0.93x |
+| matmul | 2D | (128,64,64,32) | float32 | 0.0020 ± 0.0001 | 0.0019 ± 0.0001 | 0.0000 | 0.0000 | 0.98x |
+| median_blur | HWC | (1024,1024,1) | uint8 | 0.1321 ± 0.0258 | 0.1298 ± 0.0195 | 0.0032 | 0.0041 | 0.98x |
+| median_blur | HWC | (1024,1024,3) | uint8 | 0.5964 ± 0.1191 | 0.6000 ± 0.2077 | 0.0408 | 0.0260 | 1.01x |
+| median_blur | HWC | (1024,1024,9) | uint8 | 1.6169 ± 0.2081 | 1.2192 ± 0.0276 | 0.1146 | 0.0096 | 0.75x |
+| median_blur | HWC | (128,128,1) | uint8 | 0.0067 ± 0.0006 | 0.0068 ± 0.0005 | 0.0001 | 0.0001 | 1.01x |
+| median_blur | HWC | (128,128,3) | uint8 | 0.0125 ± 0.0007 | 0.0110 ± 0.0011 | 0.0001 | 0.0002 | 0.88x |
+| median_blur | HWC | (128,128,9) | uint8 | 0.0315 ± 0.0021 | 0.0306 ± 0.0016 | 0.0001 | 0.0002 | 0.97x |
+| median_blur | HWC | (256,256,1) | uint8 | 0.0188 ± 0.0043 | 0.0141 ± 0.0007 | 0.0017 | 0.0001 | 0.75x |
+| median_blur | HWC | (256,256,3) | uint8 | 0.0358 ± 0.0064 | 0.0333 ± 0.0027 | 0.0043 | 0.0020 | 0.93x |
+| median_blur | HWC | (256,256,9) | uint8 | 0.0968 ± 0.0048 | 0.0970 ± 0.0035 | 0.0026 | 0.0002 | 1.00x |
+| median_blur | HWC | (512,512,1) | uint8 | 0.0465 ± 0.0128 | 0.0402 ± 0.0053 | 0.0056 | 0.0007 | 0.86x |
+| median_blur | HWC | (512,512,3) | uint8 | 0.1191 ± 0.0250 | 0.1079 ± 0.0275 | 0.0060 | 0.0038 | 0.91x |
+| median_blur | HWC | (512,512,9) | uint8 | 0.5165 ± 0.1005 | 0.3844 ± 0.0158 | 0.0414 | 0.0080 | 0.74x |
+| multiply | HWC | (1024,1024,1) | float32 | 0.6567 ± 0.1534 | 0.5780 ± 0.0351 | 0.0672 | 0.0188 | 0.88x |
+| multiply | HWC | (1024,1024,1) | uint8 | 0.0875 ± 0.0086 | 0.0860 ± 0.0042 | 0.0056 | 0.0039 | 0.98x |
+| multiply | HWC | (1024,1024,3) | float32 | 0.9832 ± 0.0498 | 1.0501 ± 0.0520 | 0.0282 | 0.0261 | 1.07x |
+| multiply | HWC | (1024,1024,3) | uint8 | 0.3380 ± 0.0394 | 0.3269 ± 0.0150 | 0.0112 | 0.0105 | 0.97x |
+| multiply | HWC | (1024,1024,9) | float32 | 5.6033 ± 0.3353 | 6.0605 ± 0.9335 | 0.2504 | 0.2485 | 1.08x |
+| multiply | HWC | (1024,1024,9) | uint8 | 0.7517 ± 0.0425 | 0.7974 ± 0.0351 | 0.0165 | 0.0248 | 1.06x |
+| multiply | HWC | (128,128,1) | float32 | 0.0085 ± 0.0002 | 0.0073 ± 0.0001 | 0.0001 | 0.0000 | 0.86x |
+| multiply | HWC | (128,128,1) | uint8 | 0.0057 ± 0.0001 | 0.0052 ± 0.0001 | 0.0001 | 0.0001 | 0.92x |
+| multiply | HWC | (128,128,3) | float32 | 0.0197 ± 0.0015 | 0.0190 ± 0.0015 | 0.0001 | 0.0001 | 0.96x |
+| multiply | HWC | (128,128,3) | uint8 | 0.0093 ± 0.0001 | 0.0082 ± 0.0001 | 0.0001 | 0.0001 | 0.89x |
+| multiply | HWC | (128,128,9) | float32 | 0.0484 ± 0.0020 | 0.0501 ± 0.0024 | 0.0003 | 0.0002 | 1.03x |
+| multiply | HWC | (128,128,9) | uint8 | 0.0153 ± 0.0017 | 0.0170 ± 0.0008 | 0.0001 | 0.0002 | 1.11x |
+| multiply | HWC | (256,256,1) | float32 | 0.0287 ± 0.0112 | 0.0241 ± 0.0011 | 0.0054 | 0.0001 | 0.84x |
+| multiply | HWC | (256,256,1) | uint8 | 0.0109 ± 0.0001 | 0.0106 ± 0.0006 | 0.0001 | 0.0003 | 0.97x |
+| multiply | HWC | (256,256,3) | float32 | 0.0655 ± 0.0007 | 0.0683 ± 0.0186 | 0.0001 | 0.0037 | 1.04x |
+| multiply | HWC | (256,256,3) | uint8 | 0.0195 ± 0.0021 | 0.0206 ± 0.0011 | 0.0001 | 0.0007 | 1.06x |
+| multiply | HWC | (256,256,9) | float32 | 0.3645 ± 0.0862 | 0.3192 ± 0.0224 | 0.0150 | 0.0113 | 0.88x |
+| multiply | HWC | (256,256,9) | uint8 | 0.0550 ± 0.0005 | 0.0485 ± 0.0022 | 0.0002 | 0.0001 | 0.88x |
+| multiply | HWC | (512,512,1) | float32 | 0.1013 ± 0.0174 | 0.0888 ± 0.0128 | 0.0135 | 0.0108 | 0.88x |
+| multiply | HWC | (512,512,1) | uint8 | 0.0245 ± 0.0038 | 0.0267 ± 0.0014 | 0.0002 | 0.0003 | 1.09x |
+| multiply | HWC | (512,512,3) | float32 | 0.5720 ± 0.1578 | 0.4140 ± 0.0435 | 0.0322 | 0.0271 | 0.72x |
+| multiply | HWC | (512,512,3) | uint8 | 0.0723 ± 0.0004 | 0.0627 ± 0.0006 | 0.0001 | 0.0000 | 0.87x |
+| multiply | HWC | (512,512,9) | float32 | 0.7314 ± 0.0506 | 0.7435 ± 0.0137 | 0.0301 | 0.0026 | 1.02x |
+| multiply | HWC | (512,512,9) | uint8 | 0.2522 ± 0.0149 | 0.2475 ± 0.0187 | 0.0058 | 0.0105 | 0.98x |
+| multiply_add | HWC | (1024,1024,1) | float32 | 0.8837 ± 0.2336 | 0.9658 ± 0.0582 | 0.0587 | 0.0367 | 1.09x |
+| multiply_add | HWC | (1024,1024,1) | uint8 | 0.0828 ± 0.0100 | 0.0884 ± 0.0065 | 0.0009 | 0.0050 | 1.07x |
+| multiply_add | HWC | (1024,1024,3) | float32 | 1.1625 ± 0.0584 | 1.3969 ± 0.0414 | 0.0307 | 0.0180 | 1.20x |
+| multiply_add | HWC | (1024,1024,3) | uint8 | 0.3468 ± 0.0345 | 0.3308 ± 0.0240 | 0.0135 | 0.0154 | 0.95x |
+| multiply_add | HWC | (1024,1024,9) | float32 | 11.6171 ± 0.4956 | 10.6482 ± 0.6488 | 0.3821 | 0.5322 | 0.92x |
+| multiply_add | HWC | (1024,1024,9) | uint8 | 0.7592 ± 0.0447 | 0.7843 ± 0.0491 | 0.0218 | 0.0210 | 1.03x |
+| multiply_add | HWC | (128,128,1) | float32 | 0.0117 ± 0.0008 | 0.0133 ± 0.0001 | 0.0001 | 0.0001 | 1.14x |
+| multiply_add | HWC | (128,128,1) | uint8 | 0.0056 ± 0.0002 | 0.0050 ± 0.0002 | 0.0001 | 0.0001 | 0.89x |
+| multiply_add | HWC | (128,128,3) | float32 | 0.0230 ± 0.0012 | 0.0295 ± 0.0014 | 0.0003 | 0.0002 | 1.28x |
+| multiply_add | HWC | (128,128,3) | uint8 | 0.0091 ± 0.0005 | 0.0081 ± 0.0001 | 0.0001 | 0.0001 | 0.89x |
+| multiply_add | HWC | (128,128,9) | float32 | 0.0668 ± 0.0314 | 0.0722 ± 0.0028 | 0.0128 | 0.0007 | 1.08x |
+| multiply_add | HWC | (128,128,9) | uint8 | 0.0153 ± 0.0023 | 0.0154 ± 0.0007 | 0.0000 | 0.0000 | 1.01x |
+| multiply_add | HWC | (256,256,1) | float32 | 0.0481 ± 0.0094 | 0.0362 ± 0.0019 | 0.0067 | 0.0005 | 0.75x |
+| multiply_add | HWC | (256,256,1) | uint8 | 0.0109 ± 0.0001 | 0.0096 ± 0.0001 | 0.0001 | 0.0000 | 0.89x |
+| multiply_add | HWC | (256,256,3) | float32 | 0.1584 ± 0.0132 | 0.0968 ± 0.0085 | 0.0050 | 0.0043 | 0.61x |
+| multiply_add | HWC | (256,256,3) | uint8 | 0.0195 ± 0.0007 | 0.0200 ± 0.0011 | 0.0001 | 0.0011 | 1.02x |
+| multiply_add | HWC | (256,256,9) | float32 | 0.5688 ± 0.1004 | 0.5309 ± 0.0449 | 0.0337 | 0.0276 | 0.93x |
+| multiply_add | HWC | (256,256,9) | uint8 | 0.0550 ± 0.0041 | 0.0517 ± 0.0033 | 0.0003 | 0.0026 | 0.94x |
+| multiply_add | HWC | (512,512,1) | float32 | 0.2137 ± 0.0701 | 0.1280 ± 0.0131 | 0.0257 | 0.0108 | 0.60x |
+| multiply_add | HWC | (512,512,1) | uint8 | 0.0272 ± 0.0027 | 0.0254 ± 0.0036 | 0.0019 | 0.0012 | 0.93x |
+| multiply_add | HWC | (512,512,3) | float32 | 0.8065 ± 0.2262 | 0.6683 ± 0.0539 | 0.1259 | 0.0145 | 0.83x |
+| multiply_add | HWC | (512,512,3) | uint8 | 0.0654 ± 0.0057 | 0.0630 ± 0.0027 | 0.0012 | 0.0003 | 0.96x |
+| multiply_add | HWC | (512,512,9) | float32 | 0.8929 ± 0.0586 | 1.0695 ± 0.0227 | 0.0474 | 0.0102 | 1.20x |
+| multiply_add | HWC | (512,512,9) | uint8 | 0.2685 ± 0.0427 | 0.2583 ± 0.0157 | 0.0282 | 0.0127 | 0.96x |
+| multiply_by_array | HWC | (1024,1024,1) | float32 | 0.6988 ± 0.2123 | 0.6159 ± 0.0315 | 0.0460 | 0.0183 | 0.88x |
+| multiply_by_array | HWC | (1024,1024,1) | uint8 | 1.4642 ± 0.2015 | 1.3211 ± 0.0512 | 0.0947 | 0.0276 | 0.90x |
+| multiply_by_array | HWC | (1024,1024,3) | float32 | 1.0765 ± 0.0612 | 1.1059 ± 0.0179 | 0.0192 | 0.0076 | 1.03x |
+| multiply_by_array | HWC | (1024,1024,3) | uint8 | 2.8830 ± 0.1795 | 2.8583 ± 0.0607 | 0.1367 | 0.0235 | 0.99x |
+| multiply_by_array | HWC | (1024,1024,9) | float32 | 6.1555 ± 0.5061 | 6.2090 ± 0.1053 | 0.2898 | 0.0712 | 1.01x |
+| multiply_by_array | HWC | (1024,1024,9) | uint8 | 11.1262 ± 0.4291 | 14.7414 ± 0.5219 | 0.3092 | 0.3889 | 1.32x |
+| multiply_by_array | HWC | (128,128,1) | float32 | 0.0086 ± 0.0001 | 0.0105 ± 0.0001 | 0.0000 | 0.0000 | 1.23x |
+| multiply_by_array | HWC | (128,128,1) | uint8 | 0.0216 ± 0.0004 | 0.0194 ± 0.0002 | 0.0002 | 0.0001 | 0.90x |
+| multiply_by_array | HWC | (128,128,3) | float32 | 0.0195 ± 0.0001 | 0.0243 ± 0.0011 | 0.0001 | 0.0002 | 1.24x |
+| multiply_by_array | HWC | (128,128,3) | uint8 | 0.0501 ± 0.0027 | 0.0494 ± 0.0023 | 0.0010 | 0.0020 | 0.99x |
+| multiply_by_array | HWC | (128,128,9) | float32 | 0.0527 ± 0.0037 | 0.0573 ± 0.0022 | 0.0015 | 0.0005 | 1.09x |
+| multiply_by_array | HWC | (128,128,9) | uint8 | 0.1236 ± 0.0084 | 0.1355 ± 0.0042 | 0.0028 | 0.0017 | 1.10x |
+| multiply_by_array | HWC | (256,256,1) | float32 | 0.0249 ± 0.0109 | 0.0295 ± 0.0032 | 0.0002 | 0.0025 | 1.18x |
+| multiply_by_array | HWC | (256,256,1) | uint8 | 0.0756 ± 0.0071 | 0.0636 ± 0.0031 | 0.0050 | 0.0015 | 0.84x |
+| multiply_by_array | HWC | (256,256,3) | float32 | 0.0700 ± 0.0015 | 0.0752 ± 0.0026 | 0.0003 | 0.0005 | 1.07x |
+| multiply_by_array | HWC | (256,256,3) | uint8 | 0.2268 ± 0.0326 | 0.2159 ± 0.0159 | 0.0120 | 0.0072 | 0.95x |
+| multiply_by_array | HWC | (256,256,9) | float32 | 0.4387 ± 0.0804 | 0.3459 ± 0.0207 | 0.0245 | 0.0086 | 0.79x |
+| multiply_by_array | HWC | (256,256,9) | uint8 | 0.8900 ± 0.0910 | 0.7185 ± 0.0233 | 0.0273 | 0.0129 | 0.81x |
+| multiply_by_array | HWC | (512,512,1) | float32 | 0.0974 ± 0.0312 | 0.1040 ± 0.0139 | 0.0083 | 0.0073 | 1.07x |
+| multiply_by_array | HWC | (512,512,1) | uint8 | 0.3175 ± 0.0975 | 0.3239 ± 0.0179 | 0.0285 | 0.0120 | 1.02x |
+| multiply_by_array | HWC | (512,512,3) | float32 | 0.6333 ± 0.1446 | 0.4565 ± 0.0257 | 0.0440 | 0.0148 | 0.72x |
+| multiply_by_array | HWC | (512,512,3) | uint8 | 1.1163 ± 0.2629 | 0.9773 ± 0.0332 | 0.0599 | 0.0226 | 0.88x |
+| multiply_by_array | HWC | (512,512,9) | float32 | 0.8155 ± 0.0669 | 0.8360 ± 0.0119 | 0.0322 | 0.0052 | 1.03x |
+| multiply_by_array | HWC | (512,512,9) | uint8 | 2.1691 ± 0.1563 | 2.1960 ± 0.0644 | 0.0853 | 0.0493 | 1.01x |
+| multiply_by_constant | HWC | (1024,1024,1) | float32 | 0.6438 ± 0.2107 | 0.5799 ± 0.0550 | 0.0551 | 0.0124 | 0.90x |
+| multiply_by_constant | HWC | (1024,1024,1) | uint8 | 0.0818 ± 0.0029 | 0.0873 ± 0.0047 | 0.0002 | 0.0041 | 1.07x |
+| multiply_by_constant | HWC | (1024,1024,3) | float32 | 0.9756 ± 0.0615 | 0.9885 ± 0.0113 | 0.0160 | 0.0083 | 1.01x |
+| multiply_by_constant | HWC | (1024,1024,3) | uint8 | 0.3588 ± 0.0511 | 0.3266 ± 0.0176 | 0.0390 | 0.0137 | 0.91x |
+| multiply_by_constant | HWC | (1024,1024,9) | float32 | 5.5113 ± 0.4784 | 5.9407 ± 0.1495 | 0.3458 | 0.0677 | 1.08x |
+| multiply_by_constant | HWC | (1024,1024,9) | uint8 | 1.0544 ± 0.1335 | 0.7822 ± 0.0319 | 0.0552 | 0.0179 | 0.74x |
+| multiply_by_constant | HWC | (128,128,1) | float32 | 0.0080 ± 0.0006 | 0.0071 ± 0.0001 | 0.0001 | 0.0000 | 0.88x |
+| multiply_by_constant | HWC | (128,128,1) | uint8 | 0.0054 ± 0.0004 | 0.0049 ± 0.0001 | 0.0001 | 0.0000 | 0.91x |
+| multiply_by_constant | HWC | (128,128,3) | float32 | 0.0185 ± 0.0005 | 0.0186 ± 0.0005 | 0.0001 | 0.0001 | 1.01x |
+| multiply_by_constant | HWC | (128,128,3) | uint8 | 0.0090 ± 0.0003 | 0.0087 ± 0.0003 | 0.0000 | 0.0001 | 0.97x |
+| multiply_by_constant | HWC | (128,128,9) | float32 | 0.0489 ± 0.0018 | 0.0500 ± 0.0023 | 0.0001 | 0.0003 | 1.02x |
+| multiply_by_constant | HWC | (128,128,9) | uint8 | 0.0172 ± 0.0001 | 0.0168 ± 0.0007 | 0.0001 | 0.0000 | 0.98x |
+| multiply_by_constant | HWC | (256,256,1) | float32 | 0.0212 ± 0.0012 | 0.0238 ± 0.0011 | 0.0002 | 0.0001 | 1.13x |
+| multiply_by_constant | HWC | (256,256,1) | uint8 | 0.0093 ± 0.0007 | 0.0094 ± 0.0001 | 0.0003 | 0.0001 | 1.01x |
+| multiply_by_constant | HWC | (256,256,3) | float32 | 0.0677 ± 0.0138 | 0.0658 ± 0.0095 | 0.0036 | 0.0053 | 0.97x |
+| multiply_by_constant | HWC | (256,256,3) | uint8 | 0.0193 ± 0.0016 | 0.0209 ± 0.0010 | 0.0006 | 0.0001 | 1.08x |
+| multiply_by_constant | HWC | (256,256,9) | float32 | 0.3882 ± 0.0883 | 0.3258 ± 0.0207 | 0.0239 | 0.0175 | 0.84x |
+| multiply_by_constant | HWC | (256,256,9) | uint8 | 0.0557 ± 0.0013 | 0.0508 ± 0.0028 | 0.0007 | 0.0028 | 0.91x |
+| multiply_by_constant | HWC | (512,512,1) | float32 | 0.1038 ± 0.0420 | 0.0867 ± 0.0127 | 0.0243 | 0.0088 | 0.84x |
+| multiply_by_constant | HWC | (512,512,1) | uint8 | 0.0241 ± 0.0025 | 0.0240 ± 0.0013 | 0.0001 | 0.0004 | 0.99x |
+| multiply_by_constant | HWC | (512,512,3) | float32 | 0.5799 ± 0.1866 | 0.4216 ± 0.0279 | 0.0463 | 0.0093 | 0.73x |
+| multiply_by_constant | HWC | (512,512,3) | uint8 | 0.0758 ± 0.0148 | 0.0626 ± 0.0034 | 0.0037 | 0.0003 | 0.83x |
+| multiply_by_constant | HWC | (512,512,9) | float32 | 0.7505 ± 0.0439 | 0.7511 ± 0.0095 | 0.0312 | 0.0067 | 1.00x |
+| multiply_by_constant | HWC | (512,512,9) | uint8 | 0.2585 ± 0.0330 | 0.2840 ± 0.0198 | 0.0123 | 0.0123 | 1.10x |
+| multiply_by_vector | HWC | (1024,1024,1) | float32 | 0.8996 ± 0.3257 | 0.7593 ± 0.0458 | 0.1160 | 0.0223 | 0.84x |
+| multiply_by_vector | HWC | (1024,1024,1) | uint8 | 0.1357 ± 0.0056 | 0.1019 ± 0.0047 | 0.0021 | 0.0029 | 0.75x |
+| multiply_by_vector | HWC | (1024,1024,3) | float32 | 4.3160 ± 0.1020 | 4.2158 ± 0.0522 | 0.0695 | 0.0288 | 0.98x |
+| multiply_by_vector | HWC | (1024,1024,3) | uint8 | 2.0662 ± 0.1946 | 1.9159 ± 0.0320 | 0.1778 | 0.0166 | 0.93x |
+| multiply_by_vector | HWC | (1024,1024,9) | float32 | 9.4988 ± 0.5198 | 10.0432 ± 0.1920 | 0.2365 | 0.1405 | 1.06x |
+| multiply_by_vector | HWC | (1024,1024,9) | uint8 | 6.2692 ± 0.4015 | 5.7438 ± 0.0890 | 0.1189 | 0.0592 | 0.92x |
+| multiply_by_vector | HWC | (128,128,1) | float32 | 0.0142 ± 0.0147 | 0.0117 ± 0.0001 | 0.0007 | 0.0000 | 0.82x |
+| multiply_by_vector | HWC | (128,128,1) | uint8 | 0.0062 ± 0.0001 | 0.0057 ± 0.0001 | 0.0000 | 0.0001 | 0.91x |
+| multiply_by_vector | HWC | (128,128,3) | float32 | 0.0662 ± 0.0148 | 0.0738 ± 0.0053 | 0.0003 | 0.0010 | 1.11x |
+| multiply_by_vector | HWC | (128,128,3) | uint8 | 0.0392 ± 0.0009 | 0.0344 ± 0.0018 | 0.0003 | 0.0005 | 0.88x |
+| multiply_by_vector | HWC | (128,128,9) | float32 | 0.1104 ± 0.0243 | 0.1091 ± 0.0045 | 0.0006 | 0.0013 | 0.99x |
+| multiply_by_vector | HWC | (128,128,9) | uint8 | 0.1099 ± 0.0002 | 0.1074 ± 0.0065 | 0.0001 | 0.0033 | 0.98x |
+| multiply_by_vector | HWC | (256,256,1) | float32 | 0.0404 ± 0.0061 | 0.0318 ± 0.0017 | 0.0044 | 0.0003 | 0.79x |
+| multiply_by_vector | HWC | (256,256,1) | uint8 | 0.0104 ± 0.0001 | 0.0150 ± 0.0017 | 0.0001 | 0.0014 | 1.44x |
+| multiply_by_vector | HWC | (256,256,3) | float32 | 0.2846 ± 0.0154 | 0.2706 ± 0.0075 | 0.0012 | 0.0040 | 0.95x |
+| multiply_by_vector | HWC | (256,256,3) | uint8 | 0.1313 ± 0.0142 | 0.1205 ± 0.0051 | 0.0090 | 0.0041 | 0.92x |
+| multiply_by_vector | HWC | (256,256,9) | float32 | 0.6091 ± 0.0945 | 0.5717 ± 0.0174 | 0.0600 | 0.0148 | 0.94x |
+| multiply_by_vector | HWC | (256,256,9) | uint8 | 0.3494 ± 0.0647 | 0.4124 ± 0.0118 | 0.0168 | 0.0081 | 1.18x |
+| multiply_by_vector | HWC | (512,512,1) | float32 | 0.1370 ± 0.0148 | 0.1256 ± 0.0054 | 0.0165 | 0.0031 | 0.92x |
+| multiply_by_vector | HWC | (512,512,1) | uint8 | 0.0277 ± 0.0033 | 0.0402 ± 0.0053 | 0.0002 | 0.0040 | 1.45x |
+| multiply_by_vector | HWC | (512,512,3) | float32 | 1.6188 ± 0.2647 | 1.3341 ± 0.0352 | 0.1310 | 0.0357 | 0.82x |
+| multiply_by_vector | HWC | (512,512,3) | uint8 | 0.4806 ± 0.0660 | 0.4900 ± 0.0102 | 0.0098 | 0.0048 | 1.02x |
+| multiply_by_vector | HWC | (512,512,9) | float32 | 1.6775 ± 0.0854 | 1.6896 ± 0.0139 | 0.0376 | 0.0052 | 1.01x |
+| multiply_by_vector | HWC | (512,512,9) | uint8 | 1.5104 ± 0.2123 | 1.4095 ± 0.0551 | 0.1299 | 0.0153 | 0.93x |
+| normalize | HWC | (1024,1024,1) | float32 | 0.6985 ± 0.3421 | 0.5975 ± 0.0436 | 0.1165 | 0.0257 | 0.86x |
+| normalize | HWC | (1024,1024,1) | uint8 | 0.2170 ± 0.1335 | 0.1915 ± 0.1523 | 0.0295 | 0.0103 | 0.88x |
+| normalize | HWC | (1024,1024,3) | float32 | 0.6794 ± 0.0682 | 0.6908 ± 0.0298 | 0.0347 | 0.0132 | 1.02x |
+| normalize | HWC | (1024,1024,3) | uint8 | 0.1418 ± 0.1489 | 0.1472 ± 0.1768 | 0.0070 | 0.0126 | 1.04x |
+| normalize | HWC | (1024,1024,9) | float32 | 6.1034 ± 0.6771 | 6.0950 ± 0.4681 | 0.4255 | 0.2037 | 1.00x |
+| normalize | HWC | (1024,1024,9) | uint8 | 1.3313 ± 0.1430 | 1.2966 ± 0.1399 | 0.0887 | 0.0588 | 0.97x |
+| normalize | HWC | (128,128,1) | float32 | 0.0065 ± 0.0001 | 0.0055 ± 0.0001 | 0.0000 | 0.0001 | 0.85x |
+| normalize | HWC | (128,128,1) | uint8 | 0.0067 ± 0.0183 | 0.0069 ± 0.0001 | 0.0002 | 0.0001 | 1.02x |
+| normalize | HWC | (128,128,3) | float32 | 0.0143 ± 0.0006 | 0.0135 ± 0.0006 | 0.0000 | 0.0002 | 0.95x |
+| normalize | HWC | (128,128,3) | uint8 | 0.0153 ± 0.0184 | 0.0147 ± 0.0014 | 0.0000 | 0.0013 | 0.96x |
+| normalize | HWC | (128,128,9) | float32 | 0.0370 ± 0.0097 | 0.0350 ± 0.0015 | 0.0006 | 0.0001 | 0.95x |
+| normalize | HWC | (128,128,9) | uint8 | 0.0362 ± 0.0004 | 0.0395 ± 0.0017 | 0.0001 | 0.0002 | 1.09x |
+| normalize | HWC | (256,256,1) | float32 | 0.0175 ± 0.0020 | 0.0170 ± 0.0003 | 0.0016 | 0.0001 | 0.97x |
+| normalize | HWC | (256,256,1) | uint8 | 0.0178 ± 0.0001 | 0.0199 ± 0.0010 | 0.0000 | 0.0001 | 1.12x |
+| normalize | HWC | (256,256,3) | float32 | 0.1454 ± 0.0176 | 0.0742 ± 0.0168 | 0.0125 | 0.0172 | 0.51x |
+| normalize | HWC | (256,256,3) | uint8 | 0.0465 ± 0.0037 | 0.0516 ± 0.0022 | 0.0002 | 0.0001 | 1.11x |
+| normalize | HWC | (256,256,9) | float32 | 0.3936 ± 0.0772 | 0.3398 ± 0.0321 | 0.0355 | 0.0159 | 0.86x |
+| normalize | HWC | (256,256,9) | uint8 | 0.2318 ± 0.0339 | 0.2071 ± 0.0174 | 0.0116 | 0.0039 | 0.89x |
+| normalize | HWC | (512,512,1) | float32 | 0.1410 ± 0.0815 | 0.1000 ± 0.0301 | 0.0297 | 0.0244 | 0.71x |
+| normalize | HWC | (512,512,1) | uint8 | 0.0399 ± 0.0084 | 0.0381 ± 0.0031 | 0.0031 | 0.0021 | 0.96x |
+| normalize | HWC | (512,512,3) | float32 | 0.5955 ± 0.2281 | 0.4380 ± 0.0351 | 0.0474 | 0.0217 | 0.74x |
+| normalize | HWC | (512,512,3) | uint8 | 0.1831 ± 0.0682 | 0.1223 ± 0.0045 | 0.0324 | 0.0021 | 0.67x |
+| normalize | HWC | (512,512,9) | float32 | 0.5014 ± 0.0493 | 0.5128 ± 0.0169 | 0.0223 | 0.0025 | 1.02x |
+| normalize | HWC | (512,512,9) | uint8 | 0.1798 ± 0.0334 | 0.1716 ± 0.0024 | 0.0112 | 0.0008 | 0.95x |
+| normalize_per_image | HWC | (1024,1024,1) | float32 | 1.1571 ± 0.1260 | 1.1215 ± 0.0269 | 0.0751 | 0.0178 | 0.97x |
+| normalize_per_image | HWC | (1024,1024,1) | uint8 | 0.3683 ± 0.0997 | 1.9028 ± 0.2634 | 0.0777 | 0.0653 | 5.17x |
+| normalize_per_image | HWC | (1024,1024,3) | float32 | 2.6731 ± 0.0782 | 2.7102 ± 0.0303 | 0.0220 | 0.0243 | 1.01x |
+| normalize_per_image | HWC | (1024,1024,3) | uint8 | 0.4980 ± 0.0834 | 4.0708 ± 0.1219 | 0.0639 | 0.0698 | 8.17x |
+| normalize_per_image | HWC | (1024,1024,9) | float32 | 13.8065 ± 0.9747 | 11.3670 ± 0.2687 | 0.6014 | 0.1895 | 0.82x |
+| normalize_per_image | HWC | (1024,1024,9) | uint8 | 1.8385 ± 0.1610 | 18.1040 ± 0.8455 | 0.0771 | 0.3652 | 9.85x |
+| normalize_per_image | HWC | (128,128,1) | float32 | 0.0277 ± 0.0016 | 0.0248 ± 0.0009 | 0.0003 | 0.0009 | 0.90x |
+| normalize_per_image | HWC | (128,128,1) | uint8 | 0.0092 ± 0.0019 | 0.0395 ± 0.0015 | 0.0001 | 0.0005 | 4.30x |
+| normalize_per_image | HWC | (128,128,3) | float32 | 0.0562 ± 0.0014 | 0.0557 ± 0.0023 | 0.0004 | 0.0003 | 0.99x |
+| normalize_per_image | HWC | (128,128,3) | uint8 | 0.0183 ± 0.0006 | 0.0867 ± 0.0037 | 0.0001 | 0.0007 | 4.73x |
+| normalize_per_image | HWC | (128,128,9) | float32 | 0.1410 ± 0.0079 | 0.1412 ± 0.0039 | 0.0047 | 0.0016 | 1.00x |
+| normalize_per_image | HWC | (128,128,9) | uint8 | 0.0691 ± 0.0198 | 0.2890 ± 0.0128 | 0.0228 | 0.0095 | 4.18x |
+| normalize_per_image | HWC | (256,256,1) | float32 | 0.0693 ± 0.0009 | 0.0687 ± 0.0027 | 0.0002 | 0.0004 | 0.99x |
+| normalize_per_image | HWC | (256,256,1) | uint8 | 0.0347 ± 0.0100 | 0.1303 ± 0.0165 | 0.0090 | 0.0158 | 3.75x |
+| normalize_per_image | HWC | (256,256,3) | float32 | 0.1733 ± 0.0065 | 0.1795 ± 0.0058 | 0.0066 | 0.0017 | 1.04x |
+| normalize_per_image | HWC | (256,256,3) | uint8 | 0.0671 ± 0.0031 | 0.3469 ± 0.0154 | 0.0003 | 0.0065 | 5.17x |
+| normalize_per_image | HWC | (256,256,9) | float32 | 0.6728 ± 0.1340 | 0.6386 ± 0.0503 | 0.0338 | 0.0229 | 0.95x |
+| normalize_per_image | HWC | (256,256,9) | uint8 | 0.2733 ± 0.0212 | 1.1580 ± 0.0415 | 0.0095 | 0.0217 | 4.24x |
+| normalize_per_image | HWC | (512,512,1) | float32 | 0.2357 ± 0.0089 | 0.2307 ± 0.0045 | 0.0038 | 0.0032 | 0.98x |
+| normalize_per_image | HWC | (512,512,1) | uint8 | 0.0808 ± 0.0320 | 0.4608 ± 0.0370 | 0.0173 | 0.0302 | 5.70x |
+| normalize_per_image | HWC | (512,512,3) | float32 | 1.0583 ± 0.1804 | 0.8372 ± 0.0307 | 0.0775 | 0.0179 | 0.79x |
+| normalize_per_image | HWC | (512,512,3) | uint8 | 0.2253 ± 0.0389 | 1.3301 ± 0.0306 | 0.0157 | 0.0197 | 5.90x |
+| normalize_per_image | HWC | (512,512,9) | float32 | 2.0562 ± 0.1127 | 2.0572 ± 0.0222 | 0.0621 | 0.0061 | 1.00x |
+| normalize_per_image | HWC | (512,512,9) | uint8 | 0.4346 ± 0.0784 | 3.0133 ± 0.0683 | 0.0521 | 0.0529 | 6.93x |
+| pairwise_distances_squared | points | (24,16,3) | float32 | 0.0030 ± 0.0001 | 0.0024 ± 0.0001 | 0.0000 | 0.0000 | 0.81x |
+| power | HWC | (1024,1024,1) | float32 | 1.6402 ± 0.2324 | 1.5642 ± 0.0329 | 0.0762 | 0.0157 | 0.95x |
+| power | HWC | (1024,1024,1) | uint8 | 0.0853 ± 0.0055 | 0.0843 ± 0.0071 | 0.0026 | 0.0016 | 0.99x |
+| power | HWC | (1024,1024,3) | float32 | 4.0053 ± 0.1199 | 4.0730 ± 0.1056 | 0.0880 | 0.0586 | 1.02x |
+| power | HWC | (1024,1024,3) | uint8 | 2.0516 ± 0.2111 | 1.8821 ± 0.0452 | 0.1217 | 0.0274 | 0.92x |
+| power | HWC | (1024,1024,9) | float32 | 14.5242 ± 0.3949 | 14.4439 ± 0.1853 | 0.1079 | 0.0600 | 0.99x |
+| power | HWC | (1024,1024,9) | uint8 | 6.2813 ± 0.3055 | 5.5107 ± 0.0734 | 0.1738 | 0.0255 | 0.88x |
+| power | HWC | (128,128,1) | float32 | 0.0258 ± 0.0020 | 0.0231 ± 0.0008 | 0.0004 | 0.0001 | 0.89x |
+| power | HWC | (128,128,1) | uint8 | 0.0056 ± 0.0002 | 0.0066 ± 0.0005 | 0.0000 | 0.0001 | 1.18x |
+| power | HWC | (128,128,3) | float32 | 0.0693 ± 0.0070 | 0.0661 ± 0.0028 | 0.0002 | 0.0003 | 0.95x |
+| power | HWC | (128,128,3) | uint8 | 0.0416 ± 0.0114 | 0.0370 ± 0.0048 | 0.0007 | 0.0012 | 0.89x |
+| power | HWC | (128,128,9) | float32 | 0.2047 ± 0.0221 | 0.1735 ± 0.0045 | 0.0043 | 0.0002 | 0.85x |
+| power | HWC | (128,128,9) | uint8 | 0.1037 ± 0.0063 | 0.1110 ± 0.0048 | 0.0009 | 0.0034 | 1.07x |
+| power | HWC | (256,256,1) | float32 | 0.1020 ± 0.0104 | 0.0879 ± 0.0037 | 0.0073 | 0.0006 | 0.86x |
+| power | HWC | (256,256,1) | uint8 | 0.0138 ± 0.0015 | 0.0115 ± 0.0013 | 0.0008 | 0.0003 | 0.83x |
+| power | HWC | (256,256,3) | float32 | 0.2687 ± 0.0198 | 0.2559 ± 0.0140 | 0.0070 | 0.0094 | 0.95x |
+| power | HWC | (256,256,3) | uint8 | 0.1342 ± 0.0153 | 0.1202 ± 0.0055 | 0.0119 | 0.0066 | 0.90x |
+| power | HWC | (256,256,9) | float32 | 1.0138 ± 0.1947 | 0.8659 ± 0.0217 | 0.0606 | 0.0143 | 0.85x |
+| power | HWC | (256,256,9) | uint8 | 0.4293 ± 0.0240 | 0.3580 ± 0.0081 | 0.0168 | 0.0056 | 0.83x |
+| power | HWC | (512,512,1) | float32 | 0.3639 ± 0.0625 | 0.3414 ± 0.0127 | 0.0385 | 0.0099 | 0.94x |
+| power | HWC | (512,512,1) | uint8 | 0.0298 ± 0.0039 | 0.0247 ± 0.0006 | 0.0015 | 0.0001 | 0.83x |
+| power | HWC | (512,512,3) | float32 | 1.4139 ± 0.2383 | 1.1350 ± 0.0413 | 0.1205 | 0.0281 | 0.80x |
+| power | HWC | (512,512,3) | uint8 | 0.4967 ± 0.0698 | 0.4284 ± 0.0193 | 0.0213 | 0.0079 | 0.86x |
+| power | HWC | (512,512,9) | float32 | 2.9203 ± 0.1221 | 2.9365 ± 0.0518 | 0.0836 | 0.0213 | 1.01x |
+| power | HWC | (512,512,9) | uint8 | 1.5066 ± 0.1822 | 1.4159 ± 0.0176 | 0.0820 | 0.0141 | 0.94x |
+| sz_lut | HWC | (1024,1024,1) | uint8 | 0.0962 ± 0.0114 | 0.0815 ± 0.0041 | 0.0079 | 0.0025 | 0.85x |
+| sz_lut | HWC | (1024,1024,3) | uint8 | 0.3487 ± 0.0558 | 0.3375 ± 0.0229 | 0.0279 | 0.0230 | 0.97x |
+| sz_lut | HWC | (1024,1024,9) | uint8 | 1.0592 ± 0.1821 | 0.7615 ± 0.0157 | 0.0639 | 0.0100 | 0.72x |
+| sz_lut | HWC | (128,128,1) | uint8 | 0.0017 ± 0.0001 | 0.0020 ± 0.0001 | 0.0000 | 0.0000 | 1.19x |
+| sz_lut | HWC | (128,128,3) | uint8 | 0.0052 ± 0.0001 | 0.0049 ± 0.0003 | 0.0000 | 0.0001 | 0.94x |
+| sz_lut | HWC | (128,128,9) | uint8 | 0.0139 ± 0.0009 | 0.0121 ± 0.0004 | 0.0001 | 0.0000 | 0.87x |
+| sz_lut | HWC | (256,256,1) | uint8 | 0.0087 ± 0.0009 | 0.0062 ± 0.0001 | 0.0004 | 0.0000 | 0.71x |
+| sz_lut | HWC | (256,256,3) | uint8 | 0.0161 ± 0.0001 | 0.0172 ± 0.0009 | 0.0001 | 0.0004 | 1.07x |
+| sz_lut | HWC | (256,256,9) | uint8 | 0.0522 ± 0.0030 | 0.0451 ± 0.0020 | 0.0010 | 0.0005 | 0.87x |
+| sz_lut | HWC | (512,512,1) | uint8 | 0.0210 ± 0.0001 | 0.0205 ± 0.0002 | 0.0001 | 0.0000 | 0.98x |
+| sz_lut | HWC | (512,512,3) | uint8 | 0.0620 ± 0.0053 | 0.0601 ± 0.0046 | 0.0006 | 0.0008 | 0.97x |
+| sz_lut | HWC | (512,512,9) | uint8 | 0.2758 ± 0.0383 | 0.2487 ± 0.0108 | 0.0337 | 0.0056 | 0.90x |
+| to_float | HWC | (1024,1024,1) | uint8 | 0.1834 ± 0.0572 | 0.1890 ± 0.0736 | 0.0155 | 0.0102 | 1.03x |
+| to_float | HWC | (1024,1024,3) | uint8 | 0.1418 ± 0.1351 | 0.1443 ± 0.1660 | 0.0035 | 0.0076 | 1.02x |
+| to_float | HWC | (1024,1024,9) | uint8 | 1.2630 ± 0.1019 | 1.3072 ± 0.0696 | 0.0247 | 0.0435 | 1.03x |
+| to_float | HWC | (128,128,1) | uint8 | 0.0070 ± 0.0015 | 0.0071 ± 0.0002 | 0.0002 | 0.0001 | 1.02x |
+| to_float | HWC | (128,128,3) | uint8 | 0.0146 ± 0.0006 | 0.0126 ± 0.0011 | 0.0001 | 0.0001 | 0.86x |
+| to_float | HWC | (128,128,9) | uint8 | 0.0448 ± 0.0036 | 0.0388 ± 0.0017 | 0.0027 | 0.0001 | 0.87x |
+| to_float | HWC | (256,256,1) | uint8 | 0.0217 ± 0.0028 | 0.0175 ± 0.0021 | 0.0025 | 0.0004 | 0.81x |
+| to_float | HWC | (256,256,3) | uint8 | 0.0518 ± 0.0035 | 0.0509 ± 0.0022 | 0.0022 | 0.0001 | 0.98x |
+| to_float | HWC | (256,256,9) | uint8 | 0.2519 ± 0.0545 | 0.2099 ± 0.0129 | 0.0302 | 0.0104 | 0.83x |
+| to_float | HWC | (512,512,1) | uint8 | 0.0353 ± 0.0019 | 0.0351 ± 0.0023 | 0.0009 | 0.0023 | 0.99x |
+| to_float | HWC | (512,512,3) | uint8 | 0.1396 ± 0.0526 | 0.1209 ± 0.0111 | 0.0138 | 0.0021 | 0.87x |
+| to_float | HWC | (512,512,9) | uint8 | 0.1722 ± 0.0014 | 0.1710 ± 0.0008 | 0.0005 | 0.0003 | 0.99x |
+| vflip | HWC | (1024,1024,1) | float32 | 0.2688 ± 0.0521 | 0.2447 ± 0.0248 | 0.0290 | 0.0173 | 0.91x |
+| vflip | HWC | (1024,1024,1) | uint8 | 0.0547 ± 0.0083 | 0.0456 ± 0.0002 | 0.0038 | 0.0000 | 0.83x |
+| vflip | HWC | (1024,1024,3) | float32 | 0.5275 ± 0.0541 | 0.5422 ± 0.0441 | 0.0168 | 0.0184 | 1.03x |
+| vflip | HWC | (1024,1024,3) | uint8 | 0.2138 ± 0.0292 | 0.1838 ± 0.0189 | 0.0142 | 0.0111 | 0.86x |
+| vflip | HWC | (1024,1024,9) | float32 | 3.5778 ± 0.5281 | 2.7693 ± 0.1204 | 0.5025 | 0.0717 | 0.77x |
+| vflip | HWC | (1024,1024,9) | uint8 | 0.7195 ± 0.1277 | 0.3982 ± 0.0192 | 0.0725 | 0.0017 | 0.55x |
+| vflip | HWC | (128,128,1) | float32 | 0.0042 ± 0.0007 | 0.0037 ± 0.0005 | 0.0001 | 0.0000 | 0.88x |
+| vflip | HWC | (128,128,1) | uint8 | 0.0015 ± 0.0000 | 0.0015 ± 0.0000 | 0.0000 | 0.0000 | 1.00x |
+| vflip | HWC | (128,128,3) | float32 | 0.0100 ± 0.0000 | 0.0086 ± 0.0010 | 0.0000 | 0.0000 | 0.86x |
+| vflip | HWC | (128,128,3) | uint8 | 0.0013 ± 0.0002 | 0.0019 ± 0.0001 | 0.0002 | 0.0000 | 1.50x |
+| vflip | HWC | (128,128,9) | float32 | 0.0288 ± 0.0048 | 0.0253 ± 0.0037 | 0.0030 | 0.0001 | 0.88x |
+| vflip | HWC | (128,128,9) | uint8 | 0.0066 ± 0.0013 | 0.0066 ± 0.0012 | 0.0000 | 0.0000 | 0.99x |
+| vflip | HWC | (256,256,1) | float32 | 0.0142 ± 0.0033 | 0.0123 ± 0.0017 | 0.0001 | 0.0000 | 0.87x |
+| vflip | HWC | (256,256,1) | uint8 | 0.0041 ± 0.0007 | 0.0038 ± 0.0000 | 0.0002 | 0.0000 | 0.93x |
+| vflip | HWC | (256,256,3) | float32 | 0.0383 ± 0.0058 | 0.0338 ± 0.0057 | 0.0005 | 0.0022 | 0.88x |
+| vflip | HWC | (256,256,3) | uint8 | 0.0089 ± 0.0023 | 0.0097 ± 0.0011 | 0.0002 | 0.0000 | 1.09x |
+| vflip | HWC | (256,256,9) | float32 | 0.1628 ± 0.0221 | 0.1334 ± 0.0100 | 0.0133 | 0.0035 | 0.82x |
+| vflip | HWC | (256,256,9) | uint8 | 0.0251 ± 0.0046 | 0.0251 ± 0.0048 | 0.0001 | 0.0000 | 1.00x |
+| vflip | HWC | (512,512,1) | float32 | 0.0529 ± 0.0292 | 0.0449 ± 0.0122 | 0.0028 | 0.0002 | 0.85x |
+| vflip | HWC | (512,512,1) | uint8 | 0.0125 ± 0.0011 | 0.0123 ± 0.0014 | 0.0000 | 0.0000 | 0.98x |
+| vflip | HWC | (512,512,3) | float32 | 0.2703 ± 0.1179 | 0.1758 ± 0.0221 | 0.0130 | 0.0072 | 0.65x |
+| vflip | HWC | (512,512,3) | uint8 | 0.0342 ± 0.0062 | 0.0334 ± 0.0000 | 0.0012 | 0.0000 | 0.97x |
+| vflip | HWC | (512,512,9) | float32 | 0.4060 ± 0.0343 | 0.3935 ± 0.0149 | 0.0124 | 0.0009 | 0.97x |
+| vflip | HWC | (512,512,9) | uint8 | 0.1555 ± 0.0168 | 0.1390 ± 0.0134 | 0.0100 | 0.0121 | 0.89x |

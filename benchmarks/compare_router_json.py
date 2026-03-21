@@ -15,6 +15,25 @@ def _key(r: dict[str, object]) -> tuple[str, str, str, str]:
     return (str(r["op"]), str(r["layout"]), sh, str(r["dtype"]))
 
 
+def _fmt_ms_pm_std(row: dict[str, object]) -> str:
+    """Median ms with ± sample-std when present (error bar from repeated timings)."""
+    m = row.get("ms_median")
+    if m is None:
+        return "—"
+    med = float(m)
+    std = row.get("ms_std")
+    if isinstance(std, (int, float)) and float(std) > 0:
+        return f"{med:.4f} ± {float(std):.4f}"
+    return f"{med:.4f}"
+
+
+def _fmt_mad(row: dict[str, object]) -> str:
+    mad = row.get("ms_mad")
+    if mad is None:
+        return "—"
+    return f"{float(mad):.4f}"
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("new_json", type=Path)
@@ -41,11 +60,14 @@ def main() -> None:
         om = b["ms_median"]
         if nm is None or om is None or nm <= 0:
             continue
-        ratio = om / nm
+        ratio = float(om) / float(nm)
         ratios.append((k, ratio))
         by_op[k[0]].append(ratio)
         op, layout, sh, dt = k
-        table_lines.append(f"| {op} | {layout} | ({sh}) | {dt} | {nm:.4f} | {om:.4f} | {ratio:.2f}x |")
+        table_lines.append(
+            f"| {op} | {layout} | ({sh}) | {dt} | {_fmt_ms_pm_std(a)} | {_fmt_ms_pm_std(b)} | "
+            f"{_fmt_mad(a)} | {_fmt_mad(b)} | {ratio:.2f}x |",
+        )
 
     regress = [(k, r) for k, r in ratios if r < 0.85]
     wins = [(k, r) for k, r in ratios if r > 1.15]
@@ -57,6 +79,11 @@ def main() -> None:
         xs = sorted(by_op[op])
         med = xs[len(xs) // 2]
         med_lines.append(f"- `{op}`: median **old/new** = **{med:.2f}x** ({len(xs)} cells)")
+
+    nr = new_d["meta"].get("repeats", "?")
+    nw = new_d["meta"].get("warmup", "?")
+    or_ = old_d["meta"].get("repeats", "?")
+    ow = old_d["meta"].get("warmup", "?")
 
     lines = [
         "# Router synthetic benchmark — comparison",
@@ -70,7 +97,13 @@ def main() -> None:
         f"- **New slower** (old/new &lt; 0.85): **{len(regress)}** cells",
         f"- **New faster** (old/new &gt; 1.15): **{len(wins)}** cells",
         "",
-        "Ratio **old_ms / new_ms**: **&gt;1** ⇒ new build faster on that cell.",
+        "Ratio **old_ms / new_ms** (medians): **&gt;1** ⇒ new build faster on that cell.",
+        "",
+        f"- **New** run: **repeats={nr}**, **warmup={nw}**",
+        f"- **Old** run: **repeats={or_}**, **warmup={ow}**",
+        "",
+        "**Error bars:** `ms_median ± ms_std` from repeated wall-time samples (see JSON). "
+        "**MAD** = median absolute deviation from the median (robust).",
         "",
         "### Median old/new by op",
         "",
@@ -104,10 +137,10 @@ def main() -> None:
         "",
         "## Full table",
         "",
-        "Only rows where **both** runs are `ok`.",
+        "Only rows where **both** runs are `ok`. Times are **median ± σ** (ms) when `ms_std` is present.",
         "",
-        "| op | layout | shape | dtype | new_ms | old_ms | old/new |",
-        "|----|--------|-------|-------|-------:|-------:|--------:|",
+        "| op | layout | shape | dtype | new_ms | old_ms | new_MAD | old_MAD | old/new |",
+        "|----|--------|-------|-------|--------|--------|--------:|--------:|--------:|",
         *table_lines,
         "",
     ]

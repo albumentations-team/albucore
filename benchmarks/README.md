@@ -14,7 +14,7 @@ Run each script from the **repository root** so imports resolve:
 uv run python benchmarks/<script>.py
 ```
 
-Shared helper: [`timing.py`](timing.py) (`median_ms`).
+Shared helper: [`timing.py`](timing.py) — **`bench_wall_ms`** (median, mean, sample **std**, **MAD**, `n`) and **`median_ms`** (median only, backward compatible). Router JSON stores **`ms_median ± ms_std`**-style fields for error bars.
 
 ## Scripts
 
@@ -24,8 +24,8 @@ Shared helper: [`timing.py`](timing.py) (`median_ms`).
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
-| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories): scalar/vector/array add/multiply, stats, flips, normalize, etc. **HWC** grid includes **1024×1024** in full mode; **`NHWC`** only for `mean`/`std`/`mean_std`. Optional `--with-geometric` adds `resize` / `warp_*` / `remap` / `copy_make_border`. |
-| [`compare_router_json.py`](compare_router_json.py) | Markdown report from two router JSON files. |
+| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories). Defaults **`--repeats 21`**, **`--warmup 5`**; JSON includes spread (`ms_std`, `ms_mad`). **`sz_lut`** bench uses **`inplace=False`** so the image is not mutated across iterations. |
+| [`compare_router_json.py`](compare_router_json.py) | Markdown report: ratios from medians; full table shows **median ± σ** and MAD columns when present. |
 | [`benchmark_minmax_ravel.py`](benchmark_minmax_ravel.py) | Prints Markdown tables: `Tensor.minmax()` vs NumPy min+max on raveled `(H,W,C)`. |
 | [`benchmark_sum_mean_std_ravel.py`](benchmark_sum_mean_std_ravel.py) | Prints Markdown tables: NumPy vs NumKong sum/mean/std on `(H,W,C)`. |
 
