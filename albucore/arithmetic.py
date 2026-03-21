@@ -24,7 +24,6 @@ from albucore.utils import (
 from albucore.weighted import (
     add_array_numkong,
     add_weighted_numkong,
-    multiply_by_constant_numkong,
 )
 
 np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
@@ -164,8 +163,7 @@ def multiply_numpy(img: ImageType, value: float | np.ndarray) -> ImageFloat32:
 def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageType:
     if img.dtype == np.uint8:
         return multiply_lut(img, value, inplace)
-    if img.dtype == np.float32:
-        return multiply_by_constant_numkong(img, value)
+    # float32: OpenCV beats NumKong `scale` on synthetic router vs 0.0.40; see docs/numkong-performance.md
     return multiply_opencv(img, value)
 
 
