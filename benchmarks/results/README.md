@@ -1,6 +1,6 @@
 # Benchmark output (local)
 
-JSON / comparison reports from [`benchmark_router_synthetic.py`](../benchmark_router_synthetic.py) are gitignored by default.
+Raw **`router-*.json`** runs are **gitignored** (machine-specific). An example comparison table may be committed as **`REPORT_router_compare.md`** (regenerate before releases).
 
 Example:
 
