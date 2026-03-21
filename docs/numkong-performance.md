@@ -27,7 +27,7 @@ uv run python benchmarks/benchmark_stats.py                  # mean_std vs NumPy
 | **min** (global on ravel) | `(H,W,C)` | uint8, float32 | **Not NumKong** — NumPy faster ([`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md)). |
 | **max** | same | same | **Not NumKong** — same bench as min. |
 | **minmax** (`Tensor.minmax`) | same | same | **Not NumKong** — see [`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md). |
-| `multiply_by_constant` | same | uint8, float32 | **Shipped** (float32) — **`multiply_by_constant_numkong`**; uint8 still LUT. |
+| `multiply_by_constant` | same | uint8, float32 | **float32 → OpenCV** (`multiply_opencv`); uint8 LUT. **`multiply_by_constant_numkong`** kept for microbenches only. |
 | `add_constant` | same | uint8, float32 | **Keep OpenCV** — **`nk.scale`(1,β)** rarely wins (§2). |
 | `multiply_by_array` | same | uint8, float32 | **Not `fma`** — **NumPy** `multiply_numpy` fastest vs OpenCV and `nk.fma` here (§2). |
 | `add_array` | same | uint8, float32 | **Shipped** — `add_array` uses **`add_array_numkong`** when shapes/dtypes match and `inplace=False`; else OpenCV. |
@@ -149,7 +149,7 @@ Same semantics: one scalar mean/std over **all** elements.
 
 - **Per-channel stats → NumKong:** production uses OpenCV / NumPy via **`stats.mean` / `stats.std` / `stats.mean_std`** (`axis='per_channel'`). Benchmarks show **C × `moments`** can win on **uint8** for some shapes; no default switch until winners are pinned per layout/dtype.
 - **Float32 global `mean_std`:** still **two NumPy passes** (`np.mean` + `np.std`); a single-pass alternative would need benchmarking vs accuracy requirements.
-- **Multiply / add (NumKong):** **`add_array_numkong`** uses **`blend`**; **`multiply_by_constant_numkong`** / **`add_constant_numkong`** use **`nk.scale`** (no full-size partner buffers). Production **`add_constant`** remains **OpenCV** only. Raw **`fma`** is rarely the win for full-array multiply (see table below).
+- **Multiply / add (NumKong):** **`add_array_numkong`** uses **`blend`**; **`multiply_by_constant_numkong`** / **`add_constant_numkong`** use **`nk.scale`** (no full-size partner buffers). Production **`multiply_by_constant`** (float32) and **`add_constant`** use **OpenCV** (router vs 0.0.40 showed **`nk.scale`** slower for multiply-by-scalar). Raw **`fma`** is rarely the win for full-array multiply (see table below).
 
 ### Multiply / add — `nk.scale`, `nk.fma`, vs `nk.blend`
 
@@ -159,7 +159,7 @@ Same semantics: one scalar mean/std over **all** elements.
 
 | Public-style op | NumKong mapping | Verdict (reference Mac) |
 |-----------------|-----------------|-------------------------|
-| **`multiply_by_constant`** | **`multiply_by_constant_numkong`** → **`nk.scale`(α=value, β=0)** | Avoids **`blend`** + full **`zeros_like`**; routed for **float32** in production. |
+| **`multiply_by_constant`** | **`multiply_by_constant_numkong`** → **`nk.scale`(α=value, β=0)** | **Production: OpenCV** — synthetic router regressions vs 0.0.40; NK helper still in **`weighted`** for benches. |
 | **`add_constant`** | `nk.scale(α=1, β=scalar)` | **Keep OpenCV** — no reliable `scale` win. |
 | **`multiply_by_array`** | `nk.fma` vs OpenCV vs **NumPy** | **Do not use `fma`** — **NumPy** wins; consider OpenCV→NumPy separately, not NumKong. |
 | **`add_array`** | **`add_array_numkong`** (`blend`) | **Shipped** when `value.shape == img.shape`, dtypes match, `inplace=False`, and dtype is uint8/float32; else OpenCV. |
