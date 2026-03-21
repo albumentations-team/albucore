@@ -115,6 +115,11 @@ def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Co
         if result.dtype == np.uint8:
             return result
 
+        if result.dtype == np.float32 and dtype == np.float32 and not np.shares_memory(result, img):
+            max_value = MAX_VALUES_BY_DTYPE[dtype]
+            np.clip(result, 0.0, max_value, out=result)
+            return result
+
         return clip(result, dtype)
 
     return wrapped_function
