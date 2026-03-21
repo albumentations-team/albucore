@@ -1,15 +1,28 @@
-# Benchmark output (local)
+# Benchmark output
 
-Raw **`router-*.json`** runs are **gitignored** (machine-specific). An example comparison table may be committed as **`REPORT_router_compare.md`** (regenerate before releases).
+Committed artifacts (regenerate before releases or when routing changes):
 
-Example:
+- `router_synthetic_0.0.41.json` / `router_synthetic_0.0.40.json` — full grid from `benchmark_router_synthetic.py` (includes **1024×1024** HWC).
+- `REPORT_router_compare.md` — `compare_router_json.py` **new** then **old** (ratio = old_ms / new_ms; **&gt;1** means new is faster).
+
+**Current tree** (editable install):
 
 ```bash
-uv run python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/router-main.json
-uv run --no-project --with albucore==0.0.40 --with opencv-python-headless \\
-  --with simsimd --with stringzilla --with numpy \\
-  python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/router-0.0.40.json
+uv run python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/router_synthetic_0.0.41.json
+```
 
-uv run python benchmarks/compare_router_json.py benchmarks/results/router-main.json \\
-  benchmarks/results/router-0.0.40.json benchmarks/results/REPORT_router_compare.md
+**Older wheel** (run from `/tmp` so the repo’s `albucore/` is not on `sys.path`; use a venv with that version + `opencv-python-headless`):
+
+```bash
+cd /tmp && /path/to/venv-with-0.0.40/bin/python /path/to/repo/benchmarks/benchmark_router_synthetic.py \
+  --output-json /path/to/repo/benchmarks/results/router_synthetic_0.0.40.json
+```
+
+**Compare** (first arg = new, second = old):
+
+```bash
+uv run python benchmarks/compare_router_json.py \
+  benchmarks/results/router_synthetic_0.0.41.json \
+  benchmarks/results/router_synthetic_0.0.40.json \
+  benchmarks/results/REPORT_router_compare.md
 ```
