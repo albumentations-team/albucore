@@ -221,8 +221,8 @@ def main() -> None:
     print("## Readout (this machine)")
     print()
     print(
-        "- **Scalar affine** (`multiply_by_constant`, `add_constant`): float32 multiply uses **`nk.scale`** "
-        "in **`multiply_by_constant_numkong`** (no full-size zero/ones buffers vs `blend`).\n"
+        "- **Scalar affine** (`multiply_by_constant`, `add_constant`): production float32 multiply is **`multiply_numpy`**; "
+        "this script still times **`multiply_by_constant_numkong`** (`nk.scale`) vs prod.\n"
         "- **Elementwise multiply** full array: **NK fma** only timed for **float32** (uint8 prod promotes to f32).\n"
         "- **Elementwise add** full array: **NK** is existing **`add_array_numkong`** (`blend`).\n"
         "- **Per-channel** vector: **NK** is **C separate `scale` calls** — usually loses to one OpenCV/LUT pass.",
