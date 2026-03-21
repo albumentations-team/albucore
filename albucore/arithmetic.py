@@ -3,7 +3,6 @@
 from typing import Literal
 
 import cv2
-import numkong as nk
 import numpy as np
 import stringzilla as sz
 
@@ -71,11 +70,11 @@ def apply_lut(
 
     if isinstance(value, (int, float)):
         lut = create_lut_array(dtype, value, operation)
-        return sz_lut(img, clip(lut, dtype, inplace=False), False)
+        return sz_lut(img, clip(lut, dtype, inplace=True), False)
 
     num_channels = img.shape[-1]
 
-    luts = clip(create_lut_array(dtype, value, operation), dtype, inplace=False)
+    luts = clip(create_lut_array(dtype, value, operation), dtype, inplace=True)
 
     result = np.empty_like(img, dtype=dtype)
 
@@ -169,13 +168,9 @@ def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageTy
 
 @clipped
 def multiply_by_vector(img: ImageType, value: np.ndarray, num_channels: int, inplace: bool) -> ImageType:
-    # Handle uint8 images separately to use 1a lookup table for performance
     if img.dtype == np.uint8:
         return multiply_lut(img, value, inplace)
-    # Check if the number of channels exceeds the maximum that OpenCV can handle
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return multiply_numpy(img, value)
-    return multiply_opencv(img, value)
+    return multiply_numpy(img, value)
 
 
 @clipped
@@ -230,6 +225,8 @@ def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool) -> ImageU
 
 @clipped
 def add_constant(img: ImageType, value: float, inplace: bool = False) -> ImageType:
+    if img.dtype == np.float32:
+        return add_numpy(img, value)
     return add_opencv(img, value, inplace)
 
 
@@ -237,7 +234,7 @@ def add_constant(img: ImageType, value: float, inplace: bool = False) -> ImageTy
 def add_vector(img: ImageType, value: np.ndarray, inplace: bool) -> ImageType:
     if img.dtype == np.uint8:
         return add_lut(img, value, inplace)
-    return add_opencv(img, value, inplace)
+    return add_numpy(img, value)
 
 
 @clipped
@@ -264,28 +261,42 @@ def add(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
 
 
 def normalize_numpy(img: ImageType, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat32:
-    img = img.astype(np.float32, copy=True)
-    # Ensure mean and denominator are float32 to avoid dtype promotion
-    mean = mean.astype(np.float32, copy=False) if isinstance(mean, np.ndarray) else np.float32(mean)
-    denominator = (
+    img_f = img.astype(np.float32, copy=False)
+    mean_f = mean.astype(np.float32, copy=False) if isinstance(mean, np.ndarray) else np.float32(mean)
+    denom_f = (
         denominator.astype(np.float32, copy=False) if isinstance(denominator, np.ndarray) else np.float32(denominator)
     )
-    img -= mean
-    return (img * denominator).astype(np.float32, copy=True)
+    # Fused: (img - mean) * denom = img * denom - mean * denom (no full-image copy vs subtract-then-multiply).
+    if isinstance(mean_f, np.ndarray) or isinstance(denom_f, np.ndarray):
+        n_dim = img_f.ndim
+        c = int(img_f.shape[-1])
+
+        def _broadcast_last(x: np.ndarray | np.float32) -> np.ndarray | np.float32:
+            if isinstance(x, np.ndarray) and x.shape == (c,):
+                return x.reshape((1,) * (n_dim - 1) + (c,))
+            return x
+
+        mean_b = _broadcast_last(mean_f)
+        denom_b = _broadcast_last(denom_f)
+        offset = mean_b * denom_b
+        return img_f * denom_b - offset
+
+    return img_f * denom_f - mean_f * denom_f
 
 
 @preserve_channel_dim
 def normalize_opencv(img: ImageType, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat32:
-    img = img.astype(np.float32, copy=False)
-    mean_img = np.zeros_like(img, dtype=np.float32)
-    denominator_img = np.zeros_like(img, dtype=np.float32)
-
-    # Ensure the shapes match for broadcasting
-    mean_img = (mean_img + mean).astype(np.float32, copy=False)
-    denominator_img = denominator_img + denominator
-
-    result = cv2.subtract(img, mean_img)
-    return cv2.multiply(result, denominator_img, dtype=cv2.CV_32F)
+    img_f = img.astype(np.float32, copy=False)
+    if isinstance(mean, (int, float)):
+        mean_img = np.full_like(img_f, mean)
+    else:
+        mean_img = np.broadcast_to(mean.astype(np.float32, copy=False), img_f.shape)
+    if isinstance(denominator, (int, float)):
+        denom_img = np.full_like(img_f, denominator)
+    else:
+        denom_img = np.broadcast_to(denominator.astype(np.float32, copy=False), img_f.shape)
+    result = cv2.subtract(img_f, mean_img)
+    return cv2.multiply(result, denom_img, dtype=cv2.CV_32F)
 
 
 @preserve_channel_dim
@@ -295,12 +306,11 @@ def normalize_lut(img: ImageUInt8, mean: float | np.ndarray, denominator: float 
     num_channels = get_num_channels(img)
 
     if isinstance(denominator, (float, int)) and isinstance(mean, (float, int)):
-        lut = ((np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator).astype(np.float32)
+        lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator
         return cv2.LUT(img, lut)
 
-    # Vectorized LUT creation - shape: (256, num_channels)
     arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-    luts = ((arange_vals[:, np.newaxis] - mean) * denominator).astype(np.float32)
+    luts = (arange_vals[:, np.newaxis] - mean) * denominator
 
     # Pre-allocate result array
     result = np.empty_like(img, dtype=np.float32)
@@ -308,6 +318,21 @@ def normalize_lut(img: ImageUInt8, mean: float | np.ndarray, denominator: float 
         result[..., i] = cv2.LUT(img[..., i], luts[:, i])
 
     return result
+
+
+def _normalize_is_identity(mean: float | np.ndarray, denominator: float | np.ndarray, *, eps: float = 1e-5) -> bool:
+    if isinstance(mean, np.ndarray):
+        if not bool(np.all(np.abs(mean.astype(np.float64, copy=False)) <= eps)):
+            return False
+    elif abs(float(mean)) > eps:
+        return False
+    if isinstance(denominator, np.ndarray):
+        d = denominator.astype(np.float64, copy=False)
+        if not bool(np.all(np.abs(d - 1.0) <= eps)):
+            return False
+    elif abs(float(denominator) - 1.0) > eps:
+        return False
+    return True
 
 
 def normalize(img: ImageType, mean: ValueType, denominator: ValueType) -> ImageFloat32:
@@ -318,11 +343,10 @@ def normalize(img: ImageType, mean: ValueType, denominator: ValueType) -> ImageF
     if img.dtype == np.uint8:
         return normalize_lut(img, mean, denominator)
 
-    if img.dtype == np.float32:
-        return normalize_numpy(img, mean, denominator)
+    if _normalize_is_identity(mean, denominator):
+        return img.astype(np.float32, copy=False)
 
-    # Fallback to OpenCV for other dtypes
-    return normalize_opencv(img, mean, denominator)
+    return normalize_numpy(img, mean, denominator)
 
 
 def power_numpy(img: ImageType, exponent: float | np.ndarray) -> ImageFloat32:
@@ -410,27 +434,43 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
-    # float32: OpenCV wins vs NumKong blend on large HWC in router vs 0.0.40 (SimSimd); uint8 stays NK
-    if img1.dtype == np.float32:
-        return add_weighted_opencv(img1, weight1, img2, weight2)
     return add_weighted_numkong(img1, weight1, img2, weight2)
 
 
-def _multiply_add_numkong_scalar(img: ImageFloat32, factor: float, value: float) -> ImageFloat32:
-    if factor == 0 and value == 0:
-        return np.zeros_like(img, dtype=np.float32)
-    flat = np.ascontiguousarray(img, dtype=np.float32).reshape(-1)
-    scaled = nk.scale(nk.Tensor(flat), alpha=float(factor), beta=float(value))
-    return np.frombuffer(scaled, dtype=np.float32).reshape(img.shape)
+def _broadcast_channel_vector(x: ValueType, n_dim: int, c: int) -> float | np.ndarray:
+    if isinstance(x, np.ndarray) and x.shape == (c,):
+        return x.reshape((1,) * (n_dim - 1) + (c,))
+    return x
 
 
-def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> ImageType:
-    if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
-        return np.zeros_like(img, dtype=img.dtype)
+def _is_all_zero_param(x: float | np.ndarray) -> bool:
+    if isinstance(x, np.ndarray):
+        return not np.any(x)
+    return float(x) == 0.0
 
-    result = np.multiply(img, factor) if factor != 0 else np.zeros_like(img)
 
-    return result if value == 0 else np.add(result, value)
+def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> ImageFloat32:
+    img_f = img.astype(np.float32, copy=False)
+
+    def _scalar_float(x: ValueType) -> float | None:
+        if isinstance(x, np.ndarray):
+            return None
+        return float(x)
+
+    sf, sv = _scalar_float(factor), _scalar_float(value)
+    if sf is not None and sv is not None and sf == 0.0 and sv == 0.0:
+        return np.zeros_like(img_f, dtype=np.float32)
+
+    if sf is not None and sv is not None and sf == 1.0 and sv == 0.0:
+        return img_f
+
+    n_dim = img_f.ndim
+    c = int(img_f.shape[-1])
+    f_b = _broadcast_channel_vector(factor, n_dim, c)
+    v_b = _broadcast_channel_vector(value, n_dim, c)
+
+    result = np.zeros_like(img_f) if _is_all_zero_param(f_b) else np.multiply(img_f, f_b)
+    return result if _is_all_zero_param(v_b) else np.add(result, v_b)
 
 
 @preserve_channel_dim
@@ -439,12 +479,36 @@ def multiply_add_opencv(img: ImageType, factor: ValueType, value: ValueType) -> 
         return np.zeros_like(img, dtype=np.float32)
 
     result = img.astype(np.float32, copy=False)
-    result = (
-        cv2.multiply(result, np.ones_like(result) * factor, dtype=cv2.CV_32F)
-        if factor != 0
-        else np.zeros_like(result, dtype=img.dtype)
-    )
-    return result if value == 0 else cv2.add(result, np.ones_like(result) * value, dtype=cv2.CV_32F)
+    num_channels = result.shape[-1]
+    if factor != 0:
+        if isinstance(factor, (int, float)) and num_channels <= MAX_OPENCV_WORKING_CHANNELS:
+            result = cv2.multiply(result, factor, dtype=cv2.CV_32F)
+        else:
+            factor_img = (
+                np.full_like(result, factor)
+                if isinstance(factor, (int, float))
+                else np.broadcast_to(
+                    factor.astype(np.float32, copy=False),
+                    result.shape,
+                )
+            )
+            result = cv2.multiply(result, factor_img, dtype=cv2.CV_32F)
+    else:
+        result = np.zeros_like(result)
+    if value != 0:
+        if isinstance(value, (int, float)) and num_channels <= MAX_OPENCV_WORKING_CHANNELS:
+            result = cv2.add(result, value, dtype=cv2.CV_32F)
+        else:
+            value_img = (
+                np.full_like(result, value)
+                if isinstance(value, (int, float))
+                else np.broadcast_to(
+                    value.astype(np.float32, copy=False),
+                    result.shape,
+                )
+            )
+            result = cv2.add(result, value_img, dtype=cv2.CV_32F)
+    return result
 
 
 def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inplace: bool) -> ImageUInt8:
@@ -481,7 +545,4 @@ def multiply_add(img: ImageType, factor: ValueType, value: ValueType, inplace: b
     if img.dtype == np.uint8:
         return multiply_add_lut(img, factor, value, inplace)
 
-    if isinstance(factor, (int, float)) and isinstance(value, (int, float)):
-        return _multiply_add_numkong_scalar(img.astype(np.float32, copy=False), float(factor), float(value))
-
-    return multiply_add_opencv(img, factor, value)
+    return multiply_add_numpy(img, factor, value)
