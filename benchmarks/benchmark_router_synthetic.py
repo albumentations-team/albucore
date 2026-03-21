@@ -126,7 +126,7 @@ def _bench(
 def _channel_vector(img: np.ndarray) -> np.ndarray:
     c = img.shape[-1]
     if img.dtype == np.uint8:
-        return np.full(c, 2, dtype=np.int32)
+        return np.full(c, 2, dtype=np.uint8)
     return np.linspace(0.98, 1.02, num=c, dtype=np.float32)
 
 
