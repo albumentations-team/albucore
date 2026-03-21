@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Time **public routers** on synthetic `(H,W,C)` / `(N,H,W,C)` arrays (uint8, float32).
+"""Time routers listed in ``albucore.functions.__all__`` on synthetic arrays.
 
-Run from repo root with the env that should provide ``albucore`` (editable or pinned wheel)::
+Layouts:
+
+- **HWC** ``(H,W,C)`` for spatial OpenCV-backed ops (and most arithmetic).
+- **NHWC** ``(N,H,W,C)`` for ``mean`` / ``std`` / ``mean_std`` only (stats reductions).
+
+**1024 x 1024** is included in the default (non-``--quick``) HWC grid.
+
+Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``warp_affine``,
+``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not ``functions.__all__``).
+
+Run::
 
     uv run python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/run.json
-
-Compare releases::
-
-    uv run --no-project --with albucore==0.0.40 --with opencv-python-headless \\
-      --with simsimd --with stringzilla --with numpy \\
-      python benchmarks/benchmark_router_synthetic.py --output-json /tmp/old.json
 """
 
 from __future__ import annotations
@@ -27,6 +31,37 @@ import cv2
 import numpy as np
 
 from timing import median_ms
+
+# When ``albucore.functions`` has no ``__all__`` (e.g. albucore 0.0.40), use this so compare
+# runs time the same router names. Keep in sync with ``albucore/functions.py`` ``__all__``.
+_FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
+    "add",
+    "add_array",
+    "add_constant",
+    "add_vector",
+    "add_weighted",
+    "float32_io",
+    "from_float",
+    "hflip",
+    "matmul",
+    "mean",
+    "mean_std",
+    "median_blur",
+    "multiply",
+    "multiply_add",
+    "multiply_by_array",
+    "multiply_by_constant",
+    "multiply_by_vector",
+    "normalize",
+    "normalize_per_image",
+    "pairwise_distances_squared",
+    "power",
+    "std",
+    "sz_lut",
+    "to_float",
+    "uint8_io",
+    "vflip",
+)
 
 
 @dataclass
@@ -47,9 +82,12 @@ def _make_img(rng: np.random.Generator, shape: tuple[int, ...], dtype: np.dtype)
 
 
 def _iter_hwc(quick: bool) -> Iterator[tuple[str, tuple[int, ...], np.dtype]]:
-    """3D images only — OpenCV routers expect ``(H,W,C)``."""
+    """3D images — sizes include 1024 in full mode."""
     channels = (1, 3) if quick else (1, 3, 9)
-    sizes = ((128, 128), (256, 256)) if quick else ((128, 128), (256, 256), (512, 512))
+    if quick:
+        sizes = ((128, 128), (256, 256))
+    else:
+        sizes = ((128, 128), (256, 256), (512, 512), (1024, 1024))
     for h, w in sizes:
         for c in channels:
             for dtype in (np.uint8, np.float32):
@@ -57,10 +95,13 @@ def _iter_hwc(quick: bool) -> Iterator[tuple[str, tuple[int, ...], np.dtype]]:
 
 
 def _iter_batch_stats(quick: bool) -> Iterator[tuple[str, tuple[int, ...], np.dtype]]:
-    """4D batch — only meaningful for ``stats`` reductions in albucore."""
+    """4D batch for stats only. (No 1024 batch grid: memory.)"""
     channels = (1, 3) if quick else (1, 3, 9)
-    sizes = ((256, 256),) if quick else ((128, 128), (256, 256))
     n = 4
+    if quick:
+        sizes = ((256, 256),)
+    else:
+        sizes = ((128, 128), (256, 256), (512, 512))
     for h, w in sizes:
         for c in channels:
             for dtype in (np.uint8, np.float32):
@@ -82,8 +123,67 @@ def _bench(
         return None, "error", f"{type(e).__name__}: {e}"
 
 
-def _registry() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], object]]]]:
-    """(api_name, build(alb, img) -> thunk)."""
+def _channel_vector(img: np.ndarray) -> np.ndarray:
+    c = img.shape[-1]
+    if img.dtype == np.uint8:
+        return np.full(c, 2, dtype=np.int32)
+    return np.linspace(0.98, 1.02, num=c, dtype=np.float32)
+
+
+def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], object]]]]:
+    def cmb(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.copy_make_border(img, 2, 2, 2, 2, cv2.BORDER_CONSTANT, 0)
+
+        return thunk
+
+    def rsz(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        h, w = img.shape[-3], img.shape[-2]
+        nw, nh = max(w // 2, 1), max(h // 2, 1)
+
+        def thunk() -> None:
+            alb.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
+    def waff(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        h, w = img.shape[-3], img.shape[-2]
+        m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
+
+        def thunk() -> None:
+            alb.warp_affine(img, m, (w, h), flags=cv2.INTER_LINEAR)
+
+        return thunk
+
+    def wper(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        h, w = img.shape[-3], img.shape[-2]
+        m = np.eye(3, dtype=np.float32)
+
+        def thunk() -> None:
+            alb.warp_perspective(img, m, (w, h), flags=cv2.INTER_LINEAR)
+
+        return thunk
+
+    def rmp(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        h, w = img.shape[-3], img.shape[-2]
+        mx, my = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+
+        def thunk() -> None:
+            alb.remap(img, mx, my, interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
+    return [
+        ("copy_make_border", cmb),
+        ("resize", rsz),
+        ("warp_affine", waff),
+        ("warp_perspective", wper),
+        ("remap", rmp),
+    ]
+
+
+def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], object]]]]:
+    """``albucore.functions.__all__`` routers (except decorators handled separately)."""
 
     def add_c(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = 3 if img.dtype == np.uint8 else 1.5
@@ -93,11 +193,64 @@ def _registry() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], obje
 
         return thunk
 
+    def add_const(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        v = 3 if img.dtype == np.uint8 else 1.5
+
+        def thunk() -> None:
+            alb.add_constant(img, v, False)
+
+        return thunk
+
+    def add_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        v = _channel_vector(img)
+
+        def thunk() -> None:
+            alb.add_vector(img, v, False)
+
+        return thunk
+
+    def add_arr(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        noise = (np.ones_like(img) * (2 if img.dtype == np.uint8 else 0.01)).astype(img.dtype, copy=False)
+
+        def thunk() -> None:
+            alb.add_array(img, noise, False)
+
+        return thunk
+
     def mul_c(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = 1.05 if img.dtype == np.float32 else 2
 
         def thunk() -> None:
             alb.multiply(img, v)
+
+        return thunk
+
+    def mul_const(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        v = 1.05 if img.dtype == np.float32 else 2
+
+        def thunk() -> None:
+            alb.multiply_by_constant(img, v, False)
+
+        return thunk
+
+    def mul_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        v = _channel_vector(img)
+        c = int(img.shape[-1])
+
+        def thunk() -> None:
+            alb.multiply_by_vector(img, v, c, False)
+
+        return thunk
+
+    def mul_arr(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        # ``multiply_opencv`` promotes uint8 image to float32; value must match OpenCV expectations.
+        if img.dtype == np.float32:
+            factor = np.full(img.shape, np.float32(1.02), dtype=np.float32)
+        else:
+            factor = np.full(img.shape, np.float32(1.02), dtype=np.float32)
+
+        def thunk() -> None:
+            alb.multiply_by_array(img, factor)
 
         return thunk
 
@@ -166,52 +319,10 @@ def _registry() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], obje
         return thunk
 
     def lut(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        lut = np.arange(256, dtype=np.uint8)
+        lut_u8 = np.arange(256, dtype=np.uint8)
 
         def thunk() -> None:
-            alb.sz_lut(img, lut, True)
-
-        return thunk
-
-    def cmb(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        def thunk() -> None:
-            alb.copy_make_border(img, 2, 2, 2, 2, cv2.BORDER_CONSTANT, 0)
-
-        return thunk
-
-    def rsz(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        h, w = img.shape[-3], img.shape[-2]
-        nw, nh = max(w // 2, 1), max(h // 2, 1)
-
-        def thunk() -> None:
-            alb.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
-
-        return thunk
-
-    def waff(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        h, w = img.shape[-3], img.shape[-2]
-        m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
-
-        def thunk() -> None:
-            alb.warp_affine(img, m, (w, h), flags=cv2.INTER_LINEAR)
-
-        return thunk
-
-    def wper(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        h, w = img.shape[-3], img.shape[-2]
-        m = np.eye(3, dtype=np.float32)
-
-        def thunk() -> None:
-            alb.warp_perspective(img, m, (w, h), flags=cv2.INTER_LINEAR)
-
-        return thunk
-
-    def rmp(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        h, w = img.shape[-3], img.shape[-2]
-        mx, my = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
-
-        def thunk() -> None:
-            alb.remap(img, mx, my, interpolation=cv2.INTER_LINEAR)
+            alb.sz_lut(img, lut_u8, True)
 
         return thunk
 
@@ -233,28 +344,32 @@ def _registry() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], obje
 
         return thunk
 
+    # Order follows functions.__all__ (geometric optional elsewhere)
     return [
         ("add", add_c),
-        ("multiply", mul_c),
+        ("add_array", add_arr),
+        ("add_constant", add_const),
+        ("add_vector", add_vec),
         ("add_weighted", aw),
-        ("power", pw),
+        ("multiply", mul_c),
         ("multiply_add", ma),
+        ("multiply_by_array", mul_arr),
+        ("multiply_by_constant", mul_const),
+        ("multiply_by_vector", mul_vec),
+        ("normalize", norm),
+        ("normalize_per_image", npi),
         ("hflip", hf),
         ("vflip", vf),
-        ("normalize_per_image", npi),
-        ("normalize", norm),
+        ("median_blur", mb),
+        ("matmul", add_c),  # placeholder — replaced by special-case
+        ("pairwise_distances_squared", add_c),
+        ("power", pw),
+        ("mean", mn),
+        ("mean_std", ms),
+        ("std", st),
+        ("sz_lut", lut),
         ("to_float", tf),
         ("from_float", ff),
-        ("median_blur", mb),
-        ("sz_lut", lut),
-        ("copy_make_border", cmb),
-        ("resize", rsz),
-        ("warp_affine", waff),
-        ("warp_perspective", wper),
-        ("remap", rmp),
-        ("mean", mn),
-        ("std", st),
-        ("mean_std", ms),
     ]
 
 
@@ -268,9 +383,9 @@ def _matmul_bench(alb: Any, repeats: int, warmup: int) -> BenchRow:
 
     try:
         ms = median_ms(thunk, repeats=repeats, warmup=warmup)
-        return BenchRow("matmul", "2D", a.shape + b.shape, "float32", ms, "ok")
+        return BenchRow("matmul", "2D", (128, 64, 64, 32), "float32", ms, "ok")
     except Exception as e:  # noqa: BLE001
-        return BenchRow("matmul", "2D", a.shape + b.shape, "float32", None, "error", f"{type(e).__name__}: {e}")
+        return BenchRow("matmul", "2D", (128, 64, 64, 32), "float32", None, "error", f"{type(e).__name__}: {e}")
 
 
 def _pairwise_bench(alb: Any, repeats: int, warmup: int) -> BenchRow:
@@ -306,12 +421,18 @@ def _pairwise_bench(alb: Any, repeats: int, warmup: int) -> BenchRow:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output-json", type=str, default="", help="Write full results JSON")
-    p.add_argument("--quick", action="store_true", help="Smaller shape grid")
+    p.add_argument("--quick", action="store_true", help="Smaller shape/channel grid (no 1024 HWC)")
+    p.add_argument(
+        "--with-geometric",
+        action="store_true",
+        help="Also benchmark geometric routers (not in functions.__all__)",
+    )
     p.add_argument("--repeats", type=int, default=7)
     p.add_argument("--warmup", type=int, default=2)
     args = p.parse_args()
 
-    import albucore as alb  # noqa: PLC0415 — after argparse for isolated runs
+    import albucore as alb  # noqa: PLC0415
+    import albucore.functions as alb_fn  # noqa: PLC0415
 
     ver = getattr(alb, "__version__", "unknown")
     try:
@@ -321,22 +442,53 @@ def main() -> None:
 
     rows: list[BenchRow] = []
     rng = np.random.default_rng(42)
-    reg = _registry()
-
+    fn_reg = _registry_functions()
+    # Drop placeholder entries for matmul / pairwise (special benches)
+    fn_reg = [(n, b) for n, b in fn_reg if n not in ("matmul", "pairwise_distances_squared")]
     stats_ops = {"mean", "std", "mean_std"}
+    skip_uint8_only = {"median_blur", "sz_lut", "to_float"}
+    skip_float_only = {"from_float"}
+
+    declared = getattr(alb_fn, "__all__", None)
+    if declared is not None:
+        export_names = set(declared)
+        functions_all_meta: list[str] = list(declared)
+    else:
+        export_names = set(_FUNCTIONS_PUBLIC_ROUTERS_FALLBACK)
+        functions_all_meta = list(_FUNCTIONS_PUBLIC_ROUTERS_FALLBACK)
+
+    for name in sorted(export_names):
+        if name in ("float32_io", "uint8_io"):
+            rows.append(
+                BenchRow(name, "meta", (-1,), "n/a", None, "skip", "decorator factory, not an image router"),
+            )
+
+    geo_reg = _registry_geometric() if args.with_geometric else []
 
     for layout, shape, dtype in _iter_hwc(args.quick):
         img = _make_img(rng, shape, dtype)
         dname = "uint8" if dtype == np.uint8 else "float32"
-        for op_name, build in reg:
-            if op_name == "to_float" and dtype != np.uint8:
+        for op_name, build in fn_reg:
+            if op_name not in export_names:
+                continue
+            if op_name in stats_ops:
+                continue
+            if op_name in skip_uint8_only and dtype != np.uint8:
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "needs uint8"))
                 continue
-            if op_name == "from_float" and dtype != np.float32:
+            if op_name in skip_float_only and dtype != np.float32:
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "needs float32"))
                 continue
-            if op_name in ("median_blur", "sz_lut") and dtype != np.uint8:
-                rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "needs uint8"))
+            if not hasattr(alb, op_name):
+                rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
+                continue
+            ms, st, det = _bench(alb, img, build, args.repeats, args.warmup)
+            rows.append(BenchRow(op_name, layout, shape, dname, ms, st, det))
+
+        for op_name, build in geo_reg:
+            if op_name in skip_uint8_only and dtype != np.uint8:
+                continue
+            if op_name in skip_float_only and dtype != np.float32:
                 continue
             if not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
@@ -347,8 +499,8 @@ def main() -> None:
     for layout, shape, dtype in _iter_batch_stats(args.quick):
         img = _make_img(rng, shape, dtype)
         dname = "uint8" if dtype == np.uint8 else "float32"
-        for op_name, build in reg:
-            if op_name not in stats_ops:
+        for op_name, build in fn_reg:
+            if op_name not in stats_ops or op_name not in export_names:
                 continue
             if not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
@@ -356,8 +508,10 @@ def main() -> None:
             ms, st, det = _bench(alb, img, build, args.repeats, args.warmup)
             rows.append(BenchRow(op_name, layout, shape, dname, ms, st, det))
 
-    rows.append(_matmul_bench(alb, args.repeats, args.warmup))
-    rows.append(_pairwise_bench(alb, args.repeats, args.warmup))
+    if "matmul" in export_names:
+        rows.append(_matmul_bench(alb, args.repeats, args.warmup))
+    if "pairwise_distances_squared" in export_names:
+        rows.append(_pairwise_bench(alb, args.repeats, args.warmup))
 
     meta = {
         "albucore_version": ver,
@@ -366,6 +520,8 @@ def main() -> None:
         "platform": platform.platform(),
         "machine": platform.machine(),
         "quick": args.quick,
+        "with_geometric": args.with_geometric,
+        "functions_all": functions_all_meta,
         "repeats": args.repeats,
         "warmup": args.warmup,
         "numpy": np.__version__,

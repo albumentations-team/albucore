@@ -24,7 +24,7 @@ Shared helper: [`timing.py`](timing.py) (`median_ms`).
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
-| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | All major **routers** on synthetic `HWC` (+ `NHWC` for `mean`/`std`/`mean_std`); JSON out for release comparison. |
+| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories): scalar/vector/array add/multiply, stats, flips, normalize, etc. **HWC** grid includes **1024×1024** in full mode; **`NHWC`** only for `mean`/`std`/`mean_std`. Optional `--with-geometric` adds `resize` / `warp_*` / `remap` / `copy_make_border`. |
 | [`compare_router_json.py`](compare_router_json.py) | Markdown report from two router JSON files. |
 | [`benchmark_minmax_ravel.py`](benchmark_minmax_ravel.py) | Prints Markdown tables: `Tensor.minmax()` vs NumPy min+max on raveled `(H,W,C)`. |
 | [`benchmark_sum_mean_std_ravel.py`](benchmark_sum_mean_std_ravel.py) | Prints Markdown tables: NumPy vs NumKong sum/mean/std on `(H,W,C)`. |
