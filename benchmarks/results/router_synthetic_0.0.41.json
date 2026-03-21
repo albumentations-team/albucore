@@ -1,0 +1,6778 @@
+{
+  "meta": {
+    "albucore_version": "0.0.41",
+    "distribution_version": "0.0.41",
+    "python": "3.12.7",
+    "platform": "macOS-15.5-arm64-arm-64bit",
+    "machine": "arm64",
+    "quick": false,
+    "with_geometric": false,
+    "functions_all": [
+      "add",
+      "add_array",
+      "add_constant",
+      "add_vector",
+      "add_weighted",
+      "float32_io",
+      "from_float",
+      "hflip",
+      "matmul",
+      "mean",
+      "mean_std",
+      "median_blur",
+      "multiply",
+      "multiply_add",
+      "multiply_by_array",
+      "multiply_by_constant",
+      "multiply_by_vector",
+      "normalize",
+      "normalize_per_image",
+      "pairwise_distances_squared",
+      "power",
+      "std",
+      "sz_lut",
+      "to_float",
+      "uint8_io",
+      "vflip"
+    ],
+    "repeats": 7,
+    "warmup": 2,
+    "numpy": "2.4.2",
+    "opencv": "4.13.0"
+  },
+  "rows": [
+    {
+      "op": "float32_io",
+      "layout": "meta",
+      "shape": [
+        -1
+      ],
+      "dtype": "n/a",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "decorator factory, not an image router"
+    },
+    {
+      "op": "uint8_io",
+      "layout": "meta",
+      "shape": [
+        -1
+      ],
+      "dtype": "n/a",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "decorator factory, not an image router"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005375011824071407,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0016670674085617065,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004249974153935909,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007292022928595543,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002166023477911949,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005832989700138569,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005875015631318092,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.023792032152414322,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006958027370274067,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00700005330145359,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008499948307871819,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01108401920646429,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0015830155462026596,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0017919810488820076,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007291906513273716,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006749993190169334,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0016660196706652641,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007166992872953415,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.01191697083413601,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.009167008101940155,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.011291936971247196,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.01391698606312275,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.009417068213224411,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.010792049579322338,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.011167023330926895,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.008458970114588737,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.010834075510501862,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.014999997802078724,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.005292007699608803,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03416696563363075,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.002708984538912773,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.003999914042651653,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02562499139457941,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.014708028174936771,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004042056389153004,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002374988980591297,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0036659184843301773,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0385830644518137,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004292000085115433,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009416951797902584,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009125098586082458,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.049208989366889,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008750008419156075,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03808399196714163,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0148330582305789,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.020749983377754688,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004958943463861942,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0024579931050539017,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.012792064808309078,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04070799332112074,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00400003045797348,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01433398574590683,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02274999860674143,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.020959065295755863,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.023000058718025684,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07654097862541676,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.022416003048419952,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.025999965146183968,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.023541972041130066,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0201669754460454,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.021915999241173267,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07287506014108658,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.013874960131943226,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07308297790586948,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.00658305361866951,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.009666895493865013,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0664170365780592,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03654090687632561,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007916009053587914,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005375011824071407,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00758306123316288,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10933401063084602,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010709045454859734,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017583020962774754,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017749960534274578,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.13754097744822502,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017291982658207417,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10783399920910597,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04145805723965168,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05387491546571255,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.026374938897788525,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007999944500625134,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.030790921300649643,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11333310976624489,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011167023330926895,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03887503407895565,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06266706623136997,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0564999645575881,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06187497638165951,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.12916605919599533,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05570799112319946,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05870801396667957,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0617089681327343,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05708297248929739,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.058125006034970284,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10979094076901674,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0350000336766243,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2822499955072999,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.09995896834880114,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.028250040486454964,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.19704096484929323,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1921659568324685,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006624963134527206,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002750079147517681,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005708076059818268,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.012082979083061218,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005417037755250931,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010707997716963291,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010791001841425896,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0660829246044159,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010375049896538258,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01591700129210949,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02025009598582983,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.031832954846322536,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0028330832719802856,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004375004209578037,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.016291975043714046,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.012083910405635834,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005332985892891884,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.020541949197649956,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.030708033591508865,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.027000089175999165,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.029499991796910763,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03554194699972868,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.026458059437572956,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02875004429370165,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0321660190820694,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.030583003535866737,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02833292819559574,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03224995452910662,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.019291997887194157,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1296249683946371,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.00666698906570673,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.013791956007480621,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.09470805525779724,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04866707604378462,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010208925232291222,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006458023563027382,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009707990102469921,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12533296830952168,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013791956007480621,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.021292013116180897,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.021292013116180897,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.25908404495567083,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.021707965061068535,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.14629203360527754,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.051749986596405506,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0665000407025218,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01966708805412054,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00966701190918684,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.034917029552161694,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12370804324746132,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.014709075912833214,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05095801316201687,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07704191375523806,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.09841599967330694,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.08029199671000242,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.282999943010509,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07320800796151161,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.08745898958295584,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10975007899105549,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.08016708306968212,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11316593736410141,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.3006249899044633,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05241704639047384,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.3185420064255595,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.026833033189177513,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03825000021606684,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2803750103339553,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1955829793587327,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02775003667920828,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01662492286413908,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.022042077034711838,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.37508306559175253,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03837491385638714,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05483301356434822,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05945900920778513,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.826000003144145,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08841603994369507,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4131249152123928,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2613749820739031,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.38008298724889755,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10375003330409527,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03145798109471798,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11212506797164679,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3844579914584756,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04795799031853676,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2560829743742943,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.574834062717855,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.41662505827844143,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5477499216794968,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8232080144807696,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4565829876810312,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5518749821931124,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6437499541789293,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.41808304376900196,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5968749755993485,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7300830911844969,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5043749697506428,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1785420356318355,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5052910419180989,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2217909786850214,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1132910149171948,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0198330273851752,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.014542019926011562,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008458038792014122,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.014082994312047958,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04145805723965168,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01795799471437931,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.027333036996424198,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.028374954126775265,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.27612491976469755,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02733292058110237,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.031209085136651993,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.044790911488235,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08229201193898916,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006624963134527206,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013750046491622925,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.043665990233421326,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.026833033189177513,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.019458006136119366,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03875000402331352,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.13116595800966024,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.15320908278226852,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1291659427806735,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.13804202899336815,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0963329803198576,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.19687495660036802,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1929170684888959,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11012505274266005,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.24999992456287146,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.14566699974238873,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11329108383506536,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5634999834001064,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02179096918553114,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05054206121712923,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.36445900332182646,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.3218750935047865,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03220804501324892,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.021792016923427582,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03474997356534004,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.47816603910177946,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.050958944484591484,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07016700692474842,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0843339366838336,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.198542071506381,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07412501145154238,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5457079969346523,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12649991549551487,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2787909470498562,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0767499441280961,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03770901821553707,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11858402285724878,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.48270903062075377,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0563750509172678,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.26949995663017035,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6322909612208605,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6071249954402447,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6965829525142908,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.7467500874772668,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.671125017106533,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8833750616759062,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8355419849976897,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6246250122785568,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8266670629382133,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.531332964077592,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7203329587355256,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.7007499700412154,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.24929200299084187,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.20825001411139965,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.4557079412043095,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9903330355882645,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3104590578004718,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.18870795611292124,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3325840225443244,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.615875051356852,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.24212501011788845,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3087500808760524,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3332500346004963,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.3047500289976597,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2716660965234041,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.647957949899137,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.17129199113696814,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.411542016081512,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5147909978404641,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.18524995539337397,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4682089202105999,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.7259579617530107,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1676660031080246,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1736249541863799,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9099160088226199,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8456669747829437,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8865420240908861,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.8983330810442567,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8449169108644128,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9571670088917017,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.972250010818243,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9284160332754254,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9786669397726655,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.8930829828605056,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5431669997051358,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 3.0855840304866433,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.8046250334009528,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.44958293437957764,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 3.180791041813791,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.0707499934360385,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0438750721514225,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.028291018679738045,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04270800855010748,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10629207827150822,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06825011223554611,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09216705802828074,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09200000204145908,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.798582961782813,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09175005834549665,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.14625000767409801,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2920840634033084,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4529169527813792,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02537504769861698,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.058959005400538445,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.16154209151864052,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09895791299641132,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07475004531443119,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2352080773562193,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9568339446559548,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.168375019915402,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0057500330731273,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.657709013670683,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9817080572247505,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.6715420642867684,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.036916975863278,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8160829311236739,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2418749975040555,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0847080266103148,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0267499601468444,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 2.1653330186381936,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.26783300563693047,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.37162506487220526,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.8860000418499112,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.3872500276193023,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.30404096469283104,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2549999626353383,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.27670804411172867,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 3.0171250691637397,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.39599998854100704,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.42520801071077585,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.43012492824345827,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 3.2220830908045173,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.42170798406004906,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.147165942005813,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2768330741673708,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.8189580403268337,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5369590362533927,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2786670811474323,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.649208901450038,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.1824169671162963,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.23470795713365078,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.21012499928474426,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.201624982059002,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.135583035647869,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.19779200758785,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.5750829158350825,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.210791990160942,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2877089902758598,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2702919775620103,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1870829621329904,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.3306669425219297,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.649874987080693,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7717079715803266,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.268000018782914,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.41570793837308884,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6089999806135893,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.104541032575071,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.5172079913318157,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3571659326553345,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.24108297657221556,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.34799997229129076,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 6.543042021803558,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.652667018584907,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.8250840473920107,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.8249999955296516,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 18.26120901387185,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.8322079665958881,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 6.400624988600612,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.4241250464692712,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.163292025215924,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.720542088150978,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4483340308070183,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.26316596288234,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 6.4870830392464995,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6955000571906567,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.1413329523056746,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32"
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 12.778667034581304,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 10.776874958537519,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 11.619416996836662,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 17.72000000346452,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 9.677291964180768,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 12.989917071536183,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 12.029333971440792,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 9.752333047799766,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 13.160250033251941,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 13.94199999049306,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 10.031791985966265,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 22.341666975989938,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 9.303709026426077,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 5.1955420058220625,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 19.27099993918091,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8"
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 20.06937493570149,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005832989700138569,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005875015631318092,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005875015631318092,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.015625031664967537,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06462505552917719,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10533304885029793,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.016750069335103035,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.015666941180825233,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.016749952919781208,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04629092290997505,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.3153339494019747,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2336249453946948,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.035917037166655064,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.035792007111012936,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03783300053328276,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.37566700484603643,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9551249677315354,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.89366699103266,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01750001683831215,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017666956409811974,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017707934603095055,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.058125006034970284,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5907079903408885,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.30620896723121405,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.049332971684634686,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04954100586473942,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04958303179591894,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.18275005277246237,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.424333080649376,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9071669774129987,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.25174999609589577,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.25220797397196293,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2888749586418271,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5169579526409507,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.304124995134771,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.537958043627441,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07312500383704901,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07850001566112041,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07454201113432646,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2287080278620124,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2211250141263008,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2423750013113022,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3053749678656459,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2960829297080636,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.29562506824731827,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5983329610899091,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.6961249532178044,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.036666963249445,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5881250835955143,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5821669474244118,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6053749239072204,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.047708025202155,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 14.796084025874734,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 13.76624999102205,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "matmul",
+      "layout": "2D",
+      "shape": [
+        128,
+        64,
+        64,
+        32
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0020830193534493446,
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "op": "pairwise_distances_squared",
+      "layout": "points",
+      "shape": [
+        24,
+        16,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0036660348996520042,
+      "status": "ok",
+      "detail": ""
+    }
+  ]
+}

@@ -40,7 +40,8 @@ def _global_mean_uint8_only(arr: ImageUInt8) -> float:
     """Global mean only: one ``moments`` call, no sqrt."""
     flat = np.ascontiguousarray(arr, dtype=np.uint8).reshape(-1)
     s_sum, _s_sq = nk.moments(nk.Tensor(flat))
-    return float(s_sum) / flat.size
+    num = float(cast("float | int", s_sum))
+    return num / float(flat.size)
 
 
 def _mean_std_global(
