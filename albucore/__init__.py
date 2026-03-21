@@ -29,17 +29,23 @@ except ImportError as e:
     )
     raise ImportError(msg) from e
 
+from . import decorators as _decorators
+from . import functions as _functions
+from . import geometric as _geometric
+from . import utils as _utils
 from .decorators import *
 from .functions import *
 from .geometric import *
 from .utils import *
 
-# Export type aliases for public API
-from .utils import ImageFloat32, ImageType, ImageUInt8, SupportedDType
+_meta_names = ("__version__", "__author__", "__maintainer__")
+_combined: list[str] = (
+    list(_meta_names)
+    + list(_functions.__all__)
+    + list(_decorators.__all__)
+    + list(_geometric.__all__)
+    + list(_utils.__all__)
+)
+__all__ = list(dict.fromkeys(_combined))
 
-__all__ = [
-    "ImageFloat32",
-    "ImageType",
-    "ImageUInt8",
-    "SupportedDType",
-]
+del _meta_names, _combined

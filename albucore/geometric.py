@@ -3,7 +3,7 @@
 Drop-in for cv2.warpAffine, cv2.warpPerspective, cv2.copyMakeBorder, cv2.remap.
 Chunking when OpenCV limits apply. blur, GaussianBlur, medianBlur, resize, filter2D
 work out of the box for >4ch — use cv2 directly.
-Run: python tools/verify_opencv_channel_limits.py
+OpenCV channel limits: see ``benchmarks/README.md``.
 """
 # ruff: noqa: PLR0911 PLR0913  # chunked fns need many args
 

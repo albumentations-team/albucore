@@ -4,13 +4,8 @@ import numpy as np
 
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 
-from albucore import (
-    multiply_lut,
-    multiply_numpy,
-    multiply_opencv,
-    multiply,
-    convert_value,
-)
+from albucore import convert_value, multiply
+from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
 
 
 @pytest.mark.parametrize(
