@@ -15,6 +15,9 @@ Run::
 
     uv run python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/run.json
 
+``--skip-ops`` excludes routers from timing (no rows), e.g. to match an older release that lacked
+those exports. Compare JSONs with ``compare_router_json.py`` (intersection = shared ``ok/ok`` cells).
+
 Reliability: default ``--repeats`` / ``--warmup`` are tuned for stable medians; JSON includes
 ``ms_std`` / ``ms_mad`` (spread of timed runs). ``sz_lut`` uses ``inplace=False`` so the shared
 bench image is not corrupted across iterations.
@@ -30,9 +33,11 @@ import argparse
 import importlib.metadata
 import json
 import platform
+import subprocess
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -48,6 +53,7 @@ _FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
     "add_constant",
     "add_vector",
     "add_weighted",
+    "apply_uint8_lut",
     "float32_io",
     "from_float",
     "hflip",
@@ -85,6 +91,29 @@ class BenchRow:
     ms_std: float | None = None
     ms_mad: float | None = None
     timing_n: int | None = None
+
+
+def _parse_skip_ops(raw: str) -> frozenset[str]:
+    if not raw.strip():
+        return frozenset()
+    return frozenset(x.strip() for x in raw.split(",") if x.strip())
+
+
+def _git_head_short(repo_root: Path) -> str:
+    try:
+        cp = subprocess.run(  # noqa: S607
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if cp.returncode == 0:
+            return cp.stdout.strip()
+    except OSError:
+        pass
+    return "unknown"
 
 
 def _make_img(rng: np.random.Generator, shape: tuple[int, ...], dtype: np.dtype) -> np.ndarray:
@@ -250,7 +279,15 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         noise = (np.ones_like(img) * (2 if img.dtype == np.uint8 else 0.01)).astype(img.dtype, copy=False)
 
         def thunk() -> None:
-            alb.add_array(img, noise, False)
+            alb.add_array(img, noise)
+
+        return thunk
+
+    def apply_ul(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        lut_u8 = np.arange(256, dtype=np.uint8)
+
+        def thunk() -> None:
+            alb.apply_uint8_lut(img, lut_u8, inplace=False)
 
         return thunk
 
@@ -272,10 +309,9 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
     def mul_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = _channel_vector(img)
-        c = int(img.shape[-1])
 
         def thunk() -> None:
-            alb.multiply_by_vector(img, v, c, False)
+            alb.multiply_by_vector(img, v, False)
 
         return thunk
 
@@ -412,6 +448,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
     return [
         ("add", add_c),
         ("add_array", add_arr),
+        ("apply_uint8_lut", apply_ul),
         ("add_constant", add_const),
         ("add_vector", add_vec),
         ("add_weighted", aw),
@@ -520,10 +557,27 @@ def main() -> None:
         default=5,
         help="Untimed iterations before measurement (JIT, caches, alloc)",
     )
+    p.add_argument(
+        "--skip-ops",
+        type=str,
+        default="",
+        help="Comma-separated op names to omit entirely (no benchmark rows), e.g. mean,std,apply_uint8_lut",
+    )
+    p.add_argument(
+        "--benchmark-label",
+        type=str,
+        default="",
+        help="Stored in JSON meta (e.g. tag 0.0.41 worktree vs main branch)",
+    )
     args = p.parse_args()
+
+    skip_ops = _parse_skip_ops(args.skip_ops)
 
     import albucore as alb  # noqa: PLC0415
     import albucore.functions as alb_fn  # noqa: PLC0415
+
+    # Repo root of the albucore tree actually imported (main vs worktree).
+    repo_root = Path(alb.__file__).resolve().parent.parent
 
     ver = getattr(alb, "__version__", "unknown")
     try:
@@ -537,7 +591,7 @@ def main() -> None:
     # Drop placeholder entries for matmul / pairwise (special benches)
     fn_reg = [(n, b) for n, b in fn_reg if n not in ("matmul", "pairwise_distances_squared")]
     stats_ops = {"mean", "std", "mean_std"}
-    skip_uint8_only = {"median_blur", "sz_lut", "to_float"}
+    skip_uint8_only = {"apply_uint8_lut", "median_blur", "sz_lut", "to_float"}
     skip_float_only = {"from_float"}
 
     declared = getattr(alb_fn, "__all__", None)
@@ -562,6 +616,8 @@ def main() -> None:
         for op_name, build in fn_reg:
             if op_name not in export_names:
                 continue
+            if op_name in skip_ops:
+                continue
             if op_name in stats_ops:
                 continue
             if op_name in skip_uint8_only and dtype != np.uint8:
@@ -577,6 +633,8 @@ def main() -> None:
             rows.append(_bench_row(op_name, layout, shape, dname, t, st, det))
 
         for op_name, build in geo_reg:
+            if op_name in skip_ops:
+                continue
             if op_name in skip_uint8_only and dtype != np.uint8:
                 continue
             if op_name in skip_float_only and dtype != np.float32:
@@ -593,20 +651,25 @@ def main() -> None:
         for op_name, build in fn_reg:
             if op_name not in stats_ops or op_name not in export_names:
                 continue
+            if op_name in skip_ops:
+                continue
             if not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
             t, st, det = _bench(alb, img, build, args.repeats, args.warmup)
             rows.append(_bench_row(op_name, layout, shape, dname, t, st, det))
 
-    if "matmul" in export_names:
+    if "matmul" in export_names and "matmul" not in skip_ops:
         rows.append(_matmul_bench(alb, args.repeats, args.warmup))
-    if "pairwise_distances_squared" in export_names:
+    if "pairwise_distances_squared" in export_names and "pairwise_distances_squared" not in skip_ops:
         rows.append(_pairwise_bench(alb, args.repeats, args.warmup))
 
     meta = {
         "albucore_version": ver,
         "distribution_version": dist_ver,
+        "benchmark_label": args.benchmark_label or None,
+        "git_head_short": _git_head_short(repo_root),
+        "skip_ops": sorted(skip_ops) if skip_ops else [],
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "machine": platform.machine(),
