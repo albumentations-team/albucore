@@ -48,6 +48,25 @@ def main() -> None:
     old_m = {_key(r): r for r in old_d["rows"]}
     keys = sorted(set(new_m) & set(old_m))
 
+    new_only_ok: list[tuple[tuple[str, str, str, str], dict[str, object]]] = []
+    for k, row in new_m.items():
+        if row.get("status") != "ok":
+            continue
+        old_row = old_m.get(k)
+        if old_row is None or old_row.get("status") != "ok":
+            new_only_ok.append((k, row))
+
+    old_only_ok: list[tuple[tuple[str, str, str, str], dict[str, object]]] = []
+    for k, row in old_m.items():
+        if row.get("status") != "ok":
+            continue
+        new_row = new_m.get(k)
+        if new_row is None or new_row.get("status") != "ok":
+            old_only_ok.append((k, row))
+
+    new_only_ok.sort(key=lambda x: x[0])
+    old_only_ok.sort(key=lambda x: x[0])
+
     table_lines: list[str] = []
     ratios: list[tuple[tuple[str, str, str, str], float]] = []
     by_op: dict[str, list[float]] = defaultdict(list)
@@ -87,11 +106,25 @@ def main() -> None:
 
     nv = new_d["meta"].get("distribution_version", "?")
     ov = old_d["meta"].get("distribution_version", "?")
+    nl = new_d["meta"].get("benchmark_label")
+    ol = old_d["meta"].get("benchmark_label")
+    nsk = new_d["meta"].get("skip_ops", [])
+    osk = old_d["meta"].get("skip_ops", [])
     lines = [
         "# Router synthetic benchmark — comparison",
         "",
         f"- **New (current run):** `{args.new_json.name}` — `distribution_version` = `{nv}`",
         f"- **Old (baseline):** `{args.old_json.name}` — `distribution_version` = `{ov}`",
+    ]
+    if nl:
+        lines.append(f"- **New label:** `{nl}`")
+    if ol:
+        lines.append(f"- **Old label:** `{ol}`")
+    if nsk:
+        lines.append(f"- **New `skip_ops`:** `{nsk}`")
+    if osk:
+        lines.append(f"- **Old `skip_ops`:** `{osk}`")
+    lines += [
         "",
         "## Summary",
         "",
@@ -134,6 +167,38 @@ def main() -> None:
         lines.append(f"| {op} | {layout} | ({sh}) | {dt} | {r:.2f}x |")
     if not wins:
         lines.append("| — | — | — | — | — |")
+
+    lines += [
+        "",
+        "## New build only (`ok` in new, not `ok` in old or missing in old)",
+        "",
+        "Routers / shapes introduced or fixed since baseline; not part of **old/new** ratio table above.",
+        "",
+        "| op | layout | shape | dtype | new_ms | old status |",
+        "|----|--------|-------|-------|--------:|------------|",
+    ]
+    for k, row in new_only_ok[:80]:
+        op, layout, sh, dt = k
+        old_row = old_m.get(k)
+        ost = old_row.get("status", "missing") if old_row is not None else "missing"
+        lines.append(f"| {op} | {layout} | ({sh}) | {dt} | {_fmt_ms_pm_std(row)} | {ost} |")
+    if len(new_only_ok) > 80:
+        lines.append(f"| … | | | | *{len(new_only_ok) - 80} more rows* | |")
+
+    lines += [
+        "",
+        "## Baseline only (`ok` in old, not `ok` in new or missing in new)",
+        "",
+        "| op | layout | shape | dtype | old_ms | new status |",
+        "|----|--------|-------|-------|--------:|------------|",
+    ]
+    for k, row in old_only_ok[:40]:
+        op, layout, sh, dt = k
+        new_row = new_m.get(k)
+        nst = new_row.get("status", "missing") if new_row is not None else "missing"
+        lines.append(f"| {op} | {layout} | ({sh}) | {dt} | {_fmt_ms_pm_std(row)} | {nst} |")
+    if len(old_only_ok) > 40:
+        lines.append(f"| … | | | | *{len(old_only_ok) - 40} more rows* | |")
 
     lines += [
         "",
