@@ -4,9 +4,9 @@ from typing import Literal
 
 import cv2
 import numpy as np
-import stringzilla as sz
 
-from albucore.decorators import contiguous, preserve_channel_dim
+from albucore.decorators import preserve_channel_dim
+from albucore.lut import apply_uint8_lut as _apply_uint8_lut
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
@@ -20,10 +20,7 @@ from albucore.utils import (
     convert_value,
     get_num_channels,
 )
-from albucore.weighted import (
-    add_array_numkong,
-    add_weighted_numkong,
-)
+from albucore.weighted import add_array_numkong, add_weighted_numkong
 
 np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
 
@@ -40,23 +37,11 @@ def create_lut_array(
     if dtype == np.uint8 and operation == "add":
         value = np.trunc(value)
 
-    value = np.array(value, dtype=np.float32).reshape(-1, 1)
-    lut = np.arange(0, max_value + 1, dtype=np.float32)
-
-    if operation in np_operations:
-        return np_operations[operation](lut, value)
-
-    raise ValueError(f"Unsupported operation: {operation}")
-
-
-@contiguous
-def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8:
-    """Apply lookup table using stringzilla. Only works with uint8 images and uint8 LUTs."""
-    if not inplace:
-        img = img.copy()
-
-    sz.translate(memoryview(img), memoryview(lut), inplace=True)
-    return img
+    v = np.asarray(value, dtype=np.float32).reshape(-1, 1)
+    lut = np.arange(max_value + 1, dtype=np.float32)
+    if operation not in np_operations:
+        raise ValueError(f"Unsupported operation: {operation}")
+    return np_operations[operation](lut, v)
 
 
 def apply_lut(
@@ -65,23 +50,19 @@ def apply_lut(
     operation: Literal["add", "multiply", "power"],
     inplace: bool,
 ) -> ImageUInt8:
-    """Apply lookup table operation. Only works with uint8 images."""
+    """Apply lookup table operation. Only works with uint8 images.
+
+    ``inplace=True`` avoids an extra buffer when the whole image uses one LUT (scalar path) or when
+    callers write channel-wise into a preallocated ``result`` (see per-channel loop).
+    """
     dtype = img.dtype
 
     if isinstance(value, (int, float)):
-        lut = create_lut_array(dtype, value, operation)
-        return sz_lut(img, clip(lut, dtype, inplace=True), False)
-
-    num_channels = img.shape[-1]
+        lut = clip(create_lut_array(dtype, value, operation), dtype, inplace=True)
+        return _apply_uint8_lut(img, lut, inplace=inplace)
 
     luts = clip(create_lut_array(dtype, value, operation), dtype, inplace=True)
-
-    result = np.empty_like(img, dtype=dtype)
-
-    for i in range(num_channels):
-        result[..., i] = sz_lut(img[..., i], luts[i], inplace)
-
-    return result
+    return _apply_uint8_lut(img, luts, inplace=inplace)
 
 
 def prepare_value_opencv(
@@ -142,7 +123,7 @@ def apply_numpy(
     return np_operations[operation](img.astype(np.float32, copy=False), value)
 
 
-def multiply_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool) -> ImageUInt8:
+def multiply_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -> ImageUInt8:
     return apply_lut(img, value, "multiply", inplace)
 
 
@@ -159,7 +140,7 @@ def multiply_numpy(img: ImageType, value: float | np.ndarray) -> ImageFloat32:
 
 
 @clipped
-def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageType:
+def multiply_by_constant(img: ImageType, value: float, inplace: bool = False) -> ImageType:
     if img.dtype == np.uint8:
         return multiply_lut(img, value, inplace)
     # float32: match 0.0.40 (`multiply_numpy`); OpenCV / NumKong scalar paths regressed on router grid
@@ -167,8 +148,9 @@ def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageTy
 
 
 @clipped
-def multiply_by_vector(img: ImageType, value: np.ndarray, num_channels: int, inplace: bool) -> ImageType:
+def multiply_by_vector(img: ImageType, value: np.ndarray, inplace: bool = False) -> ImageType:
     if img.dtype == np.uint8:
+        # LUT beats OpenCV float-multiply + clip for per-channel uint8 (see benchmarks/benchmark_grayscale_paths.py).
         return multiply_lut(img, value, inplace)
     return multiply_numpy(img, value)
 
@@ -188,7 +170,7 @@ def multiply(img: ImageType, value: ValueType, inplace: bool = False) -> ImageTy
         return multiply_by_constant(img, value, inplace)
 
     if isinstance(value, np.ndarray) and value.ndim == 1:
-        return multiply_by_vector(img, value, num_channels, inplace)
+        return multiply_by_vector(img, value, inplace)
 
     return multiply_by_array(img, value)
 
@@ -210,7 +192,6 @@ def add_opencv(img: ImageType, value: np.ndarray | float, inplace: bool = False)
             value if isinstance(value, (int, float)) else value.astype(np.float32, copy=False),
         )
 
-    # Use img as the destination array if inplace=True
     dst = img if inplace else None
     return cv2.add(img, value, dst=dst)
 
@@ -219,7 +200,7 @@ def add_numpy(img: ImageType, value: float | np.ndarray) -> ImageFloat32:
     return apply_numpy(img, value, "add")
 
 
-def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool) -> ImageUInt8:
+def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -> ImageUInt8:
     return apply_lut(img, value, "add", inplace)
 
 
@@ -227,21 +208,32 @@ def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool) -> ImageU
 def add_constant(img: ImageType, value: float, inplace: bool = False) -> ImageType:
     if img.dtype == np.float32:
         return add_numpy(img, value)
+    # uint8 (all C): OpenCV + ``prepare_value_opencv`` broadcast. NumKong ``add_constant_numkong``
+    # regressed vs 0.0.40 on large (H,W,C>4) router cells; helper remains in ``weighted`` for benches.
     return add_opencv(img, value, inplace)
 
 
 @clipped
-def add_vector(img: ImageType, value: np.ndarray, inplace: bool) -> ImageType:
+def add_vector(img: ImageType, value: np.ndarray, inplace: bool = False) -> ImageType:
     if img.dtype == np.uint8:
         return add_lut(img, value, inplace)
     return add_numpy(img, value)
 
 
 @clipped
-def add_array(img: ImageType, value: np.ndarray, inplace: bool = False) -> ImageType:
-    if not inplace and value.shape == img.shape and value.dtype == img.dtype and img.dtype in (np.uint8, np.float32):
+def add_array(img: ImageType, value: np.ndarray) -> ImageType:
+    """Elementwise ``img + value`` for a full array ``value``.
+
+    float32 → NumPy; uint8 with same shape and dtype → NumKong ``blend``; otherwise OpenCV.
+    There is no ``inplace`` flag: an in-place OpenCV path was slower than the NumKong out-of-place
+    path for same-shape uint8 in benchmarks; use ``numpy.copyto`` yourself if you must reuse a buffer.
+    """
+    if img.dtype == np.float32:
+        # Benchmarks: NumPy broadcast add beats NumKong and OpenCV scalar/tensor prep on float32.
+        return add_numpy(img, value)
+    if value.shape == img.shape and value.dtype == img.dtype:
         return add_array_numkong(img, value)
-    return add_opencv(img, value, inplace)
+    return add_opencv(img, value)
 
 
 def add(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
@@ -257,7 +249,7 @@ def add(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
 
         return add_constant(img, value, inplace)
 
-    return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value, inplace)
+    return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value)
 
 
 def normalize_numpy(img: ImageType, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat32:
@@ -305,12 +297,11 @@ def normalize_lut(img: ImageUInt8, mean: float | np.ndarray, denominator: float 
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     num_channels = get_num_channels(img)
 
+    x = np.arange(max_value + 1, dtype=np.float32)
     if isinstance(denominator, (float, int)) and isinstance(mean, (float, int)):
-        lut = (np.arange(0, max_value + 1, dtype=np.float32) - mean) * denominator
-        return cv2.LUT(img, lut)
+        return cv2.LUT(img, (x - mean) * denominator)
 
-    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-    luts = (arange_vals[:, np.newaxis] - mean) * denominator
+    luts = (x[:, np.newaxis] - mean) * denominator
 
     # Pre-allocate result array
     result = np.empty_like(img, dtype=np.float32)
@@ -336,6 +327,12 @@ def _normalize_is_identity(mean: float | np.ndarray, denominator: float | np.nda
 
 
 def normalize(img: ImageType, mean: ValueType, denominator: ValueType) -> ImageFloat32:
+    """Affine normalize with **caller-fixed** ``mean`` and ``denominator``: ``(img - mean) * denominator``.
+
+    This is **not** ``normalize_per_image`` (which estimates stats from ``img``). Pass scalars or
+    length-``C`` vectors (after ``convert_value``) for per-channel constants, e.g. ImageNet on uint8
+    in 0-255: ``mean = mean_01 * 255``, ``denominator = 1 / (std_01 * 255)``.
+    """
     num_channels = get_num_channels(img)
     denominator = convert_value(denominator, num_channels)
     mean = convert_value(mean, num_channels)
@@ -418,21 +415,30 @@ def add_weighted_lut(
         return np.zeros_like(img1)
 
     if weight1 == 1 and weight2 == 1:
-        return add_array(img1, img2, inplace)
+        return add_array(img1, img2)
 
-    lut1 = np.arange(0, max_value + 1, dtype=np.float32) * weight1
-    result1 = cv2.LUT(img1, lut1)
-
-    lut2 = np.arange(0, max_value + 1, dtype=np.float32) * weight2
-    result2 = cv2.LUT(img2, lut2)
+    base = np.arange(max_value + 1, dtype=np.float32)
+    result1 = cv2.LUT(img1, base * weight1)
+    result2 = cv2.LUT(img2, base * weight2)
 
     return add_opencv(result1, result2, inplace)
+
+
+@preserve_channel_dim
+def _add_weighted_opencv(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
+    return cv2.addWeighted(img1, weight1, img2, weight2, 0)
 
 
 @clipped
 def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
+
+    # NK blend degrades on large float32 tensors (memory pressure at >~4M elems on ARM);
+    # OpenCV addWeighted is ~4x faster at 1024x1024x9 float32.
+    # Threshold calibrated from benchmarks/reliable_benchmark_numkong_vs_albucore_backends.md.
+    if img1.dtype == np.float32 and img1.size > 4_000_000:
+        return _add_weighted_opencv(img1, weight1, img2, weight2)
 
     return add_weighted_numkong(img1, weight1, img2, weight2)
 
@@ -515,11 +521,12 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
     """Apply multiply-add operation using LUT. Only works with uint8 images."""
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    num_channels = get_num_channels(img)
+
+    domain = np.arange(max_value + 1, dtype=np.float32)
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
-        lut = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype, inplace=False)
-        return sz_lut(img, lut, inplace)
+        lut = clip(domain * factor + value, dtype, inplace=False)
+        return _apply_uint8_lut(img, lut, inplace=inplace)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
         factor = factor.reshape(-1, 1)
@@ -527,13 +534,8 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
     if isinstance(value, np.ndarray) and value.shape != ():
         value = value.reshape(-1, 1)
 
-    luts = clip(np.arange(0, max_value + 1, dtype=np.float32) * factor + value, dtype, inplace=False)
-
-    result = np.empty_like(img, dtype=dtype)
-    for i in range(num_channels):
-        result[..., i] = sz_lut(img[..., i], luts[i], inplace)
-
-    return result
+    luts = clip(domain * factor + value, dtype, inplace=False)
+    return _apply_uint8_lut(img, luts, inplace=inplace)
 
 
 @clipped
