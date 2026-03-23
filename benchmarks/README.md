@@ -30,6 +30,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
+| [`benchmark_reduce_sum.py`](benchmark_reduce_sum.py) | `albucore.stats.reduce_sum` (NumKong uint8 routing) vs `numpy.sum` global / per-channel. |
 | [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories). Defaults **`--repeats 21`**, **`--warmup 5`**; JSON includes spread (`ms_std`, `ms_mad`). **`sz_lut`** bench uses **`inplace=False`** so the image is not mutated across iterations. **`--skip-ops`** omits routers (no rows). **`--benchmark-label`** stored in JSON meta. |
 | [`compare_router_json.py`](compare_router_json.py) | Markdown report: ratios from medians; full table shows **median ± σ** and MAD columns when present. Sections for **new-only** / **baseline-only** `ok` cells. |
 | [`run_router_compare_0_0_41.sh`](run_router_compare_0_0_41.sh) | **`git worktree`** at tag **`0.0.41`** + its **`uv sync`** (simsimd era), router bench with **`--skip-ops`** stats+LUT; then current tree full bench; writes JSON + **`results/REPORT_router_0.0.41_vs_current.md`**. Env: **`REPEATS`**, **`WARMUP`**, **`ALBUCORE_041_WORKTREE`**. |
@@ -38,8 +39,11 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_sum_mean_std_ravel.py`](benchmark_sum_mean_std_ravel.py) | Prints Markdown tables: NumPy vs NumKong sum/mean/std on `(H,W,C)`. |
 | [`benchmark_add_constant_uint8_channels.py`](benchmark_add_constant_uint8_channels.py) | uint8 scalar add: OpenCV vs LUT vs NumKong vs NumPy vs `add_constant` wrapper (C=5..9, several spatial sizes). |
 | [`benchmark_grayscale_paths.py`](benchmark_grayscale_paths.py) | Grayscale / routing sanity: uint8 per-channel multiply LUT vs OpenCV; float→uint8 NumPy vs cv2 (and cv2 (H,W,1) quirk). |
-| [`benchmark_sz_lut_vs_cv2_lut.py`](benchmark_sz_lut_vs_cv2_lut.py) | `StringZilla` `translate` / `sz_lut` vs `cv2.LUT` on uint8: shared `(256,)` and per-channel `(256,1,C)` LUTs; shapes `HWC`, `DHWC`, `NDHWC`. |
-| [`benchmark_lut_shared_routing.py`](benchmark_lut_shared_routing.py) | Grid sweep: when OpenCV beats StringZilla for **shared** HWC LUT vs `opencv_shared_uint8_lut_faster_hwc` (used by `apply_uint8_lut`). |
+| [`benchmark_sz_lut_vs_cv2_lut.py`](benchmark_sz_lut_vs_cv2_lut.py) | `StringZilla` `translate` / `sz_lut` vs `cv2.LUT` on uint8: shared `(256,)` and per-channel `(256,1,C)` LUTs; shapes `HWC`, `DHWC`, `NDHWC`. LUTs are **non-trivial** (fixed-seed `permutation(256)`). |
+| [`benchmark_cv2_lut_vs_sz_lut_minimal.py`](benchmark_cv2_lut_vs_sz_lut_minimal.py) | Tiny standalone repro (no `albucore`): shared **permutation** LUT, markdown table — for upstream issues. |
+| [`issue_lut_uint8_standalone.py`](issue_lut_uint8_standalone.py) | **Self-contained** `cv2.LUT` vs StringZilla `translate`: shared + per-channel, **`LUT` new vs `dst`**, SZ copy vs reuse buffer. Copy into GitHub issues. |
+| [`results/ISSUE_opencv_vs_stringzilla_lut_COMPLETE.md`](results/ISSUE_opencv_vs_stringzilla_lut_COMPLETE.md) | Ready-to-paste **issue** text + embedded full script + **full benchmark tables** (example run). |
+| [`benchmark_lut_shared_routing.py`](benchmark_lut_shared_routing.py) | Grid sweep: when OpenCV beats StringZilla for **shared** HWC LUT vs `opencv_shared_uint8_lut_faster_hwc` (used by `apply_uint8_lut`). LUT: **permutation(256)**. |
 
 ### What compares what (sanity / routing)
 

@@ -20,10 +20,10 @@ from albucore.functions import (
     add_vector,
     multiply_by_array,
     multiply_by_constant,
-    multiply_by_constant_numkong,
     multiply_by_vector,
     multiply_numpy,
 )
+from albucore.weighted import multiply_by_constant_numkong
 from albucore.utils import clip, get_num_channels
 from timing import median_ms
 
@@ -93,7 +93,7 @@ def main() -> None:
                 else:
                     img = rng.random((h, w, c), dtype=np.float32)
 
-                t_prod = median_ms(lambda: multiply_by_constant(img, s_mul, False), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: multiply_by_constant(img, s_mul), args.repeats, args.warmup)
                 t_nk = median_ms(lambda: multiply_by_constant_numkong(img, s_mul), args.repeats, args.warmup)
                 best = "prod" if t_prod <= t_nk else "NK_scale"
                 dname = "uint8" if dtype == np.uint8 else "float32"
@@ -115,7 +115,7 @@ def main() -> None:
                     img = rng.random((h, w, c), dtype=np.float32)
                     add_v = s_add
 
-                t_prod = median_ms(lambda: add_constant(img, add_v, False), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: add_constant(img, add_v), args.repeats, args.warmup)
                 t_sc = median_ms(lambda: nk_scale_flat(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup)
                 best = "prod" if t_prod <= t_sc else "NK_scale"
                 dname = "uint8" if dtype == np.uint8 else "float32"
@@ -168,7 +168,7 @@ def main() -> None:
                     img = rng.random((h, w, c), dtype=np.float32)
                     val = rng.random((h, w, c), dtype=np.float32) * 0.1 - 0.05
 
-                t_prod = median_ms(lambda: add_array(img, val, False), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: add_array(img, val), args.repeats, args.warmup)
                 t_nk = median_ms(lambda: add_array_numkong(img, val), args.repeats, args.warmup)
                 best = "prod" if t_prod <= t_nk else "NK_blend"
                 dname = "uint8" if dtype == np.uint8 else "float32"
@@ -195,7 +195,7 @@ def main() -> None:
                     va = rng.random(c, dtype=np.float32) * 0.06 - 0.03
 
                 t_pm = median_ms(
-                    lambda: multiply_by_vector(img, vm, c, False),
+                    lambda: multiply_by_vector(img, vm),
                     args.repeats,
                     args.warmup,
                 )
@@ -208,7 +208,7 @@ def main() -> None:
                 dname = "uint8" if dtype == np.uint8 else "float32"
                 print(f"| {dname} | mul_vec | {h}×{w} | {c} | {t_pm:.4f} | {t_pm_nk:.4f} | {w_m} |")
 
-                t_pa = median_ms(lambda: add_vector(img, va, False), args.repeats, args.warmup)
+                t_pa = median_ms(lambda: add_vector(img, va), args.repeats, args.warmup)
                 t_pa_nk = median_ms(
                     lambda: nk_channelwise_scale(img, va, alpha_per_ch=False),
                     args.repeats,

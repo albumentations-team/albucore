@@ -19,7 +19,7 @@ Run::
 those exports. Compare JSONs with ``compare_router_json.py`` (intersection = shared ``ok/ok`` cells).
 
 Reliability: default ``--repeats`` / ``--warmup`` are tuned for stable medians; JSON includes
-``ms_std`` / ``ms_mad`` (spread of timed runs). ``sz_lut`` uses ``inplace=False`` so the shared
+``ms_std`` / ``ms_mad`` (spread of timed runs). ``sz_lut`` runs on ``img.copy()`` so the shared
 bench image is not corrupted across iterations.
 
 Workload realism: thunks use non-identity parameters where it matters (e.g. ``multiply_add`` with
@@ -263,7 +263,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         v = 3 if img.dtype == np.uint8 else 1.5
 
         def thunk() -> None:
-            alb.add_constant(img, v, False)
+            alb.add_constant(img, v)
 
         return thunk
 
@@ -271,7 +271,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         v = _channel_vector(img)
 
         def thunk() -> None:
-            alb.add_vector(img, v, False)
+            alb.add_vector(img, v)
 
         return thunk
 
@@ -287,7 +287,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         lut_u8 = np.arange(256, dtype=np.uint8)
 
         def thunk() -> None:
-            alb.apply_uint8_lut(img, lut_u8, inplace=False)
+            alb.apply_uint8_lut(img, lut_u8)
 
         return thunk
 
@@ -303,7 +303,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         v = 1.05 if img.dtype == np.float32 else 2
 
         def thunk() -> None:
-            alb.multiply_by_constant(img, v, False)
+            alb.multiply_by_constant(img, v)
 
         return thunk
 
@@ -311,7 +311,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         v = _channel_vector(img)
 
         def thunk() -> None:
-            alb.multiply_by_vector(img, v, False)
+            alb.multiply_by_vector(img, v)
 
         return thunk
 
@@ -347,7 +347,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
             )
 
         def thunk() -> None:
-            alb.power(img, exp, False)
+            alb.power(img, exp)
 
         return thunk
 
@@ -362,7 +362,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
             bias = np.linspace(3.0, 11.0, num=c, dtype=np.float32)
 
         def thunk() -> None:
-            alb.multiply_add(img, factor, bias, False)
+            alb.multiply_add(img, factor, bias)
 
         return thunk
 
@@ -421,8 +421,8 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         lut_u8 = np.arange(256, dtype=np.uint8)
 
         def thunk() -> None:
-            # inplace=True would mutate ``img`` across warmup/repeats and distort timings + semantics
-            alb.sz_lut(img, lut_u8, False)
+            # Copy: ``sz_lut`` defaults to in-place on its buffer; shared ``img`` must stay untouched.
+            alb.sz_lut(img.copy(), lut_u8)
 
         return thunk
 

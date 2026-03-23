@@ -323,7 +323,6 @@ def bench_scale_fma_sweep(repeats: int, warmup: int) -> list[BenchRow]:
     for n in [196_608, 786_432]:
         x = rng.random(n, dtype=np.float32)
         y = rng.random(n, dtype=np.float32)
-
         def nk_sc() -> None:
             nk.scale(x, alpha=1.5, beta=0.25)
 

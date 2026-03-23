@@ -6,10 +6,11 @@
 
 User-facing entry points with benchmark-driven backends inside:
 
-- **Arithmetic / weighted:** `add`, `add_constant`, `add_array`, `add_vector`, `add_weighted`, `multiply`, `multiply_by_constant`, `multiply_by_vector`, `multiply_by_array`, `multiply_add`, `power`, `normalize`, `normalize_per_image`, `sz_lut` (uint8 LUT via stringzilla; used by Albumentations)
+- **Arithmetic / weighted:** `add`, `add_constant`, `add_array`, `add_vector`, `add_weighted`, `multiply`, `multiply_by_constant`, `multiply_by_vector`, `multiply_by_array`, `multiply_add`, `power`, `normalize`, `normalize_per_image`
+- **Uint8 LUT (`albucore.lut`):** `sz_lut`, `apply_uint8_lut` (StringZilla + OpenCV routing; re-exported on `albucore` for star imports)
 - **I/O:** `to_float`, `from_float`
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
-- **Stats:** `mean`, `std`, `mean_std` (from `albucore.stats`)
+- **Stats:** `mean`, `std`, `mean_std`, `reduce_sum` (from `albucore.stats`)
 - **Decorators:** see `decorators.__all__` in [`albucore/decorators.py`](../albucore/decorators.py)
 - **Geometric:** `copy_make_border`, `remap`, `resize`, `warp_affine`, `warp_perspective`
 - **Utils:** see `utils.__all__` in [`albucore/utils.py`](../albucore/utils.py)
@@ -32,4 +33,4 @@ Names prefixed with `_` or used only inside albucore (not stable API).
 
 - `from albucore import *` no longer exposes backend-specific helpers (`add_opencv`, `normalize_per_image_numpy`, …). Import them explicitly: `from albucore.functions import add_opencv`.
 - Deprecated **SimSimd** aliases are removed; use `add_weighted_numkong` (and other `*_numkong` helpers) from `albucore.functions` if needed.
-- New stats entrypoints: `from albucore.stats import mean, std, mean_std` (also re-exported on `albucore` for star-import users).
+- New stats entrypoints: `from albucore.stats import mean, std, mean_std, reduce_sum` (also re-exported on `albucore` for star-import users).

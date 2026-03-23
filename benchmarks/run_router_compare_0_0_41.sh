@@ -22,7 +22,8 @@ OUT_MD="$ROOT/benchmarks/results/REPORT_router_0.0.41_vs_current.md"
 # Ops not benchmarked on the 0.0.41 profile (no stable public routers / match current feature set).
 SKIP_041="mean,std,mean_std,apply_uint8_lut,sz_lut"
 
-if [[ ! -d "$WT/.git" ]]; then
+# Worktrees use a `.git` file (not dir); test `-e` so we do not re-run `worktree add` on an existing checkout.
+if [[ ! -e "$WT/.git" ]]; then
   echo "Adding worktree at $WT (tag 0.0.41)..."
   git -C "$ROOT" worktree add "$WT" 0.0.41
 fi
