@@ -36,11 +36,13 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
-    if not inplace:
-        img = img.copy()
+    if inplace:
+        sz.translate(memoryview(img), memoryview(lut), inplace=True)
+        return img
 
-    sz.translate(memoryview(img), memoryview(lut), inplace=True)
-    return img
+    # sz.translate(inplace=False) allocates + writes in one pass — faster than copy + inplace.
+    raw = sz.translate(memoryview(img), memoryview(lut), inplace=False)
+    return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)
 
 
 def opencv_shared_uint8_lut_faster_hwc(shape: tuple[int, ...]) -> bool:
@@ -68,13 +70,25 @@ def opencv_shared_uint8_lut_faster_hwc(shape: tuple[int, ...]) -> bool:
 
 
 def _apply_shared_uint8_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool) -> ImageUInt8:
-    """One ``(256,)`` table for every byte; OpenCV only for contiguous HWC when heuristic says so."""
+    """One ``(256,)`` table for every byte; routes by layout and buffer size.
+
+    HWC contiguous: OpenCV for large multi-channel (``opencv_shared_uint8_lut_faster_hwc``),
+    StringZilla for the rest.
+    Non-HWC (DHWC, NDHWC): ``sz_lut(inplace=False)`` (which uses ``sz.translate(inplace=False)``,
+    a single allocate+write pass) is faster than inplace for large buffers ≳500 KB.
+    Source: ``benchmarks/benchmark_scale_vs_lut.py``.
+    """
     if img.ndim == 3 and img.flags["C_CONTIGUOUS"] and opencv_shared_uint8_lut_faster_hwc(img.shape):
         out = _cv2_lut_uint8(img, lut)
         if inplace:
             np.copyto(img, out)
             return img
         return out
+    # Non-HWC large buffers: sz_lut(inplace=False) uses sz.translate(inplace=False) — one allocate+write
+    # pass vs copy+inplace. Wins at ≳2 MB; 1.5 MB shapes are anomalously faster with inplace (cache effect).
+    # Threshold from benchmarks/benchmark_scale_vs_lut.py (arm64); re-run after sz upgrades.
+    if img.ndim != 3 and img.nbytes >= 2_000_000:
+        return sz_lut(img, lut, inplace=False)
     return sz_lut(img, lut, inplace)
 
 
