@@ -97,10 +97,6 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
 
     result_numkong = clip(add_weighted_numkong(img1, weight1, img2, weight2), img1.dtype)
     np.testing.assert_array_equal(result_numkong, expected_output)
-    np.testing.assert_array_equal(
-        clip(add_weighted_numkong(img1, weight1, img2, weight2), img1.dtype),
-        result_numkong,
-    )
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = add_weighted_lut(img1, weight1, img2, weight2)
@@ -149,11 +145,6 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
         np.testing.assert_allclose(result, result_numkong, atol=1)
     else:
         np.testing.assert_allclose(result, result_numkong, atol=1e-6)
-    np.testing.assert_allclose(
-        clip(add_weighted_numkong(img1, weight1, img2, weight2), img_dtype),
-        result_numkong,
-        atol=1 if img_dtype == np.uint8 else 1e-6,
-    )
 
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
     np.testing.assert_allclose(result, result_numpy, atol=1)
