@@ -233,9 +233,8 @@ def mean_std(
 
     Routing:
     - **uint8 global**: NumKong ``moments`` (single pass over flat bytes; wide accumulator).
-    - **uint8 per-channel, 3D**: NumKong chained ``Tensor.sum`` over spatial axes.
     - **float32 global**: ``np.mean`` + ``np.std`` (``dtype=float64`` for accuracy).
-    - **float32 / any per-channel, ndim ≤ 3, C ≤ 4**: ``cv2.meanStdDev``.
+    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.meanStdDev`` (any dtype).
     - **everything else**: NumPy ``mean``/``std``.
 
     Alternative: ``mean`` or ``std`` if only one statistic is needed.
