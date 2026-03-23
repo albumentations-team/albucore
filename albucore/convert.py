@@ -52,6 +52,22 @@ def to_float_lut(img: ImageUInt8, max_value: float | None = None) -> ImageFloat3
 
 
 def to_float(img: ImageType, max_value: float | None = None) -> ImageFloat32:
+    """Convert image to float32 in [0, 1] by dividing by ``max_value``.
+
+    Routing:
+    - **float32**: no-op (returned as-is).
+    - **uint8**: LUT via ``cv2.LUT`` — 256-element float32 lookup table; fastest path.
+    - **other dtypes**: NumPy division (``img / max_value``).
+
+    Alternative: ``to_float_lut``, ``to_float_opencv``, ``to_float_numpy`` for explicit backends.
+
+    Args:
+        img: Input image of any dtype, shape ``(H, W, C)`` or batch/volume.
+        max_value: Divisor. Defaults to dtype max (255 for uint8, 65535 for uint16, etc.).
+
+    Returns:
+        float32 image with same spatial shape, values in [0, 1] for standard integer dtypes.
+    """
     if img.dtype == np.float32:
         return img
     if img.dtype == np.uint8:
@@ -75,34 +91,36 @@ def from_float_opencv(img: ImageFloat32, target_dtype: np.dtype, max_value: floa
     num_channels = get_num_channels(img)
 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        # For images with more than 4 channels, create a full-sized multiplier
-        max_value_array = np.full_like(img_float, max_value)
-        return clip(np.rint(cv2.multiply(img_float, max_value_array)), target_dtype, inplace=False)
+        # NumPy rint beats ``cv2.multiply`` + clip on router (e.g. 128²x9 float32 → uint8).
+        return clip(np.rint(img_float * max_value), target_dtype, inplace=False)
 
-    # For images with 4 or fewer channels, use scalar multiplication
+    # C<=4: NumPy multiply + rint (faster than cv2.multiply on typical sizes; cv2.multiply(float (H,W,1), scalar)
+    # does not match NumPy elementwise semantics).
     return clip(np.rint(img * max_value), target_dtype, inplace=False)
 
 
 def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | None = None) -> ImageType:
-    """Convert a floating-point image to the specified target data type.
+    """Convert a float32 image back to an integer dtype by scaling and rounding.
 
-    This function converts an input floating-point image to the specified target data type,
-    scaling the values appropriately based on the max_value parameter or the maximum value
-    of the target data type.
+    Inverse of ``to_float``. Values are multiplied by ``max_value``, rounded with ``np.rint``,
+    and clipped to the target dtype range.
+
+    Routing:
+    - **target == float32**: no-op (returned as-is).
+    - **float32 input, C ≤ 4**: NumPy ``rint(img * max_value)`` then clip — fastest on benchmarks
+      (``benchmarks/benchmark_grayscale_paths.py``).
+    - **float32 input, C > 4**: same NumPy path (``cv2.multiply`` broadcast is slower here).
+    - **non-float32 input**: ``from_float_numpy`` (generic path).
+
+    Alternative: ``from_float_numpy``, ``from_float_opencv`` for explicit backends.
 
     Args:
-        img (np.ndarray): Input floating-point image array.
-        target_dtype (np.dtype): Target numpy data type for the output image.
-        max_value (float | None, optional): Maximum value to use for scaling. If None,
-            the maximum value of the target data type will be used. Defaults to None.
+        img: Float32 image, shape ``(H, W, C)`` or batch/volume.
+        target_dtype: Output dtype (e.g. ``np.uint8``).
+        max_value: Multiplier before rounding. Defaults to dtype max (255 for uint8, etc.).
 
     Returns:
-        np.ndarray: Image converted to the target data type.
-
-    Notes:
-        - If the input image is of type float32, the function uses OpenCV for faster processing.
-        - For other input types, it falls back to a numpy-based implementation.
-        - The function clips values to ensure they fit within the range of the target data type.
+        Image in ``target_dtype``, same spatial shape, values clipped to dtype range.
     """
     if target_dtype == np.float32:
         return img

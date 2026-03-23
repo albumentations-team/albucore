@@ -305,26 +305,35 @@ def normalize_per_image_lut(
 
 
 def normalize_per_image(img: ImageType, normalization: NormalizationType) -> ImageFloat32:
-    """Normalize an image using the most efficient method based on image dtype and normalization type.
+    """Normalize an image using statistics computed from the image itself → float32.
 
-    This is the main entry point for image normalization that automatically selects the optimal
-    implementation based on the input image data type.
+    Unlike ``normalize`` (which takes caller-supplied ``mean``/``denominator``), this function
+    estimates the statistics from ``img`` at call time.
+
+    ``normalization`` options:
+
+    - ``"image"``: global mean/std across all pixels and channels; output clipped to [-20, 20].
+    - ``"image_per_channel"``: per-channel mean/std; output clipped to [-20, 20].
+    - ``"min_max"``: global min-max scale to [0, 1].
+    - ``"min_max_per_channel"``: per-channel min-max scale to [0, 1].
+
+    Routing:
+    - **uint8, ``"image"`` / ``"image_per_channel"`` / ``"min_max_per_channel"``**: LUT
+      (fastest — 256-entry float32 table per channel, applied via ``cv2.LUT``).
+    - **uint8, ``"min_max"``**: ``cv2.normalize`` (~3x faster than LUT on router benchmarks).
+    - **float32, ``"image"``**: raw ``img.mean()`` / ``img.std()`` NumPy pass (matches 0.0.40).
+    - **float32, others**: ``cv2`` subtract + divide.
+    - **ndim > 3 (batch/volume)**: NumPy path.
+
+    Alternative: ``normalize`` for fixed per-channel ImageNet-style constants.
 
     Args:
-        img: Input image as a numpy array with shape (H, W, C), (N, H, W, C), or (N, D, H, W, C).
-        normalization: Type of normalization to apply. Options are:
-            - "image": Normalize using global mean and std across all pixels
-            - "image_per_channel": Normalize each channel separately using its own mean and std
-            - "min_max": Scale to [0, 1] using global min and max values
-            - "min_max_per_channel": Scale each channel to [0, 1] using per-channel min and max
+        img: uint8 or float32 image, shape ``(H, W, C)``, ``(N, H, W, C)``, or ``(N, D, H, W, C)``.
+        normalization: One of ``"image"``, ``"image_per_channel"``, ``"min_max"``,
+            ``"min_max_per_channel"``.
 
     Returns:
-        Normalized image as float32 array with values clipped to [-20, 20] range.
-
-    Notes:
-        - For uint8 images (except "min_max"), uses LUT method for maximum speed
-        - For other dtypes, uses OpenCV or NumPy implementation for good performance
-        - Automatically determines spatial axes based on input dimensions
+        float32 image, same spatial shape as ``img``.
     """
     # Route uint8 images
     if img.dtype == np.uint8:
