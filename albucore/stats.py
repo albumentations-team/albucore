@@ -179,7 +179,12 @@ def _mean_std_per_channel(
     keepdims: bool,
     eps: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
+    if (
+        arr.ndim == 3
+        and not keepdims
+        and axes == _per_channel_spatial_axes(arr)
+        and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS
+    ):
         mean, std = cv2.meanStdDev(arr)
         m = mean[:, 0].astype(np.float64, copy=False)
         st = (std[:, 0] + eps).astype(np.float64, copy=False)
@@ -196,7 +201,12 @@ def _mean_per_channel(
     *,
     keepdims: bool,
 ) -> np.ndarray:
-    if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
+    if (
+        arr.ndim == 3
+        and not keepdims
+        and axes == _per_channel_spatial_axes(arr)
+        and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS
+    ):
         c = arr.shape[-1]
         mu = cv2.mean(arr)
         return cast("np.ndarray", np.asarray(mu[:c], dtype=np.float64))
@@ -210,7 +220,12 @@ def _std_per_channel(
     keepdims: bool,
     eps: float,
 ) -> np.ndarray:
-    if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
+    if (
+        arr.ndim == 3
+        and not keepdims
+        and axes == _per_channel_spatial_axes(arr)
+        and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS
+    ):
         _, std = cv2.meanStdDev(arr)
         return cast("np.ndarray", (std[:, 0] + eps).astype(np.float64, copy=False))
     return cast(

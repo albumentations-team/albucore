@@ -30,11 +30,11 @@ class TestMatmul:
         result_cv2 = cv2.gemm(a, b, 1, None, 0)
         result_matmul = matmul(a, b)
 
-        # Tolerance accounts for different BLAS implementations across platforms
-        # (e.g., OpenBLAS on Linux, Accelerate on macOS) which can produce
-        # slightly different rounding in floating-point arithmetic
+        # Tolerance accounts for different BLAS / OpenCV GEMM implementations across
+        # platforms (e.g., OpenBLAS on Linux CI vs local); large (512³) float32 can
+        # land ~4e-5 apart on a few elements.
         if dtype == np.float32:
-            np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-4, atol=3e-5)
+            np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-4, atol=5e-5)
         else:  # float64
             np.testing.assert_allclose(result_matmul, result_cv2, rtol=1e-6, atol=1e-8)
 
