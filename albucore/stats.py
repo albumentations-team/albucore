@@ -7,13 +7,13 @@ import numkong as nk
 import numpy as np
 from numpy.typing import DTypeLike
 
-from albucore.utils import ImageType, ImageUInt8
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8
 
 DEFAULT_EPS = 1e-4
 
 AxisSpec = None | int | tuple[int, ...] | Literal["global", "per_channel"]
 
-__all__ = ["DEFAULT_EPS", "mean", "mean_std", "std"]
+__all__ = ["DEFAULT_EPS", "mean", "mean_std", "reduce_sum", "std"]
 
 
 def _resolve_axes(arr: np.ndarray, axis: AxisSpec) -> tuple[int, ...] | None:
@@ -25,6 +25,82 @@ def _resolve_axes(arr: np.ndarray, axis: AxisSpec) -> tuple[int, ...] | None:
     if isinstance(axis, int):
         return (axis,)
     return tuple(axis)
+
+
+def _per_channel_spatial_axes(arr: np.ndarray) -> tuple[int, ...]:
+    return tuple(range(arr.ndim - 1))
+
+
+def _reduce_sum_global_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.uint64 | np.ndarray:
+    flat = np.ascontiguousarray(arr, dtype=np.uint8).reshape(-1)
+    total = int(nk.sum(nk.Tensor(flat)))
+    out = np.uint64(total)
+    if keepdims:
+        return np.array(out, dtype=np.uint64).reshape((1,) * arr.ndim)
+    return out
+
+
+def _reduce_sum_global_float32(arr: ImageFloat32, *, keepdims: bool) -> np.float64 | np.ndarray:
+    out = np.sum(arr, dtype=np.float64)
+    if keepdims:
+        return np.asarray(out, dtype=np.float64).reshape((1,) * arr.ndim)
+    return cast("np.float64", out)
+
+
+def _reduce_sum_per_channel_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.ndarray:
+    # NumKong chain-reduce only pays off for 3D (HWC); for higher ranks the overhead of
+    # multiple Tensor.sum() calls cancels the benefit — fall back to NumPy.
+    if arr.ndim != 3:
+        return _reduce_sum_numpy(arr, _per_channel_spatial_axes(arr), keepdims=keepdims)
+    t = nk.Tensor(np.ascontiguousarray(arr, dtype=np.uint8))
+    t = t.sum(axis=0, keepdims=True).sum(axis=1, keepdims=True) if keepdims else t.sum(axis=0).sum(axis=0)
+    return np.asarray(t, dtype=np.uint64)
+
+
+def _reduce_sum_numpy(
+    arr: ImageType,
+    axes: tuple[int, ...] | None,
+    *,
+    keepdims: bool,
+) -> np.ndarray:
+    acc = np.uint64 if arr.dtype == np.uint8 else np.float64
+    return np.sum(arr, axis=axes, dtype=acc, keepdims=keepdims)
+
+
+def reduce_sum(
+    arr: ImageType,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+) -> np.uint64 | np.float64 | np.ndarray:
+    r"""Sum over image tensor axes with benchmark-driven routing.
+
+    * **uint8**, ``axis`` global or ``"per_channel"``: NumKong (wide accumulator).
+    * **float32** or any other axis layout: NumPy ``numpy.sum`` with ``dtype=uint64`` / ``float64``.
+
+    ``axis="per_channel"`` reduces all axes except the last (channel), matching
+    :func:`mean` / :func:`std`. NumKong only allows one reduction axis per call, so
+    that path chains ``Tensor.sum`` over spatial dimensions (no reshape).
+
+    Args:
+        arr: ``uint8`` or ``float32`` array with explicit channel dimension.
+        axis: ``None`` / ``\"global\"`` → one scalar; ``\"per_channel\"`` → shape ``(C,)``;
+            or explicit ``int`` / ``tuple[int, ...]`` (NumPy path).
+        keepdims: Same semantics as :func:`numpy.sum`.
+
+    Returns:
+        ``numpy.uint64`` or ``numpy.float64`` scalar for a full reduction, else an array.
+    """
+    axes = _resolve_axes(arr, axis)
+    if axes is None:
+        if arr.dtype == np.uint8:
+            return _reduce_sum_global_uint8(arr, keepdims=keepdims)
+        return _reduce_sum_global_float32(cast("ImageFloat32", arr), keepdims=keepdims)
+    if axes == _per_channel_spatial_axes(arr):
+        if arr.dtype == np.uint8:
+            return _reduce_sum_per_channel_uint8(arr, keepdims=keepdims)
+        return _reduce_sum_numpy(cast("ImageFloat32", arr), axes, keepdims=keepdims)
+    return _reduce_sum_numpy(arr, axes, keepdims=keepdims)
 
 
 def _global_mean_std_uint8(arr: ImageUInt8, eps: float) -> tuple[float, float]:
@@ -97,7 +173,7 @@ def _mean_std_per_channel(
     keepdims: bool,
     eps: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    if arr.ndim == 3 and not keepdims:
+    if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         mean, std = cv2.meanStdDev(arr)
         m = mean[:, 0].astype(np.float64, copy=False)
         st = (std[:, 0] + eps).astype(np.float64, copy=False)
@@ -114,7 +190,7 @@ def _mean_per_channel(
     *,
     keepdims: bool,
 ) -> np.ndarray:
-    if arr.ndim == 3 and not keepdims:
+    if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         c = arr.shape[-1]
         mu = cv2.mean(arr)
         return cast("np.ndarray", np.array(mu[:c], dtype=np.float64, copy=False))
@@ -128,7 +204,7 @@ def _std_per_channel(
     keepdims: bool,
     eps: float,
 ) -> np.ndarray:
-    if arr.ndim == 3 and not keepdims:
+    if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         _, std = cv2.meanStdDev(arr)
         return cast("np.ndarray", (std[:, 0] + eps).astype(np.float64, copy=False))
     return cast(
