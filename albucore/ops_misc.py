@@ -32,6 +32,21 @@ def hflip_cv2(img: ImageType) -> ImageType:
 
 
 def hflip(img: ImageType) -> ImageType:
+    """Flip image horizontally (mirror left-right).
+
+    Routing:
+    - All channel counts: ``cv2.flip(img, 1)``.  Images with > 512 channels are split
+      into 512-channel chunks and concatenated (OpenCV limit).
+
+    Alternative: ``hflip_numpy`` (NumPy slice ``img[:, ::-1, ...]``; useful when OpenCV is
+    unavailable or for non-contiguous arrays).
+
+    Args:
+        img: ``(H, W, C)`` image or batch/volume, any dtype.
+
+    Returns:
+        Horizontally flipped image, same shape and dtype.
+    """
     return hflip_cv2(img)
 
 
@@ -49,6 +64,22 @@ def vflip_numpy(img: ImageType) -> ImageType:
 
 
 def vflip(img: ImageType) -> ImageType:
+    """Flip image vertically (mirror top-bottom).
+
+    Routing:
+    - **C ≤ 4**: ``cv2.flip(img, 0)``.  Images with > 512 channels are chunked.
+    - **C > 4**: NumPy slice ``img[::-1, ...]`` (faster than OpenCV on benchmarked shapes).
+
+    Alternative: ``vflip_numpy`` or ``vflip_cv2`` for explicit backend selection.
+
+    Args:
+        img: ``(H, W, C)`` image or batch/volume, any dtype.
+
+    Returns:
+        Vertically flipped image, same shape and dtype.
+    """
+    if img.ndim >= 3 and get_num_channels(img) > MAX_OPENCV_WORKING_CHANNELS:
+        return vflip_numpy(img)
     return vflip_cv2(img)
 
 
@@ -95,22 +126,26 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
 
 
 def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
-    """Decorator to ensure float32 input/output for image processing functions.
+    """Decorator: transparently cast input to float32, then cast output back to the original dtype.
 
-    This decorator converts the input image to float32 before passing it to the wrapped function,
-    and then converts the result back to the original dtype if it wasn't float32.
+    Wraps a function that expects float32 so it accepts any dtype.  If the input is already
+    float32, no copy is made.  The output is converted back with ``from_float`` (which rounds
+    and clips to the target dtype range).
+
+    Typical use: wrap float-only OpenCV operations (e.g. geometric transforms) so they work
+    with uint8 images without manual conversion at every call site.
+
+    Example::
+
+        @float32_io
+        def warp(img: np.ndarray, M: np.ndarray) -> np.ndarray:
+            return cv2.warpAffine(img, M, ...)
 
     Args:
-        func (Callable[..., np.ndarray]): The image processing function to be wrapped.
+        func: Image processing function whose first argument is an ``(H, W, C)`` float32 image.
 
     Returns:
-        Callable[..., np.ndarray]: A wrapped function that handles float32 conversion.
-
-    Example:
-        @float32_io
-        def some_image_function(img: np.ndarray) -> np.ndarray:
-            # Function implementation
-            return processed_img
+        Wrapped function that accepts any dtype and returns the original dtype.
     """
 
     @wraps(func)
@@ -126,22 +161,23 @@ def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
 
 
 def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
-    """Decorator to ensure uint8 input/output for image processing functions.
+    """Decorator: transparently cast input to uint8, then cast output back to the original dtype.
 
-    This decorator converts the input image to uint8 before passing it to the wrapped function,
-    and then converts the result back to the original dtype if it wasn't uint8.
+    Wraps a function that only works with uint8 (e.g. ``cv2.medianBlur``) so it transparently
+    handles float32 input.  Float32 is converted to uint8 via ``from_float`` (scales x 255,
+    rounds, clips); the uint8 result is then converted back to float32 via ``to_float``.
+
+    Example::
+
+        @uint8_io
+        def median_blur(img: np.ndarray, ksize: int) -> np.ndarray:
+            return cv2.medianBlur(img, ksize)
 
     Args:
-        func (Callable[..., np.ndarray]): The image processing function to be wrapped.
+        func: Image processing function whose first argument is a uint8 ``(H, W, C)`` image.
 
     Returns:
-        Callable[..., np.ndarray]: A wrapped function that handles uint8 conversion.
-
-    Example:
-        @uint8_io
-        def some_image_function(img: np.ndarray) -> np.ndarray:
-            # Function implementation
-            return processed_img
+        Wrapped function that accepts uint8 or float32 and returns the original dtype.
     """
 
     @wraps(func)
@@ -245,10 +281,8 @@ def pairwise_distances_squared(
     """Compute squared pairwise Euclidean distances between two point sets.
 
     Backend selection:
-    - Small (``n1 * n2 < 1000``): NumKong ``cdist`` (NumPy alone was slower on the router vs this).
-    - Large: NumPy vectorized (same as 0.0.40 big path). SimSimd ``cdist`` (0.0.40) is not a dep.
-
-    Algorithm: ||a - b||² = ||a||² + ||b||² - 2(a·b)
+    - Small (``n1 * n2 < 1000``): NumKong ``cdist`` (pure NumPy alone was slower vs 0.0.40 on router).
+    - Large: NumPy vectorized. Algorithm: ||a - b||² = ||a||² + ||b||² - 2(a·b)
 
     Args:
         points1: First set of points, shape (N, D), dtype float32

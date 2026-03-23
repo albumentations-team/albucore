@@ -163,6 +163,26 @@ def multiply_by_array(img: ImageType, value: np.ndarray) -> ImageType:
 
 
 def multiply(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
+    """Multiply image pixels by a scalar, per-channel vector, or full array.
+
+    Routes to the fastest backend per dtype and value shape:
+
+    - **uint8 scalar / vector**: LUT (precomputed 256-entry table, clipped to [0, 255]).
+    - **uint8 array** (same HxWxC shape): OpenCV ``multiply`` then clip.
+    - **float32 scalar / vector**: NumPy broadcast multiply then clip.
+    - **float32 array**: NumPy broadcast multiply then clip.
+
+    Alternative: ``multiply_by_constant``, ``multiply_by_vector``, ``multiply_by_array``
+    for explicit routing without dtype dispatch.
+
+    Args:
+        img: ``(H, W, C)`` image, uint8 or float32.
+        value: Scalar, length-``C`` 1-D array, or full ``img``-shaped array.
+        inplace: Mutate ``img`` in-place when the LUT/NumPy path allows it.
+
+    Returns:
+        Pixel-wise product, same shape and dtype as ``img``, clipped to dtype range.
+    """
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
@@ -237,6 +257,26 @@ def add_array(img: ImageType, value: np.ndarray) -> ImageType:
 
 
 def add(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
+    """Add a scalar, per-channel vector, or full array to image pixels.
+
+    Routes to the fastest backend per dtype and value shape:
+
+    - **uint8 scalar**: OpenCV ``add`` (saturate arithmetic, clipped to [0, 255]).
+      Zero-value short-circuits with a no-op.
+    - **uint8 vector**: LUT (one 256-entry table per channel).
+    - **uint8 array**: NumKong ``blend`` when shapes match; otherwise OpenCV.
+    - **float32 scalar / vector / array**: NumPy broadcast add then clip.
+
+    Alternative: ``add_constant``, ``add_vector``, ``add_array`` for explicit routing.
+
+    Args:
+        img: ``(H, W, C)`` image, uint8 or float32.
+        value: Scalar, length-``C`` 1-D array, or full ``img``-shaped array.
+        inplace: Mutate ``img`` in-place when the backend supports it (scalar/vector paths).
+
+    Returns:
+        Pixel-wise sum, same shape and dtype as ``img``, clipped to dtype range.
+    """
     num_channels = get_num_channels(img)
     value = convert_value(value, num_channels)
 
@@ -327,11 +367,30 @@ def _normalize_is_identity(mean: float | np.ndarray, denominator: float | np.nda
 
 
 def normalize(img: ImageType, mean: ValueType, denominator: ValueType) -> ImageFloat32:
-    """Affine normalize with **caller-fixed** ``mean`` and ``denominator``: ``(img - mean) * denominator``.
+    """Affine normalize with caller-supplied constants: ``(img - mean) * denominator → float32``.
 
-    This is **not** ``normalize_per_image`` (which estimates stats from ``img``). Pass scalars or
-    length-``C`` vectors (after ``convert_value``) for per-channel constants, e.g. ImageNet on uint8
-    in 0-255: ``mean = mean_01 * 255``, ``denominator = 1 / (std_01 * 255)``.
+    This is **not** ``normalize_per_image``, which computes stats from the image itself.
+    Here, ``mean`` and ``denominator`` are fixed caller values (e.g. ImageNet statistics).
+
+    Typical use — ImageNet normalization of a uint8 image:
+    ``mean = [123.675, 116.28, 103.53]`` (mean_01 * 255),
+    ``denominator = [1/58.395, 1/57.12, 1/57.375]`` (1 / (std_01 * 255)).
+
+    Routing:
+    - **uint8**: LUT (one 256-entry float32 table per channel, applied via ``cv2.LUT``).
+      Very fast — 256 floats cover all possible pixel values.
+    - **float32, identity** (mean ≈ 0 and denominator ≈ 1): cast-only, no arithmetic.
+    - **float32**: NumPy fused ``img * denominator - mean * denominator``.
+
+    Alternative: ``normalize_per_image`` for image-adaptive mean/std normalization.
+
+    Args:
+        img: ``(H, W, C)`` image (or batch/volume), uint8 or float32.
+        mean: Scalar or length-``C`` array of values to subtract before scaling.
+        denominator: Scalar or length-``C`` array — reciprocal of std (multiply, not divide).
+
+    Returns:
+        Normalized float32 image, same spatial shape as ``img``.
     """
     num_channels = get_num_channels(img)
     denominator = convert_value(denominator, num_channels)
@@ -373,6 +432,22 @@ def power_lut(img: ImageUInt8, exponent: float | np.ndarray, inplace: bool = Fal
 
 @clipped
 def power(img: ImageType, exponent: ValueType, inplace: bool = False) -> ImageType:
+    """Raise image pixels to a power (gamma correction / contrast adjustment).
+
+    Routes to the fastest backend per dtype and exponent shape:
+
+    - **uint8 scalar / vector**: LUT (one 256-entry table per channel or shared).
+    - **float32 scalar**: ``cv2.pow`` (operates directly on float32).
+    - **float32 vector / array**: NumPy ``np.power`` broadcast.
+
+    Args:
+        img: ``(H, W, C)`` image, uint8 or float32.
+        exponent: Scalar, length-``C`` 1-D array, or full ``img``-shaped array.
+        inplace: Mutate ``img`` buffer when the LUT path allows it.
+
+    Returns:
+        Pixel-wise power, same shape and dtype as ``img``, clipped to dtype range.
+    """
     num_channels = get_num_channels(img)
     exponent = convert_value(exponent, num_channels)
     if img.dtype == np.uint8:
@@ -431,6 +506,30 @@ def _add_weighted_opencv(img1: ImageType, weight1: float, img2: ImageType, weigh
 
 @clipped
 def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
+    """Blend two images: ``img1 * weight1 + img2 * weight2``.
+
+    Both images must have identical shapes and dtypes.
+
+    Routing:
+    - **float32, large (> 4 M elements)**: ``cv2.addWeighted`` (~4x faster than NumKong at
+      1024x1024x9 due to reduced memory pressure on ARM; threshold from
+      ``benchmarks/reliable_benchmark_numkong_vs_albucore_backends.md``).
+    - **everything else**: NumKong SIMD ``blend`` (fastest for uint8 and small float32).
+
+    Alternative low-level paths: ``add_weighted_numpy``, ``add_weighted_opencv``, ``add_weighted_lut``.
+
+    Args:
+        img1: First image, shape ``(H, W, C)`` (or batch/volume), uint8 or float32.
+        img2: Second image, must match ``img1`` shape exactly.
+        weight1: Scalar weight for ``img1``.
+        weight2: Scalar weight for ``img2``.
+
+    Returns:
+        Blended image, same shape and dtype as inputs, clipped to dtype range.
+
+    Raises:
+        ValueError: If ``img1`` and ``img2`` shapes differ.
+    """
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
@@ -540,6 +639,26 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
 
 @clipped
 def multiply_add(img: ImageType, factor: ValueType, value: ValueType, inplace: bool = False) -> ImageType:
+    """Fused multiply-add: ``img * factor + value``, clipped to dtype range.
+
+    Equivalent to ``add(multiply(img, factor), value)`` but avoids intermediate allocations
+    for the uint8 LUT path.
+
+    Routing:
+    - **uint8**: LUT (``img * factor + value`` computed once for all 256 values, then applied
+      via ``apply_uint8_lut``). Scalar and per-channel vectors both supported.
+    - **float32**: NumPy fused broadcast (faster than the OpenCV path on the router grid for
+      most common shapes).
+
+    Args:
+        img: ``(H, W, C)`` image, uint8 or float32.
+        factor: Scalar or length-``C`` array to multiply by.
+        value: Scalar or length-``C`` array to add.
+        inplace: Reuse ``img`` buffer when the LUT path is used and ``factor``/``value`` are scalar.
+
+    Returns:
+        ``img * factor + value``, same shape and dtype as ``img``, clipped to dtype range.
+    """
     num_channels = get_num_channels(img)
     factor = convert_value(factor, num_channels)
     value = convert_value(value, num_channels)
