@@ -1,0 +1,1 @@
+**Superseded.** Use **[`ISSUE_opencv_vs_stringzilla_lut_COMPLETE.md`](ISSUE_opencv_vs_stringzilla_lut_COMPLETE.md)** — it includes the **full Python script**, **full tables**, **`cv2.LUT` with/without `dst`**, and **action items**.

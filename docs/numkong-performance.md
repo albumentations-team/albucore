@@ -30,7 +30,7 @@ uv run python benchmarks/benchmark_stats.py                  # mean_std vs NumPy
 | `multiply_by_constant` | same | uint8, float32 | **float32 → NumPy** (`multiply_numpy`, same as 0.0.40); uint8 LUT. **`multiply_by_constant_numkong`** for microbenches only. |
 | `add_constant` | same | uint8, float32 | **Keep OpenCV** — **`nk.scale`(1,β)** rarely wins (§2). |
 | `multiply_by_array` | same | uint8, float32 | **Not `fma`** — **NumPy** `multiply_numpy` fastest vs OpenCV and `nk.fma` here (§2). |
-| `add_array` | same | uint8, float32 | **Shipped** — `add_array` uses **`add_array_numkong`** when shapes/dtypes match and `inplace=False`; else OpenCV. |
+| `add_array` | same | uint8, float32 | **Shipped** — float32 → NumPy; uint8 same shape/dtype → **`add_array_numkong`**; else OpenCV. **No `inplace` kwarg** (in-place OpenCV was not a win vs NumKong out-of-place on same-shape uint8). |
 | `multiply_by_vector` / `add_vector` | same | uint8, float32 | **Keep LUT/OpenCV** — channel-wise **`scale` loop** mixed vs one prod pass (§2). |
 
 Scripts: **[`benchmarks/benchmark_numkong_vs_albucore_backends.py`](../benchmarks/benchmark_numkong_vs_albucore_backends.py)** (tables in §1–§3), **[`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py)** (multiply/add vs `scale` / `fma` / `blend`), **[`benchmarks/benchmark_numkong.py`](../benchmarks/benchmark_numkong.py)** (`cdist` / blend / scale-fma microbenches), **[`benchmarks/benchmark_minmax_ravel.py`](../benchmarks/benchmark_minmax_ravel.py)**.
@@ -164,7 +164,7 @@ Same semantics: one scalar mean/std over **all** elements.
 | **`multiply_by_constant`** | **`multiply_by_constant_numkong`** → **`nk.scale`(α=value, β=0)** | **Production: NumPy** (`multiply_numpy`) — matches 0.0.40; NK helper in **`weighted`** for benches. |
 | **`add_constant`** | `nk.scale(α=1, β=scalar)` | **Keep OpenCV** — no reliable `scale` win. |
 | **`multiply_by_array`** | `nk.fma` vs OpenCV vs **NumPy** | **Do not use `fma`** — **NumPy** wins; consider OpenCV→NumPy separately, not NumKong. |
-| **`add_array`** | **`add_array_numkong`** (`blend`) | **Shipped** when `value.shape == img.shape`, dtypes match, `inplace=False`, and dtype is uint8/float32; else OpenCV. |
+| **`add_array`** | **`add_array_numkong`** (`blend`) | **Shipped** — float32 → NumPy; uint8 same shape/dtype → NumKong; else OpenCV. **No `inplace`** on this op; **`add` / `add_constant` / `add_vector`** still take `inplace` where LUT / OpenCV `dst=` helps. |
 | **`multiply_by_vector`**, **`add_vector`** | C× **`scale`** loop vs LUT/OpenCV | **Keep production** — NK loop is mixed and loses on large float paths. |
 
 **Note:** [`benchmarks/benchmark_numkong.py`](../benchmarks/benchmark_numkong.py) also has a small 1D **`scale` / `fma`** sweep; the multiply/add script uses **real `(H,W,C)`** shapes.
