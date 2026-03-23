@@ -4,13 +4,8 @@ import numpy as np
 
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, clip
 
-from albucore import (
-    multiply_lut,
-    multiply_numpy,
-    multiply_opencv,
-    multiply,
-    convert_value,
-)
+from albucore import convert_value, multiply
+from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
 
 
 @pytest.mark.parametrize(
@@ -199,7 +194,11 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
 
     result_numpy = clip(multiply_numpy(img, processed_multiplier), img.dtype)
 
-    np.testing.assert_array_equal(result, result_numpy)
+    if img.dtype == np.uint8:
+        np.testing.assert_array_equal(result, result_numpy)
+    else:
+        # float32 scalar path uses OpenCV; ULPs differ from pure NumPy reference
+        np.testing.assert_allclose(result, result_numpy, rtol=1e-5, atol=1e-6)
 
     if img.dtype == np.uint8:
         result_lut = multiply_lut(img, processed_multiplier, inplace=False)

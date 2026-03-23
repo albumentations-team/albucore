@@ -150,7 +150,7 @@ class TestPairwiseDistancesSquared:
     @pytest.mark.parametrize(
         "n,m,d",
         [
-            (10, 10, 2),  # Typical TPS control points (simsimd backend)
+            (10, 10, 2),  # Typical TPS control points (NumKong cdist backend)
             (100, 100, 2),  # Larger point sets (numpy backend)
             (1000, 100, 2),  # Dense grid (numpy backend)
             (5, 10, 3),  # 3D points
@@ -229,9 +229,9 @@ class TestPairwiseDistancesSquared:
 
         np.testing.assert_allclose(result, expected, rtol=1e-5)
 
-    def test_simsimd_backend_small_points(self) -> None:
-        """Test that simsimd backend is used for small point sets."""
-        # Small point set (10*10 = 100 < 1000) should use simsimd
+    def test_numkong_backend_small_points(self) -> None:
+        """Test NumKong cdist path for small point sets (n1*n2 < 1000)."""
+        # Small point set (10*10 = 100 < 1000) uses nk.cdist
         points1 = np.random.randn(10, 2).astype(np.float32)
         points2 = np.random.randn(10, 2).astype(np.float32)
 

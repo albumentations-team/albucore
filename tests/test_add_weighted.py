@@ -1,7 +1,18 @@
-import pytest
 import numpy as np
-from albucore.functions import add, add_numpy, add_opencv, add_weighted, add_weighted_numpy, add_weighted_opencv, add_weighted_lut, add_weighted_simsimd
+import pytest
+
+from albucore.functions import (
+    add,
+    add_numpy,
+    add_opencv,
+    add_weighted,
+    add_weighted_lut,
+    add_weighted_numkong,
+    add_weighted_numpy,
+    add_weighted_opencv,
+)
 from albucore.utils import clip
+
 
 @pytest.mark.parametrize(
     "img1, weight1, img2, weight2, expected_output",
@@ -84,8 +95,8 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
     result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
     np.testing.assert_array_equal(result_opencv, expected_output)
 
-    result_simsimd = clip(add_weighted_simsimd(img1, weight1, img2, weight2), img1.dtype)
-    np.testing.assert_array_equal(result_simsimd, expected_output)
+    result_numkong = clip(add_weighted_numkong(img1, weight1, img2, weight2), img1.dtype)
+    np.testing.assert_array_equal(result_numkong, expected_output)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
         result_lut = add_weighted_lut(img1, weight1, img2, weight2)
@@ -93,10 +104,10 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
 
 
 @pytest.mark.parametrize(
-    "img_dtype", [np.uint8, np.float32]
+    "img_dtype", [np.uint8, np.float32],
 )
 @pytest.mark.parametrize(
-    "num_channels", [1, 3, 5]
+    "num_channels", [1, 3, 5],
 )
 @pytest.mark.parametrize(
     "weight1, weight2",
@@ -107,10 +118,10 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
         (1.0, 1.0),
         (2.0, 0.5),
         (2, -0.5),
-    ]
+    ],
 )
 @pytest.mark.parametrize(
-    "is_contiguous", [True, False]
+    "is_contiguous", [True, False],
 )
 def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
     np.random.seed(0)
@@ -128,12 +139,12 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 
     result = add_weighted(img1, weight1, img2, weight2)
 
-    result_simsimd = clip(add_weighted_simsimd(img1, weight1, img2, weight2), img_dtype)
+    result_numkong = clip(add_weighted_numkong(img1, weight1, img2, weight2), img_dtype)
 
     if img_dtype == np.uint8:
-        np.testing.assert_allclose(result, result_simsimd, atol=1)
+        np.testing.assert_allclose(result, result_numkong, atol=1)
     else:
-        np.testing.assert_allclose(result, result_simsimd, atol=1e-6)
+        np.testing.assert_allclose(result, result_numkong, atol=1e-6)
 
     result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
     np.testing.assert_allclose(result, result_numpy, atol=1)
@@ -150,13 +161,13 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 
 
 @pytest.mark.parametrize(
-    "img_dtype", [np.uint8, np.float32]
+    "img_dtype", [np.uint8, np.float32],
 )
 @pytest.mark.parametrize(
-    "num_channels", [1, 3, 5]
+    "num_channels", [1, 3, 5],
 )
 @pytest.mark.parametrize(
-    "is_contiguous", [True, False]
+    "is_contiguous", [True, False],
 )
 def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
     np.random.seed(0)

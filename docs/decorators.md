@@ -30,6 +30,7 @@ Ensures arrays are C-contiguous for optimal performance with certain operations 
 ```python
 from albucore.decorators import contiguous
 
+# Implemented in ``albucore.lut``; pattern is the same.
 @contiguous
 def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8:
     """Apply lookup table using stringzilla."""
@@ -85,7 +86,7 @@ from albucore.functions import uint8_io
 @uint8_io
 def some_image_function(img: np.ndarray) -> np.ndarray:
     # Function implementation assuming uint8
-    return apply_lut(img, some_lut, inplace=False)
+    return apply_lut(img, some_lut, "add", inplace=False)
 ```
 
 ## Batch Processing Decorator
