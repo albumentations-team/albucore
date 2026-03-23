@@ -167,4 +167,7 @@ conda_build/
 
 .ruff_cache/
 
+# uv — lockfile is local / CI resolves from pyproject
+uv.lock
+
 *.csv
