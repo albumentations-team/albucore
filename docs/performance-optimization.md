@@ -6,6 +6,8 @@
 
 When using `cv2.LUT()` with floating-point lookup tables, **always ensure the LUT array is float32, not float64**. This can have a dramatic performance impact, especially on large arrays like videos.
 
+**Albucore convention:** On uint8 normalization / arithmetic LUT paths, the **source image** passed to `cv2.LUT` is **uint8** `(H, W, C)`. The **lookup table** for float pipelines must stay **float32** so OpenCV does not emit a full **float64** image (expensive to fix downstream). For float32 **normalize** / per-image stats, keep working tensors **float32**; do not widen to float64 unless a benchmark says otherwise.
+
 #### The Problem
 
 OpenCV's statistics functions (`cv2.meanStdDev`, etc.) return float64 values. When these are used in LUT creation:
@@ -67,8 +69,8 @@ This optimization applies to any LUT-based operation where floating-point precis
 
 ### 1. Use the Right Backend
 
-Albucore automatically selects the optimal backend (NumPy, OpenCV, or custom implementations) based on:
-- Image dtype (uint8, float32, etc.)
+Albucore automatically selects the optimal backend (NumPy, OpenCV, LUT, NumKong, …) based on:
+- Image dtype (**uint8** and **float32** only in public APIs)
 - Number of channels
 - Image dimensions
 - Operation type
@@ -114,6 +116,14 @@ Ensure arrays are C-contiguous for optimal performance:
 - The `@contiguous` decorator handles this automatically
 - Most albucore functions expect C-contiguous arrays
 
+### 7. Central stats API (`mean`, `std`, `mean_std`)
+
+Use [`albucore.stats`](../albucore/stats.py) for reductions over image / batch / volume tensors (always with explicit channel dim). Routing is benchmark-driven: **uint8** global stats use **NumKong `moments`** (any rank; one pass for `mean_std`); **float32** global uses **NumPy**; **per-channel** on **3D** uses **`cv2.mean`** for `mean` only, **`cv2.meanStdDev`** when both mean and std are needed (`mean_std` / `std`), and **NumPy** axis reductions for higher rank or when `keepdims=True`. `normalize_per_image*` delegates here via `_compute_*_stats_*` helpers. Quick timings: `uv run python benchmarks/benchmark_stats.py`.
+
+## Regression investigation
+
+Synthetic router timings vs a pinned release, and a concrete fix plan for known slowdowns: [performance-regressions-plan.md](performance-regressions-plan.md).
+
 ## Benchmarking
 
 To verify performance improvements, use the provided benchmarking tools:
@@ -127,3 +137,7 @@ This runs comprehensive benchmarks across different:
 - Image sizes
 - Number of channels
 - Operations
+
+### NumKong vs other albucore backends
+
+NumKong is compared against the **fastest existing albucore paths** (OpenCV, NumPy, LUT), not raw NumPy alone. Tables and methodology: [numkong-performance.md](numkong-performance.md). Regenerate with `benchmarks/benchmark_numkong_vs_albucore_backends.py` (needs `--extra headless` for OpenCV).

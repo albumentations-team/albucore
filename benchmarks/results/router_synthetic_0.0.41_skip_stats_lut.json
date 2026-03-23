@@ -1,0 +1,7471 @@
+{
+  "meta": {
+    "albucore_version": "0.0.41",
+    "distribution_version": "0.0.41",
+    "benchmark_label": "tag 0.0.41 worktree; --skip-ops stats+LUT",
+    "git_head_short": "3cef708",
+    "skip_ops": [
+      "apply_uint8_lut",
+      "mean",
+      "mean_std",
+      "std",
+      "sz_lut"
+    ],
+    "python": "3.12.7",
+    "platform": "macOS-15.5-arm64-arm-64bit",
+    "machine": "arm64",
+    "quick": false,
+    "with_geometric": false,
+    "functions_all": [
+      "add",
+      "add_array",
+      "add_constant",
+      "add_vector",
+      "add_weighted",
+      "apply_uint8_lut",
+      "float32_io",
+      "from_float",
+      "hflip",
+      "matmul",
+      "mean",
+      "mean_std",
+      "median_blur",
+      "multiply",
+      "multiply_add",
+      "multiply_by_array",
+      "multiply_by_constant",
+      "multiply_by_vector",
+      "normalize",
+      "normalize_per_image",
+      "pairwise_distances_squared",
+      "power",
+      "std",
+      "sz_lut",
+      "to_float",
+      "uint8_io",
+      "vflip"
+    ],
+    "repeats": 41,
+    "warmup": 12,
+    "timing_fields": {
+      "ms_median": "median wall time (ms) over timed runs",
+      "ms_mean": "mean wall time (ms)",
+      "ms_std": "sample std (ms) of timed runs; use as error bar with median",
+      "ms_mad": "median absolute deviation from median (robust spread)",
+      "timing_n": "number of timed runs (equals repeats)"
+    },
+    "numpy": "2.4.2",
+    "opencv": "4.13.0"
+  },
+  "rows": [
+    {
+      "op": "float32_io",
+      "layout": "meta",
+      "shape": [
+        -1
+      ],
+      "dtype": "n/a",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "decorator factory, not an image router",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "uint8_io",
+      "layout": "meta",
+      "shape": [
+        -1
+      ],
+      "dtype": "n/a",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "decorator factory, not an image router",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004249974153935909,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004258143102250448,
+      "ms_std": 0.0001557729032823078,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008333008736371994,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.008285514124464698,
+      "ms_std": 0.0004775553551122315,
+      "ms_mad": 0.00016693957149982452,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0038329744711518288,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0038303764218964227,
+      "ms_std": 9.703678827429181e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00200001522898674,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0020447300701606566,
+      "ms_std": 8.615318155013892e-05,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005500041879713535,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.005526402851612103,
+      "ms_std": 0.00014866340306119954,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005875015631318092,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.005924642631193486,
+      "ms_std": 0.0001622515118430345,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0213750172406435,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.021300869198834022,
+      "ms_std": 0.0013370232063023655,
+      "ms_mad": 0.001166015863418579,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0070410314947366714,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0071402287065255934,
+      "ms_std": 0.0002686672837036684,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03866699989885092,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.038541702939788015,
+      "ms_std": 0.00203384413151064,
+      "ms_mad": 0.000750063918530941,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0015830155462026596,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.001583293807215807,
+      "ms_std": 3.352715670332796e-05,
+      "ms_mad": 1.0477378964424133e-06,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.001583946868777275,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0018191626068295502,
+      "ms_std": 0.0008681968931414877,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006875023245811462,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.008673801813728926,
+      "ms_std": 0.010562394935427198,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006332993507385254,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0064633020040829004,
+      "ms_std": 0.0004642220459498299,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006833928637206554,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006993014433580201,
+      "ms_std": 0.0010206661885599243,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.011625001206994057,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011355582079509409,
+      "ms_std": 0.000779037961203792,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.01200009137392044,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.012201310998601158,
+      "ms_std": 0.0006596017202442531,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.011375057511031628,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011406620260237194,
+      "ms_std": 9.942298964356864e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.009333016350865364,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.009337386184531013,
+      "ms_std": 7.665259478708057e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.008334056474268436,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.008351720369807103,
+      "ms_std": 9.450367174299786e-05,
+      "ms_mad": 4.21423465013504e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.021499930880963802,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02177736846866404,
+      "ms_std": 0.0014859323623156043,
+      "ms_mad": 0.0002919696271419525,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.011833966709673405,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.012163711689049152,
+      "ms_std": 0.0014239840417282713,
+      "ms_mad": 0.00016798730939626694,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.006292015314102173,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0063749257384276975,
+      "ms_std": 0.000295029263942664,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02687494270503521,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.029356624908381847,
+      "ms_std": 0.007617223907566077,
+      "ms_mad": 0.0007919734343886375,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0030419323593378067,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0038496076651826135,
+      "ms_std": 0.004083628415986405,
+      "ms_mad": 0.0002919696271419525,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0037080608308315277,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.003629125563836679,
+      "ms_std": 0.0008461000018217321,
+      "ms_mad": 0.0004998873919248581,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.025499961338937283,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.025540760650140482,
+      "ms_std": 0.0014473777061190956,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.014999997802078724,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01506503137600858,
+      "ms_std": 0.0005241049295655445,
+      "ms_mad": 0.00016705598682165146,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.003958004526793957,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0039674568830466855,
+      "ms_std": 0.00014181689758679201,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010874937288463116,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011144288270393522,
+      "ms_std": 0.0016405268443243364,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0036660348996520042,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0038597897467453307,
+      "ms_std": 0.0014174371083901724,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004417030140757561,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004454143913235606,
+      "ms_std": 0.0001065511265092614,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009041046723723412,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.009045814073122129,
+      "ms_std": 0.00016757224139436966,
+      "ms_mad": 0.00012398231774568558,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.039624981582164764,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04269713649480808,
+      "ms_std": 0.011205227572075763,
+      "ms_mad": 0.00037497375160455704,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05075009539723396,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0518261307350746,
+      "ms_std": 0.008080252914581762,
+      "ms_mad": 0.0014578690752387047,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0475000124424696,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04798578234707437,
+      "ms_std": 0.0023042913353155435,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08925003930926323,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09473273814542264,
+      "ms_std": 0.016609981500297008,
+      "ms_mad": 0.004125060513615608,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004625064320862293,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004978637529037348,
+      "ms_std": 0.0006463048577839832,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0015409896150231361,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0014644224060381332,
+      "ms_std": 0.00017924879061405593,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010874937288463116,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011707241533369554,
+      "ms_std": 0.00174512167885175,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.035375007428228855,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03566362940501876,
+      "ms_std": 0.001070016472077428,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.014292076230049133,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.016014290428379686,
+      "ms_std": 0.00519047320785113,
+      "ms_mad": 0.001750071533024311,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.022541964426636696,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.023126102438787134,
+      "ms_std": 0.0030430633074254978,
+      "ms_mad": 0.0017499551177024841,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.023209024220705032,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02600103843866325,
+      "ms_std": 0.008415837207966839,
+      "ms_mad": 0.00041711609810590744,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02220796886831522,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022534508167243585,
+      "ms_std": 0.0018774090660780309,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.020832987502217293,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.021428835192104666,
+      "ms_std": 0.0023133809628923525,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.019291997887194157,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01928874393697919,
+      "ms_std": 9.734772820295955e-05,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02308411058038473,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.023524401845728477,
+      "ms_std": 0.0015799238166508307,
+      "ms_mad": 8.416827768087387e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10629196185618639,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10999394069630199,
+      "ms_std": 0.017946067200957507,
+      "ms_mad": 0.006083049811422825,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.055833952501416206,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05653656439901125,
+      "ms_std": 0.003392093511287308,
+      "ms_mad": 0.000416068360209465,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.006541959010064602,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006387163544209992,
+      "ms_std": 0.0002960724469483739,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.009875046089291573,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.009632098670231133,
+      "ms_std": 0.001358165320730961,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06345892325043678,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06492886544636838,
+      "ms_std": 0.00664887806925891,
+      "ms_mad": 0.003750086762011051,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.036457902751863,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03646445324326434,
+      "ms_std": 0.0004273911928806533,
+      "ms_mad": 0.0001671724021434784,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0077500008046627045,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007754072501528554,
+      "ms_std": 9.226500531555957e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.018124934285879135,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.019398293594216427,
+      "ms_std": 0.0026731467357148458,
+      "ms_mad": 0.00016693957149982452,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007250113412737846,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.00806696849261842,
+      "ms_std": 0.002220574480112648,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01066701952368021,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010596565538790167,
+      "ms_std": 0.0003633036154313518,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01825008075684309,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022156538850650553,
+      "ms_std": 0.013411754822025432,
+      "ms_mad": 0.0008330680429935455,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1111660385504365,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11364235713078481,
+      "ms_std": 0.007367287126913901,
+      "ms_mad": 0.0003759050741791725,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1376670552417636,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.14056186134949689,
+      "ms_std": 0.029008944146164707,
+      "ms_mad": 0.0014159595593810081,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1551660243421793,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.16008927941140605,
+      "ms_std": 0.024504767756245757,
+      "ms_mad": 0.0024170149117708206,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3466659691184759,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.36770736276194815,
+      "ms_std": 0.06874961916508049,
+      "ms_mad": 0.012334086932241917,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02433406189084053,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02585577199280989,
+      "ms_std": 0.0025280624647732305,
+      "ms_mad": 0.000750063918530941,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006749993190169334,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007104659566610325,
+      "ms_std": 0.0013411558436624159,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.031458097510039806,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03154157865338209,
+      "ms_std": 0.0004429122253733668,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1170419855043292,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11797357782176356,
+      "ms_std": 0.010346155995487593,
+      "ms_mad": 0.0034170225262641907,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0399579294025898,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03996436915746549,
+      "ms_std": 0.00010969908321720217,
+      "ms_mad": 4.21423465013504e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0625409884378314,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06742472760379314,
+      "ms_std": 0.02324278822154031,
+      "ms_mad": 0.0004159519448876381,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05795795004814863,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05780894411500634,
+      "ms_std": 0.0033504679313867687,
+      "ms_mad": 0.001250067725777626,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06295903585851192,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06319313571311352,
+      "ms_std": 0.0016552313440755103,
+      "ms_mad": 0.000959029421210289,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.055916025303304195,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05591149078454913,
+      "ms_std": 0.000623523214299632,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0529169337823987,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05717477874784935,
+      "ms_std": 0.009387109762584807,
+      "ms_mad": 0.0027510104700922966,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05791697185486555,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05844712439106732,
+      "ms_std": 0.003114815152437081,
+      "ms_mad": 0.0002919696271419525,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.15858293045312166,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.16970114737022213,
+      "ms_std": 0.036548257007435185,
+      "ms_mad": 0.0020829029381275177,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.14625000767409801,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.15165141454284511,
+      "ms_std": 0.02241555606608357,
+      "ms_mad": 0.0037079444155097008,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10104209650307894,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10424385006289656,
+      "ms_std": 0.009909280073157712,
+      "ms_mad": 0.0015010591596364975,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02845795825123787,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02813203510169576,
+      "ms_std": 0.0024516303629010905,
+      "ms_mad": 0.00016705598682165146,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.197957968339324,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.20784563555314048,
+      "ms_std": 0.030391733644275692,
+      "ms_mad": 0.00595790334045887,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.12874999083578587,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1503556807775323,
+      "ms_std": 0.05041601104892994,
+      "ms_mad": 0.019750092178583145,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006458023563027382,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0063169906597311904,
+      "ms_std": 0.0002995480020662452,
+      "ms_mad": 0.00016693957149982452,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.015291967429220676,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01582724223958283,
+      "ms_std": 0.0033368433735446296,
+      "ms_mad": 0.002249958924949169,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00566698145121336,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006000937257961529,
+      "ms_std": 0.0009125145749766955,
+      "ms_mad": 0.0005830079317092896,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005542067810893059,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.005627059514021001,
+      "ms_std": 0.00030642448998275876,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011083087883889675,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013305893644872235,
+      "ms_std": 0.009072720894875453,
+      "ms_mad": 0.0002080341801047325,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011582975275814533,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013364777082531917,
+      "ms_std": 0.005939860418516719,
+      "ms_mad": 0.000500003807246685,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0737080117687583,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07942069333228396,
+      "ms_std": 0.01250760488228417,
+      "ms_mad": 0.006666057743132114,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.020374893210828304,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02015552415353496,
+      "ms_std": 0.0005863134025214531,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.13316702097654343,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.13961995065939137,
+      "ms_std": 0.028983993738154724,
+      "ms_mad": 0.010999967344105244,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002500019036233425,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.00252958284918128,
+      "ms_std": 9.17527635974721e-05,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004165922291576862,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0038668655267939337,
+      "ms_std": 0.0006195735681405218,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.015625031664967537,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01636180152162546,
+      "ms_std": 0.0017528576980009028,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011584023013710976,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011916729485298075,
+      "ms_std": 0.0009035414773528748,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.019625062122941017,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.019851634733197166,
+      "ms_std": 0.001118611999301304,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03454193938523531,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03533938433974981,
+      "ms_std": 0.005673506870214937,
+      "ms_mad": 0.004249974153935909,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02987496554851532,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.030275439934396162,
+      "ms_std": 0.0013132542432519956,
+      "ms_mad": 0.000333995558321476,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.034041935577988625,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.033389115365358386,
+      "ms_std": 0.004260736750310705,
+      "ms_mad": 0.004166970029473305,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.026666908524930477,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.027310920924675172,
+      "ms_std": 0.0016286124381948482,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02858403604477644,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0277033456169614,
+      "ms_std": 0.003677788809485191,
+      "ms_mad": 0.004084082320332527,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06920797750353813,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06831199691699046,
+      "ms_std": 0.0094557329985723,
+      "ms_mad": 0.010165967978537083,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02954108640551567,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.029804875006581227,
+      "ms_std": 0.0011823661421518916,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.01762493047863245,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.017719539223102536,
+      "ms_std": 0.0006058142968404576,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0702079851180315,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07701011533599074,
+      "ms_std": 0.03048825736731386,
+      "ms_mad": 0.0007499475032091141,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0071249669417738914,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007974705090973436,
+      "ms_std": 0.0023356633274704453,
+      "ms_mad": 0.0004169996827840805,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.012625008821487427,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013495886289491886,
+      "ms_std": 0.0013403757929704946,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.089708948507905,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09256189904834439,
+      "ms_std": 0.006909147963934477,
+      "ms_mad": 0.004251021891832352,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.056916032917797565,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06325910344901609,
+      "ms_std": 0.02441866793448896,
+      "ms_mad": 0.008125090971589088,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009207986295223236,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.00938909730260692,
+      "ms_std": 0.0005238757455541736,
+      "ms_mad": 0.000208965502679348,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02116698306053877,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.020894244676683008,
+      "ms_std": 0.0010655159579428426,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009292038157582283,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.009196177238553035,
+      "ms_std": 0.0004509782649052114,
+      "ms_mad": 0.0002080341801047325,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013749930076301098,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013647353980781101,
+      "ms_std": 0.00058567869560503,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02162496093660593,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.021690119444051893,
+      "ms_std": 0.000500315443828916,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1377500593662262,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1380131807087398,
+      "ms_std": 0.005251267148649464,
+      "ms_mad": 0.0030419323593378067,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.25295803789049387,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2693994163830833,
+      "ms_std": 0.04791923159651454,
+      "ms_mad": 0.007458031177520752,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.16308401245623827,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.16828872854026353,
+      "ms_std": 0.022883346432979783,
+      "ms_mad": 0.007417984306812286,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4012909485027194,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.44265348271171495,
+      "ms_std": 0.11435065841484617,
+      "ms_mad": 0.01112394966185093,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.020000035874545574,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.020100661303575445,
+      "ms_std": 0.0004494598491192904,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009833020158112049,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.00953956552576728,
+      "ms_std": 0.0014444882651948106,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03487488720566034,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03936894169849593,
+      "ms_std": 0.01730719477017734,
+      "ms_mad": 0.0037079444155097008,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12945791240781546,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.13063813094049692,
+      "ms_std": 0.004893784358156552,
+      "ms_mad": 0.0019168946892023087,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05279190372675657,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05835677758313534,
+      "ms_std": 0.021380141502026866,
+      "ms_mad": 0.0032918760553002357,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07791700772941113,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07820124283614682,
+      "ms_std": 0.003539688708435507,
+      "ms_mad": 0.0008329516276717186,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07624994032084942,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07897862460373378,
+      "ms_std": 0.009267587552503134,
+      "ms_mad": 0.0012909295037388802,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0839160056784749,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09897555701616334,
+      "ms_std": 0.03705132593178886,
+      "ms_mad": 0.005626003257930279,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07304095197468996,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07384853074099959,
+      "ms_std": 0.010482091609486165,
+      "ms_mad": 0.0027091009542346,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07387495134025812,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08504365559485627,
+      "ms_std": 0.024450481327955072,
+      "ms_mad": 0.006124959327280521,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07566600106656551,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08432608858750361,
+      "ms_std": 0.028808762929836047,
+      "ms_mad": 0.0023329630494117737,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.48620905727148056,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4961209928208008,
+      "ms_std": 0.06564807397548653,
+      "ms_mad": 0.02991710789501667,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.190083053894341,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.19847661279505346,
+      "ms_std": 0.029815447028453484,
+      "ms_mad": 0.005791080184280872,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.024250010028481483,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.025854681663942045,
+      "ms_std": 0.0029529230374753124,
+      "ms_mad": 0.00033294782042503357,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.034665921702980995,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03182112307446759,
+      "ms_std": 0.006753740480565735,
+      "ms_mad": 4.21423465013504e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2727080136537552,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.28647358881355056,
+      "ms_std": 0.037759991580506067,
+      "ms_mad": 0.01591700129210949,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.21345901768654585,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.23146547808698037,
+      "ms_std": 0.050384113238242594,
+      "ms_mad": 0.0140840420499444,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02883397974073887,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04449795091115847,
+      "ms_std": 0.03350037850654917,
+      "ms_mad": 0.005876063369214535,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.049042049795389175,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05394925090779618,
+      "ms_std": 0.011920622152109362,
+      "ms_mad": 0.004958012141287327,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.025791930966079235,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.029237705237436587,
+      "ms_std": 0.010827876316238503,
+      "ms_mad": 0.00575091689825058,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03933301195502281,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04866257275840858,
+      "ms_std": 0.023742245104108724,
+      "ms_mad": 0.000416068360209465,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.054333009757101536,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05406700642552317,
+      "ms_std": 0.003614172151167135,
+      "ms_mad": 0.0018740538507699966,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3901669988408685,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3951230489580733,
+      "ms_std": 0.031145224816113478,
+      "ms_mad": 0.012582982890307903,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.9096249705180526,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9575130662131237,
+      "ms_std": 0.14587189536592762,
+      "ms_mad": 0.05208398215472698,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6928339134901762,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8890386528857961,
+      "ms_std": 0.7498867156328748,
+      "ms_mad": 0.036874087527394295,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.3904169900342822,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.4526596145204655,
+      "ms_std": 0.1683484725468551,
+      "ms_mad": 0.07312593515962362,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10529195424169302,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10529073897930907,
+      "ms_std": 0.0013250253928190111,
+      "ms_mad": 0.0006670597940683365,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.028708018362522125,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02809663632566609,
+      "ms_std": 0.003443860381524879,
+      "ms_mad": 0.00012398231774568558,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10079191997647285,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10939337392678349,
+      "ms_std": 0.03520282502581346,
+      "ms_mad": 0.0013759126886725426,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.382583006285131,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4047876388606865,
+      "ms_std": 0.04558792579281944,
+      "ms_mad": 0.008958042599260807,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2697919262573123,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.28452132090290144,
+      "ms_std": 0.0428716249377076,
+      "ms_mad": 0.011082971468567848,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6199590861797333,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6904491910529209,
+      "ms_std": 0.16297832217538577,
+      "ms_mad": 0.03970786929130554,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4545829724520445,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.48556606989444756,
+      "ms_std": 0.08412420959409475,
+      "ms_mad": 0.028416980057954788,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5901660770177841,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6503575629123101,
+      "ms_std": 0.12646172933302258,
+      "ms_mad": 0.04800013266503811,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4639170365408063,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4740863919212687,
+      "ms_std": 0.07795782619263103,
+      "ms_mad": 0.06620807107537985,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.45970792416483164,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4902551995544899,
+      "ms_std": 0.08662531778886035,
+      "ms_mad": 0.027665868401527405,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.462958007119596,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4837969034092455,
+      "ms_std": 0.08566727521105724,
+      "ms_mad": 0.04149903543293476,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.027250080369413,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.0590303984538811,
+      "ms_std": 0.12077576806428207,
+      "ms_mad": 0.07045792881399393,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7477910257875919,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7821117902583465,
+      "ms_std": 0.11016426142182544,
+      "ms_mad": 0.03845698665827513,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5186670459806919,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5361220470016322,
+      "ms_std": 0.05846132753302447,
+      "ms_mad": 0.028792070224881172,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2043750137090683,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.21206705388045166,
+      "ms_std": 0.033918143490607566,
+      "ms_mad": 0.013999990187585354,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0788339423015714,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1352225627023271,
+      "ms_std": 0.15735549526713843,
+      "ms_mad": 0.05204195622354746,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.04358303360641,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1146218777157184,
+      "ms_std": 0.23946453575090743,
+      "ms_mad": 0.07862504571676254,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.014083925634622574,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.014014215572032987,
+      "ms_std": 0.0014139603015363197,
+      "ms_mad": 0.0003320164978504181,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03433297388255596,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.045916613577524336,
+      "ms_std": 0.049079924369199064,
+      "ms_mad": 0.007332884706556797,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013749930076301098,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013581312420528109,
+      "ms_std": 0.0005888791716082776,
+      "ms_mad": 0.0002919696271419525,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.018125050701200962,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.018147215042717574,
+      "ms_std": 5.5964786994969235e-05,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.027292058803141117,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.027301809296193646,
+      "ms_std": 0.0022149046965080307,
+      "ms_mad": 0.00033294782042503357,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.027208938263356686,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02718687046137525,
+      "ms_std": 0.001985237029554101,
+      "ms_mad": 0.00037404242902994156,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.34970894921571016,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.36602738744965413,
+      "ms_std": 0.08217279534809789,
+      "ms_mad": 0.00916607677936554,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03583298530429602,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03658229394293413,
+      "ms_std": 0.0021658102168811305,
+      "ms_mad": 0.00045797787606716156,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6636250764131546,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6890366444500481,
+      "ms_std": 0.11524557032603709,
+      "ms_mad": 0.07083406671881676,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006124959327280521,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0068078913566906275,
+      "ms_std": 0.001697547270988895,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.012499978765845299,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011738829837157959,
+      "ms_std": 0.0021310088840654933,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04675006493926048,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04888922203241325,
+      "ms_std": 0.011189203512973252,
+      "ms_mad": 0.002749962732195854,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02795807085931301,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.028260140225472973,
+      "ms_std": 0.0009818886090945855,
+      "ms_mad": 8.393544703722e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04454201553016901,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05546652019114756,
+      "ms_std": 0.0349925790403727,
+      "ms_mad": 0.008834060281515121,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10533304885029793,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10644207799398317,
+      "ms_std": 0.0040080678677954585,
+      "ms_mad": 0.0010831281542778015,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11808297131210566,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.12168084078173085,
+      "ms_std": 0.02270282332983697,
+      "ms_mad": 0.017623999156057835,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11233298573642969,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.12591868218761393,
+      "ms_std": 0.05358032781067015,
+      "ms_mad": 0.014124903827905655,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.13508298434317112,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.146899443324201,
+      "ms_std": 0.04646823389443459,
+      "ms_mad": 0.013999990187585354,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.08958391845226288,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10231395376982486,
+      "ms_std": 0.037776973239193344,
+      "ms_mad": 0.000792904756963253,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.25575002655386925,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.25238824735690907,
+      "ms_std": 0.03384376426697707,
+      "ms_mad": 0.018874998204410076,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.120542012155056,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1386432942548176,
+      "ms_std": 0.05481745801334983,
+      "ms_mad": 0.0187921104952693,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1407910604029894,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.14028250716808366,
+      "ms_std": 0.06723886900414612,
+      "ms_mad": 0.040708924643695354,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.24225004017353058,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.24943491557567585,
+      "ms_std": 0.024911758699932333,
+      "ms_mad": 0.005832873284816742,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.022292020730674267,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02561892927965013,
+      "ms_std": 0.00951863732255198,
+      "ms_mad": 0.000250060111284256,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04604191053658724,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.048658682783020706,
+      "ms_std": 0.005248943478670609,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.35437499172985554,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.37402748243837824,
+      "ms_std": 0.04366427399818171,
+      "ms_mad": 0.009292038157582283,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.21841598208993673,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.22047161260937773,
+      "ms_std": 0.024986128470745772,
+      "ms_mad": 0.0186659162864089,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.031083007343113422,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.031093527313049246,
+      "ms_std": 0.0006558539620509787,
+      "ms_mad": 0.00045797787606716156,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07624994032084942,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07586687428467884,
+      "ms_std": 0.014333221547017687,
+      "ms_mad": 0.013083918020129204,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.033958000130951405,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04352136549153706,
+      "ms_std": 0.04894123518274427,
+      "ms_mad": 0.0024989712983369827,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.050875009037554264,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.050353712584005623,
+      "ms_std": 0.002218798818017557,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07158296648412943,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0732306550007041,
+      "ms_std": 0.004729102368857146,
+      "ms_mad": 0.00100000761449337,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.50716707482934,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5493637248192255,
+      "ms_std": 0.10708013924074382,
+      "ms_mad": 0.016333069652318954,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.3222909765318036,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.3634490400053016,
+      "ms_std": 0.2307413054422989,
+      "ms_mad": 0.14408293645828962,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.823749927803874,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8839368621432563,
+      "ms_std": 0.1910842409540433,
+      "ms_mad": 0.11437491048127413,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.9428329542279243,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9777337424229922,
+      "ms_std": 0.21946209145950904,
+      "ms_mad": 0.13816705904901028,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07704191375523806,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0825304844666545,
+      "ms_std": 0.028879012519533915,
+      "ms_mad": 0.0024581095203757286,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03358290996402502,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03771944732473391,
+      "ms_std": 0.03841499726176865,
+      "ms_mad": 0.00012514647096395493,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1163750421255827,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11473374225471805,
+      "ms_std": 0.021173297409068575,
+      "ms_mad": 0.009665964171290398,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5342499352991581,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5730355368563678,
+      "ms_std": 0.11873941178957424,
+      "ms_mad": 0.015541911125183105,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.15354098286479712,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.16990858243732918,
+      "ms_std": 0.03862293525484948,
+      "ms_mad": 0.019957893528044224,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6721670506522059,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7005975377268907,
+      "ms_std": 0.12078281413153112,
+      "ms_mad": 0.08000107482075691,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6705829873681068,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.715670769284593,
+      "ms_std": 0.14710943497790563,
+      "ms_mad": 0.09408302139490843,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6438329583033919,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7072733005327059,
+      "ms_std": 0.17223001814515554,
+      "ms_mad": 0.05095906089991331,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6408339831978083,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7189735060376001,
+      "ms_std": 0.1923185573364765,
+      "ms_mad": 0.04504295065999031,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.633792020380497,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6770832867293459,
+      "ms_std": 0.1453671716838246,
+      "ms_mad": 0.04658300895243883,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6726250285282731,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7244878329291213,
+      "ms_std": 0.1526812231746726,
+      "ms_mad": 0.06879097782075405,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.4197500897571445,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.474637296073502,
+      "ms_std": 0.24112576007046416,
+      "ms_mad": 0.15725009143352509,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0310830548405647,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.0956553941047409,
+      "ms_std": 0.16766758417901945,
+      "ms_mad": 0.05358306225389242,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2405000850558281,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2666513759233966,
+      "ms_std": 0.09406154489785543,
+      "ms_mad": 0.008792034350335598,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2395829651504755,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.26379359840619854,
+      "ms_std": 0.05799674993909684,
+      "ms_mad": 0.009498908184468746,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.4492920599877834,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.5198325329437488,
+      "ms_std": 0.23575409844701598,
+      "ms_mad": 0.09495799895375967,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.118500018492341,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.2271329788945433,
+      "ms_std": 0.26010468468772446,
+      "ms_mad": 0.07462501525878906,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3440830623731017,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.38777629379183054,
+      "ms_std": 0.10439959663063902,
+      "ms_mad": 0.027708127163350582,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6116660078987479,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6513128528462314,
+      "ms_std": 0.14395552622763724,
+      "ms_mad": 0.05520798731595278,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3404160961508751,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.36770331661966515,
+      "ms_std": 0.09309012973484342,
+      "ms_mad": 0.03720808308571577,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.29445893596857786,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3561331839414268,
+      "ms_std": 0.14535272933024745,
+      "ms_mad": 0.04645891021937132,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.31404197216033936,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.35751629166486787,
+      "ms_std": 0.11323417061111349,
+      "ms_mad": 0.025750952772796154,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.6879580216482282,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.7693180693086328,
+      "ms_std": 0.25589782812620454,
+      "ms_mad": 0.11983304284512997,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.3421250516548753,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.391809924142208,
+      "ms_std": 0.1295951772884507,
+      "ms_mad": 0.05383405368775129,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.9341669976711273,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9955883631709872,
+      "ms_std": 0.17109833288784326,
+      "ms_mad": 0.0641669612377882,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 3.4435830311849713,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 3.428320187461994,
+      "ms_std": 0.11814784940924161,
+      "ms_mad": 0.08162588346749544,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5095419473946095,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5500010135242852,
+      "ms_std": 0.07849725673975097,
+      "ms_mad": 0.015749945305287838,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1805830979719758,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.20156307543468913,
+      "ms_std": 0.05989494790801497,
+      "ms_mad": 0.01316610723733902,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.46975002624094486,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.490606736914232,
+      "ms_std": 0.07278447969131345,
+      "ms_mad": 0.023708096705377102,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.6179170925170183,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.710115877979594,
+      "ms_std": 0.22268709349292373,
+      "ms_mad": 0.07966707926243544,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1758750295266509,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.182911571933002,
+      "ms_std": 0.020032962745818606,
+      "ms_mad": 0.005083042196929455,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9685420664027333,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9001372203957745,
+      "ms_std": 2.8535053930008574,
+      "ms_mad": 0.03175006713718176,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8947079768404365,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9207469751922096,
+      "ms_std": 0.055722323468036745,
+      "ms_mad": 0.014708028174936771,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9725829586386681,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9850233441173304,
+      "ms_std": 0.035635120646303864,
+      "ms_mad": 0.009958050213754177,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8303330978378654,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8524522730490056,
+      "ms_std": 0.065096477205483,
+      "ms_mad": 0.01958315260708332,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7863750215619802,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7978973870460944,
+      "ms_std": 0.033047743755323905,
+      "ms_mad": 0.010542105883359909,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8782079676166177,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.888957275736441,
+      "ms_std": 0.03849004642039743,
+      "ms_mad": 0.01962494570761919,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.539208042435348,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.565999012781171,
+      "ms_std": 0.10094020042622438,
+      "ms_mad": 0.07383385673165321,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.1369169699028134,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.151953275088312,
+      "ms_std": 0.09518474365993733,
+      "ms_mad": 0.0540000619366765,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.7360419733449817,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.768079313744859,
+      "ms_std": 0.10913839260716142,
+      "ms_mad": 0.06174994632601738,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4456250462681055,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.44675915297575114,
+      "ms_std": 0.03499182741571519,
+      "ms_mad": 0.012625008821487427,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 3.127792035229504,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 3.119619974934655,
+      "ms_std": 0.0879457145252829,
+      "ms_mad": 0.04970806185156107,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.9897910533472896,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.0258120039659664,
+      "ms_std": 0.1295732050990778,
+      "ms_mad": 0.05349994171410799,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03987504169344902,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04561071102393836,
+      "ms_std": 0.02499300165060206,
+      "ms_mad": 0.001834006980061531,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09837502148002386,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10119201956180537,
+      "ms_std": 0.01930786400296243,
+      "ms_mad": 0.013459008187055588,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.043792068026959896,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04602838364407057,
+      "ms_std": 0.013529555270543588,
+      "ms_mad": 0.004165922291576862,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06733404006808996,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06804078896870701,
+      "ms_std": 0.0028468967237202003,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09433296509087086,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1070966132030618,
+      "ms_std": 0.055825086475022816,
+      "ms_mad": 0.005083042196929455,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0950000248849392,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09711587619854183,
+      "ms_std": 0.004722844889505659,
+      "ms_mad": 0.001125037670135498,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.825292012654245,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9057073897295973,
+      "ms_std": 0.2912202661048615,
+      "ms_mad": 0.14629203360527754,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2078750403597951,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.23056918800604054,
+      "ms_std": 0.08539634463495835,
+      "ms_mad": 0.019875122234225273,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.5411249371245503,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.563017247267431,
+      "ms_std": 0.22433890449907135,
+      "ms_mad": 0.18820795230567455,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02204196061939001,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022233730727216093,
+      "ms_std": 0.0007264945841277051,
+      "ms_mad": 0.00012514647096395493,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.052165938541293144,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.061564942503847725,
+      "ms_std": 0.04942864110959794,
+      "ms_mad": 0.005042995326220989,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1445829402655363,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.15040234628519633,
+      "ms_std": 0.05462438440896701,
+      "ms_mad": 0.007125083357095718,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09229197166860104,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09175010093646806,
+      "ms_std": 0.0025502477022050054,
+      "ms_mad": 0.0006660120561718941,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2083340659737587,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.23445623881388,
+      "ms_std": 0.08237251156903966,
+      "ms_mad": 0.013876007869839668,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9180000051856041,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9448221265679089,
+      "ms_std": 0.15368268644159983,
+      "ms_mad": 0.08583301678299904,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9012080263346434,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9232541779056191,
+      "ms_std": 0.13801870024951587,
+      "ms_mad": 0.08345802780240774,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9996669832617044,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.0321789176952911,
+      "ms_std": 0.13832015772947245,
+      "ms_mad": 0.08937506936490536,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0531250154599547,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1264807516254667,
+      "ms_std": 0.25123665491937036,
+      "ms_mad": 0.20004203543066978,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9222920052707195,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9967174733103048,
+      "ms_std": 0.19459165381662763,
+      "ms_mad": 0.09987491648644209,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 2.642250037752092,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.71723075008883,
+      "ms_std": 0.4586717787324836,
+      "ms_mad": 0.39433303754776716,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9142920607700944,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9738536091612243,
+      "ms_std": 0.17722798348028893,
+      "ms_mad": 0.08229212835431099,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8822500240057707,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.0085386371739753,
+      "ms_std": 0.2795863961087379,
+      "ms_mad": 0.0952079426497221,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.3834579149261117,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.4891209501046232,
+      "ms_std": 0.23131318760787814,
+      "ms_mad": 0.05987484473735094,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.27299998328089714,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.29885467630243157,
+      "ms_std": 0.08663809658607481,
+      "ms_mad": 0.014791963621973991,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.3379590343683958,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3742154278769726,
+      "ms_std": 0.09269491382965137,
+      "ms_mad": 0.03358407411724329,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.9971249857917428,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.057078268901422,
+      "ms_std": 0.20308828435934945,
+      "ms_mad": 0.11741695925593376,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.494874944910407,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.6058139537074945,
+      "ms_std": 0.3301757790925242,
+      "ms_mad": 0.12649991549551487,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2496249508112669,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.28306098155132153,
+      "ms_std": 0.08596021514036407,
+      "ms_mad": 0.01383305061608553,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.680833007209003,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7532236745535601,
+      "ms_std": 0.21897526139697795,
+      "ms_mad": 0.03516592551022768,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.25141704827547073,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.27571651493994204,
+      "ms_std": 0.10599719966170729,
+      "ms_mad": 0.01691700890660286,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.34912500996142626,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.37134650856165624,
+      "ms_std": 0.09779720570411714,
+      "ms_mad": 0.028125010430812836,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.43100002221763134,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.45422959800173596,
+      "ms_std": 0.08038719558067893,
+      "ms_mad": 0.023417058400809765,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.3665829794481397,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.3965020124550636,
+      "ms_std": 0.21290915025734447,
+      "ms_mad": 0.15850004274398088,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 3.1779579585418105,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 3.2451657277372914,
+      "ms_std": 0.18189585561388177,
+      "ms_mad": 0.10858406312763691,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.5604579132050276,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.5600212677268357,
+      "ms_std": 0.11578969483188005,
+      "ms_mad": 0.06524892523884773,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 4.649917013011873,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 5.412752033075,
+      "ms_std": 2.759086399411518,
+      "ms_mad": 0.14237500727176666,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4895420279353857,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5091911085267983,
+      "ms_std": 0.07720379495620884,
+      "ms_mad": 0.023499946109950542,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2647500950843096,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2876920370021608,
+      "ms_std": 0.05972443546708052,
+      "ms_mad": 0.02504093572497368,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5385830299928784,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5379715883286624,
+      "ms_std": 0.0630016663751972,
+      "ms_mad": 0.034874072298407555,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.2425000788643956,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.343967545595838,
+      "ms_std": 0.23631948173439699,
+      "ms_mad": 0.10708312038332224,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.13699999544769526,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.17512195016734483,
+      "ms_std": 0.1285502798094735,
+      "ms_mad": 0.00300002284348011,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2327500153332949,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.239706310670732,
+      "ms_std": 0.04910816719647226,
+      "ms_mad": 0.023000058718025684,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1282500345259905,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1297977052447272,
+      "ms_std": 0.03217826808745324,
+      "ms_mad": 0.023958971723914146,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.2209999840706587,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.2219299749675683,
+      "ms_std": 0.04005491664728,
+      "ms_mad": 0.030666938982903957,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1650000233203173,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1913557593688004,
+      "ms_std": 0.061292612180874013,
+      "ms_mad": 0.023667002096772194,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0645410511642694,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.0828139720393755,
+      "ms_std": 0.05982982737433927,
+      "ms_mad": 0.02766598481684923,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1877919314429164,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.2090039729117983,
+      "ms_std": 0.06162070113011206,
+      "ms_mad": 0.03804184962064028,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 6.983999977819622,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 6.987060948343175,
+      "ms_std": 0.09343742868125363,
+      "ms_mad": 0.052875024266541004,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.854167018085718,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.878727680980796,
+      "ms_std": 0.09179372012724578,
+      "ms_mad": 0.04579196684062481,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4378330195322633,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4602183939934504,
+      "ms_std": 0.06087453325588089,
+      "ms_mad": 0.013708020560443401,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6009589415043592,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6010305596424675,
+      "ms_std": 0.03970684990770393,
+      "ms_mad": 0.02312485594302416,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.245999967679381,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 4.254794639830545,
+      "ms_std": 0.1309546362426442,
+      "ms_mad": 0.09408302139490843,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.4667090037837625,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.498120004197628,
+      "ms_std": 0.14357056757127099,
+      "ms_mad": 0.07041695062071085,
+      "timing_n": 41
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3339999821037054,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.34265748577237853,
+      "ms_std": 0.024531171790287767,
+      "ms_mad": 0.012040953151881695,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.7107079727575183,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7326016401326875,
+      "ms_std": 0.060013557500487646,
+      "ms_mad": 0.025165965780615807,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.329792033880949,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.33393792705837544,
+      "ms_std": 0.01766877865536725,
+      "ms_mad": 0.009000999853014946,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6020410219207406,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6166840222005437,
+      "ms_std": 0.04066746682303116,
+      "ms_mad": 0.0070410314947366714,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.8395831100642681,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.844928901642561,
+      "ms_std": 0.04427785433400434,
+      "ms_mad": 0.032125855796039104,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 6.449165986850858,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 6.464389220970433,
+      "ms_std": 0.2295605453385152,
+      "ms_mad": 0.19312393851578236,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 18.470457987859845,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 19.135643322043485,
+      "ms_std": 4.765625115004395,
+      "ms_mad": 0.3251249436289072,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 13.149875099770725,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 13.171990884740541,
+      "ms_std": 0.7593946299103481,
+      "ms_mad": 0.42337505146861076,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 21.89370896667242,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 24.44190435997415,
+      "ms_std": 10.059155662196481,
+      "ms_mad": 0.6436259718611836,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.7161250580102205,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.7243383236502001,
+      "ms_std": 0.061925918179440036,
+      "ms_mad": 0.04575005732476711,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.46420900616794825,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4657479798103251,
+      "ms_std": 0.026115838400843902,
+      "ms_mad": 0.010374002158641815,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.3044161023572087,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.32170224153414,
+      "ms_std": 0.07586274320665412,
+      "ms_mad": 0.02754293382167816,
+      "timing_n": 41
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 6.353999953716993,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 7.240974622574158,
+      "ms_std": 3.8172117247129784,
+      "ms_mad": 0.21487497724592686,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.690707984380424,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.7483099619290088,
+      "ms_std": 0.3499161849848267,
+      "ms_mad": 0.2892500488087535,
+      "timing_n": 41
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 13.599665951915085,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 14.296800860703536,
+      "ms_std": 5.789738651669926,
+      "ms_mad": 0.3665840486064553,
+      "timing_n": 41
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 9.991999948397279,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 10.571836386012231,
+      "ms_std": 3.8112484158585884,
+      "ms_mad": 0.42129086796194315,
+      "timing_n": 41
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 13.601457932963967,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 14.13280578193868,
+      "ms_std": 4.165008523235844,
+      "ms_mad": 0.6745829014107585,
+      "timing_n": 41
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: add_vector() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 10.892916936427355,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 12.008691155465275,
+      "ms_std": 5.151883962627095,
+      "ms_mad": 0.6735831266269088,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 9.905500104650855,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 11.102631134435352,
+      "ms_std": 7.9498454019276235,
+      "ms_mad": 0.4488751292228699,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 10.250583989545703,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 10.321048812418267,
+      "ms_std": 0.9556202095587957,
+      "ms_mad": 0.5614579422399402,
+      "timing_n": 41
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_constant() missing 1 required positional argument: 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "TypeError: multiply_by_vector() missing 2 required positional arguments: 'num_channels' and 'inplace'",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 18.29645794350654,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 18.445035539249456,
+      "ms_std": 0.6135773289582681,
+      "ms_mad": 0.46570785343647003,
+      "timing_n": 41
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 15.138499904423952,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 15.156718510452931,
+      "ms_std": 0.6763298761224971,
+      "ms_mad": 0.3326669102534652,
+      "timing_n": 41
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 10.063958005048335,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 10.047032503502034,
+      "ms_std": 0.4925334656508062,
+      "ms_mad": 0.3540420439094305,
+      "timing_n": 41
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 4.3666249839589,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 4.447414687403092,
+      "ms_std": 0.5561528848792175,
+      "ms_mad": 0.5120000569149852,
+      "timing_n": 41
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 18.894790904596448,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 19.077786534070604,
+      "ms_std": 0.7756373439990913,
+      "ms_mad": 0.4351659445092082,
+      "timing_n": 41
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 19.26129194907844,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 19.392065065004296,
+      "ms_std": 0.8267040161942737,
+      "ms_mad": 0.6534990388900042,
+      "timing_n": 41
+    },
+    {
+      "op": "matmul",
+      "layout": "2D",
+      "shape": [
+        128,
+        64,
+        64,
+        32
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0019579892978072166,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0019745969372551614,
+      "ms_std": 7.433155041748866e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 41
+    },
+    {
+      "op": "pairwise_distances_squared",
+      "layout": "points",
+      "shape": [
+        24,
+        16,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0024579931050539017,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0024450993983120453,
+      "ms_std": 5.058167216388666e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 41
+    }
+  ]
+}

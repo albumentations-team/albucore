@@ -1,0 +1,8841 @@
+{
+  "meta": {
+    "albucore_version": "0.0.40",
+    "distribution_version": "0.0.40",
+    "python": "3.12.7",
+    "platform": "macOS-15.5-arm64-arm-64bit",
+    "machine": "arm64",
+    "quick": false,
+    "with_geometric": false,
+    "functions_all": [
+      "add",
+      "add_array",
+      "add_constant",
+      "add_vector",
+      "add_weighted",
+      "float32_io",
+      "from_float",
+      "hflip",
+      "matmul",
+      "mean",
+      "mean_std",
+      "median_blur",
+      "multiply",
+      "multiply_add",
+      "multiply_by_array",
+      "multiply_by_constant",
+      "multiply_by_vector",
+      "normalize",
+      "normalize_per_image",
+      "pairwise_distances_squared",
+      "power",
+      "std",
+      "sz_lut",
+      "to_float",
+      "uint8_io",
+      "vflip"
+    ],
+    "repeats": 21,
+    "warmup": 5,
+    "timing_fields": {
+      "ms_median": "median wall time (ms) over timed runs",
+      "ms_mean": "mean wall time (ms)",
+      "ms_std": "sample std (ms) of timed runs; use as error bar with median",
+      "ms_mad": "median absolute deviation from median (robust spread)",
+      "timing_n": "number of timed runs (equals repeats)"
+    },
+    "numpy": "2.4.3",
+    "opencv": "4.13.0"
+  },
+  "rows": [
+    {
+      "op": "float32_io",
+      "layout": "meta",
+      "shape": [
+        -1
+      ],
+      "dtype": "n/a",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "decorator factory, not an image router",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "uint8_io",
+      "layout": "meta",
+      "shape": [
+        -1
+      ],
+      "dtype": "n/a",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "decorator factory, not an image router",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009707990102469921,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.009977946146613076,
+      "ms_std": 0.0006763754652378967,
+      "ms_mad": 0.0002080341801047325,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.016625039279460907,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01703565829389152,
+      "ms_std": 0.0010849525001206265,
+      "ms_mad": 0.0004169996827840805,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.007208087481558323,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007297522166655177,
+      "ms_std": 0.00031272827100057156,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.012665987014770508,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013075380896528562,
+      "ms_std": 0.0013397147612501002,
+      "ms_mad": 0.000333995558321476,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004249974153935909,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0042776477390101975,
+      "ms_std": 0.00011365903458914671,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01091696321964264,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010932440913858869,
+      "ms_std": 0.0002814687991815344,
+      "ms_mad": 0.00012596137821674347,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0113749410957098,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011436469365088712,
+      "ms_std": 0.0002864302829689144,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04158297087997198,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0424662416446067,
+      "ms_std": 0.0016117653907901375,
+      "ms_mad": 0.0008749775588512421,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010249903425574303,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010505989415659792,
+      "ms_std": 0.0010644085867649335,
+      "ms_mad": 0.00024994369596242905,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01229101326316595,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.012362863691080184,
+      "ms_std": 0.0006768486802701616,
+      "ms_mad": 0.00020908191800117493,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.015042023733258247,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.015819489601112548,
+      "ms_std": 0.00358921862114041,
+      "ms_mad": 0.00037497375160455704,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06633403245359659,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06715686149185612,
+      "ms_std": 0.0019614578000651324,
+      "ms_mad": 0.001209089532494545,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002749962732195854,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0027519029875596366,
+      "ms_std": 7.49532555672421e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0030420487746596336,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0030575209252891086,
+      "ms_std": 5.010051966048956e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011124997399747372,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011305479953686396,
+      "ms_std": 0.0006366688955908523,
+      "ms_mad": 0.00016693957149982452,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010707997716963291,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01085104997314158,
+      "ms_std": 0.00036621813744611533,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.003334018401801586,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0033316679210180326,
+      "ms_std": 5.8067428282204695e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011708005331456661,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01185508223161811,
+      "ms_std": 0.0004578799075642623,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.017541926354169846,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.017583237162658145,
+      "ms_std": 0.0001703560989086006,
+      "ms_mad": 0.00012514647096395493,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.01820793841034174,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01860113393160559,
+      "ms_std": 0.0015658252159704922,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.017042038962244987,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.017968339047261646,
+      "ms_std": 0.0022277646437761527,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.020124949514865875,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.020843265312058584,
+      "ms_std": 0.003298765521280547,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.014167046174407005,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.014323419669554346,
+      "ms_std": 0.0005495902081741889,
+      "ms_mad": 0.00020908191800117493,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.012750038877129555,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.012795579442310901,
+      "ms_std": 0.000242298964468036,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03174995072185993,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03174003878874438,
+      "ms_std": 0.0004163852356084069,
+      "ms_mad": 0.00033294782042503357,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.01795799471437931,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0179840052234275,
+      "ms_std": 0.00022568207023308744,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.012125005014240742,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.012138852893951394,
+      "ms_std": 9.438448930440824e-05,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.020082923583686352,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02011498768946954,
+      "ms_std": 0.0003702080680662637,
+      "ms_mad": 0.00016693957149982452,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.009750016033649445,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.00975003820799646,
+      "ms_std": 0.00023164552191440234,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04025001544505358,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.040359140950299445,
+      "ms_std": 0.0004383827530328221,
+      "ms_mad": 0.0002080341801047325,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.004249974153935909,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004450230681825252,
+      "ms_std": 0.0008179556990650305,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.006541027687489986,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006462092555704571,
+      "ms_std": 0.0004936343222791923,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.035665929317474365,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03694428042286918,
+      "ms_std": 0.0019366886015846035,
+      "ms_mad": 0.0002909218892455101,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0213750172406435,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.021361113925065314,
+      "ms_std": 0.00018741302217808377,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004958012141287327,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004900807869576272,
+      "ms_std": 0.00024704990915787767,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.015042023733258247,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.015103058623416083,
+      "ms_std": 0.0002245395995358157,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004624947905540466,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004647088991034599,
+      "ms_std": 0.00016187778271874176,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.054875039495527744,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.057416513473505064,
+      "ms_std": 0.004990676090662903,
+      "ms_mad": 0.0008329516276717186,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006125075742602348,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006174419208296708,
+      "ms_std": 0.00018417007408201065,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.012875068932771683,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.013089306386453765,
+      "ms_std": 0.0005975977154660153,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05549995694309473,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.055589269669283,
+      "ms_std": 0.0006760901862787646,
+      "ms_mad": 0.00024994369596242905,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06466696504503489,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06446638144552708,
+      "ms_std": 0.0021536419135791286,
+      "ms_mad": 0.0002919696271419525,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011584023013710976,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01168057012061278,
+      "ms_std": 0.00036841367300723154,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04950002767145634,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04958934039764461,
+      "ms_std": 0.00017025390620000518,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06075005512684584,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.061372965796008,
+      "ms_std": 0.0018123249611154374,
+      "ms_mad": 0.00016612466424703598,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11449994053691626,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11445632913992518,
+      "ms_std": 0.0021569667604790657,
+      "ms_mad": 0.0008338829502463341,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006042071618139744,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006065288159464087,
+      "ms_std": 6.793953270639653e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002166023477911949,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.002154575971265634,
+      "ms_std": 5.897349412945995e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0149579718708992,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.015204378758512792,
+      "ms_std": 0.0008105123719418401,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04929106216877699,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04957933422355425,
+      "ms_std": 0.0010155161094926258,
+      "ms_mad": 0.00016612466424703598,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006125075742602348,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0061607154618416515,
+      "ms_std": 0.00010729658164365151,
+      "ms_mad": 8.288770914077759e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017208047211170197,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.017220060163665386,
+      "ms_std": 6.620128619922667e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02745899837464094,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02753367048821279,
+      "ms_std": 0.00028336150934038425,
+      "ms_mad": 0.00016798730939626694,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.027582980692386627,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.027595232019112223,
+      "ms_std": 0.0001394676443268997,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02716702874749899,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.027654620464004222,
+      "ms_std": 0.0016655943573625329,
+      "ms_mad": 0.0002080341801047325,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.08462497498840094,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08691667157801844,
+      "ms_std": 0.005288425010854468,
+      "ms_mad": 0.0006670597940683365,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02404197584837675,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.024041510187089443,
+      "ms_std": 0.0001401002752783106,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.022042077034711838,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022083138381796225,
+      "ms_std": 9.591993899606908e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02662499900907278,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02711299540741103,
+      "ms_std": 0.0010929545025183266,
+      "ms_mad": 0.00033294782042503357,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.021707965061068535,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02184116081999881,
+      "ms_std": 0.0007605431670216661,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0842920271679759,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08433333243287745,
+      "ms_std": 0.00024007224463175317,
+      "ms_mad": 0.00016705598682165146,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.12266694102436304,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.12253963255456515,
+      "ms_std": 0.005077286756858667,
+      "ms_mad": 0.002791057340800762,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0616670586168766,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.061928532973286654,
+      "ms_std": 0.001099980505323098,
+      "ms_mad": 0.00037509016692638397,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0073749106377363205,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007374949442843596,
+      "ms_std": 0.00012781486955662174,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.010791001841425896,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010777702776803857,
+      "ms_std": 5.643015716698334e-05,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07404200732707977,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07375975560751699,
+      "ms_std": 0.0008536843793216375,
+      "ms_mad": 0.00012398231774568558,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03900006413459778,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03909529186785221,
+      "ms_std": 0.000883620155981315,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008124974556267262,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.008670563277389323,
+      "ms_std": 0.0017486601843824724,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01908303238451481,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.020843143353150004,
+      "ms_std": 0.003591413972873567,
+      "ms_mad": 0.0002080341801047325,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0076660653576254845,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007652771836590199,
+      "ms_std": 5.7963159733720216e-05,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11625001206994057,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11680761928714457,
+      "ms_std": 0.0018856424360276243,
+      "ms_mad": 0.00037509016692638397,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.011375057511031628,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.011404627002775669,
+      "ms_std": 0.0001265037367239803,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.018125050701200962,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.019002007320523262,
+      "ms_std": 0.0020591053955187604,
+      "ms_mad": 4.21423465013504e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11487491428852081,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11499599731039434,
+      "ms_std": 0.0005674834227618581,
+      "ms_mad": 0.00020791776478290558,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.14033401384949684,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.15043048742449,
+      "ms_std": 0.025330946573230154,
+      "ms_mad": 0.005500973202288151,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01737498678267002,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.017752100358761493,
+      "ms_std": 0.001125403227902202,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10962504893541336,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1102261400471131,
+      "ms_std": 0.0027997188531857548,
+      "ms_mad": 0.0008329516276717186,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.15379104297608137,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.15633927458631142,
+      "ms_std": 0.006691221999765578,
+      "ms_mad": 0.0036660348996520042,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2709169639274478,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2632759500383621,
+      "ms_std": 0.019798247931591285,
+      "ms_mad": 0.017832964658737183,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02716702874749899,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.030617096594401767,
+      "ms_std": 0.008567525754126778,
+      "ms_mad": 0.0010420335456728935,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0072499969974160194,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007115049465071587,
+      "ms_std": 0.0007150347495939575,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.030291033908724785,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.030569382943212986,
+      "ms_std": 0.001174424516536932,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11191691737622023,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11365661131484169,
+      "ms_std": 0.004054397459237101,
+      "ms_mad": 0.00016693957149982452,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01345889177173376,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.014039815314823673,
+      "ms_std": 0.0012370031370192032,
+      "ms_mad": 0.00020815059542655945,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03579189069569111,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03795641186159281,
+      "ms_std": 0.0033722693521887667,
+      "ms_mad": 0.00033387914299964905,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0588749535381794,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0613352195138023,
+      "ms_std": 0.006141161731735598,
+      "ms_mad": 0.002500019036233425,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.052584102377295494,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05619827702286698,
+      "ms_std": 0.005725859033488884,
+      "ms_mad": 0.0002511078491806984,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05625002086162567,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05787500135955356,
+      "ms_std": 0.003550228618820584,
+      "ms_mad": 0.0002919696271419525,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11224998161196709,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11526604205192555,
+      "ms_std": 0.004600219619487363,
+      "ms_mad": 0.0010828953236341476,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.055292039178311825,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05576176391471,
+      "ms_std": 0.005877265226591392,
+      "ms_mad": 0.004459056071937084,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0588330440223217,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06050571599709136,
+      "ms_std": 0.01327146859458248,
+      "ms_mad": 0.006875023245811462,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0564999645575881,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.05556352525239899,
+      "ms_std": 0.0021548507691198536,
+      "ms_mad": 0.0010830117389559746,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.05108397454023361,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.053587380707973524,
+      "ms_std": 0.007760252771086551,
+      "ms_mad": 0.005208887159824371,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10933296289294958,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11370224057741109,
+      "ms_std": 0.014261848278772107,
+      "ms_mad": 0.004958012141287327,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.17699995078146458,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1859741917412196,
+      "ms_std": 0.0242461466189839,
+      "ms_mad": 0.006167101673781872,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1403329661116004,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.13980571557545945,
+      "ms_std": 0.007508701472914882,
+      "ms_mad": 0.005582929588854313,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.09829201735556126,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10108323546037787,
+      "ms_std": 0.018922973743175177,
+      "ms_mad": 0.009958981536328793,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.025209039449691772,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.025258083561701433,
+      "ms_std": 0.003834477883787841,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.18220895435661077,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.18569047651475384,
+      "ms_std": 0.013330632488193888,
+      "ms_mad": 0.005792942829430103,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1444169320166111,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.14839509302484138,
+      "ms_std": 0.025232156736816128,
+      "ms_mad": 0.01254212111234665,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.006041955202817917,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.006119099756081899,
+      "ms_std": 0.0004439384381769936,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013499986380338669,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.014870854405065378,
+      "ms_std": 0.0030261389198030127,
+      "ms_mad": 0.0016249250620603561,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005541020072996616,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.005527820792936143,
+      "ms_std": 7.943540838679831e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010792049579322338,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010823326495786509,
+      "ms_std": 0.00012972973364058996,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.004875008016824722,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.004878955050593331,
+      "ms_std": 4.738355164275785e-05,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.010624993592500687,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010609388395789125,
+      "ms_std": 9.263683291933943e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.00966701190918684,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.009716238959559373,
+      "ms_std": 0.00013352176299088905,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07220893166959286,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07460542976678837,
+      "ms_std": 0.01146773483886154,
+      "ms_mad": 0.0036249402910470963,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.009458046406507492,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010402767830306575,
+      "ms_std": 0.0022635140180401994,
+      "ms_mad": 0.000250060111284256,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013125012628734112,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.017696431660581203,
+      "ms_std": 0.01423949361059205,
+      "ms_mad": 0.0017919810488820076,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02345896791666746,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022779850821409906,
+      "ms_std": 0.0035003475207435663,
+      "ms_mad": 0.002292916178703308,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1015000743791461,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10325010156347639,
+      "ms_std": 0.003375559488058859,
+      "ms_mad": 0.000500120222568512,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.002374988980591297,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.002353191597475892,
+      "ms_std": 9.00384495287401e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.003500026650726795,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0031508305775267737,
+      "ms_std": 0.0006290435870894225,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013959011994302273,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.016144848251271816,
+      "ms_std": 0.004722825924184168,
+      "ms_mad": 0.0002069864422082901,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01025001984089613,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.010303382406986895,
+      "ms_std": 0.00019470856530829438,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005958019755780697,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.005954338814176265,
+      "ms_std": 5.565495570894709e-05,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.017167069017887115,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01721624063239211,
+      "ms_std": 0.00010082929533855578,
+      "ms_mad": 4.0978193283081055e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03258301876485348,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03690458834171295,
+      "ms_std": 0.019264536764678254,
+      "ms_mad": 0.005916925147175789,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02575002145022154,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.028930709786003546,
+      "ms_std": 0.003950134586225062,
+      "ms_mad": 0.000500120222568512,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.033833086490631104,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03839880117170867,
+      "ms_std": 0.013002206238506044,
+      "ms_mad": 0.007374095730483532,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.03224995452910662,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03339295342032399,
+      "ms_std": 0.005330704492184201,
+      "ms_mad": 0.0037909485399723053,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.023625092580914497,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02555161648030792,
+      "ms_std": 0.0033220425047877635,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02162496093660593,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022851091454781237,
+      "ms_std": 0.0024745464423718048,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04708406049758196,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.047107326931187084,
+      "ms_std": 0.0002419156333804305,
+      "ms_mad": 0.0001658918336033821,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.026417081244289875,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02706351335204783,
+      "ms_std": 0.0012644279305410514,
+      "ms_mad": 0.00029208604246377945,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.02133403904736042,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022369010063509148,
+      "ms_std": 0.0012172548911082257,
+      "ms_mad": 0.00020908191800117493,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.028957962058484554,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03048606283430542,
+      "ms_std": 0.0023304208822708854,
+      "ms_mad": 0.0005408655852079391,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.015833997167646885,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.016434561638605027,
+      "ms_std": 0.0008449973080386617,
+      "ms_mad": 0.000208965502679348,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0677499920129776,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0674781400621647,
+      "ms_std": 0.004037867210499708,
+      "ms_mad": 0.0022079329937696457,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0074999406933784485,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.007545614304641883,
+      "ms_std": 0.0007915729069542101,
+      "ms_mad": 0.0007499475032091141,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0140840420499444,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.014105091048848061,
+      "ms_std": 0.0048293511901819144,
+      "ms_mad": 0.0004159519448876381,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0855419784784317,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08368062498491435,
+      "ms_std": 0.0044675764407449544,
+      "ms_mad": 0.0035420525819063187,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04495901521295309,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04658330276253678,
+      "ms_std": 0.0042173254493885854,
+      "ms_mad": 0.0026260968297719955,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008624978363513947,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.008561393423449425,
+      "ms_std": 0.00029376503894584446,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.024458044208586216,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.022718189505948908,
+      "ms_std": 0.004327437611582712,
+      "ms_mad": 0.005332985892891884,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008458038792014122,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.00833533149922178,
+      "ms_std": 0.00037595961214626633,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11229200754314661,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1165020623288694,
+      "ms_std": 0.006600294662105746,
+      "ms_mad": 0.00037497375160455704,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013582990504801273,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.012974282504901999,
+      "ms_std": 0.0007142399468766423,
+      "ms_mad": 0.0001260777935385704,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.019042054191231728,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02045832419147094,
+      "ms_std": 0.0024524751181947244,
+      "ms_mad": 4.21423465013504e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11683395132422447,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.117335219069251,
+      "ms_std": 0.004845952414513721,
+      "ms_mad": 0.0037918798625469208,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2393750473856926,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.25646437314294634,
+      "ms_std": 0.04492187376107931,
+      "ms_mad": 0.024959095753729343,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.018874998204410076,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.019117058920008794,
+      "ms_std": 0.0009657437437203731,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12370804324746132,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.12435723051783584,
+      "ms_std": 0.002758466614647928,
+      "ms_mad": 0.0017499551177024841,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.1449170522391796,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1517360353664983,
+      "ms_std": 0.01396189369628983,
+      "ms_mad": 0.005125999450683594,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3751249751076102,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3849823426987444,
+      "ms_std": 0.026122118922026233,
+      "ms_mad": 0.005917041562497616,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.019832979887723923,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.019198466491486346,
+      "ms_std": 0.0013236557829916823,
+      "ms_mad": 0.00025099143385887146,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.008707982487976551,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.008380755649081298,
+      "ms_std": 0.0014834535556599027,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09175005834549665,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08101399344879956,
+      "ms_std": 0.04075547069302367,
+      "ms_mad": 0.03429199568927288,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12270803563296795,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.13478171257745653,
+      "ms_std": 0.018377330521253083,
+      "ms_mad": 0.0003330642357468605,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.015708967112004757,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.015738181814196565,
+      "ms_std": 9.603014780993741e-05,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04570803139358759,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04681957042997792,
+      "ms_std": 0.0020126121974484157,
+      "ms_mad": 0.00012398231774568558,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07449998520314693,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07307147496335563,
+      "ms_std": 0.003781620182895285,
+      "ms_mad": 0.003208988346159458,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07424992509186268,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07196613920054265,
+      "ms_std": 0.0036877680685656797,
+      "ms_mad": 0.003291061148047447,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.08495897054672241,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08869443332687729,
+      "ms_std": 0.014285070777874947,
+      "ms_mad": 0.008291099220514297,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2690000692382455,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.27070228853041217,
+      "ms_std": 0.009461847711331106,
+      "ms_mad": 0.006584101356565952,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07270800415426493,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07562911404030663,
+      "ms_std": 0.007628292660071098,
+      "ms_mad": 0.005041016265749931,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06912497337907553,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07101785325046096,
+      "ms_std": 0.008892731712213822,
+      "ms_mad": 0.0036669662222266197,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.07516599725931883,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07374196623762448,
+      "ms_std": 0.002645740495584272,
+      "ms_mad": 0.00037509016692638397,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.06558303721249104,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07190852470341183,
+      "ms_std": 0.01096199144842571,
+      "ms_mad": 0.005915993824601173,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2732500433921814,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.27270819659211804,
+      "ms_std": 0.00695001238785261,
+      "ms_mad": 0.00600004568696022,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4407500382512808,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.43721832445867004,
+      "ms_std": 0.027400701826770346,
+      "ms_mad": 0.021041021682322025,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.17745804507285357,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1765336464380934,
+      "ms_std": 0.005030046836458769,
+      "ms_mad": 0.0019171275198459625,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.026250025257468224,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.025811472109385898,
+      "ms_std": 0.0009811982850314212,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0338749960064888,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03429365876529898,
+      "ms_std": 0.004143568955325135,
+      "ms_mad": 4.202593117952347e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2535419771447778,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2587280690758711,
+      "ms_std": 0.019848682643453797,
+      "ms_mad": 0.005292007699608803,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.18962507601827383,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.19360313724194253,
+      "ms_std": 0.018350560857327815,
+      "ms_mad": 0.016707926988601685,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.025000073947012424,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.028083433530160358,
+      "ms_std": 0.00859339026484289,
+      "ms_mad": 0.00300002284348011,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04824995994567871,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04693066390852133,
+      "ms_std": 0.002361121340063871,
+      "ms_mad": 0.000250060111284256,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.025041052140295506,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.025803688913583755,
+      "ms_std": 0.005548785295299566,
+      "ms_mad": 0.003291061148047447,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3548329696059227,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.35960331470483825,
+      "ms_std": 0.015290887177616083,
+      "ms_mad": 0.007083057425916195,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0379589619114995,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.037065474316477776,
+      "ms_std": 0.0015808916872765589,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05737505853176117,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.055317334564668794,
+      "ms_std": 0.006093187673361092,
+      "ms_mad": 0.004084082320332527,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.354791060090065,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3594900592274609,
+      "ms_std": 0.01385044578641216,
+      "ms_mad": 0.004958128556609154,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.7795419078320265,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7959443831905013,
+      "ms_std": 0.049361907144509845,
+      "ms_mad": 0.01204188447445631,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05066697485744953,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.050837467868058456,
+      "ms_std": 0.003166536765347223,
+      "ms_mad": 0.002875109203159809,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.34912500996142626,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3551070389914371,
+      "ms_std": 0.016183847189183236,
+      "ms_mad": 0.0026669586077332497,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5857079522684216,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5932342915219211,
+      "ms_std": 0.027043716408697873,
+      "ms_mad": 0.010791001841425896,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.200250000692904,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.2154087668196076,
+      "ms_std": 0.06612015726609674,
+      "ms_mad": 0.02554105594754219,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10199996177107096,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10257362875910032,
+      "ms_std": 0.006532367783521563,
+      "ms_mad": 0.0008329516276717186,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.025250017642974854,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02615682093337888,
+      "ms_std": 0.004316553467105161,
+      "ms_mad": 0.00016705598682165146,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.09716697968542576,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09612299479721557,
+      "ms_std": 0.004546123759916012,
+      "ms_mad": 0.0014170072972774506,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3855419345200062,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.387406652970683,
+      "ms_std": 0.01326083287597273,
+      "ms_mad": 0.0035830307751893997,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04499999340623617,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04613889558684258,
+      "ms_std": 0.002084846574765898,
+      "ms_mad": 0.0003330642357468605,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.22075010929256678,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2259921526447648,
+      "ms_std": 0.020258183259661767,
+      "ms_mad": 0.008791103027760983,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.48033404164016247,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.482890904614968,
+      "ms_std": 0.057428567886598766,
+      "ms_mad": 0.03137392923235893,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.37641602102667093,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3849107749937546,
+      "ms_std": 0.04040378428783602,
+      "ms_mad": 0.0310409814119339,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4714579554274678,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4753154713571781,
+      "ms_std": 0.0478371605996056,
+      "ms_mad": 0.01637497916817665,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.681916018947959,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7011567663756155,
+      "ms_std": 0.06044425414831025,
+      "ms_mad": 0.025916029699146748,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.36708300467580557,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3741765394806862,
+      "ms_std": 0.03809486641454655,
+      "ms_mad": 0.01816696021705866,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.35512493923306465,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3936863781529523,
+      "ms_std": 0.12987190189655884,
+      "ms_mad": 0.024541979655623436,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.37979206535965204,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3954939976600664,
+      "ms_std": 0.05886038192885603,
+      "ms_mad": 0.019041006453335285,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.3400410059839487,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3411427273281983,
+      "ms_std": 0.044471518871879966,
+      "ms_mad": 0.03241701051592827,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5717499880120158,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5805813818283024,
+      "ms_std": 0.04237454759820014,
+      "ms_mad": 0.019417027942836285,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8200419833883643,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.842432563547932,
+      "ms_std": 0.07033305803643027,
+      "ms_mad": 0.02050003968179226,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6548749515786767,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6959621428645083,
+      "ms_std": 0.11681413049115998,
+      "ms_mad": 0.021541956812143326,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4290830111131072,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.44955342586728786,
+      "ms_std": 0.045683546761482924,
+      "ms_mad": 0.014915945939719677,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.13375002890825272,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.15028763473743484,
+      "ms_std": 0.029425971310384408,
+      "ms_mad": 0.0017080456018447876,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8600420551374555,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9040217680324402,
+      "ms_std": 0.1325221584674213,
+      "ms_mad": 0.0186659162864089,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7003330392763019,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7504602350915471,
+      "ms_std": 0.1376170090734009,
+      "ms_mad": 0.026417081244289875,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01266703475266695,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01251191965171269,
+      "ms_std": 0.0003999469188518863,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02462498378008604,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.029762003881235916,
+      "ms_std": 0.007047113664682087,
+      "ms_mad": 0.0007499475032091141,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01237494871020317,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01237700538088878,
+      "ms_std": 0.00017301237386885954,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.027916976250708103,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.029000054512705122,
+      "ms_std": 0.0015169147777903066,
+      "ms_mad": 0.00037497375160455704,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01766590867191553,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.01698205735357035,
+      "ms_std": 0.00086661656444559,
+      "ms_mad": 0.0001671724021434784,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02408307045698166,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0243214557745627,
+      "ms_std": 0.0007755517278937095,
+      "ms_mad": 0.00016612466424703598,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.024541979655623436,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02613503463743698,
+      "ms_std": 0.0038086831460093402,
+      "ms_mad": 0.00033294782042503357,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.29683299362659454,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.297011868540375,
+      "ms_std": 0.009885802778799567,
+      "ms_mad": 0.005916925147175789,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0302919652312994,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04295046840395246,
+      "ms_std": 0.060281268459989684,
+      "ms_mad": 0.002958928234875202,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.044082989916205406,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.043313623228598205,
+      "ms_std": 0.007044238075852407,
+      "ms_mad": 0.0037080608308315277,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03862509038299322,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03837689846044495,
+      "ms_std": 0.0030308646801130933,
+      "ms_mad": 0.0014168908819556236,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4729169886559248,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.49182152863414513,
+      "ms_std": 0.07207331048545133,
+      "ms_mad": 0.02045894507318735,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.005958951078355312,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0059604256724317866,
+      "ms_std": 4.4595932775093746e-05,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.013999990187585354,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.014133003008152758,
+      "ms_std": 0.001937086122734392,
+      "ms_mad": 0.0017499551177024841,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.044665997847914696,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.04438676183954591,
+      "ms_std": 0.0060161409100738085,
+      "ms_mad": 0.005541020072996616,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.024707987904548645,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02576190690022139,
+      "ms_std": 0.0025386667783360937,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.02050003968179226,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.020793727820827848,
+      "ms_std": 0.0006487213113577616,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03574998117983341,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03594039229764825,
+      "ms_std": 0.003435654591121891,
+      "ms_mad": 0.0024579931050539017,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10316702537238598,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11323819801743541,
+      "ms_std": 0.021297004524093874,
+      "ms_mad": 0.01066701952368021,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11162494774907827,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11676571531487363,
+      "ms_std": 0.020792379897739643,
+      "ms_mad": 0.016999896615743637,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10316702537238598,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1131209899627027,
+      "ms_std": 0.017305043978162946,
+      "ms_mad": 0.010626041330397129,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.10983296670019627,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10792652167202461,
+      "ms_std": 0.003595118012831582,
+      "ms_mad": 0.00070908572524786,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.1296249683946371,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.13795243354425543,
+      "ms_std": 0.033829182454365364,
+      "ms_mad": 0.02391706220805645,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.09199988562613726,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09753170334512279,
+      "ms_std": 0.015197254661214504,
+      "ms_mad": 0.008958159014582634,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.20579202100634575,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2065775084442326,
+      "ms_std": 0.01628650964900273,
+      "ms_mad": 0.012208125554025173,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11037499643862247,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11714871063651074,
+      "ms_std": 0.010942332686185824,
+      "ms_mad": 0.002333894371986389,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.095625058747828,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.102454341859335,
+      "ms_std": 0.016205567625736446,
+      "ms_mad": 0.010042102076113224,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.11833303142338991,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11777768044599465,
+      "ms_std": 0.004633199431160806,
+      "ms_mad": 0.001334003172814846,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.09920797310769558,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09883928023988292,
+      "ms_std": 0.025641619885188194,
+      "ms_mad": 0.018040882423520088,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.23562507703900337,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2408490926470785,
+      "ms_std": 0.01678129632170642,
+      "ms_mad": 0.005874899215996265,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.022208085283637047,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.021942403344880967,
+      "ms_std": 0.000703060641514031,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.04491605795919895,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.043487963488414175,
+      "ms_std": 0.005403468314229769,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.34804106689989567,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.35101185286683695,
+      "ms_std": 0.02210653415265391,
+      "ms_mad": 0.013624085113406181,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.24662504438310862,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2561784792868864,
+      "ms_std": 0.023143861740814765,
+      "ms_mad": 0.014542019926011562,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.0301670515909791,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03002195929487546,
+      "ms_std": 0.001286689139906095,
+      "ms_mad": 0.0008749775588512421,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06754195783287287,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06972213963135368,
+      "ms_std": 0.010593723496382422,
+      "ms_mad": 0.008041039109230042,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.032708048820495605,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.044599153278839024,
+      "ms_std": 0.04737041202704458,
+      "ms_mad": 0.0028740614652633667,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.47166598960757256,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.47577160876244307,
+      "ms_std": 0.0294830581792562,
+      "ms_mad": 0.008790986612439156,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05024997517466545,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0490318662265227,
+      "ms_std": 0.002056774970284262,
+      "ms_mad": 0.00016600824892520905,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06345799192786217,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06583932277169965,
+      "ms_std": 0.004110148906423187,
+      "ms_mad": 0.0007490161806344986,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4747080383822322,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.47056147429559914,
+      "ms_std": 0.04509404253432376,
+      "ms_mad": 0.019708997569978237,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.9501250460743904,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9861270442516321,
+      "ms_std": 0.08367308875686845,
+      "ms_mad": 0.03745907451957464,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06254203617572784,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0637223156878636,
+      "ms_std": 0.0025418984339117927,
+      "ms_mad": 8.405186235904694e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4629999166354537,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.47187489413079764,
+      "ms_std": 0.01851105760103445,
+      "ms_mad": 0.0032498501241207123,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.665667001157999,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7028591907804921,
+      "ms_std": 0.16600901304632174,
+      "ms_mad": 0.06095797289162874,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.4553340151906013,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.497234145755924,
+      "ms_std": 0.16635187943573537,
+      "ms_mad": 0.08558202534914017,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.06816699169576168,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07055942080028,
+      "ms_std": 0.004647794495114042,
+      "ms_mad": 0.00012491364032030106,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03333389759063721,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.02602189557538146,
+      "ms_std": 0.009621852131687926,
+      "ms_mad": 8.312053978443146e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.10316702537238598,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.10041652491227501,
+      "ms_std": 0.0181525805415491,
+      "ms_mad": 0.00437488779425621,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.465832999907434,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.47224019432351705,
+      "ms_std": 0.02808288781061556,
+      "ms_mad": 0.007166992872953415,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.059333047829568386,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06044843965875251,
+      "ms_std": 0.002199628815363554,
+      "ms_mad": 0.00012596137821674347,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.11958298273384571,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.11994263401166314,
+      "ms_std": 0.003225524698815427,
+      "ms_mad": 0.0018329592421650887,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5003750557079911,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5110159205893675,
+      "ms_std": 0.06488211378025527,
+      "ms_mad": 0.03900006413459778,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4990000743418932,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.49180552429918734,
+      "ms_std": 0.05214078916423209,
+      "ms_mad": 0.03845791798084974,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4830000689253211,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.49267452032793135,
+      "ms_std": 0.050772170422896896,
+      "ms_mad": 0.026416964828968048,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.3983750250190496,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.4419860893949157,
+      "ms_std": 0.15621094706530342,
+      "ms_mad": 0.056124874390661716,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5024159327149391,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5869246365147687,
+      "ms_std": 0.19731797532409343,
+      "ms_mad": 0.0669568544253707,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.43174996972084045,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.44621222297705354,
+      "ms_std": 0.05113975279186785,
+      "ms_mad": 0.017625046893954277,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4863329231739044,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5455893198294299,
+      "ms_std": 0.14762748468512532,
+      "ms_mad": 0.03887491766363382,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4230419872328639,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4380436037622747,
+      "ms_std": 0.057220043133617365,
+      "ms_mad": 0.026333960704505444,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.331708044745028,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.348698301063407,
+      "ms_std": 0.0774857898952468,
+      "ms_mad": 0.03783300053328276,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.9392500398680568,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9488907530016841,
+      "ms_std": 0.08317565292923597,
+      "ms_mad": 0.03899994771927595,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8637499995529652,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8772440376647171,
+      "ms_std": 0.06158346336924212,
+      "ms_mad": 0.02762500662356615,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.19029201939702034,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.19571029337211734,
+      "ms_std": 0.03332908210806936,
+      "ms_mad": 0.018457998521625996,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.17483404371887445,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.18421837705231847,
+      "ms_std": 0.023804398623130604,
+      "ms_mad": 0.008082948625087738,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1979170376434922,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.2186804365011907,
+      "ms_std": 0.07044655274129112,
+      "ms_mad": 0.039041973650455475,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8597919950261712,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8964127572696834,
+      "ms_std": 0.13921268314837437,
+      "ms_mad": 0.04737498238682747,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2234580460935831,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2447240985929966,
+      "ms_std": 0.0599781673293478,
+      "ms_mad": 0.029625953175127506,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.37212506867945194,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.38313085678964853,
+      "ms_std": 0.04954830516592229,
+      "ms_mad": 0.022625084966421127,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.21458393894135952,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.26898004580289125,
+      "ms_std": 0.11264828688221115,
+      "ms_mad": 0.02566794864833355,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.514833071269095,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.5377995857436741,
+      "ms_std": 0.0660472521609256,
+      "ms_mad": 0.013833981938660145,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.23387500550597906,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2634742330493672,
+      "ms_std": 0.09901260878355227,
+      "ms_mad": 0.013042008504271507,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2611670643091202,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.26702170725911856,
+      "ms_std": 0.0309297646633695,
+      "ms_mad": 0.021165935322642326,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.4039999805390835,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.41821033321321,
+      "ms_std": 0.0406355644383186,
+      "ms_mad": 0.010291929356753826,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.1657500183209777,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.2098234621807933,
+      "ms_std": 0.09320466844286725,
+      "ms_mad": 0.01837499439716339,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2512499922886491,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.27432935201518593,
+      "ms_std": 0.060639108102982106,
+      "ms_mad": 0.013833981938660145,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.5290419105440378,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.551557576195115,
+      "ms_std": 0.07368526871782653,
+      "ms_mad": 0.02395885530859232,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.9376249983906746,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9810198517959743,
+      "ms_std": 0.1352217931127137,
+      "ms_mad": 0.05962501745671034,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 3.1648330623283982,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 3.149668475435603,
+      "ms_std": 0.09208778622901459,
+      "ms_mad": 0.09412504732608795,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.4486669786274433,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.46220443965423674,
+      "ms_std": 0.029489915566767257,
+      "ms_mad": 0.008083879947662354,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.13404199853539467,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.14311311367366994,
+      "ms_std": 0.02194598930182113,
+      "ms_mad": 0.008126022294163704,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3931670216843486,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4055118520877191,
+      "ms_std": 0.03271744885054075,
+      "ms_mad": 0.009417068213224411,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.5371659537777305,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.5584464473206372,
+      "ms_std": 0.0488708512371663,
+      "ms_mad": 0.020001083612442017,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2506669843569398,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.2567024701940162,
+      "ms_std": 0.019493774125278137,
+      "ms_mad": 0.009499955922365189,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.17141597345471382,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.17167475917154834,
+      "ms_std": 0.0015664787577187476,
+      "ms_mad": 0.0009159557521343231,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8848330471664667,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8877302808243603,
+      "ms_std": 0.04901713936617235,
+      "ms_mad": 0.026458059437572956,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8239580783993006,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8378015786764168,
+      "ms_std": 0.028532390454979472,
+      "ms_mad": 0.007749069482088089,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9002919541671872,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9086923784620705,
+      "ms_std": 0.020636984248794236,
+      "ms_mad": 0.005958951078355312,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.8178329337388277,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.8259920124408036,
+      "ms_std": 0.0743908221237621,
+      "ms_mad": 0.05433289334177971,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8294580038636923,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8470792977494144,
+      "ms_std": 0.03399873281299561,
+      "ms_mad": 0.008916947990655899,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7515420438721776,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7611706608995086,
+      "ms_std": 0.027425848886936305,
+      "ms_mad": 0.00862486194819212,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.8439159719273448,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8593629269550244,
+      "ms_std": 0.03344989876518313,
+      "ms_mad": 0.008333008736371994,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7515000179409981,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7645337166087258,
+      "ms_std": 0.03191506816025811,
+      "ms_mad": 0.0075409188866615295,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.6767909983173013,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.6854819952554645,
+      "ms_std": 0.06440187373642647,
+      "ms_mad": 0.03645801916718483,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.4577080039307475,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.4853292353717342,
+      "ms_std": 0.06428301761942674,
+      "ms_mad": 0.024707987904548645,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.0812080474570394,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.0798691160356007,
+      "ms_std": 0.06993936489507648,
+      "ms_mad": 0.04191603511571884,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.5715830959379673,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.5811269071751408,
+      "ms_std": 0.040595454642684825,
+      "ms_mad": 0.021041836589574814,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 0.39487495087087154,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.40430352757019655,
+      "ms_std": 0.03032274393296878,
+      "ms_mad": 0.001125154085457325,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 2.9342080233618617,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.9348471434786916,
+      "ms_std": 0.07263780974531737,
+      "ms_mad": 0.022875028662383556,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 1.824666978791356,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.856783948217829,
+      "ms_std": 0.08350938412204179,
+      "ms_mad": 0.01695798709988594,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.03850006032735109,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.03892059681848401,
+      "ms_std": 0.0027002016740451853,
+      "ms_mad": 0.0011670636013150215,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08124997839331627,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0877818591626627,
+      "ms_std": 0.016697527403289582,
+      "ms_mad": 0.0085409265011549,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04716706462204456,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.052601082383521965,
+      "ms_std": 0.02349915874183763,
+      "ms_mad": 0.004500150680541992,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.12733298353850842,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.12920848426542111,
+      "ms_std": 0.006108731803581066,
+      "ms_mad": 0.0026259804144501686,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.05974993109703064,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.06205556426374685,
+      "ms_std": 0.0030969139089091938,
+      "ms_mad": 0.000125030055642128,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08220796007663012,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0843570977892904,
+      "ms_std": 0.005263648069936088,
+      "ms_mad": 8.300412446260452e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08600007276982069,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.09577171433539618,
+      "ms_std": 0.023436121500614044,
+      "ms_mad": 0.0032080570235848427,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.4558749971911311,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.4972200927635033,
+      "ms_std": 0.12292230127970125,
+      "ms_mad": 0.049875001423060894,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08366710972040892,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08585515232490641,
+      "ms_std": 0.004121382950837661,
+      "ms_mad": 0.00170909333974123,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.145458965562284,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1458154847135856,
+      "ms_std": 0.008589596172072844,
+      "ms_mad": 0.005458947271108627,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.20587490871548653,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.25599218705402954,
+      "ms_std": 0.10946229332427838,
+      "ms_mad": 0.017165904864668846,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.133708097971976,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.2107737604528666,
+      "ms_std": 0.23109755052777523,
+      "ms_mad": 0.1295000547543168,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.01920794602483511,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.020517867856792042,
+      "ms_std": 0.003088455864163969,
+      "ms_mad": 4.21423465013504e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.04558300133794546,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.044325654882760274,
+      "ms_std": 0.005736299549160431,
+      "ms_mad": 4.109460860490799e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.13341696467250586,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.13813308794938384,
+      "ms_std": 0.046582767635555494,
+      "ms_mad": 0.012291944585740566,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.08287501987069845,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.08342458334352289,
+      "ms_std": 0.001260956835812996,
+      "ms_mad": 0.000250060111284256,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.07895799353718758,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.07930347540726264,
+      "ms_std": 0.0011044421040068244,
+      "ms_mad": 0.0004159519448876381,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.20145904272794724,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.21277395786628836,
+      "ms_std": 0.041875047678935656,
+      "ms_mad": 0.015874975360929966,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6753751076757908,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6998808766227393,
+      "ms_std": 0.09143662843562123,
+      "ms_mad": 0.06341713014990091,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6722089601680636,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6889604874664829,
+      "ms_std": 0.10142280176069046,
+      "ms_mad": 0.04466692917048931,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6790830520913005,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7104384657439022,
+      "ms_std": 0.12903332978890703,
+      "ms_mad": 0.04775007255375385,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7709589553996921,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8163869691391786,
+      "ms_std": 0.11826285028439842,
+      "ms_mad": 0.05712395068258047,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6350410403683782,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6518591960359897,
+      "ms_std": 0.06131461059046329,
+      "ms_mad": 0.02775003667920828,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5904159042984247,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6002578718055572,
+      "ms_std": 0.060325830329602884,
+      "ms_mad": 0.029209069907665253,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.6434169374406338,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.6999899941895689,
+      "ms_std": 0.2852833852224759,
+      "ms_mad": 0.1265000319108367,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6387499161064625,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6522916678694033,
+      "ms_std": 0.0741498448613858,
+      "ms_mad": 0.03391597419977188,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.6764589343219995,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6819186521516669,
+      "ms_std": 0.08679978598410781,
+      "ms_mad": 0.0355009688064456,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9079580195248127,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9980792778411082,
+      "ms_std": 0.23694906948585637,
+      "ms_mad": 0.05737494211643934,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.7591670146211982,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7878113371719208,
+      "ms_std": 0.1672498786442607,
+      "ms_mad": 0.07504201494157314,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1710840044543147,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1711468188358205,
+      "ms_std": 0.0847329541001582,
+      "ms_mad": 0.06333307828754187,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.18779200036078691,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.20777980153936715,
+      "ms_std": 0.04665000646605071,
+      "ms_mad": 0.01750001683831215,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 0.2387920394539833,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.24807749183050223,
+      "ms_std": 0.0261218155394194,
+      "ms_mad": 0.017125043086707592,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.607874990440905,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.6567697305054891,
+      "ms_std": 0.1157560314966773,
+      "ms_mad": 0.038917060010135174,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1452080216258764,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1748331876116849,
+      "ms_std": 0.12277546966348546,
+      "ms_mad": 0.08045800495892763,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.18937501590698957,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.1876925816759467,
+      "ms_std": 0.018237997942187445,
+      "ms_mad": 0.01750001683831215,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5144169554114342,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5222600053197571,
+      "ms_std": 0.07053513481420269,
+      "ms_mad": 0.04608393646776676,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2140409778803587,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.22339681163430214,
+      "ms_std": 0.03210085484264707,
+      "ms_mad": 0.024582957848906517,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.054999931715429,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.1341865150524035,
+      "ms_std": 0.2451081487001801,
+      "ms_mad": 0.0831669894978404,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3250419395044446,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.33881356717929956,
+      "ms_std": 0.0726155037045554,
+      "ms_mad": 0.03629201091825962,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.358999939635396,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.37254370372032836,
+      "ms_std": 0.05621205535014658,
+      "ms_mad": 0.019167084246873856,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.1791670005768538,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.269813397322737,
+      "ms_std": 0.2885765708594656,
+      "ms_mad": 0.16749906353652477,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.9840419301763177,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.9762084706730785,
+      "ms_std": 0.11432998502268027,
+      "ms_mad": 0.08483394049108028,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.34345791209489107,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.35362694567690295,
+      "ms_std": 0.039755211900248714,
+      "ms_mad": 0.014249002560973167,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.9621250685304403,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.9878571453903402,
+      "ms_std": 0.1147368323658999,
+      "ms_mad": 0.035667093470692635,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 2.3090000031515956,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.359446526194612,
+      "ms_std": 0.17874286897763209,
+      "ms_mad": 0.08666596841067076,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 4.212916945107281,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 4.21611128175365,
+      "ms_std": 0.16112272348609044,
+      "ms_mad": 0.12462493032217026,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.398874981328845,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4054306108238442,
+      "ms_std": 0.03562506421816236,
+      "ms_mad": 0.01670804340392351,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.20229199435561895,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.19762487084205663,
+      "ms_std": 0.026877460642039268,
+      "ms_mad": 0.01870805863291025,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.5793750751763582,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5640594089137656,
+      "ms_std": 0.07502310976710388,
+      "ms_mad": 0.030166935175657272,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.9600419327616692,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.027019708683448,
+      "ms_std": 0.13965784597469302,
+      "ms_mad": 0.020750914700329304,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3397080581635237,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3376746705422799,
+      "ms_std": 0.019177049022092114,
+      "ms_mad": 0.01629104372113943,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.14875002671033144,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.23414487839632092,
+      "ms_std": 0.18505947596328787,
+      "ms_mad": 0.010375049896538258,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1627499479800463,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1645337078897726,
+      "ms_std": 0.0699843598149311,
+      "ms_mad": 0.014124903827905655,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0799169540405273,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.0884049171138377,
+      "ms_std": 0.056584232859782424,
+      "ms_mad": 0.03174995072185993,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1583749437704682,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1722539950694357,
+      "ms_std": 0.03358748537341159,
+      "ms_mad": 0.012165983207523823,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.299125052057207,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 4.295595151017464,
+      "ms_std": 0.06145773770335258,
+      "ms_mad": 0.054375152103602886,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1161250295117497,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1293611245318538,
+      "ms_std": 0.035697046778700246,
+      "ms_mad": 0.006792019121348858,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.0022089118137956,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9933135616371319,
+      "ms_std": 0.050351408591673696,
+      "ms_mad": 0.035208999179303646,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 1.1208750074729323,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.1319325671398215,
+      "ms_std": 0.035743533297380996,
+      "ms_mad": 0.019000028260052204,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.9437919361516833,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.9589683308842636,
+      "ms_std": 0.05260386890861833,
+      "ms_mad": 0.03295787610113621,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 4.309290903620422,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 4.291400812300188,
+      "ms_std": 0.07312046390443151,
+      "ms_mad": 0.04587508738040924,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 6.60283409524709,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 6.583859162804272,
+      "ms_std": 0.10849016059882137,
+      "ms_mad": 0.07258192636072636,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.7115829288959503,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.734383019352598,
+      "ms_std": 0.061041825539344376,
+      "ms_mad": 0.02874888014048338,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.4065829562023282,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.4163195789303808,
+      "ms_std": 0.02659517905837014,
+      "ms_mad": 0.005041016265749931,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.5351670552045107,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.5468749164027118,
+      "ms_std": 0.046056962286273276,
+      "ms_mad": 0.021875021047890186,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 3.968833014369011,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 3.9664998683812365,
+      "ms_std": 0.09558804152874716,
+      "ms_mad": 0.06804091390222311,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 2.2124170791357756,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 2.2443452395410057,
+      "ms_std": 0.07797810089304154,
+      "ms_mad": 0.03887386992573738,
+      "timing_n": 21
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.3059169976040721,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.3125773731707817,
+      "ms_std": 0.018066939273209844,
+      "ms_mad": 0.008708913810551167,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6578330649062991,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6726983757246108,
+      "ms_std": 0.034170950043523274,
+      "ms_mad": 0.011250143870711327,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.2856670180335641,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.30334542749360915,
+      "ms_std": 0.03303229596839114,
+      "ms_mad": 0.0027919886633753777,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 5.672624916769564,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 5.677751980588904,
+      "ms_std": 0.0928689099406759,
+      "ms_mad": 0.06037496495991945,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.6116250297054648,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.6715376706173023,
+      "ms_std": 0.22579887655836528,
+      "ms_mad": 0.009083072654902935,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.8281669579446316,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.8092083790827365,
+      "ms_std": 0.040891911197923916,
+      "ms_mad": 0.008833943866193295,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 5.696791922673583,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 5.696059420837888,
+      "ms_std": 0.099307314896962,
+      "ms_mad": 0.0647491542622447,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 14.052625047042966,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 14.158111137692773,
+      "ms_std": 0.4842570290263767,
+      "ms_mad": 0.3740839892998338,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.7809579838067293,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7830118217195073,
+      "ms_std": 0.032157660155236724,
+      "ms_mad": 0.009748968295753002,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 5.714667029678822,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 5.670833412469143,
+      "ms_std": 0.14074521239648777,
+      "ms_mad": 0.0814169179648161,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 11.305874912068248,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 11.481606989123282,
+      "ms_std": 0.4732400012802988,
+      "ms_mad": 0.20191690418869257,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 18.688458018004894,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 18.723422678054444,
+      "ms_std": 0.22487115621618223,
+      "ms_mad": 0.19229203462600708,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.5472089871764183,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.5708134742453694,
+      "ms_std": 0.06341417019549904,
+      "ms_mad": 0.013667973689734936,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.40020898450165987,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.41031364041070145,
+      "ms_std": 0.02664690842016727,
+      "ms_mad": 0.0032510142773389816,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.2128750095143914,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.2141270396698798,
+      "ms_std": 0.043861869544599946,
+      "ms_mad": 0.027082976885139942,
+      "timing_n": 21
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 5.659166956320405,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 5.637041697766454,
+      "ms_std": 0.08458565794701185,
+      "ms_mad": 0.05875015631318092,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 0.7686670869588852,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.7738848105959949,
+      "ms_std": 0.02704008506259723,
+      "ms_mad": 0.014042132534086704,
+      "timing_n": 21
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": 1.3122080126777291,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 1.3524483767382445,
+      "ms_std": 0.10108758057084269,
+      "ms_mad": 0.07254199590533972,
+      "timing_n": 21
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs float32",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 8.954416960477829,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 9.031230134756438,
+      "ms_std": 0.33559606167944733,
+      "ms_mad": 0.15100103337317705,
+      "timing_n": 21
+    },
+    {
+      "op": "add_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 6.979249999858439,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 6.905127056164756,
+      "ms_std": 0.33579564884633617,
+      "ms_mad": 0.12924999464303255,
+      "timing_n": 21
+    },
+    {
+      "op": "add_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 8.829792030155659,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 8.825597292300136,
+      "ms_std": 0.21997341987520072,
+      "ms_mad": 0.16224989667534828,
+      "timing_n": 21
+    },
+    {
+      "op": "add_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 12.454582960344851,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 12.50027961629842,
+      "ms_std": 0.3690071270999769,
+      "ms_mad": 0.2746658865362406,
+      "timing_n": 21
+    },
+    {
+      "op": "add_weighted",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 8.038915926590562,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 8.057416671709646,
+      "ms_std": 0.2136731321594372,
+      "ms_mad": 0.09087612852454185,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 7.2236660635098815,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 7.446494053250977,
+      "ms_std": 0.7193737542250088,
+      "ms_mad": 0.2733740257099271,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_add",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "error",
+      "detail": "ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "multiply_by_array",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 7.258499972522259,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 7.331976240190367,
+      "ms_std": 0.6668528269637584,
+      "ms_mad": 0.30933297239243984,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_constant",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 7.110332953743637,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 7.169926478083999,
+      "ms_std": 0.5111252904306997,
+      "ms_mad": 0.31929195392876863,
+      "timing_n": 21
+    },
+    {
+      "op": "multiply_by_vector",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 11.069750064052641,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 11.161817376324464,
+      "ms_std": 0.2289696829065924,
+      "ms_mad": 0.08495792280882597,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 17.253375030122697,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 17.869182524182612,
+      "ms_std": 4.433543509786457,
+      "ms_mad": 0.792665989138186,
+      "timing_n": 21
+    },
+    {
+      "op": "normalize_per_image",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 12.229416985064745,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 12.258351203941164,
+      "ms_std": 0.388696179461521,
+      "ms_mad": 0.2167500788345933,
+      "timing_n": 21
+    },
+    {
+      "op": "hflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 8.292625076137483,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 8.307075277636093,
+      "ms_std": 0.10549519125814037,
+      "ms_mad": 0.07308309432119131,
+      "timing_n": 21
+    },
+    {
+      "op": "vflip",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 3.037540940567851,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 3.0796825165106427,
+      "ms_std": 0.30336913362764917,
+      "ms_mad": 0.19666599109768867,
+      "timing_n": 21
+    },
+    {
+      "op": "median_blur",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "power",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 16.077458974905312,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 16.027553600170428,
+      "ms_std": 0.22966502920865703,
+      "ms_mad": 0.11499901302158833,
+      "timing_n": 21
+    },
+    {
+      "op": "sz_lut",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "to_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "needs uint8",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "from_float",
+      "layout": "HWC",
+      "shape": [
+        1024,
+        1024,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": 14.95445892214775,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 15.00731345731765,
+      "ms_std": 0.6857059513970977,
+      "ms_mad": 0.4243749426677823,
+      "timing_n": 21
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        128,
+        128,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        256,
+        256,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        1
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "uint8",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "mean_std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "std",
+      "layout": "NHWC",
+      "shape": [
+        4,
+        512,
+        512,
+        9
+      ],
+      "dtype": "float32",
+      "ms_median": null,
+      "status": "skip",
+      "detail": "missing API",
+      "ms_mean": null,
+      "ms_std": null,
+      "ms_mad": null,
+      "timing_n": null
+    },
+    {
+      "op": "matmul",
+      "layout": "2D",
+      "shape": [
+        128,
+        64,
+        64,
+        32
+      ],
+      "dtype": "float32",
+      "ms_median": 0.0019579892978072166,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.0019343237259558269,
+      "ms_std": 8.07042796835187e-05,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 21
+    },
+    {
+      "op": "pairwise_distances_squared",
+      "layout": "points",
+      "shape": [
+        24,
+        16,
+        3
+      ],
+      "dtype": "float32",
+      "ms_median": 0.002249958924949169,
+      "status": "ok",
+      "detail": "",
+      "ms_mean": 0.002261755677560965,
+      "ms_std": 7.361071917847594e-05,
+      "ms_mad": 4.190951585769653e-05,
+      "timing_n": 21
+    }
+  ]
+}

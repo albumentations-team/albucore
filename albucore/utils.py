@@ -115,6 +115,11 @@ def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Co
         if result.dtype == np.uint8:
             return result
 
+        if result.dtype == np.float32 and dtype == np.float32 and not np.shares_memory(result, img):
+            max_value = MAX_VALUES_BY_DTYPE[dtype]
+            np.clip(result, 0.0, max_value, out=result)
+            return result
+
         return clip(result, dtype)
 
     return wrapped_function
@@ -334,3 +339,31 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "num_channels": shape[-1],
         }
     raise ValueError("No valid image/volume data found in data dict")
+
+
+__all__ = [
+    "FOUR",
+    "MAX_OPENCV_WORKING_CHANNELS",
+    "MAX_VALUES_BY_DTYPE",
+    "NPDTYPE_TO_OPENCV_DTYPE",
+    "NUM_RGB_CHANNELS",
+    "TWO",
+    "ImageFloat32",
+    "ImageType",
+    "ImageUInt8",
+    "NormalizationType",
+    "P",
+    "SupportedDType",
+    "ValueType",
+    "clip",
+    "clipped",
+    "convert_value",
+    "get_image_data",
+    "get_max_value",
+    "get_num_channels",
+    "get_opencv_dtype_from_numpy",
+    "is_grayscale_image",
+    "is_multispectral_image",
+    "is_rgb_image",
+    "maybe_process_in_chunks",
+]
