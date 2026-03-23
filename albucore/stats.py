@@ -193,7 +193,7 @@ def _mean_per_channel(
     if arr.ndim == 3 and not keepdims and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         c = arr.shape[-1]
         mu = cv2.mean(arr)
-        return cast("np.ndarray", np.array(mu[:c], dtype=np.float64, copy=False))
+        return cast("np.ndarray", np.asarray(mu[:c], dtype=np.float64))
     return cast("np.ndarray", arr.mean(axis=axes, dtype=np.float64, keepdims=keepdims))
 
 
