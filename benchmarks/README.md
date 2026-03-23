@@ -39,10 +39,10 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_sum_mean_std_ravel.py`](benchmark_sum_mean_std_ravel.py) | Prints Markdown tables: NumPy vs NumKong sum/mean/std on `(H,W,C)`. |
 | [`benchmark_add_constant_uint8_channels.py`](benchmark_add_constant_uint8_channels.py) | uint8 scalar add: OpenCV vs LUT vs NumKong vs NumPy vs `add_constant` wrapper (C=5..9, several spatial sizes). |
 | [`benchmark_grayscale_paths.py`](benchmark_grayscale_paths.py) | Grayscale / routing sanity: uint8 per-channel multiply LUT vs OpenCV; float→uint8 NumPy vs cv2 (and cv2 (H,W,1) quirk). |
+| [`benchmark_scale_vs_lut.py`](benchmark_scale_vs_lut.py) | **`nk.scale` vs `sz_lut` (full-buffer) vs `cv2.LUT`** on uint8 — affine multiply-by-constant across the canonical HWC / DHWC / NDHWC shape grid; `median ± MAD` columns. |
 | [`benchmark_sz_lut_vs_cv2_lut.py`](benchmark_sz_lut_vs_cv2_lut.py) | `StringZilla` `translate` / `sz_lut` vs `cv2.LUT` on uint8: shared `(256,)` and per-channel `(256,1,C)` LUTs; shapes `HWC`, `DHWC`, `NDHWC`. LUTs are **non-trivial** (fixed-seed `permutation(256)`). |
 | [`benchmark_cv2_lut_vs_sz_lut_minimal.py`](benchmark_cv2_lut_vs_sz_lut_minimal.py) | Tiny standalone repro (no `albucore`): shared **permutation** LUT, markdown table — for upstream issues. |
 | [`issue_lut_uint8_standalone.py`](issue_lut_uint8_standalone.py) | **Self-contained** `cv2.LUT` vs StringZilla `translate`: shared + per-channel, **`LUT` new vs `dst`**, SZ copy vs reuse buffer. Copy into GitHub issues. |
-| [`results/ISSUE_opencv_vs_stringzilla_lut_COMPLETE.md`](results/ISSUE_opencv_vs_stringzilla_lut_COMPLETE.md) | Ready-to-paste **issue** text + embedded full script + **full benchmark tables** (example run). |
 | [`benchmark_lut_shared_routing.py`](benchmark_lut_shared_routing.py) | Grid sweep: when OpenCV beats StringZilla for **shared** HWC LUT vs `opencv_shared_uint8_lut_faster_hwc` (used by `apply_uint8_lut`). LUT: **permutation(256)**. |
 
 ### What compares what (sanity / routing)
@@ -53,6 +53,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | No | **Yes** | **Yes** | **Yes** (uint8 where applicable) | **Yes** |
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Partial (`multiply` / `add_array` paths) | **Yes** | **Yes** | **Yes** (uint8) | Via prod APIs |
 | [`benchmark_add_constant_uint8_channels.py`](benchmark_add_constant_uint8_channels.py) | **`add_constant`** | **`add_constant_numkong`** | **`add_opencv`** | **`add_lut`** | Saturated int16 reference |
+| [`benchmark_scale_vs_lut.py`](benchmark_scale_vs_lut.py) | No | **`nk.scale`** | **`cv2.LUT`** | **`sz_lut` full-buffer** | — |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | No | **Yes** | If installed | — | **Yes** |
 
 The **router** JSON is the regression guard vs an older wheel; it does **not** sweep alternate backends for the same op. Use the **multi-backend** scripts when checking “are we missing a faster library path?”.

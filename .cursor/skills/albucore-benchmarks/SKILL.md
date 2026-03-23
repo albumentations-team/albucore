@@ -13,6 +13,40 @@ description: Running albucore micro-benchmarks under benchmarks/, synthetic rout
 - **`benchmarks/benchmark_router_synthetic.py`** — times **public routers** on synthetic `uint8` / `float32` arrays: `HWC`, plus **`NHWC` for `mean` / `std` / `mean_std` only** (OpenCV paths are 3D).
 - **`benchmarks/compare_router_json.py`** — Markdown table from two JSON outputs.
 
+## Canonical shape grid
+
+All benchmark scripts that sweep shapes use this grid (channel-last, Albucore convention):
+
+**HWC `(H, W, C)` — 2-D spatial images**
+
+| Size | Channels | Notes |
+|------|----------|-------|
+| 128×128 | 1, 3, 9 | Small / warm-cache; fast iteration |
+| 256×256 | 1, 3, 9 | Mid-size crop |
+| 512×512 | 1, 3, 9 | Typical augmentation training crop |
+| 1024×1024 | 1, 3, 9 | High-res / full-image pass |
+
+**DHWC `(D, H, W, C)` — 3-D volumes (nnU-Net / medical patches)**
+
+| Shape | Notes |
+|-------|-------|
+| 16×128×128×1, 16×128×128×3 | Thin slab, single/multi contrast |
+| 32×128×128×1, 32×128×128×3 | Common nnU-Net patch depth |
+| 64×128×128×3 | Deeper slab |
+| 128×128×128×1 | Isotropic cube, 1-ch |
+| 48×256×256×3 | Large in-plane, multi-ch |
+
+**NDHWC `(N, D, H, W, C)` — batch of volumes**
+
+| Shape | Notes |
+|-------|-------|
+| 2×32×128×128×1 | Small batch, 1-ch |
+| 2×32×128×128×3, 2×64×128×128×3 | Small batch, 3-ch |
+| 4×16×128×128×3 | Wider batch, thin slab |
+
+Channel choices: **1** (grayscale), **3** (RGB / 3-ch), **9** (hyperspectral; exceeds
+`MAX_OPENCV_WORKING_CHANNELS=4` so exercises NumPy/NK fallback paths).
+
 ## Compare current tree vs PyPI release
 
 ```bash
