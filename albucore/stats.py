@@ -75,16 +75,22 @@ def reduce_sum(
 ) -> np.uint64 | np.float64 | np.ndarray:
     r"""Sum over image tensor axes with benchmark-driven routing.
 
-    * **uint8**, ``axis`` global or ``"per_channel"``: NumKong (wide accumulator).
-    * **float32** or any other axis layout: NumPy ``numpy.sum`` with ``dtype=uint64`` / ``float64``.
+    Routing:
+    - **uint8 global**: NumKong ``Tensor.sum`` on flat bytes (wide uint64 accumulator; avoids
+      uint8 overflow).
+    - **uint8 per-channel, ndim == 3**: NumKong chained ``Tensor.sum`` over spatial axes
+      (H, then W); falls back to NumPy for higher-rank tensors where the overhead outweighs
+      the benefit.
+    - **float32** or any other axis layout: ``numpy.sum(dtype=float64)``.
 
-    ``axis="per_channel"`` reduces all axes except the last (channel), matching
-    :func:`mean` / :func:`std`. NumKong only allows one reduction axis per call, so
-    that path chains ``Tensor.sum`` over spatial dimensions (no reshape).
+    ``axis="per_channel"`` reduces all spatial axes (everything except the last / channel dim),
+    matching the convention used by :func:`mean` and :func:`std`.
+
+    Alternative: ``mean`` / ``std`` / ``mean_std`` for normalised statistics.
 
     Args:
         arr: ``uint8`` or ``float32`` array with explicit channel dimension.
-        axis: ``None`` / ``\"global\"`` → one scalar; ``\"per_channel\"`` → shape ``(C,)``;
+        axis: ``None`` / ``"global"`` → one scalar; ``"per_channel"`` → shape ``(C,)``;
             or explicit ``int`` / ``tuple[int, ...]`` (NumPy path).
         keepdims: Same semantics as :func:`numpy.sum`.
 
@@ -220,7 +226,30 @@ def mean_std(
     keepdims: bool = False,
     eps: float = DEFAULT_EPS,
 ) -> tuple[np.floating | float | np.ndarray, np.floating | float | np.ndarray]:
-    """Population mean and (std + eps). ``axis='per_channel'`` reduces over all but channel."""
+    """Compute population mean and standard deviation (+ eps) jointly.
+
+    More efficient than calling ``mean`` and ``std`` separately when both are needed,
+    because the uint8 global path uses a single ``nk.moments`` pass.
+
+    Routing:
+    - **uint8 global**: NumKong ``moments`` (single pass over flat bytes; wide accumulator).
+    - **uint8 per-channel, 3D**: NumKong chained ``Tensor.sum`` over spatial axes.
+    - **float32 global**: ``np.mean`` + ``np.std`` (``dtype=float64`` for accuracy).
+    - **float32 / any per-channel, ndim ≤ 3, C ≤ 4**: ``cv2.meanStdDev``.
+    - **everything else**: NumPy ``mean``/``std``.
+
+    Alternative: ``mean`` or ``std`` if only one statistic is needed.
+
+    Args:
+        arr: uint8 or float32 image/batch/volume with explicit channel dimension.
+        axis: ``None`` / ``"global"`` → one scalar pair; ``"per_channel"`` → ``(C,)`` pair;
+            explicit ``int`` / ``tuple[int, ...]`` for NumPy-style axes.
+        keepdims: Preserve reduced dimensions (same semantics as NumPy).
+        eps: Added to std to prevent division-by-zero (default ``1e-4``).
+
+    Returns:
+        ``(mean, std + eps)`` — scalars for global reduction, arrays for per-channel.
+    """
     axes = _resolve_axes(arr, axis)
     if axes is None:
         return _mean_std_global(arr, keepdims=keepdims, eps=eps)
@@ -234,7 +263,26 @@ def mean(
     keepdims: bool = False,
     dtype: DTypeLike | None = None,
 ) -> np.floating | float | np.ndarray:
-    """Population mean. Float32 uses a single ``np.mean`` pass (not ``mean_std``)."""
+    """Compute population mean over image tensor axes.
+
+    Routing:
+    - **uint8 global**: NumKong ``moments`` (single pass, wide accumulator; avoids sqrt).
+    - **float32 global**: ``np.mean(dtype=float64)``.
+    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.mean`` (fastest for HWC images).
+    - **everything else**: ``arr.mean(dtype=float64)``.
+
+    Alternative: ``mean_std`` if std is also needed (avoids a second pass for uint8).
+
+    Args:
+        arr: uint8 or float32 image/batch/volume with explicit channel dimension.
+        axis: ``None`` / ``"global"`` → one scalar; ``"per_channel"`` → ``(C,)`` array;
+            explicit ``int`` / ``tuple[int, ...]`` for NumPy-style axes.
+        keepdims: Preserve reduced dimensions.
+        dtype: Cast the output to this dtype (e.g. ``np.float32``).
+
+    Returns:
+        Scalar or array of float64 means (cast to ``dtype`` if provided).
+    """
     axes = _resolve_axes(arr, axis)
     m = _mean_global(arr, keepdims=keepdims) if axes is None else _mean_per_channel(arr, axes, keepdims=keepdims)
     if dtype is not None:
@@ -250,7 +298,27 @@ def std(
     eps: float = DEFAULT_EPS,
     dtype: DTypeLike | None = None,
 ) -> np.floating | float | np.ndarray:
-    """Population std (+ eps). Float32 uses a single ``np.std`` pass (not ``mean_std``)."""
+    """Compute population standard deviation (+ eps) over image tensor axes.
+
+    Routing:
+    - **uint8 global**: NumKong ``moments`` (single pass, wide accumulator).
+    - **float32 global**: ``np.std(dtype=float64)``.
+    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.meanStdDev`` (fastest for HWC images).
+    - **everything else**: ``arr.std(dtype=float64)``.
+
+    Alternative: ``mean_std`` if mean is also needed (avoids a redundant pass for uint8).
+
+    Args:
+        arr: uint8 or float32 image/batch/volume with explicit channel dimension.
+        axis: ``None`` / ``"global"`` → one scalar; ``"per_channel"`` → ``(C,)`` array;
+            explicit ``int`` / ``tuple[int, ...]`` for NumPy-style axes.
+        keepdims: Preserve reduced dimensions.
+        eps: Added to std to prevent division-by-zero (default ``1e-4``).
+        dtype: Cast the output to this dtype (e.g. ``np.float32``).
+
+    Returns:
+        Scalar or array of float64 stds + eps (cast to ``dtype`` if provided).
+    """
     axes = _resolve_axes(arr, axis)
     s = (
         _std_global(arr, keepdims=keepdims, eps=eps)

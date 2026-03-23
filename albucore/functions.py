@@ -3,9 +3,10 @@
 
 from albucore.arithmetic import *
 from albucore.convert import *
+from albucore.lut import apply_uint8_lut, sz_lut
 from albucore.normalize import *
 from albucore.ops_misc import *
-from albucore.stats import mean, mean_std, std
+from albucore.stats import mean, mean_std, reduce_sum, std
 
 __all__: list[str] = [
     "add",
@@ -13,6 +14,7 @@ __all__: list[str] = [
     "add_constant",
     "add_vector",
     "add_weighted",
+    "apply_uint8_lut",
     "float32_io",
     "from_float",
     "hflip",
@@ -29,6 +31,7 @@ __all__: list[str] = [
     "normalize_per_image",
     "pairwise_distances_squared",
     "power",
+    "reduce_sum",
     "std",
     "sz_lut",
     "to_float",
