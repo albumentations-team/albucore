@@ -83,6 +83,9 @@ celerybeat-schedule
 # SageMath parsed files
 *.sage.py
 
+# uv (regenerate locally: uv lock)
+uv.lock
+
 # Environments
 .env
 .venv
