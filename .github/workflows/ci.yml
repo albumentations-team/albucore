@@ -6,23 +6,21 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Install uv and set Python version ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@v5
+      - name: Install uv and Python 3.10
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
           enable-cache: true
           cache-dependency-glob: |
             requirements-dev.txt
@@ -34,15 +32,13 @@ jobs:
           uv pip install -r requirements-dev.txt
 
       - name: Check code formatting with pre-commit
-        if: matrix.python-version == '3.10'
         run: pre-commit run --all-files --show-diff-on-failure
 
       - name: Run tests with coverage
         run: pytest tests/ --cov=albucore --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.10'
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
