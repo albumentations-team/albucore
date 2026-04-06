@@ -253,7 +253,7 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
         return float(value) if isinstance(value, (float, int)) else value.item()
 
     # Handle numpy arrays
-    if isinstance(value, np.ndarray):  # type: ignore[unreachable]
+    if isinstance(value, np.ndarray):
         # Return scalars and 0-dim arrays as float
         if value.ndim == 0:
             return value.item()

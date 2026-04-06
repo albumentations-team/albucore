@@ -56,19 +56,17 @@ def main() -> None:
         for c in channels:
             img = rng.random((h, w, c), dtype=np.float32)
             n = h * w * c
-            flat = np.ascontiguousarray(img.reshape(-1))
-            t = nk.Tensor(flat)
 
             t_np = median_ms(lambda: float(img.sum()))
-            t_nk = median_ms(lambda: float(t.sum()))
+            t_nk = median_ms(lambda: float(nk.sum(img)))
             wn = "NumPy" if t_np <= t_nk else "NumKong"
             print(f"| {h}×{w} | {c} | {n} | sum | {t_np:.4f} | {t_nk:.4f} | {wn} |")
 
             t_np = median_ms(lambda: float(img.mean()))
 
-            def nk_mean() -> None:
-                s, _ = nk.moments(nk.Tensor(flat))
-                float(s) / n
+            def nk_mean(a=img) -> None:
+                s, _ = nk.moments(a)
+                float(s) / a.size
 
             t_nk = median_ms(nk_mean)
             wn = "NumPy" if t_np <= t_nk else "NumKong"
@@ -76,10 +74,10 @@ def main() -> None:
 
             t_np = median_ms(lambda: float(img.std()) + eps)
 
-            def nk_std() -> None:
-                s, s2 = nk.moments(nk.Tensor(flat))
-                m = float(s) / n
-                v = max(float(s2) / n - m * m, 0.0)
+            def nk_std(a=img) -> None:
+                s, s2 = nk.moments(a)
+                m = float(s) / a.size
+                v = max(float(s2) / a.size - m * m, 0.0)
                 float(np.sqrt(v)) + eps
 
             t_nk = median_ms(nk_std)
@@ -96,16 +94,15 @@ def main() -> None:
         for c in channels:
             img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
             n = h * w * c
-            flat = np.ascontiguousarray(img.reshape(-1))
 
-            def np_two() -> None:
-                float(img.mean())
-                float(img.std()) + eps
+            def np_two(a=img) -> None:
+                float(a.mean())
+                float(a.std()) + eps
 
-            def nk_two() -> None:
-                s, s2 = nk.moments(nk.Tensor(flat))
-                m = float(s) / n
-                v = max(float(s2) / n - m * m, 0.0)
+            def nk_two(a=img) -> None:
+                s, s2 = nk.moments(a)
+                m = float(s) / a.size
+                v = max(float(s2) / a.size - m * m, 0.0)
                 float(np.sqrt(v)) + eps
 
             t_np = median_ms(np_two)
