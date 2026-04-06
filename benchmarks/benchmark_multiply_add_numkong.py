@@ -39,6 +39,9 @@ def nk_scale_flat(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
 
 def nk_scale_inplace(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
     """In-place nk.scale: writes result back into img's buffer (requires C-contiguous input)."""
+    if not img.flags["C_CONTIGUOUS"]:
+        msg = "nk_scale_inplace requires a C-contiguous input array"
+        raise ValueError(msg)
     flat = img.reshape(-1)
     nk.scale(flat, alpha=alpha, beta=beta, out=flat)
     raw = flat.reshape(img.shape)

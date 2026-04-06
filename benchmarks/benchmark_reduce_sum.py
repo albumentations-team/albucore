@@ -1,7 +1,7 @@
 # ruff: noqa: T201, B023, INP001
 """sum / mean / std routing: prod (albucore.stats) vs nk candidates vs NumPy.
 
-Four operations, uint8 + float32, HWC / DHWC / NHWC shapes:
+Five operations, uint8 + float32, HWC / DHWC / NHWC shapes:
   - sum global
   - sum per-channel  (all spatial axes → shape (C,))
   - mean global      — three nk paths: nk.sum/n, nk.moments/n, prod (moments for uint8)

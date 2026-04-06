@@ -86,9 +86,10 @@ def reduce_sum(
     - **uint8 global**: NumKong ``nk.sum`` (wide uint64 accumulator; avoids uint8 overflow).
     - **uint8 per-channel**: NumKong ``nk.sum(arr, axis=spatial_axes)`` — single call over
       all spatial dimensions for all ranks (HWC, DHWC, NHWC, …).
+    - **float32 global**: ``numpy.sum(dtype=float64)``.
     - **float32 per-channel, ndim ≤ 4, 1 < C ≤ 4**: NumKong ``nk.sum`` — 4x faster than
       numpy for RGB/RGBA images and 4-D batch/volume layouts.
-    - **float32 global, float32 C=1 or C>4**: ``numpy.sum(dtype=float64)``.
+    - **float32 per-channel, C=1 or C>4, or explicit-axis cases**: ``numpy.sum(dtype=float64)``.
 
     ``axis="per_channel"`` reduces all spatial axes (everything except the last / channel dim),
     matching the convention used by :func:`mean` and :func:`std`.
@@ -295,7 +296,7 @@ def mean(
     """Compute population mean over image tensor axes.
 
     Routing:
-    - **uint8 global**: NumKong ``nk.moments`` (single pass, wide accumulator; avoids sqrt).
+    - **uint8 global**: NumKong ``nk.sum(arr) / N`` (single reduction; avoids moments/sqrt work).
     - **uint8 per-channel**: NumKong ``nk.sum(spatial_axes) / n`` — wins for all shapes
       and channel counts (2x over cv2.mean for HWC C=3, 40x for NHWC/DHWC).
     - **float32 global**: ``np.mean(dtype=float64)``.
