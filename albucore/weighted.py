@@ -29,7 +29,7 @@ def multiply_by_constant_numkong(img: ImageType, value: float) -> ImageType:
     original_shape = img.shape
     original_dtype = img.dtype
     flat = np.ascontiguousarray(img).reshape(-1)
-    out = nk.scale(nk.Tensor(flat), alpha=float(value), beta=0.0)
+    out = nk.scale(flat, alpha=float(value), beta=0.0)
     return np.frombuffer(out, dtype=original_dtype).reshape(original_shape)
 
 
@@ -38,5 +38,5 @@ def add_constant_numkong(img: ImageType, value: float) -> ImageType:
     original_shape = img.shape
     original_dtype = img.dtype
     flat = np.ascontiguousarray(img).reshape(-1)
-    out = nk.scale(nk.Tensor(flat), alpha=1.0, beta=float(value))
+    out = nk.scale(flat, alpha=1.0, beta=float(value))
     return np.frombuffer(out, dtype=original_dtype).reshape(original_shape)

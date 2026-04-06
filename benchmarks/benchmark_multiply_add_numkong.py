@@ -30,8 +30,21 @@ from timing import median_ms
 
 def nk_scale_flat(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
     flat = np.ascontiguousarray(img).reshape(-1)
-    out = nk.scale(nk.Tensor(flat), alpha=alpha, beta=beta)
+    out = nk.scale(flat, alpha=alpha, beta=beta)
     raw = np.frombuffer(out, dtype=img.dtype).reshape(img.shape)
+    if img.dtype == np.float32:
+        return clip(raw, np.float32)
+    return clip(raw, np.uint8)
+
+
+def nk_scale_inplace(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
+    """In-place nk.scale: writes result back into img's buffer (requires C-contiguous input)."""
+    if not img.flags["C_CONTIGUOUS"]:
+        msg = "nk_scale_inplace requires a C-contiguous input array"
+        raise ValueError(msg)
+    flat = img.reshape(-1)
+    nk.scale(flat, alpha=alpha, beta=beta, out=flat)
+    raw = flat.reshape(img.shape)
     if img.dtype == np.float32:
         return clip(raw, np.float32)
     return clip(raw, np.uint8)
@@ -53,9 +66,9 @@ def nk_channelwise_scale(img: np.ndarray, per_ch: np.ndarray, *, alpha_per_ch: b
     for i in range(c):
         flat = np.ascontiguousarray(img[..., i].reshape(-1))
         if alpha_per_ch:
-            t = nk.scale(nk.Tensor(flat), alpha=float(per_ch[i]), beta=0.0)
+            t = nk.scale(flat, alpha=float(per_ch[i]), beta=0.0)
         else:
-            t = nk.scale(nk.Tensor(flat), alpha=1.0, beta=float(per_ch[i]))
+            t = nk.scale(flat, alpha=1.0, beta=float(per_ch[i]))
         out[..., i] = np.frombuffer(t, dtype=img.dtype).reshape(img.shape[:-1])
     if img.dtype == np.float32:
         return clip(out, np.float32)
@@ -83,8 +96,8 @@ def main() -> None:
     # --- scalar multiply ---
     print("## `multiply_by_constant` — scalar")
     print()
-    print("| dtype | H×W | C | prod | `multiply_by_constant_numkong` (`nk.scale`) | fastest |")
-    print("|-------|-----|---|-----:|---------------------------------------------:|---------|")
+    print("| dtype | H×W | C | prod | NK scale (alloc) | NK scale (inplace) | fastest |")
+    print("|-------|-----|---|-----:|-----------------:|-------------------:|---------|")
     for h, w in sizes:
         for c in channels:
             for dtype in (np.uint8, np.float32):
@@ -95,16 +108,18 @@ def main() -> None:
 
                 t_prod = median_ms(lambda: multiply_by_constant(img, s_mul), args.repeats, args.warmup)
                 t_nk = median_ms(lambda: multiply_by_constant_numkong(img, s_mul), args.repeats, args.warmup)
-                best = "prod" if t_prod <= t_nk else "NK_scale"
+                t_nk_ip = median_ms(lambda: nk_scale_inplace(img, alpha=s_mul, beta=0.0), args.repeats, args.warmup)
+                opts = [("prod", t_prod), ("NK_alloc", t_nk), ("NK_inplace", t_nk_ip)]
+                best = min(opts, key=lambda x: x[1])[0]
                 dname = "uint8" if dtype == np.uint8 else "float32"
-                print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_nk:.4f} | {best} |")
+                print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_nk:.4f} | {t_nk_ip:.4f} | {best} |")
     print()
 
     # --- scalar add ---
     print("## `add_constant` — scalar")
     print()
-    print("| dtype | H×W | C | prod | NK `scale` (α=1, β=scalar) | fastest |")
-    print("|-------|-----|---|-----:|---------------------------:|---------|")
+    print("| dtype | H×W | C | prod | NK scale (alloc) | NK scale (inplace) | fastest |")
+    print("|-------|-----|---|-----:|-----------------:|-------------------:|---------|")
     for h, w in sizes:
         for c in channels:
             for dtype in (np.uint8, np.float32):
@@ -117,9 +132,11 @@ def main() -> None:
 
                 t_prod = median_ms(lambda: add_constant(img, add_v), args.repeats, args.warmup)
                 t_sc = median_ms(lambda: nk_scale_flat(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup)
-                best = "prod" if t_prod <= t_sc else "NK_scale"
+                t_sc_ip = median_ms(lambda: nk_scale_inplace(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup)
+                opts = [("prod", t_prod), ("NK_alloc", t_sc), ("NK_inplace", t_sc_ip)]
+                best = min(opts, key=lambda x: x[1])[0]
                 dname = "uint8" if dtype == np.uint8 else "float32"
-                print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_sc:.4f} | {best} |")
+                print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_sc:.4f} | {t_sc_ip:.4f} | {best} |")
     print()
 
     # --- full-array elementwise multiply ---
@@ -221,8 +238,8 @@ def main() -> None:
     print("## Readout (this machine)")
     print()
     print(
-        "- **Scalar affine** (`multiply_by_constant`, `add_constant`): production float32 multiply is **`multiply_numpy`**; "
-        "this script still times **`multiply_by_constant_numkong`** (`nk.scale`) vs prod.\n"
+        "- **Scalar affine** (`multiply_by_constant`, `add_constant`): three paths timed — prod, NK scale (alloc), NK scale (inplace).\n"
+        "  `inplace` uses `out=buf` (raw numpy array, not Tensor wrapper) per NumKong #326 fix.\n"
         "- **Elementwise multiply** full array: **NK fma** only timed for **float32** (uint8 prod promotes to f32).\n"
         "- **Elementwise add** full array: **NK** is existing **`add_array_numkong`** (`blend`).\n"
         "- **Per-channel** vector: **NK** is **C separate `scale` calls** — usually loses to one OpenCV/LUT pass.",
