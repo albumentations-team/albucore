@@ -38,8 +38,8 @@ def nk_scale_flat(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
 
 
 def nk_scale_inplace(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
-    """Truly in-place nk.scale: write result back into the input buffer (no allocation, no copy)."""
-    flat = np.ascontiguousarray(img).reshape(-1)
+    """In-place nk.scale: writes result back into img's buffer (requires C-contiguous input)."""
+    flat = img.reshape(-1)
     nk.scale(flat, alpha=alpha, beta=beta, out=flat)
     raw = flat.reshape(img.shape)
     if img.dtype == np.float32:
