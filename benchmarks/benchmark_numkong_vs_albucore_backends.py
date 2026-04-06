@@ -32,11 +32,9 @@ def per_channel_axes(ndim: int) -> tuple[int, ...]:
 
 def per_channel_stats_numkong(x: np.ndarray, eps: float) -> None:
     """Population mean/std per channel via one ``moments`` call per channel."""
-    c = x.shape[-1]
-    for ci in range(c):
-        flat = np.ascontiguousarray(np.reshape(x[..., ci], -1))
-        s_sum, s_sq = nk.moments(nk.Tensor(flat))
-        n = flat.size
+    for ci in range(x.shape[-1]):
+        s_sum, s_sq = nk.moments(x[..., ci])
+        n = x[..., ci].size
         m = float(s_sum) / n
         var = max(float(s_sq) / n - m * m, 0.0)
         float(m)
@@ -195,13 +193,12 @@ def main() -> None:
         for c in channels:
             img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
             n = h * w * c
-            flat = np.ascontiguousarray(img.reshape(-1))
 
             t_np = median_ms(lambda: float(img.mean()), args.repeats, args.warmup)
 
-            def nk_mean_only() -> None:
-                s_sum, _s2 = nk.moments(nk.Tensor(flat))
-                float(s_sum) / n
+            def nk_mean_only(a=img) -> None:
+                s_sum, _s2 = nk.moments(a)
+                float(s_sum) / a.size
 
             t_nk = median_ms(nk_mean_only, args.repeats, args.warmup)
             if c == 1:
@@ -232,14 +229,13 @@ def main() -> None:
         for c in channels:
             img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
             n = h * w * c
-            flat = np.ascontiguousarray(img.reshape(-1))
 
             t_np = median_ms(lambda: float(img.std()) + eps, args.repeats, args.warmup)
 
-            def nk_std_only() -> None:
-                s_sum, s_sq = nk.moments(nk.Tensor(flat))
-                m = float(s_sum) / n
-                v = max(float(s_sq) / n - m * m, 0.0)
+            def nk_std_only(a=img) -> None:
+                s_sum, s_sq = nk.moments(a)
+                m = float(s_sum) / a.size
+                v = max(float(s_sq) / a.size - m * m, 0.0)
                 float(np.sqrt(v)) + eps
 
             t_nk = median_ms(nk_std_only, args.repeats, args.warmup)
@@ -269,13 +265,12 @@ def main() -> None:
         for c in channels:
             img = rng.random((h, w, c), dtype=np.float32)
             n = h * w * c
-            flat = np.ascontiguousarray(img.reshape(-1))
 
             t_np = median_ms(lambda: float(img.mean()), args.repeats, args.warmup)
 
-            def nk_mean_only_f() -> None:
-                s_sum, _s2 = nk.moments(nk.Tensor(flat))
-                float(s_sum) / n
+            def nk_mean_only_f(a=img) -> None:
+                s_sum, _s2 = nk.moments(a)
+                float(s_sum) / a.size
 
             t_nk = median_ms(nk_mean_only_f, args.repeats, args.warmup)
             if c == 1:
@@ -304,14 +299,13 @@ def main() -> None:
         for c in channels:
             img = rng.random((h, w, c), dtype=np.float32)
             n = h * w * c
-            flat = np.ascontiguousarray(img.reshape(-1))
 
             t_np = median_ms(lambda: float(img.std()) + eps, args.repeats, args.warmup)
 
-            def nk_std_only_f() -> None:
-                s_sum, s_sq = nk.moments(nk.Tensor(flat))
-                m = float(s_sum) / n
-                v = max(float(s_sq) / n - m * m, 0.0)
+            def nk_std_only_f(a=img) -> None:
+                s_sum, s_sq = nk.moments(a)
+                m = float(s_sum) / a.size
+                v = max(float(s_sq) / a.size - m * m, 0.0)
                 float(np.sqrt(v)) + eps
 
             t_nk = median_ms(nk_std_only_f, args.repeats, args.warmup)
@@ -346,12 +340,11 @@ def main() -> None:
         for c in channels:
             img = rng.integers(0, 256, size=(nb, hb, wb, c), dtype=np.uint8)
             n = img.size
-            flat = np.ascontiguousarray(img.reshape(-1))
             t_np = median_ms(lambda: float(img.mean()), args.repeats, args.warmup)
 
-            def nk_m() -> None:
-                s_sum, _s2 = nk.moments(nk.Tensor(flat))
-                float(s_sum) / n
+            def nk_m(a=img) -> None:
+                s_sum, _s2 = nk.moments(a)
+                float(s_sum) / a.size
 
             t_nk = median_ms(nk_m, args.repeats, args.warmup)
             if c == 1:
@@ -376,13 +369,12 @@ def main() -> None:
         for c in channels:
             img = rng.integers(0, 256, size=(nb, hb, wb, c), dtype=np.uint8)
             n = img.size
-            flat = np.ascontiguousarray(img.reshape(-1))
             t_np = median_ms(lambda: float(img.std()) + eps, args.repeats, args.warmup)
 
-            def nk_s() -> None:
-                s_sum, s_sq = nk.moments(nk.Tensor(flat))
-                m = float(s_sum) / n
-                v = max(float(s_sq) / n - m * m, 0.0)
+            def nk_s(a=img) -> None:
+                s_sum, s_sq = nk.moments(a)
+                m = float(s_sum) / a.size
+                v = max(float(s_sq) / a.size - m * m, 0.0)
                 float(np.sqrt(v)) + eps
 
             t_nk = median_ms(nk_s, args.repeats, args.warmup)
@@ -408,12 +400,11 @@ def main() -> None:
         for c in channels:
             img = rng.random((nb, hb, wb, c), dtype=np.float32)
             n = img.size
-            flat = np.ascontiguousarray(img.reshape(-1))
             t_np = median_ms(lambda: float(img.mean()), args.repeats, args.warmup)
 
-            def nk_m() -> None:
-                s_sum, _s2 = nk.moments(nk.Tensor(flat))
-                float(s_sum) / n
+            def nk_m(a=img) -> None:
+                s_sum, _s2 = nk.moments(a)
+                float(s_sum) / a.size
 
             t_nk = median_ms(nk_m, args.repeats, args.warmup)
             if c == 1:
@@ -438,13 +429,12 @@ def main() -> None:
         for c in channels:
             img = rng.random((nb, hb, wb, c), dtype=np.float32)
             n = img.size
-            flat = np.ascontiguousarray(img.reshape(-1))
             t_np = median_ms(lambda: float(img.std()) + eps, args.repeats, args.warmup)
 
-            def nk_s() -> None:
-                s_sum, s_sq = nk.moments(nk.Tensor(flat))
-                m = float(s_sum) / n
-                v = max(float(s_sq) / n - m * m, 0.0)
+            def nk_s(a=img) -> None:
+                s_sum, s_sq = nk.moments(a)
+                m = float(s_sum) / a.size
+                v = max(float(s_sq) / a.size - m * m, 0.0)
                 float(np.sqrt(v)) + eps
 
             t_nk = median_ms(nk_s, args.repeats, args.warmup)

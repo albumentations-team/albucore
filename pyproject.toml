@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
   "numpy>=1.24.4",
-  "numkong>=7.0.0",
+  "numkong>=7.4.3",
   "stringzilla>=3.10.4",
 ]
 
@@ -159,4 +159,10 @@ warn_unreachable = true
 [tool.pytest.ini_options]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-randomly>=4.0.1",
 ]

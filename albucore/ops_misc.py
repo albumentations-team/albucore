@@ -313,11 +313,15 @@ def pairwise_distances_squared(
         due to floating-point rounding with float32 inputs. The result is
         automatically clamped to enforce non-negativity (distances >= 0).
     """
-    points1 = np.ascontiguousarray(points1, dtype=np.float32)
-    points2 = np.ascontiguousarray(points2, dtype=np.float32)
+    # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
+    points1 = points1.astype(np.float32, copy=False)
+    points2 = points2.astype(np.float32, copy=False)
 
     n1, n2 = points1.shape[0], points2.shape[0]
     if n1 * n2 < 1000:
+        # nk.cdist requires contiguous inputs on some strided views.
+        points1 = np.ascontiguousarray(points1)
+        points2 = np.ascontiguousarray(points2)
         result = np.asarray(nk.cdist(points1, points2, metric="sqeuclidean"), dtype=np.float32)
         np.maximum(result, 0.0, out=result)
         return result

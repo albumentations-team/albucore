@@ -171,3 +171,7 @@ conda_build/
 .ruff_cache/
 
 *.csv
+
+# Benchmark comparison reports (generated locally, not for version control)
+benchmarks/results/REPORT_router_compare.md
+benchmarks/results/router-*.json

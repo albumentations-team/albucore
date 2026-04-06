@@ -432,15 +432,33 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def mn_pc(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.mean(img, "per_channel")
+
+        return thunk
+
     def st(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
             alb.std(img, "global")
 
         return thunk
 
+    def st_pc(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.std(img, "per_channel")
+
+        return thunk
+
     def ms(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
             alb.mean_std(img, "global")
+
+        return thunk
+
+    def ms_pc(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.mean_std(img, "per_channel")
 
         return thunk
 
@@ -466,8 +484,11 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("pairwise_distances_squared", add_c),
         ("power", pw),
         ("mean", mn),
+        ("mean_per_channel", mn_pc),
         ("mean_std", ms),
+        ("mean_std_per_channel", ms_pc),
         ("std", st),
+        ("std_per_channel", st_pc),
         ("sz_lut", lut),
         ("to_float", tf),
         ("from_float", ff),
@@ -590,7 +611,7 @@ def main() -> None:
     fn_reg = _registry_functions()
     # Drop placeholder entries for matmul / pairwise (special benches)
     fn_reg = [(n, b) for n, b in fn_reg if n not in ("matmul", "pairwise_distances_squared")]
-    stats_ops = {"mean", "std", "mean_std"}
+    stats_ops = {"mean", "std", "mean_std", "mean_per_channel", "std_per_channel", "mean_std_per_channel"}
     skip_uint8_only = {"apply_uint8_lut", "median_blur", "sz_lut", "to_float"}
     skip_float_only = {"from_float"}
 
@@ -649,11 +670,13 @@ def main() -> None:
         img = _make_img(rng, shape, dtype)
         dname = "uint8" if dtype == np.uint8 else "float32"
         for op_name, build in fn_reg:
-            if op_name not in stats_ops or op_name not in export_names:
+            if op_name not in stats_ops:
+                continue
+            if op_name not in export_names and not op_name.endswith("_per_channel"):
                 continue
             if op_name in skip_ops:
                 continue
-            if not hasattr(alb, op_name):
+            if not op_name.endswith("_per_channel") and not hasattr(alb, op_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
             t, st, det = _bench(alb, img, build, args.repeats, args.warmup)
