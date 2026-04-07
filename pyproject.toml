@@ -1,7 +1,7 @@
 [build-system]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
-requires = [ "setuptools>=45", "wheel" ]
+requires = [ "hatchling" ]
 
 [project]
 name = "albucore"
@@ -48,19 +48,11 @@ contrib-headless = ["opencv-contrib-python-headless>=4.13.0.90"]
 gui = ["opencv-python>=4.13.0.90"]
 headless = ["opencv-python-headless>=4.13.0.90"]
 
-[tool.setuptools]
-packages = { find = { include = [
-  "albucore*",
-], exclude = [
-  "tests",
-  "benchmark",
-  "benchmarks",
-] } }
+[tool.hatch.build.targets.wheel]
+packages = ["albucore"]
 
-package-data = { albucore = [ "py.typed" ] }
-
-[tool.setuptools.exclude-package-data]
-"*" = [ "tests*", "benchmarks*", "benchmark*", "conda.recipe*" ]
+[tool.hatch.build.targets.sdist]
+exclude = ["tests", "benchmarks", "benchmark", "conda.recipe"]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
