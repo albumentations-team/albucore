@@ -350,8 +350,8 @@ def test_std_custom_eps_matches_numpy(shape: tuple[int, ...], dtype: type) -> No
     assert np.isclose(float(s), float(ref), rtol=1e-4, atol=1e-4)
 
 
-@pytest.mark.parametrize("dtype", [np.int32, np.float64])
-def test_unsupported_dtype_raises(dtype: type) -> None:
+@pytest.mark.parametrize("dtype", [np.int32, np.float64, np.bool_, np.complex64])
+def test_unsupported_dtype_raises_mean_std(dtype: type) -> None:
     arr = np.ones((2, 2, 1), dtype=dtype)
     with pytest.raises(ValueError, match="Unsupported dtype"):
         mean(arr)
@@ -359,10 +359,44 @@ def test_unsupported_dtype_raises(dtype: type) -> None:
         std(arr)
     with pytest.raises(ValueError, match="Unsupported dtype"):
         mean_std(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        reduce_sum(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        reduce_sum(arr, "per_channel")
+
+
+@pytest.mark.parametrize(
+    ("dtype", "expected_acc_dtype"),
+    [
+        (np.int32, np.int64),
+        (np.int64, np.int64),
+        (np.uint32, np.uint64),
+        (np.uint64, np.uint64),
+        (np.float64, np.float64),
+        (np.bool_, np.int64),
+    ],
+)
+def test_reduce_sum_accumulator_dtype(dtype: type, expected_acc_dtype: type) -> None:
+    arr = np.ones((4, 4, 3), dtype=dtype)
+    result = reduce_sum(arr)
+    assert result.dtype == expected_acc_dtype
+    per_ch = reduce_sum(arr, "per_channel")
+    assert per_ch.dtype == expected_acc_dtype
+
+
+@pytest.mark.parametrize(
+    ("dtype", "fill", "expected_acc_dtype"),
+    [
+        # near int32 max — would overflow into int32 but must not with int64 accumulator
+        (np.int32, np.iinfo(np.int32).max, np.int64),
+        # unsigned — must not sign-extend into int64
+        (np.uint32, np.iinfo(np.uint32).max, np.uint64),
+        # float64 precision — all-same values, check no precision loss in sum
+        (np.float64, 1.0 / 3.0, np.float64),
+    ],
+)
+def test_reduce_sum_overflow_and_precision(dtype: type, fill: float, expected_acc_dtype: type) -> None:
+    arr = np.full((8, 8, 1), fill, dtype=dtype)
+    expected = np.sum(arr, dtype=expected_acc_dtype)
+    result = reduce_sum(arr)
+    assert result.dtype == expected_acc_dtype
+    assert result == expected
 
 
 @pytest.mark.parametrize("c", [1, 2, 3, 4])

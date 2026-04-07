@@ -73,21 +73,27 @@ def _reduce_sum_per_channel_float32(arr: ImageFloat32, axes: tuple[int, ...], *,
 
 
 def _reduce_sum_numpy(
-    arr: ImageType,
+    arr: np.ndarray,
     axes: tuple[int, ...] | None,
     *,
     keepdims: bool,
-) -> np.uint64 | np.float64 | np.ndarray:
-    acc = np.uint64 if arr.dtype == np.uint8 else np.float64
+) -> np.generic | np.ndarray:
+    if np.issubdtype(arr.dtype, np.unsignedinteger):
+        acc: type = np.uint64
+    elif np.issubdtype(arr.dtype, np.floating):
+        acc = np.float64
+    else:
+        # signed integers and bool
+        acc = np.int64
     return np.sum(arr, axis=axes, dtype=acc, keepdims=keepdims)
 
 
 def reduce_sum(
-    arr: ImageType,
+    arr: np.ndarray,
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
-) -> np.uint64 | np.float64 | np.ndarray:
+) -> np.generic | np.ndarray:
     r"""Sum over image tensor axes with benchmark-driven routing.
 
     Routing:
@@ -105,13 +111,16 @@ def reduce_sum(
     Alternative: ``mean`` / ``std`` / ``mean_std`` for normalised statistics.
 
     Args:
-        arr: ``uint8`` or ``float32`` array with explicit channel dimension.
+        arr: Array with explicit channel dimension. Optimised paths for ``uint8`` and ``float32``;
+            other dtypes fall back to NumPy (float → float64 accumulator, integer/bool → int64).
         axis: ``None`` / ``"global"`` → one scalar; ``"per_channel"`` → shape ``(C,)``;
             or explicit ``int`` / ``tuple[int, ...]`` (NumPy path).
         keepdims: Same semantics as :func:`numpy.sum`.
 
     Returns:
-        ``numpy.uint64`` or ``numpy.float64`` scalar for a full reduction, else an array.
+        Scalar (``uint64`` / ``int64`` / ``float64``) for a full reduction, else an array.
+        The accumulator dtype follows the input: unsigned → uint64, float → float64,
+        signed int / bool → int64.
     """
     axes = _resolve_axes(arr, axis)
     if axes is None:
@@ -119,13 +128,11 @@ def reduce_sum(
             return _reduce_sum_global_uint8(arr, keepdims=keepdims)
         if _is_float32_image(arr):
             return _reduce_sum_global_float32(arr, keepdims=keepdims)
-        raise ValueError(f"Unsupported dtype {arr.dtype} for reduce_sum; use uint8 or float32.")
-    if axes == _per_channel_spatial_axes(arr):
+    elif axes == _per_channel_spatial_axes(arr):
         if _is_uint8_image(arr):
             return _reduce_sum_per_channel_uint8(arr, keepdims=keepdims)
         if _is_float32_image(arr):
             return _reduce_sum_per_channel_float32(arr, axes, keepdims=keepdims)
-        raise ValueError(f"Unsupported dtype {arr.dtype} for reduce_sum; use uint8 or float32.")
     return _reduce_sum_numpy(arr, axes, keepdims=keepdims)
 
 
