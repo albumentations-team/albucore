@@ -1,6 +1,6 @@
 """Benchmark-driven mean / std / mean_std for albucore array layouts (HWC, NHWC, NDHWC, …)."""
 
-from typing import Literal, TypeGuard, cast
+from typing import Literal, TypeGuard
 
 import cv2
 import numkong as nk
@@ -69,7 +69,7 @@ def _reduce_sum_per_channel_float32(arr: ImageFloat32, axes: tuple[int, ...], *,
         if keepdims:
             return result.reshape((1,) * (arr.ndim - 1) + (c,))
         return result
-    return cast("np.ndarray", _reduce_sum_numpy(arr, axes, keepdims=keepdims))
+    return np.asarray(np.sum(arr, axis=axes, dtype=np.float64, keepdims=keepdims), dtype=np.float64)
 
 
 def _reduce_sum_numpy(
@@ -157,7 +157,7 @@ def _mean_std_global(
     if _is_float32_image(arr):
         mean_value = np.mean(arr, dtype=np.float64, keepdims=keepdims)
         std_value = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
-        return cast("np.ndarray | np.floating", mean_value), cast("np.ndarray | np.floating", std_value)
+        return mean_value, std_value
     raise ValueError(f"Unsupported dtype {arr.dtype} for mean_std; use uint8 or float32.")
 
 
@@ -169,7 +169,7 @@ def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.
             return np.array(m, dtype=np.float64).reshape(kd)
         return m
     if _is_float32_image(arr):
-        return cast("np.ndarray | np.floating", np.mean(arr, dtype=np.float64, keepdims=keepdims))
+        return np.mean(arr, dtype=np.float64, keepdims=keepdims)
     raise ValueError(f"Unsupported dtype {arr.dtype} for mean; use uint8 or float32.")
 
 
@@ -181,10 +181,10 @@ def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | 
             return np.array(s, dtype=np.float64).reshape(kd)
         return s
     if _is_float32_image(arr):
-        return cast(
-            "np.ndarray | np.floating",
-            np.std(arr, dtype=np.float64, keepdims=keepdims) + eps,
-        )
+        std_value = np.std(arr, dtype=np.float64, keepdims=keepdims)
+        if keepdims:
+            return np.asarray(std_value + eps, dtype=np.float64)
+        return float(std_value) + eps
     raise ValueError(f"Unsupported dtype {arr.dtype} for std; use uint8 or float32.")
 
 
@@ -204,11 +204,11 @@ def _mean_std_per_channel(
         mean, std = cv2.meanStdDev(arr)
         m = mean[:, 0].astype(np.float64, copy=False)
         st = (std[:, 0] + eps).astype(np.float64, copy=False)
-        return cast("np.ndarray", m), cast("np.ndarray", st)
+        return m, st
 
     m = arr.mean(axis=axes, dtype=np.float64, keepdims=keepdims)
     st = arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps
-    return cast("np.ndarray", m), cast("np.ndarray", st)
+    return m, st
 
 
 def _mean_per_channel_uint8(arr: ImageUInt8, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
@@ -216,8 +216,8 @@ def _mean_per_channel_uint8(arr: ImageUInt8, axes: tuple[int, ...], *, keepdims:
     n_spatial = arr.size // arr.shape[-1]
     result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
     if keepdims:
-        return cast("np.ndarray", result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],)))
-    return cast("np.ndarray", result)
+        return result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],))
+    return result
 
 
 def _mean_per_channel(
@@ -237,8 +237,8 @@ def _mean_per_channel(
     # float32 NHWC/DHWC (ndim == 4), 1 < C ≤ 4: nk.sum wins 4x vs arr.mean
     if arr.ndim == 4 and not keepdims and axes == spatial_axes and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         n_spatial = arr.size // c
-        return cast("np.ndarray", np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial)
-    return cast("np.ndarray", arr.mean(axis=axes, dtype=np.float64, keepdims=keepdims))
+        return np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
+    return np.asarray(arr.mean(axis=axes, dtype=np.float64, keepdims=keepdims), dtype=np.float64)
 
 
 def _std_per_channel(
@@ -255,11 +255,8 @@ def _std_per_channel(
         and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS
     ):
         _, std = cv2.meanStdDev(arr)
-        return cast("np.ndarray", (std[:, 0] + eps).astype(np.float64, copy=False))
-    return cast(
-        "np.ndarray",
-        arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps,
-    )
+        return np.asarray(std[:, 0] + eps, dtype=np.float64)
+    return np.asarray(arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps, dtype=np.float64)
 
 
 def mean_std(

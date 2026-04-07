@@ -1,20 +1,17 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Literal, TypeVar, cast
+from typing import Any, Concatenate, Literal
 
 import numpy as np
 
 from albucore.utils import P
 
-F = TypeVar("F", bound=Callable[..., Any])
-TArr = TypeVar("TArr", bound=np.ndarray[Any, Any])
-TInArr = TypeVar("TInArr", bound=np.ndarray[Any, Any])
-TOutArr = TypeVar("TOutArr", bound=np.ndarray[Any, Any])
+Array = np.ndarray[Any, Any]
 
 
 def contiguous(
-    func: Callable[Concatenate[TArr, P], TArr],
-) -> Callable[Concatenate[TArr, P], TArr]:
+    func: Callable[Concatenate[Array, P], Array],
+) -> Callable[Concatenate[Array, P], Array]:
     """Ensure that input img is contiguous and the output array is also contiguous.
 
     Note: This decorator enforces C-contiguous memory layout. Fortran-contiguous
@@ -24,32 +21,32 @@ def contiguous(
     """
 
     @wraps(func)
-    def wrapped_function(img: TArr, *args: P.args, **kwargs: P.kwargs) -> TArr:
+    def wrapped_function(img: Array, *args: P.args, **kwargs: P.kwargs) -> Array:
         # Ensure the input array is contiguous only if needed
         if not img.flags["C_CONTIGUOUS"]:
-            img = cast("TArr", np.require(img, requirements=["C_CONTIGUOUS"]))
+            img = np.require(img, requirements=["C_CONTIGUOUS"])
         # Call the original function with the contiguous input
         result = func(img, *args, **kwargs)
         # Ensure the output array is contiguous only if needed
         if not result.flags["C_CONTIGUOUS"]:
-            return cast("TArr", np.require(result, requirements=["C_CONTIGUOUS"]))
+            return np.require(result, requirements=["C_CONTIGUOUS"])
         return result
 
     return wrapped_function
 
 
 def preserve_channel_dim(
-    func: Callable[Concatenate[TInArr, P], TOutArr],
-) -> Callable[Concatenate[TInArr, P], TOutArr]:
+    func: Callable[Concatenate[Array, P], Array],
+) -> Callable[Concatenate[Array, P], Array]:
     """Preserve single channel dimension when OpenCV drops it."""
 
     @wraps(func)
-    def wrapped_function(img: TInArr, *args: P.args, **kwargs: P.kwargs) -> TOutArr:
+    def wrapped_function(img: Array, *args: P.args, **kwargs: P.kwargs) -> Array:
         shape = img.shape
         result = func(img, *args, **kwargs)
         # If input had 3 dims with last dim = 1, and OpenCV dropped it to 2 dims
         if len(shape) == 3 and shape[-1] == 1 and result.ndim == 2:
-            return cast("TOutArr", np.expand_dims(result, axis=-1))
+            return np.expand_dims(result, axis=-1)
         return result
 
     return wrapped_function
@@ -162,17 +159,17 @@ def restore_from_spatial(
 def batch_transform(
     transform_type: BatchTransformType,
     keep_depth_dim: bool = False,
-) -> Callable[[F], F]:
+) -> Callable[[Callable[..., Array]], Callable[..., Array]]:
     """Decorator to handle batch transformations."""
 
-    def decorator(func: F) -> F:
+    def decorator(func: Callable[..., Array]) -> Callable[..., Array]:
         @wraps(func)
         def wrapper(self: Any, data: np.ndarray, *args: Any, **params: Any) -> np.ndarray:
             if not data.flags["C_CONTIGUOUS"]:
                 data = np.require(data, requirements=["C_CONTIGUOUS"])
 
             if transform_type == "full":
-                return cast("np.ndarray", func(self, data, *args, **params))
+                return func(self, data, *args, **params)
 
             # Define the function mappings with proper types
             reshape_funcs: dict[str, Callable[..., tuple[np.ndarray, tuple[int, ...]]]] = {
@@ -192,14 +189,14 @@ def batch_transform(
                 data,
                 keep_depth_dim,
             )
-            transformed = cast("np.ndarray", func(self, reshaped, *args, **params))
+            transformed = func(self, reshaped, *args, **params)
             return restore_func(
                 transformed,
                 original_shape,
                 keep_depth_dim,
             )
 
-        return cast("F", wrapper)
+        return wrapper
 
     return decorator
 
