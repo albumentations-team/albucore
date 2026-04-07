@@ -8,6 +8,7 @@ OpenCV channel limits: see ``benchmarks/README.md``.
 # ruff: noqa: PLR0911 PLR0913  # chunked fns need many args
 
 from collections.abc import Callable
+from typing import cast
 
 import cv2
 import numpy as np
@@ -30,7 +31,7 @@ __all__ = [
 
 
 def _border_value_for_cv2(
-    value: float | tuple[float, ...] | np.ndarray,
+    value: object,
 ) -> float | tuple[float, ...] | None:
     """Convert border/value to cv2-compatible format (max 4 elements).
 
@@ -60,7 +61,7 @@ def _border_value_for_cv2(
         if all(elem == value[0] for elem in value):
             return (value[0],) * 4
         return None
-    return (value,) * 4
+    return None
 
 
 def _apply_in_chunks(
@@ -103,6 +104,9 @@ def _apply_in_chunks(
         else:
             apply(img[:, :, i : min(i + 4, num_channels)], tuple(channel_values[i : i + 4].tolist()))
 
+    if result is None:
+        msg = "Chunked geometric operation produced no output."
+        raise RuntimeError(msg)
     return result
 
 
@@ -112,7 +116,7 @@ def _warp_affine_chunked(
     dsize: tuple[int, int],
     flags: int,
     border_mode: int,
-    border_value: tuple[float, ...] | np.ndarray,
+    border_value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
 ) -> ImageType:
     """Chunk warpAffine when per-channel border_value has len > 4."""
@@ -120,7 +124,10 @@ def _warp_affine_chunked(
     return _apply_in_chunks(
         img,
         channel_values,
-        lambda chunk, bv: cv2.warpAffine(chunk, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv),
+        lambda chunk, bv: cast(
+            "ImageType",
+            cv2.warpAffine(chunk, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv),
+        ),
         dst=dst,
     )
 
@@ -169,6 +176,9 @@ def warp_affine(
     )
     if needs_chunk:
         if border_value_cv2 is None:
+            if border_value is None:
+                msg = "border_value is required for chunked affine warp."
+                raise ValueError(msg)
             return _warp_affine_chunked(img, m, dsize, flags, border_mode, border_value, dst=dst)
         return maybe_process_in_chunks(
             cv2.warpAffine,
@@ -180,14 +190,17 @@ def warp_affine(
             dst=dst,
         )(img)
 
-    return cv2.warpAffine(
-        img,
-        m,
-        dsize,
-        flags=flags,
-        borderMode=border_mode,
-        borderValue=border_value_cv2 or 0,
-        dst=dst,
+    return cast(
+        "ImageType",
+        cv2.warpAffine(
+            img,
+            m,
+            dsize,
+            flags=flags,
+            borderMode=border_mode,
+            borderValue=border_value_cv2 or 0,
+            dst=dst,
+        ),
     )
 
 
@@ -197,7 +210,7 @@ def _warp_perspective_chunked(
     dsize: tuple[int, int],
     flags: int,
     border_mode: int,
-    border_value: tuple[float, ...] | np.ndarray,
+    border_value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
 ) -> ImageType:
     """Chunk warpPerspective when per-channel border_value has len > 4."""
@@ -205,7 +218,10 @@ def _warp_perspective_chunked(
     return _apply_in_chunks(
         img,
         channel_values,
-        lambda chunk, bv: cv2.warpPerspective(chunk, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv),
+        lambda chunk, bv: cast(
+            "ImageType",
+            cv2.warpPerspective(chunk, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv),
+        ),
         dst=dst,
     )
 
@@ -251,6 +267,9 @@ def warp_perspective(
     )
     if needs_chunk:
         if border_value_cv2 is None:
+            if border_value is None:
+                msg = "border_value is required for chunked perspective warp."
+                raise ValueError(msg)
             return _warp_perspective_chunked(img, m, dsize, flags, border_mode, border_value, dst=dst)
         return maybe_process_in_chunks(
             cv2.warpPerspective,
@@ -262,14 +281,17 @@ def warp_perspective(
             dst=dst,
         )(img)
 
-    return cv2.warpPerspective(
-        img,
-        m,
-        dsize,
-        flags=flags,
-        borderMode=border_mode,
-        borderValue=border_value_cv2 or 0,
-        dst=dst,
+    return cast(
+        "ImageType",
+        cv2.warpPerspective(
+            img,
+            m,
+            dsize,
+            flags=flags,
+            borderMode=border_mode,
+            borderValue=border_value_cv2 or 0,
+            dst=dst,
+        ),
     )
 
 
@@ -280,7 +302,7 @@ def _copy_make_border_chunked(
     left: int,
     right: int,
     border_type: int,
-    value: tuple[float, ...] | np.ndarray,
+    value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
 ) -> ImageType:
     """Chunk copyMakeBorder when per-channel value has len > 4."""
@@ -288,7 +310,10 @@ def _copy_make_border_chunked(
     return _apply_in_chunks(
         img,
         channel_values,
-        lambda chunk, bv: cv2.copyMakeBorder(chunk, top, bottom, left, right, borderType=border_type, value=bv),
+        lambda chunk, bv: cast(
+            "ImageType",
+            cv2.copyMakeBorder(chunk, top, bottom, left, right, borderType=border_type, value=bv),
+        ),
         dst=dst,
     )
 
@@ -327,17 +352,26 @@ def copy_make_border(
     border_value_cv2 = _border_value_for_cv2(value) if value is not None else 0
 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS and border_value_cv2 is None:
+        if value is None:
+            msg = "value is required for chunked copy_make_border."
+            raise ValueError(msg)
         return _copy_make_border_chunked(img, top, bottom, left, right, border_type, value, dst=dst)
 
-    return cv2.copyMakeBorder(
-        img,
-        top,
-        bottom,
-        left,
-        right,
-        borderType=border_type,
-        value=border_value_cv2 if value is not None else 0,
-        dst=dst,
+    border_value_arg: float | tuple[float, ...]
+    border_value_arg = 0.0 if value is None else cast("float | tuple[float, ...]", border_value_cv2)
+
+    return cast(
+        "ImageType",
+        cv2.copyMakeBorder(
+            img,
+            top,
+            bottom,
+            left,
+            right,
+            borderType=border_type,
+            value=border_value_arg,
+            dst=dst,
+        ),
     )
 
 
@@ -347,7 +381,7 @@ def _remap_chunked(
     map_y: np.ndarray,
     interpolation: int,
     border_mode: int,
-    border_value: tuple[float, ...] | np.ndarray,
+    border_value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
 ) -> ImageType:
     """Chunk remap when per-channel border_value has len > 4."""
@@ -355,7 +389,10 @@ def _remap_chunked(
     return _apply_in_chunks(
         img,
         channel_values,
-        lambda chunk, bv: cv2.remap(chunk, map_x, map_y, interpolation, borderMode=border_mode, borderValue=bv),
+        lambda chunk, bv: cast(
+            "ImageType",
+            cv2.remap(chunk, map_x, map_y, interpolation, borderMode=border_mode, borderValue=bv),
+        ),
         dst=dst,
     )
 
@@ -396,6 +433,9 @@ def remap(
     )
     if needs_chunk:
         if border_value_cv2 is None:
+            if border_value is None:
+                msg = "border_value is required for chunked remap."
+                raise ValueError(msg)
             return _remap_chunked(img, map_x, map_y, interpolation, border_mode, border_value, dst=dst)
         return maybe_process_in_chunks(
             cv2.remap,
@@ -407,14 +447,17 @@ def remap(
             dst=dst,
         )(img)
 
-    return cv2.remap(
-        img,
-        map_x,
-        map_y,
-        interpolation=interpolation,
-        borderMode=border_mode,
-        borderValue=border_value_cv2 or 0,
-        dst=dst,
+    return cast(
+        "ImageType",
+        cv2.remap(
+            img,
+            map_x,
+            map_y,
+            interpolation=interpolation,
+            borderMode=border_mode,
+            borderValue=border_value_cv2 or 0,
+            dst=dst,
+        ),
     )
 
 
@@ -460,4 +503,4 @@ def resize(
     if num_channels > MAX_OPENCV_WORKING_CHANNELS and interpolation == cv2.INTER_AREA and is_downscale:
         return maybe_process_in_chunks(cv2.resize, dsize=dsize, fx=fx, fy=fy, interpolation=interpolation)(img)
 
-    return cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation)
+    return cast("ImageType", cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation))

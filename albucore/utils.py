@@ -92,6 +92,9 @@ def maybe_process_in_chunks(
                     n = chunk.shape[-1]
                     out[:, :, offset : offset + n] = chunk
                     offset += n
+            if out is None:
+                msg = "Chunked OpenCV processing failed to initialize output buffer."
+                raise RuntimeError(msg)
             return out
 
         return process_fn(img, *all_args, **all_kwargs)
@@ -102,8 +105,8 @@ def maybe_process_in_chunks(
 def clip(img: ImageType, dtype: SupportedDType, inplace: bool = False) -> ImageType:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     if inplace and img.dtype == dtype:
-        return np.clip(img, 0, max_value, out=img).astype(dtype, copy=False)
-    return np.clip(img, 0, max_value).astype(dtype, copy=False)
+        return cast("ImageType", np.clip(img, 0, max_value, out=img).astype(dtype, copy=False))
+    return cast("ImageType", np.clip(img, 0, max_value).astype(dtype, copy=False))
 
 
 def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Concatenate[ImageType, P], ImageType]:
@@ -223,7 +226,14 @@ def is_grayscale_image(image: ImageType) -> bool:
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
     if isinstance(value, np.ndarray):
         value = value.dtype
-    return int(NPDTYPE_TO_OPENCV_DTYPE[value])
+    if isinstance(value, np.dtype):
+        key: np.dtype | type = value
+    elif value in (np.uint8, np.float32):
+        key = cast("type", value)
+    else:
+        msg = f"Unsupported dtype specifier: {value!r}"
+        raise TypeError(msg)
+    return int(NPDTYPE_TO_OPENCV_DTYPE[key])
 
 
 def is_rgb_image(image: ImageType) -> bool:
@@ -256,7 +266,7 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
     if isinstance(value, np.ndarray):
         # Return scalars and 0-dim arrays as float
         if value.ndim == 0:
-            return value.item()
+            return float(value.item())
 
         # Return multi-dimensional arrays as-is
         if value.ndim > 1:

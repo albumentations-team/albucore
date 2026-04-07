@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import cv2
 import numpy as np
 import stringzilla as sz
@@ -13,7 +15,7 @@ from albucore.utils import ImageUInt8  # noqa: TC001
 @preserve_channel_dim
 def _cv2_lut_uint8(img: ImageUInt8, lut: ImageUInt8) -> ImageUInt8:
     """``cv2.LUT`` on single-channel HWC returns ``(H, W)``; restore ``(H, W, 1)`` like other OpenCV paths."""
-    return cv2.LUT(img, lut)
+    return cast("ImageUInt8", cv2.LUT(img, lut))
 
 
 @contiguous
@@ -37,11 +39,11 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
     if inplace:
-        sz.translate(memoryview(img), memoryview(lut), inplace=True)
+        sz.translate(cast("Any", img), cast("Any", lut), inplace=True)
         return img
 
     # sz.translate(inplace=False) allocates + writes in one pass — faster than copy + inplace.
-    raw = sz.translate(memoryview(img), memoryview(lut), inplace=False)
+    raw = sz.translate(cast("Any", img), cast("Any", lut), inplace=False)
     return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)
 
 
@@ -106,7 +108,7 @@ def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bo
     if img.ndim == 3 and img.flags["C_CONTIGUOUS"]:
         lut_cv2 = np.empty((256, 1, num_channels), dtype=np.uint8)
         lut_cv2[:, 0, :] = luts.T
-        return cv2.LUT(img, lut_cv2)
+        return cast("ImageUInt8", cv2.LUT(img, lut_cv2))
 
     result = np.empty_like(img, dtype=img.dtype)
     for i in range(num_channels):

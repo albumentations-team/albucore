@@ -4,14 +4,17 @@ from typing import Any, Concatenate, Literal, TypeVar, cast
 
 import numpy as np
 
-from albucore.utils import ImageType, P
+from albucore.utils import P
 
 F = TypeVar("F", bound=Callable[..., Any])
+TArr = TypeVar("TArr", bound=np.ndarray[Any, Any])
+TInArr = TypeVar("TInArr", bound=np.ndarray[Any, Any])
+TOutArr = TypeVar("TOutArr", bound=np.ndarray[Any, Any])
 
 
 def contiguous(
-    func: Callable[Concatenate[ImageType, P], ImageType],
-) -> Callable[Concatenate[ImageType, P], ImageType]:
+    func: Callable[Concatenate[TArr, P], TArr],
+) -> Callable[Concatenate[TArr, P], TArr]:
     """Ensure that input img is contiguous and the output array is also contiguous.
 
     Note: This decorator enforces C-contiguous memory layout. Fortran-contiguous
@@ -21,32 +24,32 @@ def contiguous(
     """
 
     @wraps(func)
-    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
+    def wrapped_function(img: TArr, *args: P.args, **kwargs: P.kwargs) -> TArr:
         # Ensure the input array is contiguous only if needed
         if not img.flags["C_CONTIGUOUS"]:
-            img = np.require(img, requirements=["C_CONTIGUOUS"])
+            img = cast("TArr", np.require(img, requirements=["C_CONTIGUOUS"]))
         # Call the original function with the contiguous input
         result = func(img, *args, **kwargs)
         # Ensure the output array is contiguous only if needed
         if not result.flags["C_CONTIGUOUS"]:
-            return np.require(result, requirements=["C_CONTIGUOUS"])
+            return cast("TArr", np.require(result, requirements=["C_CONTIGUOUS"]))
         return result
 
     return wrapped_function
 
 
 def preserve_channel_dim(
-    func: Callable[Concatenate[ImageType, P], ImageType],
-) -> Callable[Concatenate[ImageType, P], ImageType]:
+    func: Callable[Concatenate[TInArr, P], TOutArr],
+) -> Callable[Concatenate[TInArr, P], TOutArr]:
     """Preserve single channel dimension when OpenCV drops it."""
 
     @wraps(func)
-    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
+    def wrapped_function(img: TInArr, *args: P.args, **kwargs: P.kwargs) -> TOutArr:
         shape = img.shape
         result = func(img, *args, **kwargs)
         # If input had 3 dims with last dim = 1, and OpenCV dropped it to 2 dims
         if len(shape) == 3 and shape[-1] == 1 and result.ndim == 2:
-            return np.expand_dims(result, axis=-1)
+            return cast("TOutArr", np.expand_dims(result, axis=-1))
         return result
 
     return wrapped_function
@@ -169,7 +172,7 @@ def batch_transform(
                 data = np.require(data, requirements=["C_CONTIGUOUS"])
 
             if transform_type == "full":
-                return func(self, data, *args, **params)
+                return cast("np.ndarray", func(self, data, *args, **params))
 
             # Define the function mappings with proper types
             reshape_funcs: dict[str, Callable[..., tuple[np.ndarray, tuple[int, ...]]]] = {
@@ -189,7 +192,7 @@ def batch_transform(
                 data,
                 keep_depth_dim,
             )
-            transformed = func(self, reshaped, *args, **params)
+            transformed = cast("np.ndarray", func(self, reshaped, *args, **params))
             return restore_func(
                 transformed,
                 original_shape,
