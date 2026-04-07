@@ -89,7 +89,7 @@ def _reduce_sum_numpy(
 
 
 def reduce_sum(
-    arr: ImageType,
+    arr: np.ndarray,
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
