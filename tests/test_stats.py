@@ -351,7 +351,7 @@ def test_std_custom_eps_matches_numpy(shape: tuple[int, ...], dtype: type) -> No
 
 
 @pytest.mark.parametrize("dtype", [np.int32, np.float64])
-def test_unsupported_dtype_raises(dtype: type) -> None:
+def test_unsupported_dtype_raises_mean_std(dtype: type) -> None:
     arr = np.ones((2, 2, 1), dtype=dtype)
     with pytest.raises(ValueError, match="Unsupported dtype"):
         mean(arr)
@@ -359,10 +359,16 @@ def test_unsupported_dtype_raises(dtype: type) -> None:
         std(arr)
     with pytest.raises(ValueError, match="Unsupported dtype"):
         mean_std(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        reduce_sum(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        reduce_sum(arr, "per_channel")
+
+
+@pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float64, np.bool_])
+def test_reduce_sum_accepts_any_dtype(dtype: type) -> None:
+    arr = np.ones((4, 4, 3), dtype=dtype)
+    result = reduce_sum(arr)
+    assert result == arr.size
+    per_ch = reduce_sum(arr, "per_channel")
+    assert per_ch.shape == (3,)
+    assert np.all(per_ch == 16)
 
 
 @pytest.mark.parametrize("c", [1, 2, 3, 4])
