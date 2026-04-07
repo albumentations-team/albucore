@@ -1,4 +1,4 @@
-name: Upload release to PyPI
+name: Release
 
 on:
   release:
@@ -8,25 +8,109 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  upload:
+  build_release_artifacts:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - name: Install uv and Python 3.10
+      - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
+          enable-cache: true
           python-version: "3.10"
           activate-environment: true
 
-      - name: Install dependencies
-        run: uv pip install build twine
-
-      - name: Build and publish
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Resolve headless OpenCV dependency from pyproject
         run: |
-          rm -rf tests benchmark
-          python -m build
-          twine upload dist/*
+          python - <<'PY' >> "$GITHUB_ENV"
+          import re
+          from pathlib import Path
+
+          text = Path("pyproject.toml").read_text()
+          dep = re.search(r'^headless\s*=\s*\["([^"]+)"\]', text, re.MULTILINE).group(1)
+          print(f"OPENCV_HEADLESS_DEPENDENCY={dep}")
+          PY
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uv tool run --from twine twine check dist/*
+
+      - name: Smoke test built wheel
+        run: |
+          VENV_DIR="$(mktemp -d /tmp/albucore-release-venv.XXXXXX)"
+          trap 'rm -rf "$VENV_DIR"' EXIT
+          python -m venv "$VENV_DIR"
+          . "$VENV_DIR/bin/activate"
+          python -m pip install --upgrade pip
+          python -m pip install "${OPENCV_HEADLESS_DEPENDENCY}"
+          python -m pip install dist/*.whl
+          cd /tmp
+          python - <<'PY'
+          import albucore
+          import numpy as np
+          img = np.zeros((64, 64, 3), dtype=np.uint8)
+          print("albucore smoke test passed, version:", albucore.__version__)
+          PY
+
+      - name: Export locked runtime dependencies
+        run: uv export --frozen --no-dev --format requirements-txt --output-file dist/runtime-requirements.txt
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          uv tool run --from cyclonedx-bom cyclonedx-py requirements dist/runtime-requirements.txt \
+            --output-format JSON \
+            --output-file "dist/albucore-${{ github.event.release.tag_name }}-sbom.cdx.json"
+
+      - name: Generate checksums
+        run: |
+          (
+            cd dist
+            shasum -a 256 ./*.whl ./*.tar.gz ./*-sbom.cdx.json > SHA256SUMS.txt
+          )
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*-sbom.cdx.json
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Attach artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*-sbom.cdx.json
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+
+  publish_to_pypi:
+    runs-on: ubuntu-latest
+    needs: build_release_artifacts
+    environment: pypi
+    permissions:
+      id-token: write
+      actions: read
+      contents: read
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist
+
+      - name: Publish distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          attestations: true
