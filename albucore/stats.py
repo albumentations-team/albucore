@@ -1,6 +1,6 @@
 """Benchmark-driven mean / std / mean_std for albucore array layouts (HWC, NHWC, NDHWC, …)."""
 
-from typing import Literal, cast
+from typing import Literal, TypeGuard, cast
 
 import cv2
 import numkong as nk
@@ -14,6 +14,14 @@ DEFAULT_EPS = 1e-4
 AxisSpec = None | int | tuple[int, ...] | Literal["global", "per_channel"]
 
 __all__ = ["DEFAULT_EPS", "mean", "mean_std", "reduce_sum", "std"]
+
+
+def _is_uint8_image(arr: ImageType) -> TypeGuard[ImageUInt8]:
+    return arr.dtype == np.uint8
+
+
+def _is_float32_image(arr: ImageType) -> TypeGuard[ImageFloat32]:
+    return arr.dtype == np.float32
 
 
 def _resolve_axes(arr: np.ndarray, axis: AxisSpec) -> tuple[int, ...] | None:
@@ -42,7 +50,7 @@ def _reduce_sum_global_float32(arr: ImageFloat32, *, keepdims: bool) -> np.float
     out = np.sum(arr, dtype=np.float64)
     if keepdims:
         return np.asarray(out, dtype=np.float64).reshape((1,) * arr.ndim)
-    return cast("np.float64", out)
+    return out
 
 
 def _reduce_sum_per_channel_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.ndarray:
@@ -61,7 +69,7 @@ def _reduce_sum_per_channel_float32(arr: ImageFloat32, axes: tuple[int, ...], *,
         if keepdims:
             return result.reshape((1,) * (arr.ndim - 1) + (c,))
         return result
-    return _reduce_sum_numpy(arr, axes, keepdims=keepdims)
+    return cast("np.ndarray", _reduce_sum_numpy(arr, axes, keepdims=keepdims))
 
 
 def _reduce_sum_numpy(
@@ -69,7 +77,7 @@ def _reduce_sum_numpy(
     axes: tuple[int, ...] | None,
     *,
     keepdims: bool,
-) -> np.ndarray:
+) -> np.uint64 | np.float64 | np.ndarray:
     acc = np.uint64 if arr.dtype == np.uint8 else np.float64
     return np.sum(arr, axis=axes, dtype=acc, keepdims=keepdims)
 
@@ -107,13 +115,17 @@ def reduce_sum(
     """
     axes = _resolve_axes(arr, axis)
     if axes is None:
-        if arr.dtype == np.uint8:
+        if _is_uint8_image(arr):
             return _reduce_sum_global_uint8(arr, keepdims=keepdims)
-        return _reduce_sum_global_float32(cast("ImageFloat32", arr), keepdims=keepdims)
+        if _is_float32_image(arr):
+            return _reduce_sum_global_float32(arr, keepdims=keepdims)
+        raise ValueError(f"Unsupported dtype {arr.dtype} for reduce_sum; use uint8 or float32.")
     if axes == _per_channel_spatial_axes(arr):
-        if arr.dtype == np.uint8:
+        if _is_uint8_image(arr):
             return _reduce_sum_per_channel_uint8(arr, keepdims=keepdims)
-        return _reduce_sum_per_channel_float32(cast("ImageFloat32", arr), axes, keepdims=keepdims)
+        if _is_float32_image(arr):
+            return _reduce_sum_per_channel_float32(arr, axes, keepdims=keepdims)
+        raise ValueError(f"Unsupported dtype {arr.dtype} for reduce_sum; use uint8 or float32.")
     return _reduce_sum_numpy(arr, axes, keepdims=keepdims)
 
 
@@ -127,7 +139,7 @@ def _global_mean_std_uint8(arr: ImageUInt8, eps: float) -> tuple[float, float]:
 
 def _global_mean_uint8_only(arr: ImageUInt8) -> float:
     """Global mean only: ``nk.sum`` / N (single reduction, no moments/sqrt work)."""
-    return float(cast("int", nk.sum(arr))) / arr.size  # type: ignore[no-any-return]
+    return float(nk.sum(arr)) / arr.size
 
 
 def _mean_std_global(
@@ -136,39 +148,39 @@ def _mean_std_global(
     keepdims: bool,
     eps: float,
 ) -> tuple[np.floating | float | np.ndarray, np.floating | float | np.ndarray]:
-    if arr.dtype == np.uint8:
+    if _is_uint8_image(arr):
         m, s = _global_mean_std_uint8(arr, eps)
         if keepdims:
             kd = (1,) * arr.ndim
             return np.array(m, dtype=np.float64).reshape(kd), np.array(s, dtype=np.float64).reshape(kd)
         return m, s
-    if arr.dtype == np.float32:
-        m = np.mean(arr, dtype=np.float64, keepdims=keepdims)
-        st = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
-        return cast("np.ndarray | np.floating", m), cast("np.ndarray | np.floating", st)
+    if _is_float32_image(arr):
+        mean_value = np.mean(arr, dtype=np.float64, keepdims=keepdims)
+        std_value = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
+        return cast("np.ndarray | np.floating", mean_value), cast("np.ndarray | np.floating", std_value)
     raise ValueError(f"Unsupported dtype {arr.dtype} for mean_std; use uint8 or float32.")
 
 
 def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.ndarray:
-    if arr.dtype == np.uint8:
+    if _is_uint8_image(arr):
         m = _global_mean_uint8_only(arr)
         if keepdims:
             kd = (1,) * arr.ndim
             return np.array(m, dtype=np.float64).reshape(kd)
         return m
-    if arr.dtype == np.float32:
+    if _is_float32_image(arr):
         return cast("np.ndarray | np.floating", np.mean(arr, dtype=np.float64, keepdims=keepdims))
     raise ValueError(f"Unsupported dtype {arr.dtype} for mean; use uint8 or float32.")
 
 
 def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | float | np.ndarray:
-    if arr.dtype == np.uint8:
+    if _is_uint8_image(arr):
         _, s = _global_mean_std_uint8(arr, eps)
         if keepdims:
             kd = (1,) * arr.ndim
             return np.array(s, dtype=np.float64).reshape(kd)
         return s
-    if arr.dtype == np.float32:
+    if _is_float32_image(arr):
         return cast(
             "np.ndarray | np.floating",
             np.std(arr, dtype=np.float64, keepdims=keepdims) + eps,
@@ -204,8 +216,8 @@ def _mean_per_channel_uint8(arr: ImageUInt8, axes: tuple[int, ...], *, keepdims:
     n_spatial = arr.size // arr.shape[-1]
     result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
     if keepdims:
-        return result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],))
-    return result
+        return cast("np.ndarray", result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],)))
+    return cast("np.ndarray", result)
 
 
 def _mean_per_channel(
@@ -215,13 +227,13 @@ def _mean_per_channel(
     keepdims: bool,
 ) -> np.ndarray:
     spatial_axes = _per_channel_spatial_axes(arr)
-    if arr.dtype == np.uint8 and axes == spatial_axes:
-        return _mean_per_channel_uint8(cast("ImageUInt8", arr), axes, keepdims=keepdims)
+    if _is_uint8_image(arr) and axes == spatial_axes:
+        return _mean_per_channel_uint8(arr, axes, keepdims=keepdims)
     c = arr.shape[-1]
     # float32 HWC, C ≤ 4: cv2.mean is fastest
     if arr.ndim == 3 and not keepdims and axes == spatial_axes and c <= MAX_OPENCV_WORKING_CHANNELS:
         mu = cv2.mean(arr)
-        return cast("np.ndarray", np.asarray(mu[:c], dtype=np.float64))
+        return np.asarray(mu[:c], dtype=np.float64)
     # float32 NHWC/DHWC (ndim == 4), 1 < C ≤ 4: nk.sum wins 4x vs arr.mean
     if arr.ndim == 4 and not keepdims and axes == spatial_axes and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         n_spatial = arr.size // c

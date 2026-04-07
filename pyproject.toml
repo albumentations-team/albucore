@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
   "numpy>=1.24.4",
-  "numkong>=7.4.3",
+  "numkong>=7.4.5",
   "stringzilla>=3.10.4",
 ]
 

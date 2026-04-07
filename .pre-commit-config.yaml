@@ -70,5 +70,6 @@ repos:
     hooks:
       - id: mypy
         files: ^(albucore|benchmark)/
+        additional_dependencies: ["numpy>=1.24.4", "numkong>=7.4.5"]
         args:
           [ --config-file=pyproject.toml ]
