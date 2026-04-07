@@ -1,5 +1,7 @@
 """dtype conversion: uint8 <-> float32 in [0,1]."""
 
+from typing import Any, cast
+
 import cv2
 import numpy as np
 
@@ -29,15 +31,13 @@ def to_float_opencv(img: ImageType, max_value: float | None = None) -> ImageFloa
 
     img_float = img.astype(np.float32, copy=False)
 
-    num_channels = get_num_channels(img)
-
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
+    if get_num_channels(img) > MAX_OPENCV_WORKING_CHANNELS:
         # For images with more than 4 channels, create a full-sized divisor
         max_value_array = np.full_like(img_float, max_value)
-        return cv2.divide(img_float, max_value_array)
+        return cast("ImageFloat32", cv2.divide(img_float, max_value_array))
 
-    # For images with 4 or fewer channels, use scalar division
-    return cv2.divide(img_float, max_value)
+    # Keep scalar fast path (no full-image temporary); typing narrowed via Any.
+    return cast("ImageFloat32", cv2.divide(img_float, cast("Any", max_value)))
 
 
 @preserve_channel_dim
@@ -48,7 +48,7 @@ def to_float_lut(img: ImageUInt8, max_value: float | None = None) -> ImageFloat3
     if max_value is None:
         max_value = MAX_VALUES_BY_DTYPE[img.dtype]
     lut = (np.arange(256, dtype=np.float32) / max_value).astype(np.float32)
-    return cv2.LUT(img, lut)
+    return cast("ImageFloat32", cv2.LUT(img, lut))
 
 
 def to_float(img: ImageType, max_value: float | None = None) -> ImageFloat32:
@@ -69,9 +69,9 @@ def to_float(img: ImageType, max_value: float | None = None) -> ImageFloat32:
         float32 image with same spatial shape, values in [0, 1] for standard integer dtypes.
     """
     if img.dtype == np.float32:
-        return img
+        return cast("ImageFloat32", img)
     if img.dtype == np.uint8:
-        return to_float_lut(img, max_value)
+        return to_float_lut(cast("ImageUInt8", img), max_value)
     return to_float_numpy(img, max_value)
 
 

@@ -1,17 +1,17 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Literal, TypeVar, cast
+from typing import Any, Concatenate, Literal
 
 import numpy as np
 
-from albucore.utils import ImageType, P
+from albucore.utils import P
 
-F = TypeVar("F", bound=Callable[..., Any])
+Array = np.ndarray[Any, Any]
 
 
 def contiguous(
-    func: Callable[Concatenate[ImageType, P], ImageType],
-) -> Callable[Concatenate[ImageType, P], ImageType]:
+    func: Callable[Concatenate[Array, P], Array],
+) -> Callable[Concatenate[Array, P], Array]:
     """Ensure that input img is contiguous and the output array is also contiguous.
 
     Note: This decorator enforces C-contiguous memory layout. Fortran-contiguous
@@ -21,7 +21,7 @@ def contiguous(
     """
 
     @wraps(func)
-    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
+    def wrapped_function(img: Array, *args: P.args, **kwargs: P.kwargs) -> Array:
         # Ensure the input array is contiguous only if needed
         if not img.flags["C_CONTIGUOUS"]:
             img = np.require(img, requirements=["C_CONTIGUOUS"])
@@ -36,12 +36,12 @@ def contiguous(
 
 
 def preserve_channel_dim(
-    func: Callable[Concatenate[ImageType, P], ImageType],
-) -> Callable[Concatenate[ImageType, P], ImageType]:
+    func: Callable[Concatenate[Array, P], Array],
+) -> Callable[Concatenate[Array, P], Array]:
     """Preserve single channel dimension when OpenCV drops it."""
 
     @wraps(func)
-    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
+    def wrapped_function(img: Array, *args: P.args, **kwargs: P.kwargs) -> Array:
         shape = img.shape
         result = func(img, *args, **kwargs)
         # If input had 3 dims with last dim = 1, and OpenCV dropped it to 2 dims
@@ -159,10 +159,10 @@ def restore_from_spatial(
 def batch_transform(
     transform_type: BatchTransformType,
     keep_depth_dim: bool = False,
-) -> Callable[[F], F]:
+) -> Callable[[Callable[..., Array]], Callable[..., Array]]:
     """Decorator to handle batch transformations."""
 
-    def decorator(func: F) -> F:
+    def decorator(func: Callable[..., Array]) -> Callable[..., Array]:
         @wraps(func)
         def wrapper(self: Any, data: np.ndarray, *args: Any, **params: Any) -> np.ndarray:
             if not data.flags["C_CONTIGUOUS"]:
@@ -196,7 +196,7 @@ def batch_transform(
                 keep_depth_dim,
             )
 
-        return cast("F", wrapper)
+        return wrapper
 
     return decorator
 

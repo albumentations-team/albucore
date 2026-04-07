@@ -68,6 +68,17 @@ Keep intermediate buffers **float32** (no float64 wideners) unless a benchmark p
 - Test single image, batch, volume, batch-of-volumes where the router supports it
 - Edge cases: 1 channel, >4 channels
 
+### 8. Dependency Lock Consistency
+
+- When changing dependencies in `pyproject.toml`, update `uv.lock` in the same PR.
+- Validate with:
+
+```bash
+uv lock --check
+```
+
+- Release flow uses `uv export --frozen`; stale `uv.lock` can break release artifact generation.
+
 ## Quick Ref
 
 | Convention | Rule |
@@ -79,3 +90,4 @@ Keep intermediate buffers **float32** (no float64 wideners) unless a benchmark p
 | Normalize / math | float32 buffers; no float64 in public paths |
 | OpenCV limit | 4 channels unless chunked / NumPy |
 | Benchmarks | `benchmarks/` (see skill **albucore-benchmarks**) |
+| Lockfile | Keep `uv.lock` in sync with `pyproject.toml` |

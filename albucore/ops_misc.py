@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, cast
 
 import cv2
 import numkong as nk
@@ -12,6 +12,7 @@ from albucore.convert import from_float, to_float
 from albucore.decorators import contiguous, preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
+    ImageFloat32,
     ImageType,
     get_num_channels,
     maybe_process_in_chunks,
@@ -28,7 +29,7 @@ def hflip_cv2(img: ImageType) -> ImageType:
     # OpenCV's flip function has a limitation of 512 channels
     if img.ndim > 2 and img.shape[2] > 512:
         return _flip_multichannel(img, flip_code=1)
-    return cv2.flip(img, 1)
+    return cast("ImageType", cv2.flip(img, 1))
 
 
 def hflip(img: ImageType) -> ImageType:
@@ -55,7 +56,7 @@ def vflip_cv2(img: ImageType) -> ImageType:
     # OpenCV's flip function has a limitation of 512 channels
     if img.ndim > 2 and img.shape[2] > 512:
         return _flip_multichannel(img, flip_code=0)
-    return cv2.flip(img, 0)
+    return cast("ImageType", cv2.flip(img, 0))
 
 
 @contiguous
@@ -102,7 +103,7 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
 
     # If the image has fewer than 512 channels, use cv2.flip directly
     if num_channels <= 512:
-        return cv2.flip(img, flip_code)
+        return cast("ImageType", cv2.flip(img, flip_code))
 
     chunk_size = 512
     result: np.ndarray | None = None
@@ -111,7 +112,7 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     for i in range(0, num_channels, chunk_size):
         end_idx = min(i + chunk_size, num_channels)
         chunk = img[:, :, i:end_idx]
-        flipped_chunk = cv2.flip(chunk, flip_code)
+        flipped_chunk = cast("np.ndarray", cv2.flip(chunk, flip_code))
 
         if flipped_chunk.ndim == 2 and img.ndim == 3:
             flipped_chunk = np.expand_dims(flipped_chunk, axis=2)
@@ -122,7 +123,10 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
         result[:, :, offset : offset + n] = flipped_chunk
         offset += n
 
-    return result
+    if result is None:
+        msg = "Flip chunking produced no output."
+        raise RuntimeError(msg)
+    return cast("ImageType", result)
 
 
 def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
@@ -155,7 +159,9 @@ def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
             img = to_float(img)
         result = func(img, *args, **kwargs)
 
-        return from_float(result, target_dtype=input_dtype) if input_dtype != np.float32 else result
+        if input_dtype != np.float32:
+            return from_float(cast("ImageFloat32", result), target_dtype=input_dtype)
+        return result
 
     return float32_wrapper
 
@@ -185,7 +191,7 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
         input_dtype = img.dtype
 
         if input_dtype != np.uint8:
-            img = from_float(img, target_dtype=np.uint8)
+            img = from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8))
 
         result = func(img, *args, **kwargs)
 
@@ -216,11 +222,11 @@ def median_blur(img: ImageType, ksize: int) -> ImageType:
     num_channels = get_num_channels(img)
 
     if ksize in (3, 5):
-        return cv2.medianBlur(img, ksize)
+        return cast("ImageType", cv2.medianBlur(img, ksize))
 
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         return maybe_process_in_chunks(cv2.medianBlur, ksize)(img)
-    return cv2.medianBlur(img, ksize)
+    return cast("ImageType", cv2.medianBlur(img, ksize))
 
 
 def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -271,7 +277,7 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         - ThinPlateSpline geometric transformation (3 uses in AlbumentationsX)
         - Macenko stain normalization for medical imaging (1 use in AlbumentationsX)
     """
-    return a @ b
+    return cast("np.ndarray", a @ b)
 
 
 def pairwise_distances_squared(
@@ -334,4 +340,4 @@ def pairwise_distances_squared(
     result = p1_squared + p2_squared - 2 * dot_product
     # Clamp to zero to handle numerical errors that can produce small negative values
     np.maximum(result, 0.0, out=result)
-    return result
+    return cast("np.ndarray", result)

@@ -37,6 +37,10 @@ jobs:
           uv pip install -e .
           uv pip install -r requirements-dev.txt
 
+      - name: Verify uv.lock is up-to-date
+        if: matrix.python-version == '3.10'
+        run: uv lock --check
+
       - name: Check code formatting with pre-commit
         if: matrix.python-version == '3.10'
         run: pre-commit run --all-files --show-diff-on-failure
