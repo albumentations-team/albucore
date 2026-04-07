@@ -23,15 +23,45 @@ jobs:
           python-version: "3.10"
           activate-environment: true
 
-      - name: Resolve headless OpenCV dependency from pyproject
+      - name: Resolve release metadata from pyproject
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           python - <<'PY' >> "$GITHUB_ENV"
-          import re
+          import os
+          import tomllib
           from pathlib import Path
 
-          text = Path("pyproject.toml").read_text()
-          dep = re.search(r'^headless\s*=\s*\["([^"]+)"\]', text, re.MULTILINE).group(1)
-          print(f"OPENCV_HEADLESS_DEPENDENCY={dep}")
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+          project = pyproject.get("project")
+          if not isinstance(project, dict):
+              raise SystemExit("pyproject.toml is missing [project] metadata required for releases.")
+
+          package_version = project.get("version")
+          if not isinstance(package_version, str) or not package_version:
+              raise SystemExit("pyproject.toml is missing project.version required for releases.")
+
+          release_tag = os.environ["RELEASE_TAG"]
+          normalized_release_tag = release_tag.removeprefix("v")
+          if normalized_release_tag != package_version:
+              raise SystemExit(
+                  f"Release tag '{release_tag}' does not match project.version '{package_version}'."
+              )
+
+          optional_dependencies = project.get("optional-dependencies", {})
+          if not isinstance(optional_dependencies, dict):
+              raise SystemExit("pyproject.toml project.optional-dependencies must be a table when present.")
+
+          headless_dependencies = optional_dependencies.get("headless", [])
+          if not isinstance(headless_dependencies, list):
+              raise SystemExit("pyproject.toml project.optional-dependencies.headless must be an array.")
+
+          print(f"PACKAGE_VERSION={package_version}")
+          print(f"SBOM_FILENAME=albucore-{package_version}-sbom.cdx.json")
+          print("HEADLESS_RUNTIME_DEPENDENCIES<<EOF")
+          for dependency in headless_dependencies:
+              print(dependency)
+          print("EOF")
           PY
 
       - name: Build distributions
@@ -47,7 +77,10 @@ jobs:
           python -m venv "$VENV_DIR"
           . "$VENV_DIR/bin/activate"
           python -m pip install --upgrade pip
-          python -m pip install "${OPENCV_HEADLESS_DEPENDENCY}"
+          if [ -n "${HEADLESS_RUNTIME_DEPENDENCIES:-}" ]; then
+            printf '%s\n' "${HEADLESS_RUNTIME_DEPENDENCIES}" > "$VENV_DIR/headless-runtime-requirements.txt"
+            python -m pip install -r "$VENV_DIR/headless-runtime-requirements.txt"
+          fi
           python -m pip install dist/*.whl
           cd /tmp
           python - <<'PY'
@@ -64,7 +97,7 @@ jobs:
         run: |
           uv tool run --from cyclonedx-bom cyclonedx-py requirements dist/runtime-requirements.txt \
             --output-format JSON \
-            --output-file "dist/albucore-${{ github.event.release.tag_name }}-sbom.cdx.json"
+            --output-file "dist/${SBOM_FILENAME}"
 
       - name: Generate checksums
         run: |
