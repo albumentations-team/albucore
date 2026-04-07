@@ -77,12 +77,13 @@ def _reduce_sum_numpy(
     axes: tuple[int, ...] | None,
     *,
     keepdims: bool,
-) -> np.uint64 | np.float64 | np.ndarray:
-    if arr.dtype == np.uint8:
+) -> np.generic | np.ndarray:
+    if np.issubdtype(arr.dtype, np.unsignedinteger):
         acc: type = np.uint64
     elif np.issubdtype(arr.dtype, np.floating):
         acc = np.float64
     else:
+        # signed integers and bool
         acc = np.int64
     return np.sum(arr, axis=axes, dtype=acc, keepdims=keepdims)
 
@@ -92,7 +93,7 @@ def reduce_sum(
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
-) -> np.uint64 | np.float64 | np.ndarray:
+) -> np.generic | np.ndarray:
     r"""Sum over image tensor axes with benchmark-driven routing.
 
     Routing:
@@ -117,7 +118,9 @@ def reduce_sum(
         keepdims: Same semantics as :func:`numpy.sum`.
 
     Returns:
-        ``numpy.uint64`` or ``numpy.float64`` scalar for a full reduction, else an array.
+        Scalar (``uint64`` / ``int64`` / ``float64``) for a full reduction, else an array.
+        The accumulator dtype follows the input: unsigned → uint64, float → float64,
+        signed int / bool → int64.
     """
     axes = _resolve_axes(arr, axis)
     if axes is None:
