@@ -37,16 +37,18 @@ def _compute_per_channel_stats_opencv(img: ImageType) -> tuple[np.ndarray, np.nd
 def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: float | np.ndarray) -> ImageFloat32:
     """Apply mean-std normalization using OpenCV or NumPy based on dimensionality."""
     img_f = img.astype(np.float32, copy=False)
-    if img_f.ndim > 3:
-        # Use NumPy operations for 4D/5D (faster)
-        normalized_img = cast("ImageFloat32", (img_f - mean) / std)
+    if img_f.ndim > 3 or (img_f.ndim == 3 and img_f.shape[-1] > MAX_OPENCV_WORKING_CHANNELS):
+        # Use NumPy operations for 4D/5D and 3D images with >4 channels.
+        mean_arr = np.asarray(mean, dtype=np.float32)
+        std_arr = np.asarray(std, dtype=np.float32)
+        normalized_img = cast("ImageFloat32", (img_f - mean_arr) / std_arr)
     else:
-        # Use OpenCV for 3D
-        mean_arr: Any = mean if np.isscalar(mean) else np.asarray(mean, dtype=np.float32)
-        std_arr: Any = std if np.isscalar(std) else np.asarray(std, dtype=np.float32)
+        # Use OpenCV for 3D images up to 4 channels.
+        mean_cv2: Any = mean if np.isscalar(mean) else np.asarray(mean, dtype=np.float32)
+        std_cv2: Any = std if np.isscalar(std) else np.asarray(std, dtype=np.float32)
         normalized_img = cast(
             "ImageFloat32",
-            cv2.divide(cv2.subtract(img_f, mean_arr, dtype=cv2.CV_32F), std_arr, dtype=cv2.CV_32F),
+            cv2.divide(cv2.subtract(img_f, mean_cv2, dtype=cv2.CV_32F), std_cv2, dtype=cv2.CV_32F),
         )
     return np.clip(normalized_img, -20, 20, out=normalized_img)
 

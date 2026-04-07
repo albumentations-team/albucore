@@ -38,12 +38,14 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
+    img_view = memoryview(cast("Any", img))
+    lut_view = memoryview(cast("Any", lut))
     if inplace:
-        sz.translate(cast("Any", img), cast("Any", lut), inplace=True)
+        sz.translate(img_view, lut_view, inplace=True)
         return img
 
     # sz.translate(inplace=False) allocates + writes in one pass — faster than copy + inplace.
-    raw = sz.translate(cast("Any", img), cast("Any", lut), inplace=False)
+    raw = sz.translate(img_view, lut_view, inplace=False)
     return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)
 
 
