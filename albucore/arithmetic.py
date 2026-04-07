@@ -648,7 +648,7 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
     if isinstance(value, np.ndarray) and value.shape != ():
         value = value.reshape(-1, 1)
 
-    luts = clip(domain * factor + value, dtype, inplace=False)
+    luts = clip(cast("ImageType", np.asarray(domain * factor + value, dtype=np.float32)), dtype, inplace=False)
     return _apply_uint8_lut(img, luts, inplace=inplace)
 
 

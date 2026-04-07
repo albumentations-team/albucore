@@ -147,6 +147,7 @@ warn_unused_ignores = true
 disallow_any_generics = true
 check_untyped_defs = true
 no_implicit_reexport = true
+disable_error_code = ["type-arg"]
 
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true

@@ -77,6 +77,8 @@ repos:
     hooks:
       - id: mypy
         files: ^(albucore|benchmark)/
-        additional_dependencies: ["numpy>=1.24.4", "numkong>=7.4.5"]
+        # Pin NumPy typing behavior in the hook env: numpy 1.24 stubs trigger
+        # widespread "Missing type arguments" with disallow_any_generics=true.
+        additional_dependencies: ["numpy==2.2.6", "numkong>=7.4.5"]
         args:
           [ --config-file=pyproject.toml ]
