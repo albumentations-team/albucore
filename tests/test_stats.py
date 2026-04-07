@@ -359,6 +359,10 @@ def test_unsupported_dtype_raises(dtype: type) -> None:
         std(arr)
     with pytest.raises(ValueError, match="Unsupported dtype"):
         mean_std(arr)
+    with pytest.raises(ValueError, match="Unsupported dtype"):
+        reduce_sum(arr)
+    with pytest.raises(ValueError, match="Unsupported dtype"):
+        reduce_sum(arr, "per_channel")
 
 
 @pytest.mark.parametrize("c", [1, 2, 3, 4])

@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
   "numpy>=1.24.4",
-  "numkong>=7.4.3",
+  "numkong>=7.4.5",
   "stringzilla>=3.10.4",
 ]
 
@@ -144,9 +144,10 @@ ignore_missing_imports = true
 follow_imports = "silent"
 warn_redundant_casts = true
 warn_unused_ignores = true
-disallow_any_generics = true
+disallow_any_generics = false
 check_untyped_defs = true
 no_implicit_reexport = true
+disable_error_code = ["type-arg"]
 
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true

@@ -11,6 +11,13 @@ ci:
   submodules: false
 
 repos:
+  - repo: local
+    hooks:
+      - id: uv-lock-check
+        name: uv lock --check
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -70,5 +77,8 @@ repos:
     hooks:
       - id: mypy
         files: ^(albucore|benchmark)/
+        # Pin NumPy typing behavior in the hook env: numpy 1.24 stubs trigger
+        # widespread "Missing type arguments" with disallow_any_generics=true.
+        additional_dependencies: ["numpy==2.2.6", "numkong>=7.4.5"]
         args:
           [ --config-file=pyproject.toml ]
