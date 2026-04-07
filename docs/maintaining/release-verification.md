@@ -62,3 +62,13 @@ The CycloneDX SBOM attached to the GitHub Release is generated from the locked r
 3. compare them with the published package metadata and their own dependency review tooling
 
 The SBOM is a transparency artifact. The checksum manifest and PyPI provenance are the primary authenticity artifacts.
+
+## Maintainer Guardrail
+
+The release pipeline enforces lockfile consistency with:
+
+```bash
+uv lock --check
+```
+
+before `uv export --frozen`. This guarantees that `uv.lock` matches `pyproject.toml` and prevents frozen-export failures caused by stale lockfiles.
