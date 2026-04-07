@@ -103,10 +103,19 @@ jobs:
         run: |
           (
             cd dist
-            shasum -a 256 ./*.whl ./*.tar.gz ./*-sbom.cdx.json > SHA256SUMS.txt
+            sha256sum ./*.whl ./*.tar.gz ./*-sbom.cdx.json > SHA256SUMS.txt
           )
 
-      - name: Upload workflow artifacts
+      - name: Upload distribution artifacts for PyPI
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-artifacts
@@ -136,10 +145,10 @@ jobs:
       actions: read
       contents: read
     steps:
-      - name: Download release artifacts
+      - name: Download distribution artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release-artifacts
+          name: pypi-distributions
           path: dist
 
       - name: Publish distributions to PyPI
