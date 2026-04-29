@@ -17,8 +17,9 @@ Layouts (channel last, Albucore convention):
 **Per-channel LUT** (different table per channel):
 
 - **SZ per-ch:** loop ``sz_lut`` per channel with ``lut_1d[c]``.
-- **cv2:** ``(256, 1, C)`` one-shot on ``(H, W, C)`` only; on ``DHWC`` / ``NDHWC``, ``C`` times
-  ``cv2.LUT(img[..., c], lut_1d[c])`` (OpenCV rejects multi-channel LUT on higher ndim).
+- **cv2 loop:** ``C`` times ``cv2.LUT(img[..., c], lut_1d[c])``.
+- **cv2 flat:** ``(256, 1, C)`` one-shot on ``(H, W, C)``; for ``DHWC`` / ``NDHWC``, flatten
+  the leading dimensions to a synthetic HWC view first.
 
 Non-uint8 / non-standard cases are not timed; production still routes those through OpenCV.
 
@@ -112,6 +113,15 @@ def cv2_lut_per_channel_distinct(
     return out
 
 
+def cv2_lut_per_channel_flattened(img: np.ndarray, lut_256_1_c: np.ndarray) -> np.ndarray:
+    a = np.ascontiguousarray(img, dtype=np.uint8)
+    c = int(a.shape[-1])
+    if a.ndim == 3:
+        return cv2.LUT(a, lut_256_1_c)
+    flat = a.reshape(-1, a.shape[-2], c)
+    return cv2.LUT(flat, lut_256_1_c).reshape(a.shape)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--repeats", type=int, default=15)
@@ -190,9 +200,9 @@ def main() -> None:
     print("#### Per-channel LUT (different `256` table per channel)")
     print()
     print(
-        "| layout | shape | pixels | SZ loop C× `sz_lut` | cv2 (1× `(256,1,C)` on HWC else C× `LUT`) | fastest |",
+        "| layout | shape | pixels | SZ loop C× `sz_lut` | cv2 loop C× `LUT` | cv2 flat 1× `(256,1,C)` | fastest |",
     )
-    print("|--------|-------|-------:|--------------------:|----------------------------------------:|---------|")
+    print("|--------|-------|-------:|--------------------:|------------------:|--------------------------:|---------|")
 
     for sh in shapes:
         c = sh[-1]
@@ -206,20 +216,26 @@ def main() -> None:
             args.repeats,
             args.warmup,
         )
-        best = min(t_szc, t_cv2)
-        tag = "SZ loop" if best == t_szc else "cv2"
+        t_cv2_flat = median_ms(lambda: cv2_lut_per_channel_flattened(img, lut_cv2), args.repeats, args.warmup)
+        best = min(t_szc, t_cv2, t_cv2_flat)
+        if best == t_szc:
+            tag = "SZ loop"
+        elif best == t_cv2:
+            tag = "cv2 loop"
+        else:
+            tag = "cv2 flat"
         layout = {3: "HWC", 4: "DHWC", 5: "NDHWC"}.get(len(sh), "?")
         shape_str = "×".join(str(x) for x in sh)
-        print(f"| {layout} | {shape_str} | {npx} | {t_szc:.4f} | {t_cv2:.4f} | {tag} |")
+        print(f"| {layout} | {shape_str} | {npx} | {t_szc:.4f} | {t_cv2:.4f} | {t_cv2_flat:.4f} | {tag} |")
 
     print()
     print(
         "**Notes:**\n"
         "- **SZ full** is only valid when one LUT applies to every byte (scalar `apply_lut` path).\n"
-        "- **SZ loop** matches multi-channel `apply_lut` (`sz_lut` per channel).\n"
+        "- **SZ loop** matches the non-contiguous multi-channel `apply_lut` fallback (`sz_lut` per channel).\n"
         "- **cv2** shared `(256,)`: contiguous `HWC` / `DHWC` / `NDHWC` work here. "
-        "Per-channel distinct: `(256,1,C)` is **only** valid for `ndim==3`; volumes/batches use **C×** "
-        "`cv2.LUT(..., 1D)` on `img[..., c]` (OpenCV `lut.cpp` otherwise asserts).\n"
+        "Per-channel distinct: direct `(256,1,C)` is **only** valid for `ndim==3`, but contiguous "
+        "volumes/batches can be reshaped to HWC and use the same one-shot OpenCV path.\n"
         "- Regenerate on your CPU; routing should follow benchmarks, not assumptions.\n",
     )
 

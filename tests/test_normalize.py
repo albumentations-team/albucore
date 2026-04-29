@@ -41,6 +41,33 @@ def test_normalize_lut(img, denominator, mean, expected):
     np.testing.assert_allclose(result_cv2, expected, atol=1e-6)
 
 
+@pytest.mark.parametrize("shape", [(17, 19, 9), (2, 5, 7, 9)])
+def test_normalize_lut_per_channel_many_channels_matches_reference(shape):
+    rng = np.random.default_rng(123)
+    img = rng.integers(0, 256, size=shape, dtype=np.uint8)
+    mean = np.linspace(70.0, 130.0, num=shape[-1], dtype=np.float32)
+    denominator = np.linspace(0.01, 0.03, num=shape[-1], dtype=np.float32)
+
+    result = normalize_lut(img, mean, denominator)
+    expected = (img.astype(np.float32) - mean) * denominator
+
+    assert result.shape == img.shape
+    assert result.dtype == np.float32
+    np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
+
+
+def test_normalize_lut_single_channel_preserves_channel_dim():
+    img = np.arange(24, dtype=np.uint8).reshape(4, 6, 1)
+    mean = np.array([3.0], dtype=np.float32)
+    denominator = np.array([0.25], dtype=np.float32)
+
+    result = normalize_lut(img, mean, denominator)
+
+    assert result.shape == img.shape
+    assert result.dtype == np.float32
+    np.testing.assert_allclose(result, (img.astype(np.float32) - 3.0) * 0.25)
+
+
 @pytest.mark.parametrize(
     ["image", "mean", "std"],
     [

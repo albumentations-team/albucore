@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
+from albucore.lut import _apply_float_lut
 from albucore.lut import apply_uint8_lut as _apply_uint8_lut
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -40,16 +41,18 @@ def create_lut_array(
     value: float | np.ndarray,
     operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    op = np_operations.get(operation)
+    if op is None:
+        raise ValueError(f"Unsupported operation: {operation}")
 
     if dtype == np.uint8 and operation == "add":
         value = np.trunc(value)
 
-    v = np.asarray(value, dtype=np.float32).reshape(-1, 1)
-    lut = np.arange(max_value + 1, dtype=np.float32)
-    if operation not in np_operations:
-        raise ValueError(f"Unsupported operation: {operation}")
-    return np_operations[operation](lut, v)
+    lut = np.arange(int(MAX_VALUES_BY_DTYPE[dtype]) + 1, dtype=np.float32)
+    value_arr = np.asarray(value, dtype=np.float32)
+    if value_arr.ndim == 0:
+        return cast("np.ndarray", op(lut, value_arr))
+    return cast("np.ndarray", op(lut.reshape(-1, 1, 1), value_arr.reshape(1, 1, -1)))
 
 
 def apply_lut(
@@ -350,20 +353,17 @@ def normalize_opencv(img: ImageType, mean: float | np.ndarray, denominator: floa
 def normalize_lut(img: ImageUInt8, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat32:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    num_channels = get_num_channels(img)
+    lut_size = int(max_value) + 1
 
-    x = np.arange(max_value + 1, dtype=np.float32)
+    x = np.arange(lut_size, dtype=np.float32)
     if isinstance(denominator, (float, int)) and isinstance(mean, (float, int)):
-        return cast("ImageFloat32", cv2.LUT(img, (x - mean) * denominator))
+        return _apply_float_lut(img, (x - mean) * denominator)
 
-    luts = (x[:, np.newaxis] - mean) * denominator
-
-    # Pre-allocate result array
-    result = np.empty_like(img, dtype=np.float32)
-    for i in range(num_channels):
-        result[..., i] = cast("np.ndarray", cv2.LUT(img[..., i], luts[:, i]))
-
-    return result
+    x_lut = x.reshape(-1, 1, 1)
+    mean_lut = np.asarray(mean, dtype=np.float32).reshape(1, 1, -1)
+    denominator_lut = np.asarray(denominator, dtype=np.float32).reshape(1, 1, -1)
+    luts = (x_lut - mean_lut) * denominator_lut
+    return _apply_float_lut(img, luts)
 
 
 def _normalize_is_identity(mean: float | np.ndarray, denominator: float | np.ndarray, *, eps: float = 1e-5) -> bool:
@@ -635,20 +635,21 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
     """Apply multiply-add operation using LUT. Only works with uint8 images."""
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
+    lut_size = int(max_value) + 1
 
-    domain = np.arange(max_value + 1, dtype=np.float32)
+    domain = np.arange(lut_size, dtype=np.float32)
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
         lut = clip(domain * factor + value, dtype, inplace=False)
         return _apply_uint8_lut(img, lut, inplace=inplace)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
-        factor = factor.reshape(-1, 1)
+        factor = factor.reshape(1, 1, -1)
 
     if isinstance(value, np.ndarray) and value.shape != ():
-        value = value.reshape(-1, 1)
+        value = value.reshape(1, 1, -1)
 
-    lut_values = np.asarray(domain * factor + value, dtype=np.float32)
+    lut_values = np.asarray(domain.reshape(-1, 1, 1) * factor + value, dtype=np.float32)
     luts = clip(lut_values, dtype, inplace=False)
     return _apply_uint8_lut(img, luts, inplace=inplace)
 
