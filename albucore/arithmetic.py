@@ -41,24 +41,18 @@ def create_lut_array(
     value: float | np.ndarray,
     operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    lut_size = int(max_value) + 1
+    op = np_operations.get(operation)
+    if op is None:
+        raise ValueError(f"Unsupported operation: {operation}")
 
     if dtype == np.uint8 and operation == "add":
         value = np.trunc(value)
 
-    lut = np.arange(lut_size, dtype=np.float32)
-    if operation not in np_operations:
-        raise ValueError(f"Unsupported operation: {operation}")
+    lut = np.arange(int(MAX_VALUES_BY_DTYPE[dtype]) + 1, dtype=np.float32)
     value_arr = np.asarray(value, dtype=np.float32)
     if value_arr.ndim == 0:
-        return cast("np.ndarray", np_operations[operation](lut, value_arr))
-    lut_domain = lut.reshape(-1, 1, 1)
-    values = value_arr.reshape(1, 1, -1)
-    return cast(
-        "np.ndarray",
-        np_operations[operation](lut_domain, values),
-    )
+        return cast("np.ndarray", op(lut, value_arr))
+    return cast("np.ndarray", op(lut.reshape(-1, 1, 1), value_arr.reshape(1, 1, -1)))
 
 
 def apply_lut(

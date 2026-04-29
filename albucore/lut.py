@@ -50,10 +50,8 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
         msg = f"Expected float LUT shaped (256, 1, C) with C={num_channels}, got {lut.shape}"
         raise ValueError(msg)
 
-    if num_channels > 1:
-        if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
-            return cast("ImageFloat32", _cv2_lut_channel_last(img, lut))
-        return _apply_float_lut_per_channel_loop(img, lut)
+    if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        return cast("ImageFloat32", _cv2_lut_channel_last(img, lut))
 
     return _apply_float_lut_per_channel_loop(img, lut)
 
