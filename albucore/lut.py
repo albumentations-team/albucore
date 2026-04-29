@@ -20,7 +20,7 @@ def _cv2_lut_uint8(img: ImageUInt8, lut: ImageUInt8) -> ImageUInt8:
 
 @preserve_channel_dim
 def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
-    """Apply uint8→float32 LUTs; HWC per-channel tables use one OpenCV call."""
+    """Apply uint8→float32 LUTs; channel-last per-channel tables use one OpenCV call when possible."""
     lut = lut.astype(np.float32, copy=False)
     if lut.ndim == 1:
         return cast("ImageFloat32", cv2.LUT(img, lut))
@@ -30,8 +30,13 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
         msg = f"Expected float LUT shaped (256, C) with C={num_channels}, got {lut.shape}"
         raise ValueError(msg)
 
-    if img.ndim == 3 and num_channels > 1:
-        return cast("ImageFloat32", cv2.LUT(img, lut.reshape(256, 1, num_channels)))
+    if num_channels > 1:
+        lut_cv2 = lut.reshape(256, 1, num_channels)
+        if img.ndim == 3:
+            return cast("ImageFloat32", cv2.LUT(img, lut_cv2))
+        if img.flags["C_CONTIGUOUS"]:
+            flat = img.reshape(-1, img.shape[-2], num_channels)
+            return cast("ImageFloat32", cv2.LUT(flat, lut_cv2).reshape(img.shape))
 
     result = np.empty_like(img, dtype=np.float32)
     for i in range(num_channels):
@@ -128,10 +133,13 @@ def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bo
     if num_channels == 1:
         return _apply_shared_uint8_lut(img, luts[0], inplace=False)
 
-    if img.ndim == 3 and img.flags["C_CONTIGUOUS"]:
+    if img.flags["C_CONTIGUOUS"]:
         lut_cv2 = np.empty((256, 1, num_channels), dtype=np.uint8)
         lut_cv2[:, 0, :] = luts.T
-        return cast("ImageUInt8", cv2.LUT(img, lut_cv2))
+        if img.ndim == 3:
+            return cast("ImageUInt8", cv2.LUT(img, lut_cv2))
+        flat = img.reshape(-1, img.shape[-2], num_channels)
+        return cast("ImageUInt8", cv2.LUT(flat, lut_cv2).reshape(img.shape))
 
     result = np.empty_like(img, dtype=img.dtype)
     for i in range(num_channels):
@@ -154,9 +162,10 @@ def apply_uint8_lut(
       (see ``opencv_shared_uint8_lut_faster_hwc``).  ``inplace=True`` mutates ``img`` when
       StringZilla wins, or copies the OpenCV result back when that path wins.
 
-    - ``(C, 256)`` — one row per channel.  On contiguous ``(H, W, C)`` images uses a single
-      ``cv2.LUT`` call with a ``(256, 1, C)`` table; volumes and batches fall back to
-      per-channel StringZilla.  ``inplace`` is ignored for the per-channel path.
+    - ``(C, 256)`` — one row per channel.  On contiguous channel-last arrays uses a single
+      ``cv2.LUT`` call with a ``(256, 1, C)`` table; batches and volumes are flattened to a
+      3D view first. Non-contiguous batches/volumes fall back to per-channel StringZilla.
+      ``inplace`` is ignored for the per-channel path.
 
     Degenerate shapes ``(1, 256)`` and ``(256, 1)`` are reshaped to ``(256,)`` automatically.
 
