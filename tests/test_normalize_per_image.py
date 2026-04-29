@@ -65,6 +65,30 @@ def test_normalize_np_cv_equal(image, normalization):
     np.testing.assert_allclose(res1, res3, atol=1e-4)
 
 
+@pytest.mark.parametrize("normalization", ["image_per_channel", "min_max_per_channel"])
+@pytest.mark.parametrize("shape", [(17, 19, 9), (2, 5, 7, 9)])
+def test_normalize_per_image_lut_per_channel_many_channels_matches_numpy(shape, normalization):
+    rng = np.random.default_rng(123)
+    image = rng.integers(0, 256, size=shape, dtype=np.uint8)
+
+    result = normalize_per_image_lut(image, normalization)
+    expected = normalize_per_image_numpy(image, normalization)
+
+    assert result.shape == image.shape
+    assert result.dtype == np.float32
+    np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
+
+
+@pytest.mark.parametrize("normalization", ["image_per_channel", "min_max_per_channel"])
+def test_normalize_per_image_lut_single_channel_preserves_channel_dim(normalization):
+    image = np.arange(24, dtype=np.uint8).reshape(4, 6, 1)
+
+    result = normalize_per_image_lut(image, normalization)
+
+    assert result.shape == image.shape
+    assert result.dtype == np.float32
+
+
 # Parameterize tests for all combinations
 @pytest.mark.parametrize("shape", [
     (100, 100, 1),  # height, width, 1 channel (grayscale)
