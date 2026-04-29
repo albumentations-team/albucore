@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "albucore"
-version = "0.1.5"
+version = "0.1.6"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
