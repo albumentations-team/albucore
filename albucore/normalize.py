@@ -214,8 +214,8 @@ def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: f
 
 def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
     """Apply per-channel LUTs to an image."""
-    if luts.shape != (256, num_channels):
-        msg = f"Expected per-channel LUTs shaped (256, {num_channels}), got {luts.shape}"
+    if luts.shape != (256, 1, num_channels):
+        msg = f"Expected per-channel LUTs shaped (256, 1, {num_channels}), got {luts.shape}"
         raise ValueError(msg)
     return _apply_float_lut(img, luts)
 
@@ -231,8 +231,10 @@ def _normalize_image_per_channel_lut(img: ImageUInt8, max_value: float, eps: flo
     """Normalize per-channel using mean and std with LUT."""
     pixel_mean, pixel_std = mean_std(img, "per_channel", eps=eps)
 
-    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-    luts = ((arange_vals[:, np.newaxis] - pixel_mean) / pixel_std).clip(-20, 20).astype(np.float32)
+    arange_vals = np.arange(0, max_value + 1, dtype=np.float32).reshape(-1, 1, 1)
+    mean_lut = np.asarray(pixel_mean, dtype=np.float32).reshape(1, 1, num_channels)
+    std_lut = np.asarray(pixel_std, dtype=np.float32).reshape(1, 1, num_channels)
+    luts = ((arange_vals - mean_lut) / std_lut).clip(-20, 20).astype(np.float32)
 
     return _apply_per_channel_lut(img, luts, num_channels)
 
@@ -254,8 +256,10 @@ def _normalize_min_max_per_channel_lut(
     axes = tuple(range(img.ndim - 1))
     img_min, img_max = img.min(axis=axes), img.max(axis=axes)
 
-    arange_vals = np.arange(0, max_value + 1, dtype=np.float32)
-    luts = ((arange_vals[:, np.newaxis] - img_min) / (img_max - img_min + eps)).clip(0, 1).astype(np.float32)
+    arange_vals = np.arange(0, max_value + 1, dtype=np.float32).reshape(-1, 1, 1)
+    img_min_lut = np.asarray(img_min, dtype=np.float32).reshape(1, 1, num_channels)
+    img_max_lut = np.asarray(img_max, dtype=np.float32).reshape(1, 1, num_channels)
+    luts = ((arange_vals - img_min_lut) / (img_max_lut - img_min_lut + eps)).clip(0, 1).astype(np.float32)
 
     return _apply_per_channel_lut(img, luts, num_channels)
 

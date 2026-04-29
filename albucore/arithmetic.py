@@ -42,15 +42,23 @@ def create_lut_array(
     operation: Literal["add", "multiply", "power"],
 ) -> np.ndarray:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
+    lut_size = int(max_value) + 1
 
     if dtype == np.uint8 and operation == "add":
         value = np.trunc(value)
 
-    v = np.asarray(value, dtype=np.float32).reshape(-1, 1)
-    lut = np.arange(max_value + 1, dtype=np.float32)
+    lut = np.arange(lut_size, dtype=np.float32)
     if operation not in np_operations:
         raise ValueError(f"Unsupported operation: {operation}")
-    return np_operations[operation](lut, v)
+    value_arr = np.asarray(value, dtype=np.float32)
+    if value_arr.ndim == 0:
+        return cast("np.ndarray", np_operations[operation](lut, value_arr))
+    lut_domain = lut.reshape(-1, 1, 1)
+    values = value_arr.reshape(1, 1, -1)
+    return cast(
+        "np.ndarray",
+        np_operations[operation](lut_domain, values),
+    )
 
 
 def apply_lut(
@@ -351,12 +359,16 @@ def normalize_opencv(img: ImageType, mean: float | np.ndarray, denominator: floa
 def normalize_lut(img: ImageUInt8, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat32:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
+    lut_size = int(max_value) + 1
 
-    x = np.arange(max_value + 1, dtype=np.float32)
+    x = np.arange(lut_size, dtype=np.float32)
     if isinstance(denominator, (float, int)) and isinstance(mean, (float, int)):
         return _apply_float_lut(img, (x - mean) * denominator)
 
-    luts = (x[:, np.newaxis] - mean) * denominator
+    x_lut = x.reshape(-1, 1, 1)
+    mean_lut = np.asarray(mean, dtype=np.float32).reshape(1, 1, -1)
+    denominator_lut = np.asarray(denominator, dtype=np.float32).reshape(1, 1, -1)
+    luts = (x_lut - mean_lut) * denominator_lut
     return _apply_float_lut(img, luts)
 
 
@@ -629,20 +641,21 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
     """Apply multiply-add operation using LUT. Only works with uint8 images."""
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
+    lut_size = int(max_value) + 1
 
-    domain = np.arange(max_value + 1, dtype=np.float32)
+    domain = np.arange(lut_size, dtype=np.float32)
 
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
         lut = clip(domain * factor + value, dtype, inplace=False)
         return _apply_uint8_lut(img, lut, inplace=inplace)
 
     if isinstance(factor, np.ndarray) and factor.shape != ():
-        factor = factor.reshape(-1, 1)
+        factor = factor.reshape(1, 1, -1)
 
     if isinstance(value, np.ndarray) and value.shape != ():
-        value = value.reshape(-1, 1)
+        value = value.reshape(1, 1, -1)
 
-    lut_values = np.asarray(domain * factor + value, dtype=np.float32)
+    lut_values = np.asarray(domain.reshape(-1, 1, 1) * factor + value, dtype=np.float32)
     luts = clip(lut_values, dtype, inplace=False)
     return _apply_uint8_lut(img, luts, inplace=inplace)
 

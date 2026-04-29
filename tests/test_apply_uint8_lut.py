@@ -19,7 +19,7 @@ def _ref_shared(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
 
 def _ref_per_channel(img: np.ndarray, luts: np.ndarray) -> np.ndarray:
     c = img.shape[-1]
-    return np.stack([luts[i][img[..., i]] for i in range(c)], axis=-1)
+    return np.stack([luts[:, 0, i][img[..., i]] for i in range(c)], axis=-1)
 
 
 # --- HWC (existing coverage expanded) ---
@@ -41,7 +41,7 @@ def test_apply_uint8_lut_per_channel_matches_numpy(shape: tuple[int, ...], seed:
     rng = np.random.default_rng(seed)
     img = rng.integers(0, 256, size=shape, dtype=np.uint8)
     c = shape[-1]
-    luts = rng.integers(0, 256, size=(c, 256), dtype=np.uint8)
+    luts = rng.integers(0, 256, size=(256, 1, c), dtype=np.uint8)
     out = apply_uint8_lut(img, luts, inplace=False)
     np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
 
@@ -103,16 +103,15 @@ def test_apply_uint8_lut_per_channel_volume_matches_numpy(shape: tuple[int, ...]
     rng = np.random.default_rng(11)
     img = rng.integers(0, 256, size=shape, dtype=np.uint8)
     c = shape[-1]
-    luts = rng.integers(0, 256, size=(c, 256), dtype=np.uint8)
+    luts = rng.integers(0, 256, size=(256, 1, c), dtype=np.uint8)
     out = apply_uint8_lut(img, luts, inplace=False)
     np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
 
 
-def test_apply_uint8_lut_single_channel_matrix_is_shared_path() -> None:
-    """``(1, 256)`` per-channel table delegates to shared path."""
+def test_apply_uint8_lut_single_channel_table_matches_reference() -> None:
     rng = np.random.default_rng(13)
     img = rng.integers(0, 256, size=(6, 7, 1), dtype=np.uint8)
-    luts = rng.integers(0, 256, size=(1, 256), dtype=np.uint8)
+    luts = rng.integers(0, 256, size=(256, 1, 1), dtype=np.uint8)
     out = apply_uint8_lut(img, luts, inplace=False)
     np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
 
@@ -182,17 +181,17 @@ def test_apply_uint8_lut_wrong_1d_length() -> None:
         apply_uint8_lut(img, lut, inplace=False)
 
 
-def test_apply_uint8_lut_wrong_2d_shape_channels() -> None:
+def test_apply_uint8_lut_rejects_2d_per_channel_luts() -> None:
     img = np.zeros((2, 2, 3), dtype=np.uint8)
-    lut = np.zeros((2, 256), dtype=np.uint8)
-    with pytest.raises(ValueError, match="Expected luts shaped"):
+    lut = np.zeros((3, 256), dtype=np.uint8)
+    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(256, 1, C\)"):
         apply_uint8_lut(img, lut, inplace=False)
 
 
 def test_apply_uint8_lut_ndim_too_high_lut() -> None:
     img = np.zeros((2, 2, 1), dtype=np.uint8)
     lut = np.zeros((1, 256, 1), dtype=np.uint8)
-    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(C, 256\)"):
+    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(256, 1, C\)"):
         apply_uint8_lut(img, lut, inplace=False)
 
 
@@ -310,8 +309,6 @@ def test_apply_lut_multiply_volume_matches_apply_uint8_lut(shape: tuple[int, ...
     from albucore.arithmetic import create_lut_array
 
     lut = clip(create_lut_array(np.uint8, factor, "multiply"), np.uint8, inplace=False)
-    if lut.ndim == 2 and lut.shape[0] == 1:
-        lut = lut.reshape(256)
     a = apply_lut(img, factor, "multiply", inplace=False)
     b = apply_uint8_lut(img, lut, inplace=False)
     np.testing.assert_array_equal(a, b)
@@ -330,8 +327,6 @@ def test_apply_lut_scalar_hwc_matches_apply_uint8_lut(operation: str) -> None:
     from albucore.arithmetic import create_lut_array
 
     lut = clip(create_lut_array(np.uint8, v, operation), np.uint8, inplace=False)
-    if lut.ndim == 2 and lut.shape[0] == 1:
-        lut = lut.reshape(256)
     a = apply_lut(img, v, operation, inplace=False)
     b = apply_uint8_lut(img, lut, inplace=False)
     np.testing.assert_array_equal(a, b)
