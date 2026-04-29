@@ -9,13 +9,31 @@ import numpy as np
 import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
-from albucore.utils import ImageFloat32, ImageUInt8  # noqa: TC001
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8
 
 
 @preserve_channel_dim
 def _cv2_lut_uint8(img: ImageUInt8, lut: ImageUInt8) -> ImageUInt8:
     """``cv2.LUT`` on single-channel HWC returns ``(H, W)``; restore ``(H, W, 1)`` like other OpenCV paths."""
     return cast("ImageUInt8", cv2.LUT(img, lut))
+
+
+def _cv2_lut_channel_last(img: ImageUInt8, lut: np.ndarray) -> np.ndarray:
+    num_channels = img.shape[-1]
+    lut_cv2 = lut.reshape(256, 1, num_channels)
+    if img.ndim == 3:
+        return cast("np.ndarray", cv2.LUT(img, lut_cv2))
+
+    img_contiguous = np.ascontiguousarray(img)
+    flat = img_contiguous.reshape(-1, img_contiguous.shape[-2], num_channels)
+    return cast("np.ndarray", cv2.LUT(flat, lut_cv2).reshape(img_contiguous.shape))
+
+
+def _apply_float_lut_per_channel_loop(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
+    result = np.empty_like(img, dtype=np.float32)
+    for i in range(img.shape[-1]):
+        result[..., i] = cv2.LUT(img[..., i], lut[:, i])
+    return result
 
 
 @preserve_channel_dim
@@ -31,17 +49,11 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
         raise ValueError(msg)
 
     if num_channels > 1:
-        lut_cv2 = lut.reshape(256, 1, num_channels)
-        if img.ndim == 3:
-            return cast("ImageFloat32", cv2.LUT(img, lut_cv2))
-        if img.flags["C_CONTIGUOUS"]:
-            flat = img.reshape(-1, img.shape[-2], num_channels)
-            return cast("ImageFloat32", cv2.LUT(flat, lut_cv2).reshape(img.shape))
+        if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
+            return cast("ImageFloat32", _cv2_lut_channel_last(img, lut))
+        return _apply_float_lut_per_channel_loop(img, lut)
 
-    result = np.empty_like(img, dtype=np.float32)
-    for i in range(num_channels):
-        result[..., i] = cv2.LUT(img[..., i], lut[:, i])
-    return result
+    return _apply_float_lut_per_channel_loop(img, lut)
 
 
 @contiguous
@@ -133,13 +145,8 @@ def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bo
     if num_channels == 1:
         return _apply_shared_uint8_lut(img, luts[0], inplace=False)
 
-    if img.flags["C_CONTIGUOUS"]:
-        lut_cv2 = np.empty((256, 1, num_channels), dtype=np.uint8)
-        lut_cv2[:, 0, :] = luts.T
-        if img.ndim == 3:
-            return cast("ImageUInt8", cv2.LUT(img, lut_cv2))
-        flat = img.reshape(-1, img.shape[-2], num_channels)
-        return cast("ImageUInt8", cv2.LUT(flat, lut_cv2).reshape(img.shape))
+    if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        return cast("ImageUInt8", _cv2_lut_channel_last(img, luts.T))
 
     result = np.empty_like(img, dtype=img.dtype)
     for i in range(num_channels):
@@ -162,10 +169,11 @@ def apply_uint8_lut(
       (see ``opencv_shared_uint8_lut_faster_hwc``).  ``inplace=True`` mutates ``img`` when
       StringZilla wins, or copies the OpenCV result back when that path wins.
 
-    - ``(C, 256)`` — one row per channel.  On contiguous channel-last arrays uses a single
+    - ``(C, 256)`` — one row per channel.  Contiguous channel-last arrays use a single
       ``cv2.LUT`` call with a ``(256, 1, C)`` table; batches and volumes are flattened to a
-      3D view first. Non-contiguous batches/volumes fall back to per-channel StringZilla.
-      ``inplace`` is ignored for the per-channel path.
+      3D view first. Non-contiguous high-channel arrays copy to a contiguous buffer for the same
+      OpenCV path; low-channel arrays keep the per-channel StringZilla loop because it benchmarks
+      faster than copy + OpenCV. ``inplace`` is ignored for the per-channel path.
 
     Degenerate shapes ``(1, 256)`` and ``(256, 1)`` are reshaped to ``(256,)`` automatically.
 
