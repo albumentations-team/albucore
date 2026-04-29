@@ -48,3 +48,14 @@ def add_constant_numkong(img: ImageType, value: float) -> ImageType:
     if out is None:
         raise RuntimeError("nk.scale returned None")
     return cast("ImageType", np.asarray(out, dtype=original_dtype).reshape(original_shape))
+
+
+def multiply_add_numkong(img: ImageType, factor: float, value: float) -> ImageType:
+    """Scalar affine transform via ``nk.scale`` (alpha*x + beta)."""
+    original_shape = img.shape
+    original_dtype = img.dtype
+    flat = np.ascontiguousarray(img).reshape(-1)
+    out = nk.scale(flat, alpha=float(factor), beta=float(value))
+    if out is None:
+        raise RuntimeError("nk.scale returned None")
+    return cast("ImageType", np.asarray(out, dtype=original_dtype).reshape(original_shape))

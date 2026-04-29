@@ -54,13 +54,22 @@ def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: fl
     return np.clip(normalized_img, -20, 20, out=normalized_img)
 
 
+def _min_max_per_channel(img: ImageType) -> tuple[np.ndarray, np.ndarray]:
+    axes = tuple(range(img.ndim - 1))
+    if img.shape[-1] == 1:
+        return img.min(axis=axes), img.max(axis=axes)
+
+    flat = np.ascontiguousarray(img).reshape(-1, img.shape[-1])
+    dtype = cv2.CV_32F if img.dtype == np.float32 else -1
+    img_min = cv2.reduce(flat, 0, cv2.REDUCE_MIN, dtype=dtype).reshape(-1)
+    img_max = cv2.reduce(flat, 0, cv2.REDUCE_MAX, dtype=dtype).reshape(-1)
+    return img_min, img_max
+
+
 def _normalize_min_max_per_channel_opencv(img: ImageType) -> ImageFloat32:
     """Apply per-channel min-max normalization."""
     eps = 1e-4
-    axes = tuple(range(img.ndim - 1))  # All axes except channel
-
-    img_min = img.min(axis=axes)
-    img_max = img.max(axis=axes)
+    img_min, img_max = _min_max_per_channel(img)
 
     if img.shape[-1] > MAX_OPENCV_WORKING_CHANNELS:
         img_min = np.full_like(img, img_min)

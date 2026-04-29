@@ -21,7 +21,7 @@ from albucore.utils import (
     convert_value,
     get_num_channels,
 )
-from albucore.weighted import add_array_numkong, add_weighted_numkong
+from albucore.weighted import add_array_numkong, add_weighted_numkong, multiply_add_numkong
 
 np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
 
@@ -569,6 +569,15 @@ def _is_all_zero_param(x: float | np.ndarray) -> bool:
     return float(x) == 0.0
 
 
+def _use_numkong_scalar_multiply_add(img: ImageType, factor: ValueType, value: ValueType) -> bool:
+    return (
+        _is_float32_image(img)
+        and isinstance(factor, (float, int))
+        and isinstance(value, (float, int))
+        and img.size >= 1_000_000
+    )
+
+
 def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> ImageFloat32:
     img_f = img.astype(np.float32, copy=False)
 
@@ -682,5 +691,8 @@ def multiply_add(img: ImageType, factor: ValueType, value: ValueType, inplace: b
 
     if _is_uint8_image(img):
         return multiply_add_lut(img, factor, value, inplace)
+
+    if _use_numkong_scalar_multiply_add(img, factor, value):
+        return multiply_add_numkong(img, float(factor), float(value))
 
     return multiply_add_numpy(img, factor, value)
