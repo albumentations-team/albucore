@@ -9,13 +9,34 @@ import numpy as np
 import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
-from albucore.utils import ImageUInt8  # noqa: TC001
+from albucore.utils import ImageFloat32, ImageUInt8  # noqa: TC001
 
 
 @preserve_channel_dim
 def _cv2_lut_uint8(img: ImageUInt8, lut: ImageUInt8) -> ImageUInt8:
     """``cv2.LUT`` on single-channel HWC returns ``(H, W)``; restore ``(H, W, 1)`` like other OpenCV paths."""
     return cast("ImageUInt8", cv2.LUT(img, lut))
+
+
+@preserve_channel_dim
+def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
+    """Apply uint8→float32 LUTs; HWC per-channel tables use one OpenCV call."""
+    lut = lut.astype(np.float32, copy=False)
+    if lut.ndim == 1:
+        return cast("ImageFloat32", cv2.LUT(img, lut))
+
+    num_channels = img.shape[-1]
+    if lut.shape != (256, num_channels):
+        msg = f"Expected float LUT shaped (256, C) with C={num_channels}, got {lut.shape}"
+        raise ValueError(msg)
+
+    if img.ndim == 3 and num_channels > 1:
+        return cast("ImageFloat32", cv2.LUT(img, lut.reshape(256, 1, num_channels)))
+
+    result = np.empty_like(img, dtype=np.float32)
+    for i in range(num_channels):
+        result[..., i] = cv2.LUT(img[..., i], lut[:, i])
+    return result
 
 
 @contiguous

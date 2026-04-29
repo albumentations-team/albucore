@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
+from albucore.lut import _apply_float_lut
 from albucore.lut import apply_uint8_lut as _apply_uint8_lut
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -350,20 +351,13 @@ def normalize_opencv(img: ImageType, mean: float | np.ndarray, denominator: floa
 def normalize_lut(img: ImageUInt8, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat32:
     dtype = img.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    num_channels = get_num_channels(img)
 
     x = np.arange(max_value + 1, dtype=np.float32)
     if isinstance(denominator, (float, int)) and isinstance(mean, (float, int)):
-        return cast("ImageFloat32", cv2.LUT(img, (x - mean) * denominator))
+        return _apply_float_lut(img, (x - mean) * denominator)
 
     luts = (x[:, np.newaxis] - mean) * denominator
-
-    # Pre-allocate result array
-    result = np.empty_like(img, dtype=np.float32)
-    for i in range(num_channels):
-        result[..., i] = cast("np.ndarray", cv2.LUT(img[..., i], luts[:, i]))
-
-    return result
+    return _apply_float_lut(img, luts)
 
 
 def _normalize_is_identity(mean: float | np.ndarray, denominator: float | np.ndarray, *, eps: float = 1e-5) -> bool:

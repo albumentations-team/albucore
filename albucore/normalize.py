@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
+from albucore.lut import _apply_float_lut
 from albucore.stats import DEFAULT_EPS, mean_std
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -213,10 +214,10 @@ def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: f
 
 def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
     """Apply per-channel LUTs to an image."""
-    result = np.empty_like(img, dtype=np.float32)
-    for i in range(num_channels):
-        result[..., i] = cv2.LUT(img[..., i], luts[:, i])
-    return result
+    if luts.shape != (256, num_channels):
+        msg = f"Expected per-channel LUTs shaped (256, {num_channels}), got {luts.shape}"
+        raise ValueError(msg)
+    return _apply_float_lut(img, luts)
 
 
 def _normalize_image_lut(img: ImageUInt8, max_value: float, eps: float) -> ImageFloat32:
