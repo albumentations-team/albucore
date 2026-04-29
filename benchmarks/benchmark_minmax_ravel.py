@@ -14,10 +14,19 @@ from __future__ import annotations
 import argparse
 import platform
 
+import cv2
 import numkong as nk
 import numpy as np
 
 from timing import median_ms
+
+
+def _cv2_reduce_minmax_per_channel(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    flat = np.ascontiguousarray(arr).reshape(-1, arr.shape[-1])
+    dtype = cv2.CV_32F if arr.dtype == np.float32 else -1
+    mn = cv2.reduce(flat, 0, cv2.REDUCE_MIN, dtype=dtype).reshape(-1)
+    mx = cv2.reduce(flat, 0, cv2.REDUCE_MAX, dtype=dtype).reshape(-1)
+    return mn, mx
 
 
 def main() -> None:
@@ -34,8 +43,20 @@ def main() -> None:
         (512, 512, 3),  # medium
         (1024, 1024, 1),  # large grayscale
     ]
+    per_channel_shapes: list[tuple[int, ...]] = [
+        (128, 128, 1),
+        (128, 128, 3),
+        (128, 128, 9),
+        (512, 512, 3),
+        (512, 512, 9),
+        (1024, 1024, 3),
+        (1024, 1024, 9),
+        (4, 256, 256, 3),
+        (4, 256, 256, 9),
+    ]
 
     rows: list[tuple[str, str, int, float, float, str, float]] = []
+    pc_rows: list[tuple[str, str, float, float, str, float]] = []
 
     for dtype, dname in [(np.float32, "float32"), (np.uint8, "uint8")]:
         for h, w, c in shapes:
@@ -58,6 +79,25 @@ def main() -> None:
             faster = "NumPy" if t_np <= t_nk else "NumKong"
             ratio = max(t_nk, t_np) / max(min(t_nk, t_np), 1e-12)
             rows.append((dname, f"{h}×{w}×{c}", flat.size, t_nk, t_np, faster, ratio))
+
+        for shape in per_channel_shapes:
+            if dtype == np.uint8:
+                arr = rng.integers(0, 256, size=shape, dtype=np.uint8)
+            else:
+                arr = rng.random(shape, dtype=np.float32)
+            axes = tuple(range(arr.ndim - 1))
+
+            def np_pc_mm() -> tuple[np.ndarray, np.ndarray]:
+                return arr.min(axis=axes), arr.max(axis=axes)
+
+            def cv_pc_mm() -> tuple[np.ndarray, np.ndarray]:
+                return _cv2_reduce_minmax_per_channel(arr)
+
+            t_np = median_ms(np_pc_mm, args.repeats, args.warmup)
+            t_cv = median_ms(cv_pc_mm, args.repeats, args.warmup)
+            faster = "NumPy" if t_np <= t_cv else "OpenCV"
+            ratio = max(t_np, t_cv) / max(min(t_np, t_cv), 1e-12)
+            pc_rows.append((dname, "×".join(str(x) for x in shape), t_np, t_cv, faster, ratio))
 
     print()
     print("### Benchmark: `Tensor.minmax()` vs `np.min` + `np.max` (image-shaped data)")
@@ -109,6 +149,15 @@ def main() -> None:
     print("than `Tensor.minmax()` on all tested sizes/dtypes. So for axis-wise `minmax` APIs, ")
     print("downstream libs may still prefer NumPy (or batched native reductions) unless NumKong wins on ")
     print("their exact strided/axis case.")
+    print()
+    print("### Benchmark: per-channel min+max, NumPy axis reduce vs `cv2.reduce`")
+    print()
+    print("**Setup:** Channel-last arrays, per-channel min/max over all axes except the last.")
+    print()
+    print("| dtype | shape | NumPy min+max (ms) | OpenCV `reduce` min+max (ms) | faster | ratio |")
+    print("|-------|-------|-------------------:|-----------------------------:|--------|------:|")
+    for dname, sh, t_np, t_cv, faster, ratio in pc_rows:
+        print(f"| {dname} | {sh} | {t_np:.4f} | {t_cv:.4f} | {faster} | {ratio:.2f}× |")
     print()
     print(
         f"_Environment: **{platform.system()}** `{platform.machine()}`, "
