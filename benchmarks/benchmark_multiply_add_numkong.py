@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 
+import cv2
 import numkong as nk
 import numpy as np
 
@@ -18,6 +19,8 @@ from albucore.functions import (
     add_array_numkong,
     add_constant,
     add_vector,
+    multiply_add,
+    multiply_add_numpy,
     multiply_by_array,
     multiply_by_constant,
     multiply_by_vector,
@@ -75,6 +78,11 @@ def nk_channelwise_scale(img: np.ndarray, per_ch: np.ndarray, *, alpha_per_ch: b
     return clip(out, np.uint8)
 
 
+def cv2_addweighted_scalar_affine(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
+    raw = cv2.addWeighted(img, alpha, img, 0.0, beta, dtype=cv2.CV_32F)
+    return clip(raw, np.float32)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--repeats", type=int, default=9)
@@ -113,6 +121,27 @@ def main() -> None:
                 best = min(opts, key=lambda x: x[1])[0]
                 dname = "uint8" if dtype == np.uint8 else "float32"
                 print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_nk:.4f} | {t_nk_ip:.4f} | {best} |")
+    print()
+
+    # --- scalar multiply-add ---
+    print("## `multiply_add` — scalar affine `factor * img + value`")
+    print()
+    print("| dtype | H×W | C | prod | NumPy | NK scale (alloc) | OpenCV `addWeighted` | fastest |")
+    print("|-------|-----|---|-----:|------:|-----------------:|---------------------:|---------|")
+    for h, w in sizes:
+        for c in channels:
+            img = rng.random((h, w, c), dtype=np.float32)
+            t_prod = median_ms(lambda: multiply_add(img, s_mul, s_add), args.repeats, args.warmup)
+            t_np = median_ms(lambda: clip(multiply_add_numpy(img, s_mul, s_add), np.float32), args.repeats, args.warmup)
+            t_nk = median_ms(lambda: nk_scale_flat(img, alpha=s_mul, beta=s_add), args.repeats, args.warmup)
+            t_cv = median_ms(
+                lambda: cv2_addweighted_scalar_affine(img, alpha=s_mul, beta=s_add),
+                args.repeats,
+                args.warmup,
+            )
+            opts = [("prod", t_prod), ("numpy", t_np), ("NK_alloc", t_nk), ("OpenCV_addWeighted", t_cv)]
+            best = min(opts, key=lambda x: x[1])[0]
+            print(f"| float32 | {h}×{w} | {c} | {t_prod:.4f} | {t_np:.4f} | {t_nk:.4f} | {t_cv:.4f} | {best} |")
     print()
 
     # --- scalar add ---

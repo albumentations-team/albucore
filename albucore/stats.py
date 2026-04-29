@@ -39,6 +39,19 @@ def _per_channel_spatial_axes(arr: np.ndarray) -> tuple[int, ...]:
     return tuple(range(arr.ndim - 1))
 
 
+def _cv2_reduce_sum_per_channel(arr: np.ndarray) -> np.ndarray:
+    flat = np.ascontiguousarray(arr).reshape(-1, arr.shape[-1])
+    result = np.asarray(cv2.reduce(flat, 0, cv2.REDUCE_SUM, dtype=cv2.CV_64F).reshape(-1))
+    if _is_uint8_image(arr):
+        return np.asarray(result, dtype=np.uint64)
+    return np.asarray(result, dtype=np.float64)
+
+
+def _cv2_reduce_mean_per_channel(arr: np.ndarray) -> np.ndarray:
+    flat = np.ascontiguousarray(arr).reshape(-1, arr.shape[-1])
+    return np.asarray(cv2.reduce(flat, 0, cv2.REDUCE_AVG, dtype=cv2.CV_64F).reshape(-1), dtype=np.float64)
+
+
 def _reduce_sum_global_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.uint64 | np.ndarray:
     out = np.uint64(int(nk.sum(arr)))
     if keepdims:
@@ -55,15 +68,26 @@ def _reduce_sum_global_float32(arr: ImageFloat32, *, keepdims: bool) -> np.float
 
 def _reduce_sum_per_channel_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.ndarray:
     axes = _per_channel_spatial_axes(arr)
-    result = np.asarray(nk.sum(arr, axis=axes), dtype=np.uint64)
+    c = arr.shape[-1]
+    n_spatial = arr.size // c
+    if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 65_536:
+        result = _cv2_reduce_sum_per_channel(arr)
+    else:
+        result = np.asarray(nk.sum(arr, axis=axes), dtype=np.uint64)
     if keepdims:
-        return result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],))
+        return result.reshape((1,) * (arr.ndim - 1) + (c,))
     return result
 
 
 def _reduce_sum_per_channel_float32(arr: ImageFloat32, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
     """Per-channel sum for float32: nk.sum for ndim ≤ 4 and 1 < C ≤ 4 (4x faster than numpy), numpy otherwise."""
     c = arr.shape[-1]
+    n_spatial = arr.size // c
+    if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 16_384:
+        result = _cv2_reduce_sum_per_channel(arr)
+        if keepdims:
+            return result.reshape((1,) * (arr.ndim - 1) + (c,))
+        return result
     if arr.ndim <= 4 and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64)
         if keepdims:
@@ -221,9 +245,13 @@ def _mean_std_per_channel(
 def _mean_per_channel_uint8(arr: ImageUInt8, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
     """Per-channel mean for uint8 via nk.sum — fastest for all shapes and channel counts."""
     n_spatial = arr.size // arr.shape[-1]
-    result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
+    c = arr.shape[-1]
+    if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 65_536:
+        result = _cv2_reduce_mean_per_channel(arr)
+    else:
+        result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
     if keepdims:
-        return result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],))
+        return result.reshape((1,) * (arr.ndim - 1) + (c,))
     return result
 
 
@@ -245,6 +273,11 @@ def _mean_per_channel(
     if arr.ndim == 4 and not keepdims and axes == spatial_axes and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         n_spatial = arr.size // c
         return np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
+    if c > MAX_OPENCV_WORKING_CHANNELS and axes == spatial_axes and arr.size // c >= 16_384:
+        result = _cv2_reduce_mean_per_channel(arr)
+        if keepdims:
+            return result.reshape((1,) * (arr.ndim - 1) + (c,))
+        return result
     return np.asarray(arr.mean(axis=axes, dtype=np.float64, keepdims=keepdims), dtype=np.float64)
 
 
