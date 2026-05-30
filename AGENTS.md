@@ -1,6 +1,6 @@
-# Claude AI Development Guidelines for Albucore
+# Codex AI Development Guidelines for Albucore
 
-This document provides guidelines and conventions for AI assistants (particularly Claude) when working on the Albucore codebase.
+This document provides guidelines and conventions for AI assistants (particularly Codex) when working on the Albucore codebase.
 
 ## Project Overview
 
@@ -32,6 +32,20 @@ Please familiarize yourself with these key documents:
    - Backend selection strategies
    - Memory layout considerations
    - Benchmarking guidelines
+
+4. **[Public API](docs/public-api.md)** - Public routers, star exports, and `albucore.functions` compatibility shims
+
+5. **[NumKong Performance](docs/numkong-performance.md)** - NumKong vs OpenCV/NumPy/LUT benchmark tables and methodology
+
+## Repo-Local Codex Skills
+
+Repo-specific Codex skills live in `.codex/skills/`:
+
+- `albucore-conventions` - Apply when implementing or reviewing image-processing code, tests, shape handling, dtype handling, and backend routing.
+- `albucore-benchmarks` - Apply when adding benchmarks, comparing versions, or documenting benchmark workflow.
+- `albucore-public-api` - Apply when changing exports, documenting API status, or deciding what belongs in package `__all__`.
+
+Keep these skills aligned with `AGENTS.md` and the docs above when conventions change.
 
 ## Development Principles
 
@@ -99,6 +113,12 @@ Albucore provides several useful decorators:
 - Test single images, batches, volumes, and batch of volumes
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
+
+### 7. Dependency Lock Consistency
+
+- When changing dependencies in `pyproject.toml`, update `uv.lock` in the same PR.
+- Validate lock consistency with `uv lock --check`.
+- Release flow uses `uv export --frozen`; stale `uv.lock` can break release artifact generation.
 
 ## Code Style
 
@@ -192,9 +212,11 @@ return operation_opencv(img, value)
 ## Performance Guidelines
 
 1. **Routing is benchmark-driven** — LUT, OpenCV, NumPy: use whichever is fastest. Don't assume LUT wins for uint8.
-2. **NumPy** is best for >4 channels (OpenCV limit)
-3. **Always cast LUTs to float32** to avoid dtype promotion issues
-4. **Use in-place operations** when safe to reduce memory allocation
+2. **NumKong** is used where benchmarks win (`blend`, `moments`, `scale`, `cdist`, etc.); see `docs/numkong-performance.md`.
+3. **NumPy** is usually best for >4 channels because OpenCV has a 4-channel limit for many operations.
+4. **Always cast LUTs to float32** to avoid dtype promotion issues. OpenCV statistics functions often return float64 values; cast the small LUT table to float32 instead of widening the output array.
+5. **For uint8 LUT paths**, pass a uint8 source image to `cv2.LUT`; the lookup table may be float32 when the output should be float32.
+6. **Use in-place operations** when safe to reduce memory allocation.
 
 ## Questions to Ask
 
@@ -203,10 +225,10 @@ When implementing a new function, consider:
 1. **Supported dtypes: uint8 and float32 only**
 2. Benchmark LUT vs OpenCV vs NumPy — use the fastest. Don't assume LUT wins.
 3. Does OpenCV support this operation? What's the behavior for >4 channels?
-5. Should this support batches/volumes?
-6. Are there any edge cases with single-channel images?
-7. What should the output dtype be?
-8. Is an in-place option appropriate?
+4. Should this support batches/volumes?
+5. Are there any edge cases with single-channel images?
+6. What should the output dtype be?
+7. Is an in-place option appropriate?
 
 ## Resources
 
@@ -215,6 +237,8 @@ When implementing a new function, consider:
 - Decorators: `albucore/decorators.py`
 - Tests: `tests/`
 - Benchmarks: `./benchmark.sh` (dataset I/O); Python micro-benchmarks: [`benchmarks/README.md`](benchmarks/README.md)
+- Public API: `docs/public-api.md`
+- Repo-local skills: `.codex/skills/`
 
 ## Getting Help
 
