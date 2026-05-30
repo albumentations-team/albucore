@@ -210,7 +210,7 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for det
 
 ## Documentation
 
-- [CLAUDE.md](CLAUDE.md) - AI development guidelines for working with this codebase
+- [AGENTS.md](AGENTS.md) - AI development guidelines for working with this codebase
 - [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
 - [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
