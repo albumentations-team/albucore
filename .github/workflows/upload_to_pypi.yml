@@ -67,6 +67,18 @@ jobs:
       - name: Build distributions
         run: uv build
 
+      - name: Check public router contracts
+        run: uv run python tools/check_router_contracts.py
+
+      - name: Check CI matrix policy
+        run: uv run python tools/ci_matrix.py check
+
+      - name: Verify golden vectors
+        run: uv run python tools/verify_golden_vectors.py
+
+      - name: Run release property tests
+        run: uv run pytest tests/property --hypothesis-profile=release
+
       - name: Check distribution metadata
         run: uv tool run --from twine twine check dist/*
 
@@ -93,8 +105,90 @@ jobs:
       - name: Verify uv.lock is up-to-date
         run: uv lock --check
 
+      - name: Resolve previous release version
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          import urllib.request
+
+          request = urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['REPOSITORY']}/releases?per_page=100",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              releases = json.load(response)
+
+          current_tag = os.environ["RELEASE_TAG"]
+          previous = next(
+              (
+                  release
+                  for release in releases
+                  if not release.get("draft") and release.get("tag_name") != current_tag
+              ),
+              None,
+          )
+          if previous is None:
+              raise SystemExit(f"No previous GitHub Release found before {current_tag}.")
+
+          previous_tag = previous["tag_name"]
+          print(f"PREVIOUS_RELEASE_TAG={previous_tag}")
+          print(f"PREVIOUS_RELEASE_VERSION={previous_tag.removeprefix('v')}")
+          PY
+
+      - name: Run current release router benchmark
+        run: |
+          uv run python benchmarks/benchmark_router_synthetic.py \
+            --quick \
+            --with-geometric \
+            --repeats 7 \
+            --warmup 2 \
+            --benchmark-label "release-${PACKAGE_VERSION}" \
+            --output-json dist/router-release.json
+
+      - name: Run previous release router benchmark baseline
+        run: |
+          uv run --no-project \
+            --with "albucore==${PREVIOUS_RELEASE_VERSION}" \
+            --with opencv-python-headless \
+            --with numkong \
+            --with stringzilla \
+            --with numpy \
+            python benchmarks/benchmark_router_synthetic.py \
+              --quick \
+              --with-geometric \
+              --repeats 7 \
+              --warmup 2 \
+              --benchmark-label "baseline-${PREVIOUS_RELEASE_VERSION}" \
+              --output-json dist/router-baseline.json
+
+      - name: Check release benchmark regressions
+        run: |
+          uv run python tools/check_benchmark_regressions.py \
+            --baseline dist/router-baseline.json \
+            --current dist/router-release.json \
+            --mode release \
+            --output-md dist/router-release-regressions.md
+
+      - name: Summarize release router benchmark
+        run: |
+          uv run python tools/summarize_benchmarks.py \
+            dist/router-release.json \
+            --output-md dist/router-release-summary.md
+
+      - name: Run memory smoke
+        run: uv run python tools/run_memory_smoke.py --output-json dist/memory-smoke.json
+
       - name: Export locked runtime dependencies
-        run: uv export --frozen --no-dev --format requirements-txt --output-file dist/runtime-requirements.txt
+        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file dist/runtime-requirements.txt
 
       - name: Generate CycloneDX SBOM
         run: |
@@ -106,8 +200,17 @@ jobs:
         run: |
           (
             cd dist
-            sha256sum ./*.whl ./*.tar.gz ./*-sbom.cdx.json > SHA256SUMS.txt
+            sha256sum ./*.whl ./*.tar.gz ./*-sbom.cdx.json \
+              ./router-release.json ./router-baseline.json ./router-release-regressions.md ./memory-smoke.json \
+              > SHA256SUMS.txt
           )
+
+      - name: Generate release summary
+        run: |
+          uv run python tools/generate_release_summary.py \
+            --version "${PACKAGE_VERSION}" \
+            --dist-dir dist \
+            --output-md "dist/albucore-${PACKAGE_VERSION}-release-summary.md"
 
       - name: Upload distribution artifacts for PyPI
         uses: actions/upload-artifact@v4
@@ -127,6 +230,12 @@ jobs:
             dist/*.tar.gz
             dist/*-sbom.cdx.json
             dist/SHA256SUMS.txt
+            dist/router-release.json
+            dist/router-baseline.json
+            dist/router-release-summary.md
+            dist/router-release-regressions.md
+            dist/memory-smoke.json
+            dist/albucore-*-release-summary.md
           if-no-files-found: error
 
       - name: Attach artifacts to GitHub Release
@@ -137,6 +246,12 @@ jobs:
             dist/*.tar.gz
             dist/*-sbom.cdx.json
             dist/SHA256SUMS.txt
+            dist/router-release.json
+            dist/router-baseline.json
+            dist/router-release-summary.md
+            dist/router-release-regressions.md
+            dist/memory-smoke.json
+            dist/albucore-*-release-summary.md
           fail_on_unmatched_files: true
 
   publish_to_pypi:

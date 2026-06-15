@@ -27,6 +27,15 @@ Before a release is published, all of the following must be true:
 7. Lockfile consistency passes:
    - `uv lock --check`
    - if `pyproject.toml` changed, `uv.lock` is updated in the same PR
+8. Core verification evidence is available:
+   - router contract check
+   - correctness test summary
+   - benchmark comparison against the previous release
+   - release summary using `docs/maintaining/release-summary-template.md`
+9. Security evidence is available:
+   - runtime dependency audit
+   - GitHub Actions hardening audit
+   - Scorecard result when available
 
 ## CI Quality Gates
 
@@ -36,6 +45,9 @@ The release process depends on the repository CI in `.github/workflows/ci.yml`:
 - supported Python versions: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`
 - code formatting and type checks through `pre-commit`
 - lockfile freshness check through `uv lock --check`
+- router contract coverage through `uv run python tools/check_router_contracts.py`
+- support matrix consistency through `uv run python tools/ci_matrix.py check`
+- security workflow in `.github/workflows/security.yml`
 
 Releases must not be cut from a commit that has failing required checks.
 

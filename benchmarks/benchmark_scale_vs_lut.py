@@ -37,6 +37,7 @@ import numkong as nk
 import numpy as np
 import stringzilla as sz
 
+from shape_grids import SCALE_LUT_SHAPES
 from timing import bench_wall_ms
 
 # Non-trivial multiply factor — not 0, 1, or 255 so every implementation does real work.
@@ -83,46 +84,19 @@ def impl_cv2_lut(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
 # Canonical shape grid used throughout albucore benchmarks.
 #
 # HWC (H, W, C):
-#   Small: 128×128 and 256×256 — fast iteration / warm-cache behaviour.
-#   Medium: 512×512 — typical augmentation training crop.
-#   Large: 1024×1024 — high-res / full-image pass.
+#   Small: 128×160 and 240×320 — fast iteration / warm-cache behaviour.
+#   Medium: 480×640 — typical augmentation training crop.
+#   Large: 768×1024 — high-res / full-image pass.
 #   Channels: 1 (grayscale), 3 (RGB), 9 (hyperspectral / >4-ch OpenCV limit).
 #
 # DHWC (D, H, W, C):
-#   3-D medical patches (nnU-Net style).  In-plane ≥128; depth 16–128.
+#   3-D medical patches (nnU-Net style).  Non-square in-plane sizes; depth 16–128.
 #   1-ch (CT/MRI single modality) and 3-ch (multi-contrast / RGB video).
 #
 # NDHWC (N, D, H, W, C):
 #   Small batches of volumes as seen in a training DataLoader.
 #
-_SHAPES: list[tuple[int, ...]] = [
-    # ── HWC ──────────────────────────────────────────────────────────────
-    (128, 128, 1),
-    (128, 128, 3),
-    (128, 128, 9),
-    (256, 256, 1),
-    (256, 256, 3),
-    (256, 256, 9),
-    (512, 512, 1),
-    (512, 512, 3),
-    (512, 512, 9),
-    (1024, 1024, 1),
-    (1024, 1024, 3),
-    (1024, 1024, 9),
-    # ── DHWC ─────────────────────────────────────────────────────────────
-    (16, 128, 128, 1),
-    (16, 128, 128, 3),
-    (32, 128, 128, 1),
-    (32, 128, 128, 3),
-    (64, 128, 128, 3),
-    (128, 128, 128, 1),
-    (48, 256, 256, 3),
-    # ── NDHWC ────────────────────────────────────────────────────────────
-    (2, 32, 128, 128, 1),
-    (2, 32, 128, 128, 3),
-    (2, 64, 128, 128, 3),
-    (4, 16, 128, 128, 3),
-]
+_SHAPES = SCALE_LUT_SHAPES
 
 _LAYOUT = {3: "HWC", 4: "DHWC", 5: "NDHWC"}
 

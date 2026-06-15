@@ -25,6 +25,7 @@ import cv2
 import numkong as nk
 import numpy as np
 
+from shape_grids import NORMALIZE_NUMKONG_HWC_SHAPES
 from timing import median_ms
 
 MEAN_01 = np.array([0.485, 0.456, 0.406], dtype=np.float64)
@@ -140,14 +141,6 @@ def main() -> None:
     args = p.parse_args()
     rng = np.random.default_rng(args.seed)
 
-    shapes_hwc: list[tuple[int, int, int]] = [
-        (128, 128, 3),
-        (256, 256, 3),
-        (512, 512, 3),
-        (1024, 1024, 3),
-        (512, 512, 9),
-    ]
-
     print()
     print("### Benchmark: NumKong normalize patterns vs Albucore-style backends")
     print()
@@ -169,7 +162,7 @@ def main() -> None:
     print("| H×W×C | NK loop (ms) | NumPy (ms) | OpenCV (ms) | fastest | NK vs best |")
     print("|-------|-------------:|-----------:|------------:|---------|------------:|")
 
-    for h, w, c in shapes_hwc:
+    for h, w, c in NORMALIZE_NUMKONG_HWC_SHAPES:
         if c not in (3, 9):
             continue
         img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
@@ -189,7 +182,7 @@ def main() -> None:
     print("| H×W×C | NK (ms) | NumPy (ms) | OpenCV (ms) | fastest | NK vs best |")
     print("|-------|--------:|-----------:|------------:|---------|------------:|")
 
-    for h, w, c in shapes_hwc:
+    for h, w, c in NORMALIZE_NUMKONG_HWC_SHAPES:
         img = rng.random((h, w, c), dtype=np.float32)
         t_nk = median_ms(lambda: minmax_nk_minmax_then_scale(img), args.repeats, args.warmup)
         t_np = median_ms(lambda: minmax_numpy(img), args.repeats, args.warmup)
@@ -210,7 +203,7 @@ def main() -> None:
     print("| H×W×C | NK (ms) | cv2.meanStdDev (ms) | NumPy (ms) | fastest | NK vs best |")
     print("|-------|--------:|--------------------:|-----------:|---------|------------:|")
 
-    for h, w, c in shapes_hwc:
+    for h, w, c in NORMALIZE_NUMKONG_HWC_SHAPES:
         img = rng.random((h, w, c), dtype=np.float32)
         t_nk = median_ms(lambda: per_channel_stats_nk_writeup(img), args.repeats, args.warmup)
         t_np = median_ms(lambda: per_channel_stats_numpy(img), args.repeats, args.warmup)

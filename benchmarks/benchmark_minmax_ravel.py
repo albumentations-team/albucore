@@ -18,6 +18,7 @@ import cv2
 import numkong as nk
 import numpy as np
 
+from shape_grids import MINMAX_GLOBAL_HWC_SHAPES, MINMAX_PER_CHANNEL_SHAPES
 from timing import median_ms
 
 
@@ -38,28 +39,11 @@ def main() -> None:
 
     rng = np.random.default_rng(args.seed)
 
-    shapes: list[tuple[int, int, int]] = [
-        (224, 224, 3),  # common CNN
-        (512, 512, 3),  # medium
-        (1024, 1024, 1),  # large grayscale
-    ]
-    per_channel_shapes: list[tuple[int, ...]] = [
-        (128, 128, 1),
-        (128, 128, 3),
-        (128, 128, 9),
-        (512, 512, 3),
-        (512, 512, 9),
-        (1024, 1024, 3),
-        (1024, 1024, 9),
-        (4, 256, 256, 3),
-        (4, 256, 256, 9),
-    ]
-
     rows: list[tuple[str, str, int, float, float, str, float]] = []
     pc_rows: list[tuple[str, str, float, float, str, float]] = []
 
     for dtype, dname in [(np.float32, "float32"), (np.uint8, "uint8")]:
-        for h, w, c in shapes:
+        for h, w, c in MINMAX_GLOBAL_HWC_SHAPES:
             if dtype == np.uint8:
                 img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
             else:
@@ -80,7 +64,7 @@ def main() -> None:
             ratio = max(t_nk, t_np) / max(min(t_nk, t_np), 1e-12)
             rows.append((dname, f"{h}×{w}×{c}", flat.size, t_nk, t_np, faster, ratio))
 
-        for shape in per_channel_shapes:
+        for shape in MINMAX_PER_CHANNEL_SHAPES:
             if dtype == np.uint8:
                 arr = rng.integers(0, 256, size=shape, dtype=np.uint8)
             else:
@@ -113,6 +97,7 @@ def main() -> None:
     print("import time")
     print("import numkong as nk")
     print("import numpy as np")
+    print("from shape_grids import MINMAX_GLOBAL_HWC_SHAPES")
     print()
     print("def median_ms(fn, repeats=11, warmup=3):")
     print("    for _ in range(warmup):")
@@ -126,7 +111,7 @@ def main() -> None:
     print()
     print("rng = np.random.default_rng(0)")
     print("for dtype, name in [(np.float32, 'float32'), (np.uint8, 'uint8')]:")
-    print("    for h, w, c in [(224, 224, 3), (512, 512, 3), (1024, 1024, 1)]:")
+    print("    for h, w, c in MINMAX_GLOBAL_HWC_SHAPES:")
     print("        if dtype == np.uint8:")
     print("            img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)")
     print("        else:")

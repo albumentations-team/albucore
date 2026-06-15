@@ -20,6 +20,12 @@ from dataclasses import dataclass
 import numkong as nk
 import numpy as np
 
+from shape_grids import (
+    NUMKONG_BLEND_FLOAT32_HWC_SHAPES,
+    NUMKONG_BLEND_UINT8_HWC_SHAPES,
+    NUMKONG_FLOAT32_REDUCTION_SHAPE,
+    NUMKONG_REDUCTION_HWC_SHAPES,
+)
 from timing import median_ms as _median_ms
 
 try:
@@ -92,7 +98,7 @@ def bench_blend_sweep(repeats: int, warmup: int) -> list[BenchRow]:
     rng = np.random.default_rng(0)
     w1, w2 = 0.6, 0.4
 
-    for h, w, c in [(128, 128, 1), (128, 128, 3), (256, 256, 3), (512, 512, 3)]:
+    for h, w, c in NUMKONG_BLEND_UINT8_HWC_SHAPES:
         img1_u8 = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
         img2_u8 = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
         a1, a2 = img1_u8.reshape(-1), img2_u8.reshape(-1)
@@ -127,7 +133,7 @@ def bench_blend_sweep(repeats: int, warmup: int) -> list[BenchRow]:
             ),
         )
 
-    for h, w, c in [(256, 256, 3), (512, 512, 3)]:
+    for h, w, c in NUMKONG_BLEND_FLOAT32_HWC_SHAPES:
         img1_f = rng.random((h, w, c), dtype=np.float32)
         img2_f = rng.random((h, w, c), dtype=np.float32)
         f1, f2 = img1_f.reshape(-1), img2_f.reshape(-1)
@@ -213,7 +219,7 @@ def bench_reductions_sweep(repeats: int, warmup: int) -> list[BenchRow]:
     rows: list[BenchRow] = []
     rng = np.random.default_rng(2)
 
-    for h, w, c in [(256, 256, 3), (512, 512, 3)]:
+    for h, w, c in NUMKONG_REDUCTION_HWC_SHAPES:
         img_u8 = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
         flat = img_u8.reshape(-1)
         t = nk.Tensor(flat)
@@ -258,7 +264,7 @@ def bench_reductions_sweep(repeats: int, warmup: int) -> list[BenchRow]:
         )
 
     # float32: full tensor sum vs np.mean over spatial axes (different math, comparable cost order)
-    h, w, c = 512, 512, 3
+    h, w, c = NUMKONG_FLOAT32_REDUCTION_SHAPE
     img_f = rng.random((h, w, c), dtype=np.float32)
     tf = nk.Tensor(img_f)
     axes = (0, 1)

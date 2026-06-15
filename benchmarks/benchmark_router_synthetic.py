@@ -4,9 +4,10 @@
 Layouts:
 
 - **HWC** ``(H,W,C)`` for spatial OpenCV-backed ops (and most arithmetic).
-- **NHWC** ``(N,H,W,C)`` for ``mean`` / ``std`` / ``mean_std`` only (stats reductions).
+- **NHWC** ``(N,H,W,C)`` for ``mean`` / ``std`` / ``mean_std`` / ``reduce_sum`` only
+  (stats reductions).
 
-**1024 x 1024** is included in the default (non-``--quick``) HWC grid.
+The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
 Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``warp_affine``,
 ``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not ``functions.__all__``).
@@ -43,6 +44,12 @@ from typing import Any
 import cv2
 import numpy as np
 
+from shape_grids import (
+    ROUTER_BATCH_STATS_FULL_HW,
+    ROUTER_BATCH_STATS_QUICK_HW,
+    ROUTER_HWC_FULL_HW,
+    ROUTER_HWC_QUICK_HW,
+)
 from timing import WallTimingMs, bench_wall_ms
 
 # When ``albucore.functions`` has no ``__all__`` (e.g. albucore 0.0.40), use this so compare
@@ -70,6 +77,7 @@ _FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
     "normalize_per_image",
     "pairwise_distances_squared",
     "power",
+    "reduce_sum",
     "std",
     "sz_lut",
     "to_float",
@@ -123,12 +131,9 @@ def _make_img(rng: np.random.Generator, shape: tuple[int, ...], dtype: np.dtype)
 
 
 def _iter_hwc(quick: bool) -> Iterator[tuple[str, tuple[int, ...], np.dtype]]:
-    """3D images — sizes include 1024 in full mode."""
+    """3D images with non-square H/W to expose height-width swaps."""
     channels = (1, 3) if quick else (1, 3, 9)
-    if quick:
-        sizes = ((128, 128), (256, 256))
-    else:
-        sizes = ((128, 128), (256, 256), (512, 512), (1024, 1024))
+    sizes = ROUTER_HWC_QUICK_HW if quick else ROUTER_HWC_FULL_HW
     for h, w in sizes:
         for c in channels:
             for dtype in (np.uint8, np.float32):
@@ -136,13 +141,10 @@ def _iter_hwc(quick: bool) -> Iterator[tuple[str, tuple[int, ...], np.dtype]]:
 
 
 def _iter_batch_stats(quick: bool) -> Iterator[tuple[str, tuple[int, ...], np.dtype]]:
-    """4D batch for stats only. (No 1024 batch grid: memory.)"""
+    """4D batch for stats only. Non-square H/W catches axis-order mistakes."""
     channels = (1, 3) if quick else (1, 3, 9)
     n = 4
-    if quick:
-        sizes = ((256, 256),)
-    else:
-        sizes = ((128, 128), (256, 256), (512, 512))
+    sizes = ROUTER_BATCH_STATS_QUICK_HW if quick else ROUTER_BATCH_STATS_FULL_HW
     for h, w in sizes:
         for c in channels:
             for dtype in (np.uint8, np.float32):
@@ -462,6 +464,18 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def rs(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.reduce_sum(img, "global")
+
+        return thunk
+
+    def rs_pc(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.reduce_sum(img, "per_channel")
+
+        return thunk
+
     # Order follows functions.__all__ (geometric optional elsewhere)
     return [
         ("add", add_c),
@@ -487,6 +501,8 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("mean_per_channel", mn_pc),
         ("mean_std", ms),
         ("mean_std_per_channel", ms_pc),
+        ("reduce_sum", rs),
+        ("reduce_sum_per_channel", rs_pc),
         ("std", st),
         ("std_per_channel", st_pc),
         ("sz_lut", lut),
@@ -611,7 +627,16 @@ def main() -> None:
     fn_reg = _registry_functions()
     # Drop placeholder entries for matmul / pairwise (special benches)
     fn_reg = [(n, b) for n, b in fn_reg if n not in ("matmul", "pairwise_distances_squared")]
-    stats_ops = {"mean", "std", "mean_std", "mean_per_channel", "std_per_channel", "mean_std_per_channel"}
+    stats_ops = {
+        "mean",
+        "std",
+        "mean_std",
+        "reduce_sum",
+        "mean_per_channel",
+        "std_per_channel",
+        "mean_std_per_channel",
+        "reduce_sum_per_channel",
+    }
     skip_uint8_only = {"apply_uint8_lut", "median_blur", "sz_lut", "to_float"}
     skip_float_only = {"from_float"}
 

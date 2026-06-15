@@ -4,7 +4,7 @@
 
 Checks ``opencv_shared_uint8_lut_faster_hwc`` against measured medians. Uses
 ``bench_wall_ms`` with several RNG seeds; LUT is a fixed-seed **permutation** of ``uint8``
-(non-trivial remap). A few **borderline** ``512^2 x C=3/4`` cases may
+(non-trivial remap). A few **borderline** mid-size ``C=3/4`` cases may
 still prefer the other backend by a few percent - tune ``1_310_000`` / ``409600`` only
 after re-measuring on your target hardware.
 
@@ -23,6 +23,7 @@ import numpy as np
 import stringzilla as sz
 
 from albucore.lut import opencv_shared_uint8_lut_faster_hwc
+from shape_grids import LUT_SHARED_ROUTING_HW, LUT_SHARED_ROUTING_REPORT_HW
 from timing import bench_wall_ms
 
 
@@ -41,7 +42,7 @@ def main() -> None:
 
     lut = np.random.default_rng(42).permutation(256).astype(np.uint8)
 
-    sides = [256, 384, 512, 640, 768, 896, 1024]
+    spatial_sizes = LUT_SHARED_ROUTING_HW
     c_max = 12
 
     print()
@@ -49,24 +50,24 @@ def main() -> None:
     print()
     print(
         f"_Median ms +/- sample std, repeats={args.repeats}, warmup={args.warmup}, "
-        f"{len(sides)} x {c_max} grid x {args.seeds} seeds; "
+        f"{len(spatial_sizes)} x {c_max} grid x {args.seeds} seeds; "
         f"{platform.system()} `{platform.machine()}`, OpenCV {cv2.__version__}.",
     )
     print()
     print(
-        "| S | C | n_el | heuristic→cv2 | median_sz | median_cv | faster | match |",
+        "| H×W | C | n_el | heuristic→cv2 | median_sz | median_cv | faster | match |",
     )
-    print("|:-:|:-:|:-----:|:-------------:|----------:|----------:|:------:|:-----:|")
+    print("|:---:|:-:|:-----:|:-------------:|----------:|----------:|:------:|:-----:|")
 
     mismatches = 0
-    for s in sides:
+    for h, w in spatial_sizes:
         for c in range(1, c_max + 1):
-            want_cv = opencv_shared_uint8_lut_faster_hwc((s, s, c))
+            want_cv = opencv_shared_uint8_lut_faster_hwc((h, w, c))
             med_sz: list[float] = []
             med_cv: list[float] = []
             for seed in range(args.seeds):
                 rng = np.random.default_rng(seed)
-                img = np.ascontiguousarray(rng.integers(0, 256, size=(s, s, c), dtype=np.uint8))
+                img = np.ascontiguousarray(rng.integers(0, 256, size=(h, w, c), dtype=np.uint8))
                 ts = bench_wall_ms(lambda: sz_full(img, lut), args.repeats, args.warmup)
                 tc = bench_wall_ms(lambda: cv2.LUT(img, lut), args.repeats, args.warmup)
                 med_sz.append(ts.median)
@@ -78,12 +79,12 @@ def main() -> None:
             match = "ok" if faster == predict else "!!"
             if match == "!!":
                 mismatches += 1
-            n = s * s * c
+            n = h * w * c
             heur = "Y" if want_cv else "N"
             # full grid is long; print rows where heuristic disagrees with timing or C in {1,2,3,4,5,12}
-            if match == "!!" or c <= 5 or c == c_max or s in (512, 1024):
+            if match == "!!" or c <= 5 or c == c_max or (h, w) in LUT_SHARED_ROUTING_REPORT_HW:
                 print(
-                    f"| {s} | {c} | {n} | {heur} | {msz:.4f} | {mcv:.4f} | {faster} | {match} |",
+                    f"| {h}×{w} | {c} | {n} | {heur} | {msz:.4f} | {mcv:.4f} | {faster} | {match} |",
                 )
 
     print()

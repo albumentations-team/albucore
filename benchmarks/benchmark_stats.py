@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 
 import numpy as np
+from shape_grids import STATS_HWC_SHAPES, STATS_NHWC_SHAPES
 from timing import median_ms
 
 from albucore.stats import mean_std, reduce_sum, std
@@ -35,16 +36,8 @@ def main() -> None:
     r, w = args.repeats, args.warmup
     rng = np.random.default_rng(0)
 
-    cases_hwc = [
-        ((256, 256, 3), "HWC 256x256x3"),
-        ((512, 512, 3), "HWC 512x512x3"),
-        ((512, 512, 9), "HWC 512x512x9"),  # C>4: exercises NumPy fallback in per_channel
-        ((1024, 1024, 3), "HWC 1024x1024x3"),
-    ]
-    cases_nhwc = [
-        ((4, 256, 256, 3), "NHWC 4x256x256x3"),
-        ((4, 256, 256, 9), "NHWC 4x256x256x9"),
-    ]
+    cases_hwc = [(shape, f"HWC {shape[0]}x{shape[1]}x{shape[2]}") for shape in STATS_HWC_SHAPES]
+    cases_nhwc = [(shape, f"NHWC {shape[0]}x{shape[1]}x{shape[2]}x{shape[3]}") for shape in STATS_NHWC_SHAPES]
 
     for dtype, dname in [(np.uint8, "uint8"), (np.float32, "float32")]:
         print(f"\n=== {dname} ===")  # noqa: T201
