@@ -23,6 +23,7 @@ import argparse
 import cv2
 import numkong as nk
 import numpy as np
+from shape_grids import REDUCE_SUM_RESEARCH_SHAPES
 from timing import median_ms
 
 from albucore.stats import DEFAULT_EPS, mean, reduce_sum, std
@@ -169,21 +170,6 @@ def main() -> None:
     reps, wu = args.repeats, args.warmup
     rng = np.random.default_rng(0)
 
-    shapes = [
-        (256, 256, 1),
-        (256, 256, 3),
-        (256, 256, 9),
-        (512, 512, 1),
-        (512, 512, 3),
-        (512, 512, 9),
-        (1024, 1024, 3),
-        # DHWC
-        (16, 128, 128, 3),
-        (32, 128, 128, 3),
-        # NHWC
-        (4, 256, 256, 3),
-    ]
-
     print(f"# reduce_sum / mean: prod vs nk candidates vs NumPy  (numkong {nk.__version__})\n")
     print("Median ms, lower is better. `prod` = current `albucore.stats` router.")
 
@@ -192,7 +178,7 @@ def main() -> None:
 
         sum_global_rows, sum_pc_rows, mean_global_rows, mean_pc_rows, std_pc_rows = [], [], [], [], []
 
-        for shape in shapes:
+        for shape in REDUCE_SUM_RESEARCH_SHAPES:
             arr = (
                 rng.integers(0, 256, size=shape, dtype=np.uint8)
                 if dtype == np.uint8

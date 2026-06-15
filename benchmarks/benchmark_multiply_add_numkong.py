@@ -28,6 +28,7 @@ from albucore.functions import (
 )
 from albucore.weighted import multiply_by_constant_numkong
 from albucore.utils import clip, get_num_channels
+from shape_grids import TARGETED_HWC_HW
 from timing import median_ms
 
 
@@ -91,7 +92,7 @@ def main() -> None:
     args = p.parse_args()
 
     rng = np.random.default_rng(args.seed)
-    sizes = [(256, 256), (512, 512), (1024, 1024)]
+    sizes = TARGETED_HWC_HW
     channels = [1, 3, 9]
     s_mul = 1.127
     s_add = 0.07

@@ -20,6 +20,8 @@ import cv2
 import numpy as np
 import stringzilla as sz
 
+from shape_grids import MINIMAL_SHARED_LUT_SHAPES
+
 
 def _median_ms(fn: object, repeats: int = 15, warmup: int = 5) -> float:
     f = fn  # type: ignore[assignment]
@@ -45,23 +47,12 @@ def main() -> None:
     rng = np.random.default_rng(0)
     # Non-trivial uint8 LUT: permutation of 0..255 (reproducible; not identity ``arange``).
     lut = np.random.default_rng(42).permutation(256).astype(np.uint8)
-    shapes: list[tuple[int, ...]] = [
-        (128, 128, 1),
-        (256, 256, 3),
-        (512, 512, 3),
-        (640, 640, 3),
-        (1024, 1024, 3),
-        (64, 128, 128, 3),
-        (128, 128, 128, 1),
-        (2, 64, 128, 128, 3),
-    ]
-
     print("Median ms (lower better). Shared LUT length 256, uint8 image.\n")
     print(f"OpenCV {cv2.__version__}, numpy {np.__version__}\n")
     print("| shape | pixels | cv2.LUT | SZ translate (1× ravel) | faster |")
     print("|-------|-------:|--------:|--------------------------:|--------|")
 
-    for sh in shapes:
+    for sh in MINIMAL_SHARED_LUT_SHAPES:
         img = rng.integers(0, 256, size=sh, dtype=np.uint8)
         npx = int(np.prod(sh))
 

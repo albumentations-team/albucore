@@ -19,6 +19,7 @@ import argparse
 import cv2
 import numpy as np
 
+from shape_grids import GRAYSCALE_MULTIPLY_SHAPES, LARGE_SQUARE_HW
 from albucore.arithmetic import multiply_lut, multiply_opencv
 from albucore.utils import clip, get_max_value
 from timing import bench_wall_ms
@@ -37,7 +38,7 @@ def main() -> None:
     print("## 1) uint8 per-channel multiply: `multiply_lut` vs `multiply_opencv` + clip\n")
     print("| shape | LUT ms | OpenCV ms | faster |")
     print("|-------|-------:|-----------:|--------|")
-    for (h, w), c in [((256, 256), 1), ((512, 512), 1), ((1024, 1024), 1), ((256, 256), 3)]:
+    for (h, w), c in GRAYSCALE_MULTIPLY_SHAPES:
         img = rng.integers(1, 256, (h, w, c), dtype=np.uint8)
         vec = rng.random(c, dtype=np.float32) * 0.5 + 0.5
 
@@ -55,7 +56,7 @@ def main() -> None:
     print("\n## 2) float32 → uint8: NumPy vs `cv2.multiply` (grayscale)\n")
     print("| shape | NumPy `rint(img*255)` ms | cv2 on squeezed (H,W) ms | faster | max |f-np| on product |")
     print("|-------|-------------------------:|-------------------------:|--------|--------------:|")
-    for h, w in [(256, 256), (512, 512), (1024, 1024)]:
+    for h, w in LARGE_SQUARE_HW:
         img = np.ascontiguousarray(rng.random((h, w, 1), dtype=np.float32))
         g = np.squeeze(img, axis=-1)
 

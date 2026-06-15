@@ -1,0 +1,135 @@
+name: Security
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "0 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  runtime-dependency-audit:
+    name: Runtime dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+
+      - name: Export locked runtime dependencies
+        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file runtime-requirements.txt
+
+      - name: Run pip-audit on runtime dependencies
+        run: uv tool run --from pip-audit pip-audit -r runtime-requirements.txt
+
+      - name: Upload runtime dependency export
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-requirements
+          path: runtime-requirements.txt
+          if-no-files-found: error
+
+  dev-dependency-audit:
+    name: Dev dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+
+      - name: Export locked all dependencies
+        run: uv export --frozen --no-emit-project --format requirements-txt --output-file all-requirements.txt
+
+      - name: Run pip-audit on all dependencies
+        run: uv tool run --from pip-audit pip-audit -r all-requirements.txt
+
+      - name: Upload all dependency export
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-requirements
+          path: all-requirements.txt
+          if-no-files-found: error
+
+  workflow-audit:
+    name: GitHub Actions audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+
+      - name: Run zizmor
+        run: uv tool run --from zizmor zizmor .github/workflows --format sarif > zizmor.sarif
+
+      - name: Upload zizmor SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zizmor-sarif
+          path: zizmor.sarif
+          if-no-files-found: error
+
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@v2.4.2
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: false
+
+      - name: Upload Scorecard SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-sarif
+          path: scorecard-results.sarif
+          if-no-files-found: error

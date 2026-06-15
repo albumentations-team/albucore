@@ -1,0 +1,99 @@
+name: Performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline-version:
+        description: Albucore release version to compare against
+        required: true
+        default: "0.1.6"
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  BASELINE_VERSION: ${{ github.event.inputs.baseline-version || '0.1.6' }}
+
+jobs:
+  router-benchmark:
+    name: Router benchmark comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install current tree
+        run: uv sync --extra headless --group dev
+
+      - name: Run current quick router benchmark
+        run: |
+          mkdir -p benchmarks/results
+          uv run python benchmarks/benchmark_router_synthetic.py \
+            --quick \
+            --with-geometric \
+            --repeats 7 \
+            --warmup 2 \
+            --benchmark-label "current-${GITHUB_SHA}" \
+            --output-json benchmarks/results/router-current.json
+
+      - name: Run baseline quick router benchmark
+        run: |
+          uv run --no-project \
+            --with "albucore==${BASELINE_VERSION}" \
+            --with opencv-python-headless \
+            --with numkong \
+            --with stringzilla \
+            --with numpy \
+            python benchmarks/benchmark_router_synthetic.py \
+              --quick \
+              --with-geometric \
+              --repeats 7 \
+              --warmup 2 \
+              --benchmark-label "baseline-${BASELINE_VERSION}" \
+              --output-json benchmarks/results/router-baseline.json
+
+      - name: Check benchmark regressions
+        run: |
+          uv run python tools/check_benchmark_regressions.py \
+            --baseline benchmarks/results/router-baseline.json \
+            --current benchmarks/results/router-current.json \
+            --mode advisory \
+            --output-md benchmarks/results/REPORT_router_regressions.md
+
+      - name: Summarize current benchmark
+        run: |
+          uv run python tools/summarize_benchmarks.py \
+            benchmarks/results/router-current.json \
+            --output-md benchmarks/results/REPORT_router_current_summary.md
+
+      - name: Run memory smoke
+        run: |
+          uv run python tools/run_memory_smoke.py \
+            --output-json benchmarks/results/memory-smoke.json
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: router-benchmark-results
+          path: |
+            benchmarks/results/router-current.json
+            benchmarks/results/router-baseline.json
+            benchmarks/results/REPORT_router_regressions.md
+            benchmarks/results/REPORT_router_current_summary.md
+            benchmarks/results/memory-smoke.json
+          if-no-files-found: error

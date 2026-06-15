@@ -19,25 +19,27 @@ Benchmark shape sweeps use channel-last Albucore conventions.
 
 HWC images:
 
-- `128x128` with 1, 3, 9 channels - small / warm-cache.
-- `256x256` with 1, 3, 9 channels - mid-size crop.
-- `512x512` with 1, 3, 9 channels - typical augmentation training crop.
-- `1024x1024` with 1, 3, 9 channels - high-res / full-image pass.
+- `128x160` with 1, 3, 9 channels - small / warm-cache, non-square.
+- `240x320` with 1, 3, 9 channels - mid-size crop, non-square.
+- `480x640` with 1, 3, 9 channels - typical augmentation training crop, non-square.
+- `768x1024` with 1, 3, 9 channels - high-res / full-image pass, non-square.
+
+Use non-square H/W pairs so height-width swaps fail visibly. Avoid square-only benchmark grids.
 
 DHWC volumes:
 
-- `16x128x128x1`, `16x128x128x3` - thin slab.
-- `32x128x128x1`, `32x128x128x3` - common nnU-Net patch depth.
-- `64x128x128x3` - deeper slab.
-- `128x128x128x1` - isotropic single-channel cube.
-- `48x256x256x3` - large in-plane, multi-channel.
+- `16x128x160x1`, `16x128x160x3` - thin slab, non-square in-plane.
+- `32x128x160x1`, `32x128x160x3` - common nnU-Net patch depth.
+- `64x128x160x3` - deeper slab.
+- `96x128x160x1` - deep single-channel slab.
+- `48x240x320x3` - large in-plane, multi-channel.
 
 NDHWC batch of volumes:
 
-- `2x32x128x128x1`
-- `2x32x128x128x3`
-- `2x64x128x128x3`
-- `4x16x128x128x3`
+- `2x32x128x160x1`
+- `2x32x128x160x3`
+- `2x64x128x160x3`
+- `4x16x128x160x3`
 
 Channel choices: 1 for grayscale, 3 for RGB / 3-channel, and 9 for hyperspectral paths that exceed `MAX_OPENCV_WORKING_CHANNELS=4`.
 

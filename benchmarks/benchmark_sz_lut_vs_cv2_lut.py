@@ -41,6 +41,7 @@ import numpy as np
 import stringzilla as sz
 
 from albucore.lut import sz_lut
+from shape_grids import SZ_LUT_BENCHMARK_SHAPES
 from timing import median_ms
 
 # Reproducible non-trivial uint8 LUTs (not ``arange`` identity).
@@ -130,33 +131,6 @@ def main() -> None:
     args = p.parse_args()
     rng = np.random.default_rng(args.seed)
 
-    shapes: list[tuple[int, ...]] = [
-        (128, 128, 1),
-        (128, 128, 3),
-        (256, 256, 1),
-        (256, 256, 3),
-        (256, 256, 9),
-        (512, 512, 1),
-        (512, 512, 3),
-        (512, 512, 9),
-        (1024, 1024, 1),
-        (1024, 1024, 3),
-        (1024, 1024, 9),
-        (96, 96, 9),
-        # Volumes (D,H,W,C): deeper stacks + in-plane ≥128 common for 3D segmentation training patches
-        # (nnU-Net / similar often use ~128–256 in-plane and tens of slices; exact patch is dataset-specific).
-        (32, 128, 128, 1),
-        (64, 128, 128, 3),
-        (128, 128, 128, 1),
-        (48, 256, 256, 3),
-        (96, 160, 160, 3),
-        (6, 32, 32, 9),
-        # Batch of volumes (N,D,H,W,C)
-        (2, 32, 128, 128, 3),
-        (2, 64, 128, 128, 3),
-        (1, 128, 128, 128, 1),
-    ]
-
     lut_s = _lut_shared()
 
     print()
@@ -176,7 +150,7 @@ def main() -> None:
     )
     print("|--------|-------|-------:|--------------------:|--------------------:|-------------:|------------------|")
 
-    for sh in shapes:
+    for sh in SZ_LUT_BENCHMARK_SHAPES:
         img = rng.integers(0, 256, size=sh, dtype=np.uint8)
         npx = int(np.prod(sh))
 
@@ -204,7 +178,7 @@ def main() -> None:
     )
     print("|--------|-------|-------:|--------------------:|------------------:|--------------------------:|---------|")
 
-    for sh in shapes:
+    for sh in SZ_LUT_BENCHMARK_SHAPES:
         c = sh[-1]
         lut_cv2, luts_1d = _lut_per_channel(c)
         img = rng.integers(0, 256, size=sh, dtype=np.uint8)

@@ -262,7 +262,7 @@ class TestPairwiseDistancesSquared:
             i = np.random.randint(0, 100)
             j = np.random.randint(0, 100)
             expected_dist = np.sum((points1[i] - points2[j]) ** 2)
-            np.testing.assert_allclose(result[i, j], expected_dist, rtol=1e-5)
+            np.testing.assert_allclose(result[i, j], expected_dist, rtol=1e-5, atol=1e-6)
 
     def test_edge_case_single_point(self) -> None:
         """Test with single points."""

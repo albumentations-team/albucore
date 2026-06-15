@@ -17,6 +17,7 @@ import argparse
 
 import numpy as np
 
+from shape_grids import SQUARE_BASE_HW
 from timing import bench_wall_ms
 
 from albucore.arithmetic import add_constant, add_lut, add_opencv
@@ -37,14 +38,13 @@ def main() -> None:
 
     rng = np.random.default_rng(args.seed)
     scalar = 3
-    spatial = [(128, 128), (256, 256), (512, 512), (1024, 1024)]
     channels = list(range(5, 10))
 
     print(
         "| H×W | C | OpenCV | LUT | NumKong | NumPy | `add_constant` | fastest |",
     )
     print("|-----|---|-------:|----:|--------:|------:|---------------:|---------|")
-    for h, w in spatial:
+    for h, w in SQUARE_BASE_HW:
         for c in channels:
             base = rng.integers(0, 256, (h, w, c), dtype=np.uint8)
 
