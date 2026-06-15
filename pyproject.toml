@@ -62,7 +62,7 @@ target-version = "py310"
 line-length = 120
 indent-width = 4
 
-# Assume Python 3.9
+# Assume the minimum supported Python version.
 exclude = [
   ".bzr",
   ".direnv",
@@ -157,6 +157,8 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
+    "hypothesis>=6.155.2",
+    "pytest>=9.0.3",
     "pytest-randomly>=4.0.1",
+    "tomli>=2.0.1; python_version < '3.11'",
 ]

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -41,17 +45,37 @@ jobs:
         if: matrix.python-version == '3.10'
         run: uv lock --check
 
+      - name: Check public router contracts
+        if: matrix.python-version == '3.10'
+        run: uv run python tools/check_router_contracts.py
+
+      - name: Check CI matrix policy
+        if: matrix.python-version == '3.10'
+        run: uv run python tools/ci_matrix.py check
+
       - name: Check code formatting with pre-commit
         if: matrix.python-version == '3.10'
         run: pre-commit run --all-files --show-diff-on-failure
 
       - name: Run tests with coverage
         if: matrix.python-version == '3.10'
-        run: pytest tests/ --cov=albucore --cov-report=xml --cov-report=term
+        run: pytest tests/ --hypothesis-profile=ci-fast --cov=albucore --cov-report=xml --cov-report=term
 
       - name: Run tests
         if: matrix.python-version != '3.10'
-        run: pytest tests/
+        run: pytest tests/ --hypothesis-profile=ci-fast
+
+      - name: Collect test environment
+        if: always()
+        run: uv run python tools/collect_test_environment.py --output-json test-environment.json
+
+      - name: Upload test environment
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-environment-${{ matrix.os }}-${{ matrix.python-version }}
+          path: test-environment.json
+          if-no-files-found: error
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -59,3 +83,51 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
+
+  declared-dependency-ranges:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.10"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install declared dependency ranges
+        run: |
+          uv pip install -e . --no-deps
+          uv pip install \
+            "numpy>=1.24.4" \
+            "numkong>=7.4.5" \
+            "stringzilla>=3.10.4" \
+            "opencv-python-headless>=4.13.0.90" \
+            hypothesis \
+            pytest \
+            pytest-randomly
+
+      - name: Check public router contracts
+        run: python tools/check_router_contracts.py
+
+      - name: Run declared-range tests
+        run: pytest tests/ --hypothesis-profile=ci-fast
+
+      - name: Collect test environment
+        if: always()
+        run: python tools/collect_test_environment.py --output-json test-environment.json
+
+      - name: Upload test environment
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-environment-declared-ranges
+          path: test-environment.json
+          if-no-files-found: error

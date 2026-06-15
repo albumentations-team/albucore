@@ -1,6 +1,8 @@
+hypothesis>=6.155.2
 opencv-python-headless>=4.9.0.80
 pre_commit>=3.5.0
 pytest>=9.0.3
 pytest_cov>=4.1.0
 pytest_mock>=3.14.0
+tomli>=2.0.1; python_version < '3.11'
 types-setuptools

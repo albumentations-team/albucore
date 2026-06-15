@@ -45,6 +45,30 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`issue_lut_uint8_standalone.py`](issue_lut_uint8_standalone.py) | **Self-contained** `cv2.LUT` vs StringZilla `translate`: shared + per-channel, **`LUT` new vs `dst`**, SZ copy vs reuse buffer. Copy into GitHub issues. |
 | [`benchmark_lut_shared_routing.py`](benchmark_lut_shared_routing.py) | Grid sweep: when OpenCV beats StringZilla for **shared** HWC LUT vs `opencv_shared_uint8_lut_faster_hwc` (used by `apply_uint8_lut`). LUT: **permutation(256)**. |
 
+## Router regression guard
+
+Use the router benchmark to compare the current tree against a released baseline. The HWC grid uses
+non-square sizes so height-width swaps are visible.
+
+```bash
+uv run python benchmarks/benchmark_router_synthetic.py \
+  --output-json benchmarks/results/router-current.json
+
+uv run --no-project --with albucore==<previous-version> \
+  --with opencv-python-headless --with numkong --with stringzilla --with numpy \
+  python benchmarks/benchmark_router_synthetic.py \
+  --output-json benchmarks/results/router-previous.json
+
+uv run python benchmarks/compare_router_json.py \
+  benchmarks/results/router-current.json \
+  benchmarks/results/router-previous.json \
+  benchmarks/results/REPORT_router_compare.md
+```
+
+For a fast advisory run, add `--quick --repeats 7 --warmup 2`. See
+[`docs/maintaining/performance-policy.md`](../docs/maintaining/performance-policy.md) for threshold
+policy.
+
 ### What compares what (sanity / routing)
 
 | Script | Wrapper (`functions` API) | NumKong | OpenCV | LUT | NumPy |

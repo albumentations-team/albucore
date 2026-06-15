@@ -23,6 +23,7 @@ from albucore.functions import (
     add_weighted_opencv,
 )
 from albucore.stats import mean_std
+from shape_grids import TARGETED_BATCH_NHWC, TARGETED_HWC_HW, TARGETED_VOLUME_NDHWC_PREFIX_AND_HW
 from timing import median_ms
 
 
@@ -49,7 +50,7 @@ def main() -> None:
     args = p.parse_args()
 
     rng = np.random.default_rng(args.seed)
-    sizes = [(256, 256), (512, 512), (1024, 1024)]
+    sizes = TARGETED_HWC_HW
     channels = [1, 3, 9]
     w1, w2 = 0.5, 0.5
 
@@ -114,7 +115,7 @@ def main() -> None:
     print()
 
     # --- add_weighted batch (N,H,W,C) — same APIs, raveled in NumKong path ---
-    nb, hb, wb = 4, 256, 256
+    nb, hb, wb = TARGETED_BATCH_NHWC
     print(f"## `add_weighted` — batch / video `(N,H,W,C)`, N={nb}, H×W={hb}×{wb}")
     print()
     print("Same weights **0.5 / 0.5**. Pixels = N×H×W×C.")
@@ -496,19 +497,19 @@ def main() -> None:
             f32 = rng.random((h, w, c), dtype=np.float32)
             row_pc("float32", f"{h}×{w}×{c}", f32)
 
-    hb, wb = 256, 256
+    nb, hb, wb = TARGETED_BATCH_NHWC
     for c in channels:
-        u8 = rng.integers(0, 256, size=(4, hb, wb, c), dtype=np.uint8)
-        row_pc("uint8", f"4×{hb}×{wb}×{c}", u8)
-        f32 = rng.random((4, hb, wb, c), dtype=np.float32)
-        row_pc("float32", f"4×{hb}×{wb}×{c}", f32)
+        u8 = rng.integers(0, 256, size=(nb, hb, wb, c), dtype=np.uint8)
+        row_pc("uint8", f"{nb}×{hb}×{wb}×{c}", u8)
+        f32 = rng.random((nb, hb, wb, c), dtype=np.float32)
+        row_pc("float32", f"{nb}×{hb}×{wb}×{c}", f32)
 
-    h5, w5 = 64, 64
+    n5, d5, h5, w5 = TARGETED_VOLUME_NDHWC_PREFIX_AND_HW
     for c in channels:
-        u8 = rng.integers(0, 256, size=(2, 4, h5, w5, c), dtype=np.uint8)
-        row_pc("uint8", f"2×4×{h5}×{w5}×{c}", u8)
-        f32 = rng.random((2, 4, h5, w5, c), dtype=np.float32)
-        row_pc("float32", f"2×4×{h5}×{w5}×{c}", f32)
+        u8 = rng.integers(0, 256, size=(n5, d5, h5, w5, c), dtype=np.uint8)
+        row_pc("uint8", f"{n5}×{d5}×{h5}×{w5}×{c}", u8)
+        f32 = rng.random((n5, d5, h5, w5, c), dtype=np.float32)
+        row_pc("float32", f"{n5}×{d5}×{h5}×{w5}×{c}", f32)
 
 
 if __name__ == "__main__":

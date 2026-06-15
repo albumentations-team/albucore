@@ -1,0 +1,310 @@
+{
+  "cases": [
+    {
+      "atol": 0.0,
+      "name": "add_uint8_vector_hwc",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 255.0,
+          "mean": 143.81004901960785,
+          "min": 3.0,
+          "sha256": "59a742dcad7a147cc6158a940c6afdad10742d2b522c8c7e6f3256c97529f6f2",
+          "shape": [
+            16,
+            17,
+            3
+          ],
+          "sum": 117349.0
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 0.0,
+      "name": "multiply_float32_scalar_hwc",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "float32",
+          "max": 0.75,
+          "mean": 0.3750000005820766,
+          "min": 0.0,
+          "sha256": "b15a351ec0e7bbbec061f455a465d53d59a2a63e530e2ec6bd5b46a82bd51531",
+          "shape": [
+            8,
+            9,
+            1
+          ],
+          "sum": 27.000000041909516
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 0.0,
+      "name": "multiply_add_uint8_vector_hwc9",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 255.0,
+          "mean": 131.98779557589626,
+          "min": 3.0,
+          "sha256": "2d053e16feafe66c4a56d1fe9464d871a80e0fc6c282193d5a24eecb0488f164",
+          "shape": [
+            19,
+            23,
+            9
+          ],
+          "sum": 519108.0
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 1e-06,
+      "name": "normalize_uint8_vector_hwc",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "float32",
+          "max": 4.125,
+          "mean": 0.41808823728020866,
+          "min": -2.25,
+          "sha256": "0f6dba40118d0611618493fb28783154fe62640959653aba62e4c44e1fa41fe3",
+          "shape": [
+            16,
+            17,
+            3
+          ],
+          "sum": 341.1600016206503
+        }
+      },
+      "rtol": 1e-06
+    },
+    {
+      "atol": 1e-06,
+      "name": "to_from_float_uint8_hwc1",
+      "outputs": {
+        "float": {
+          "c_contiguous": true,
+          "dtype": "float32",
+          "max": 0.9921568632125854,
+          "mean": 0.4891067636587347,
+          "min": 0.0,
+          "sha256": "48e0fb5ce2017136f633236705ce4f405b52d727b315d408c66ed5d11fd9246c",
+          "shape": [
+            8,
+            9,
+            1
+          ],
+          "sum": 35.215686983428895
+        },
+        "roundtrip": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 253.0,
+          "mean": 124.72222222222223,
+          "min": 0.0,
+          "sha256": "a5bdc1c733f46f93fa7b9cf424a6c423b6c9d6a5ea9290297ec3e70eabb160e0",
+          "shape": [
+            8,
+            9,
+            1
+          ],
+          "sum": 8980.0
+        }
+      },
+      "rtol": 1e-06
+    },
+    {
+      "atol": 0.0,
+      "name": "apply_uint8_lut_shared_hwc",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 255.0,
+          "mean": 127.32352941176471,
+          "min": 0.0,
+          "sha256": "23839c556d6323fbdb0969bdaa23d93b61d928299f16b6e0824bf1165b030326",
+          "shape": [
+            16,
+            17,
+            3
+          ],
+          "sum": 103896.0
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 0.0,
+      "name": "apply_uint8_lut_per_channel_hwc9",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 255.0,
+          "mean": 127.47419272819731,
+          "min": 0.0,
+          "sha256": "ff9877732da9533751e66203b3208ed931b9d5cd6493aafd80609488481da92d",
+          "shape": [
+            19,
+            23,
+            9
+          ],
+          "sum": 501356.0
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 0.0,
+      "name": "sz_lut_shared_hwc1",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 255.0,
+          "mean": 130.27777777777777,
+          "min": 2.0,
+          "sha256": "ad30f6145cc339fc67108be1c45aaa3794710be7daba9322da0257e243622cbe",
+          "shape": [
+            8,
+            9,
+            1
+          ],
+          "sum": 9380.0
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 0.0,
+      "name": "flips_float32_hwc",
+      "outputs": {
+        "hflip": {
+          "c_contiguous": true,
+          "dtype": "float32",
+          "max": 1.0,
+          "mean": 0.4999999998212397,
+          "min": 0.0,
+          "sha256": "ca84a03ab6bcffd404bb9c24808caa22089568a57f92e5873647371398113ecc",
+          "shape": [
+            16,
+            17,
+            3
+          ],
+          "sum": 407.9999998541316
+        },
+        "vflip": {
+          "c_contiguous": true,
+          "dtype": "float32",
+          "max": 1.0,
+          "mean": 0.4999999998212397,
+          "min": 0.0,
+          "sha256": "50d90a8820fceed42b6024bc1ffa819c29f64bcb306ce4829c8cc9e71436c019",
+          "shape": [
+            16,
+            17,
+            3
+          ],
+          "sum": 407.9999998541316
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 0.0,
+      "name": "resize_nearest_uint8_hwc1",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "uint8",
+          "max": 253.0,
+          "mean": 127.87412587412588,
+          "min": 0.0,
+          "sha256": "3ef716e8c772e83624cf90c24e1d842ac030c815e6c3d3a282fcdc79ef485ede",
+          "shape": [
+            11,
+            13,
+            1
+          ],
+          "sum": 18286.0
+        }
+      },
+      "rtol": 0.0
+    },
+    {
+      "atol": 1e-12,
+      "name": "stats_uint8_per_channel_hwc",
+      "outputs": {
+        "mean": {
+          "c_contiguous": true,
+          "dtype": "float64",
+          "max": 127.97058823529412,
+          "mean": 127.67647058823529,
+          "min": 127.38235294117646,
+          "sha256": "a413997401d2f4d84e05e9df207c0fe136b0c568faecfa2caf026a1351bacee0",
+          "shape": [
+            3
+          ],
+          "sum": 383.02941176470586
+        },
+        "std": {
+          "c_contiguous": true,
+          "dtype": "float64",
+          "max": 73.87320849808306,
+          "mean": 73.8473456131868,
+          "min": 73.82410398253838,
+          "sha256": "4cdbf7c19b5e47ea748104b7b2a3795ca8619ef13f6db0643c85eb0ce173f019",
+          "shape": [
+            3
+          ],
+          "sum": 221.5420368395604
+        },
+        "sum": {
+          "c_contiguous": true,
+          "dtype": "uint64",
+          "max": 34808.0,
+          "mean": 34728.0,
+          "min": 34648.0,
+          "sha256": "89e8294bb35593a5c28df6bab86e2bc9812831cd3e0fbccdc25fab0d411b5aef",
+          "shape": [
+            3
+          ],
+          "sum": 104184.0
+        }
+      },
+      "rtol": 1e-12
+    },
+    {
+      "atol": 1e-06,
+      "name": "batch_normalize_float32_ndhwc",
+      "outputs": {
+        "result": {
+          "c_contiguous": true,
+          "dtype": "float32",
+          "max": 1.0,
+          "mean": 0.49999999979034465,
+          "min": 0.0,
+          "sha256": "a350b166c402ec19eba05a7efd197ae9f577f63264375577a917f916a1a3b733",
+          "shape": [
+            2,
+            3,
+            8,
+            9,
+            1
+          ],
+          "sum": 215.99999990942888
+        }
+      },
+      "rtol": 1e-06
+    }
+  ],
+  "outputs_file": "v1/outputs.npz",
+  "version": 1
+}

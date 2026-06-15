@@ -9,12 +9,12 @@ from pathlib import Path
 import numkong as nk
 import numpy as np
 
+from shape_grids import LARGE_SQUARE_HW
 from timing import median_ms
 
 
 def main() -> None:
     rng = np.random.default_rng(42)
-    sizes = [(256, 256), (512, 512), (1024, 1024)]
     channels = [1, 3, 9]
     eps = 1e-4
 
@@ -52,7 +52,7 @@ def main() -> None:
     print("| H×W | C | pixels | op | NumPy (ms) | NumKong (ms) | faster |")
     print("|-----|---|--------|----|-----------:|-------------:|--------|")
 
-    for h, w in sizes:
+    for h, w in LARGE_SQUARE_HW:
         for c in channels:
             img = rng.random((h, w, c), dtype=np.float32)
             n = h * w * c
@@ -90,7 +90,7 @@ def main() -> None:
     print("| H×W | C | pixels | NumPy mean+std (ms) | NumKong moments+formula (ms) | faster |")
     print("|-----|---|--------|--------------------:|-----------------------------:|--------|")
 
-    for h, w in sizes:
+    for h, w in LARGE_SQUARE_HW:
         for c in channels:
             img = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
             n = h * w * c
