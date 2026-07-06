@@ -68,7 +68,7 @@ jobs:
         run: uv build
 
       - name: Install release validation dependencies
-        run: uv sync --extra headless --group dev
+        run: uv sync --frozen --extra headless --group dev
 
       - name: Check public router contracts
         run: uv run python tools/check_router_contracts.py
