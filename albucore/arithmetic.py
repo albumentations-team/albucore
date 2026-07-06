@@ -51,8 +51,8 @@ def create_lut_array(
     lut = np.arange(int(MAX_VALUES_BY_DTYPE[dtype]) + 1, dtype=np.float32)
     value_arr = np.asarray(value, dtype=np.float32)
     if value_arr.ndim == 0:
-        return cast("np.ndarray", op(lut, value_arr))
-    return cast("np.ndarray", op(lut.reshape(-1, 1, 1), value_arr.reshape(1, 1, -1)))
+        return op(lut, value_arr)
+    return op(lut.reshape(-1, 1, 1), value_arr.reshape(1, 1, -1))
 
 
 def apply_lut(

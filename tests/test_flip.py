@@ -95,8 +95,8 @@ def test_vflip_identity(shape, dtype):
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_multichannel_hflip(dtype):
-    """Test horizontal flip with more than 512 channels."""
-    # Create a sample image with 600 channels (exceeds OpenCV's 512 channel limit)
+    """Test horizontal flip above OpenCV's channel limit."""
+    # Create a sample image with 600 channels (exceeds OpenCV's channel limit)
     channels = 600
     height, width = 10, 15
     img = np.arange(height * width * channels).reshape(height, width, channels).astype(dtype)
@@ -125,8 +125,8 @@ def test_multichannel_hflip(dtype):
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_multichannel_vflip(dtype):
-    """Test vertical flip with more than 512 channels."""
-    # Create a sample image with 600 channels (exceeds OpenCV's 512 channel limit)
+    """Test vertical flip above OpenCV's channel limit."""
+    # Create a sample image with 600 channels (exceeds OpenCV's channel limit)
     channels = 600
     height, width = 10, 15
     img = np.arange(height * width * channels).reshape(height, width, channels).astype(dtype)
@@ -153,7 +153,7 @@ def test_multichannel_vflip(dtype):
     assert flipped_main.dtype == img.dtype
 
 
-@pytest.mark.parametrize("channels", [513, 600, 1024])
+@pytest.mark.parametrize("channels", [129, 513, 600, 1024])
 @pytest.mark.parametrize("flip_code", [0, 1, -1])
 def test_flip_multichannel_function(channels, flip_code):
     """Test the _flip_multichannel function directly with different channel counts and flip codes."""
