@@ -1,0 +1,1092 @@
+{
+  "copy_make_border": {
+    "c1": {
+      "constant_per_channel": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28
+        ]
+      },
+      "constant_scalar": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28
+        ]
+      },
+      "reflect": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28
+        ]
+      }
+    },
+    "c3": {
+      "constant_per_channel": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          3
+        ]
+      },
+      "constant_scalar": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          3
+        ]
+      },
+      "reflect": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          3
+        ]
+      }
+    },
+    "c4": {
+      "constant_per_channel": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          4
+        ]
+      },
+      "constant_scalar": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          4
+        ]
+      },
+      "reflect": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          4
+        ]
+      }
+    },
+    "c5": {
+      "constant_per_channel": {
+        "error": "OpenCV(5.0.0) :-1: error: (-5:Bad argument) in function 'copyMakeBorder'",
+        "error_type": "error",
+        "ok": false
+      },
+      "constant_scalar": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/core/src/copy.cpp:1278: error: (-215:Assertion failed) value[0] == value[1] && value[0] == value[2] && value[0] == value[3] in function 'copyMakeBorder'",
+        "error_type": "error",
+        "ok": false
+      },
+      "reflect": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          5
+        ]
+      }
+    },
+    "c9": {
+      "constant_per_channel": {
+        "error": "OpenCV(5.0.0) :-1: error: (-5:Bad argument) in function 'copyMakeBorder'",
+        "error_type": "error",
+        "ok": false
+      },
+      "constant_scalar": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/core/src/copy.cpp:1278: error: (-215:Assertion failed) value[0] == value[1] && value[0] == value[2] && value[0] == value[3] in function 'copyMakeBorder'",
+        "error_type": "error",
+        "ok": false
+      },
+      "reflect": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          22,
+          28,
+          9
+        ]
+      }
+    }
+  },
+  "flip": {
+    "c1": {
+      "dtype": "uint8",
+      "ok": true,
+      "shape": [
+        17,
+        19
+      ]
+    },
+    "c3": {
+      "dtype": "uint8",
+      "ok": true,
+      "shape": [
+        17,
+        19,
+        3
+      ]
+    },
+    "c4": {
+      "dtype": "uint8",
+      "ok": true,
+      "shape": [
+        17,
+        19,
+        4
+      ]
+    },
+    "c5": {
+      "dtype": "uint8",
+      "ok": true,
+      "shape": [
+        17,
+        19,
+        5
+      ]
+    },
+    "c513": {
+      "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/core/src/matrix_transform.cpp:1031: error: (-215:Assertion failed) _src.dims() <= 2 in function 'flip'",
+      "error_type": "error",
+      "ok": false
+    },
+    "c9": {
+      "dtype": "uint8",
+      "ok": true,
+      "shape": [
+        17,
+        19,
+        9
+      ]
+    }
+  },
+  "lut_single_channel": {
+    "dtype": "uint8",
+    "ok": true,
+    "shape": [
+      17,
+      19
+    ]
+  },
+  "median_blur": {
+    "c1": {
+      "k3": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "k5": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "k7": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "k9": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      }
+    },
+    "c3": {
+      "k3": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "k5": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "k7": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "k9": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      }
+    },
+    "c4": {
+      "k3": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "k5": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "k7": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "k9": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      }
+    },
+    "c5": {
+      "k3": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      },
+      "k5": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      },
+      "k7": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/median_blur.simd.hpp:897: error: (-215:Assertion failed) src.depth() == CV_8U && (cn == 1 || cn == 3 || cn == 4) in function 'medianBlur'",
+        "error_type": "error",
+        "ok": false
+      },
+      "k9": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/median_blur.simd.hpp:897: error: (-215:Assertion failed) src.depth() == CV_8U && (cn == 1 || cn == 3 || cn == 4) in function 'medianBlur'",
+        "error_type": "error",
+        "ok": false
+      }
+    },
+    "c9": {
+      "k3": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      },
+      "k5": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      },
+      "k7": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/median_blur.simd.hpp:897: error: (-215:Assertion failed) src.depth() == CV_8U && (cn == 1 || cn == 3 || cn == 4) in function 'medianBlur'",
+        "error_type": "error",
+        "ok": false
+      },
+      "k9": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/median_blur.simd.hpp:897: error: (-215:Assertion failed) src.depth() == CV_8U && (cn == 1 || cn == 3 || cn == 4) in function 'medianBlur'",
+        "error_type": "error",
+        "ok": false
+      }
+    }
+  },
+  "meta": {
+    "cv2": "5.0.0",
+    "numpy": "2.2.6"
+  },
+  "remap": {
+    "c1": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      }
+    },
+    "c3": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      }
+    },
+    "c4": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      }
+    },
+    "c5": {
+      "cubic": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "lanczos4": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1640: error: (-215:Assertion failed) _src.channels() <= 4 in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      }
+    },
+    "c9": {
+      "cubic": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "lanczos4": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1640: error: (-215:Assertion failed) _src.channels() <= 4 in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      }
+    }
+  },
+  "resize": {
+    "c1": {
+      "area_down": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          8,
+          9
+        ]
+      },
+      "area_up": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38
+        ]
+      }
+    },
+    "c3": {
+      "area_down": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          8,
+          9,
+          3
+        ]
+      },
+      "area_up": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          3
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          3
+        ]
+      }
+    },
+    "c4": {
+      "area_down": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          8,
+          9,
+          4
+        ]
+      },
+      "area_up": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          4
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          4
+        ]
+      }
+    },
+    "c5": {
+      "area_down": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/resize.cpp:4054: error: (-215:Assertion failed) func != 0 && cn <= 4 in function 'resize'",
+        "error_type": "error",
+        "ok": false
+      },
+      "area_up": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          5
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          5
+        ]
+      }
+    },
+    "c9": {
+      "area_down": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/resize.cpp:4054: error: (-215:Assertion failed) func != 0 && cn <= 4 in function 'resize'",
+        "error_type": "error",
+        "ok": false
+      },
+      "area_up": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          9
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          34,
+          38,
+          9
+        ]
+      }
+    }
+  },
+  "warp_affine": {
+    "c1": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      }
+    },
+    "c3": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      }
+    },
+    "c4": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      }
+    },
+    "c5": {
+      "cubic": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:2463: error: (-215:Assertion failed) _src.channels() <= 4 || (interpolation != INTER_LANCZOS4 && interpolation != INTER_CUBIC) in function 'warpAffine'",
+        "error_type": "error",
+        "ok": false
+      },
+      "lanczos4": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:2463: error: (-215:Assertion failed) _src.channels() <= 4 || (interpolation != INTER_LANCZOS4 && interpolation != INTER_CUBIC) in function 'warpAffine'",
+        "error_type": "error",
+        "ok": false
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      }
+    },
+    "c9": {
+      "cubic": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:2463: error: (-215:Assertion failed) _src.channels() <= 4 || (interpolation != INTER_LANCZOS4 && interpolation != INTER_CUBIC) in function 'warpAffine'",
+        "error_type": "error",
+        "ok": false
+      },
+      "lanczos4": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:2463: error: (-215:Assertion failed) _src.channels() <= 4 || (interpolation != INTER_LANCZOS4 && interpolation != INTER_CUBIC) in function 'warpAffine'",
+        "error_type": "error",
+        "ok": false
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      }
+    }
+  },
+  "warp_perspective": {
+    "c1": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19
+        ]
+      }
+    },
+    "c3": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          3
+        ]
+      }
+    },
+    "c4": {
+      "cubic": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "lanczos4": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          4
+        ]
+      }
+    },
+    "c5": {
+      "cubic": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "lanczos4": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1640: error: (-215:Assertion failed) _src.channels() <= 4 in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          5
+        ]
+      }
+    },
+    "c9": {
+      "cubic": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "lanczos4": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1640: error: (-215:Assertion failed) _src.channels() <= 4 in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "linear": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      },
+      "linear_exact": {
+        "error": "OpenCV(5.0.0) /Users/xperience/GHA-OpenCV-Python/_work/opencv-python/opencv-python/opencv/modules/imgproc/src/imgwarp.cpp:1643: error: (-5:Bad argument) Unknown interpolation method in function 'remap'",
+        "error_type": "error",
+        "ok": false
+      },
+      "nearest": {
+        "dtype": "uint8",
+        "ok": true,
+        "shape": [
+          17,
+          19,
+          9
+        ]
+      }
+    }
+  }
+}

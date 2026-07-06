@@ -1,6 +1,6 @@
 """Benchmark-driven mean / std / mean_std for albucore array layouts (HWC, NHWC, NDHWC, …)."""
 
-from typing import Literal, TypeGuard
+from typing import Literal, TypeGuard, cast
 
 import cv2
 import numkong as nk
@@ -173,6 +173,21 @@ def _global_mean_uint8_only(arr: ImageUInt8) -> float:
     return float(nk.sum(arr)) / arr.size
 
 
+def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarray, np.ndarray]:
+    """Per-channel population mean/std via one NumKong moments call per channel."""
+    c = arr.shape[-1]
+    n = arr.size // c
+    means = np.empty(c, dtype=np.float64)
+    stds = np.empty(c, dtype=np.float64)
+    for channel in range(c):
+        s_sum, s_sq = nk.moments(arr[..., channel])
+        mean_value = float(s_sum) / n
+        var = max(float(s_sq) / n - mean_value * mean_value, 0.0)
+        means[channel] = mean_value
+        stds[channel] = np.sqrt(var) + eps
+    return means, stds
+
+
 def _mean_std_global(
     arr: ImageType,
     *,
@@ -226,12 +241,15 @@ def _mean_std_per_channel(
     keepdims: bool,
     eps: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    if (
-        arr.ndim == 3
-        and not keepdims
-        and axes == _per_channel_spatial_axes(arr)
-        and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS
-    ):
+    spatial_axes = _per_channel_spatial_axes(arr)
+    if axes == spatial_axes and not keepdims and (_is_uint8_image(arr) or _is_float32_image(arr)):
+        c = arr.shape[-1]
+        if _is_uint8_image(arr):
+            return _mean_std_per_channel_numkong(arr, eps)
+        if arr.ndim != 3 or c == 1 or c > MAX_OPENCV_WORKING_CHANNELS:
+            return _mean_std_per_channel_numkong(arr, eps)
+
+    if arr.ndim == 3 and not keepdims and axes == spatial_axes and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         mean, std = cv2.meanStdDev(arr)
         m = mean[:, 0].astype(np.float64, copy=False)
         st = (std[:, 0] + eps).astype(np.float64, copy=False)
@@ -272,7 +290,8 @@ def _mean_per_channel(
     # float32 NHWC/DHWC (ndim == 4), 1 < C ≤ 4: nk.sum wins 4x vs arr.mean
     if arr.ndim == 4 and not keepdims and axes == spatial_axes and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         n_spatial = arr.size // c
-        return np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
+        result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64)
+        return cast("np.ndarray", result / n_spatial)
     if c > MAX_OPENCV_WORKING_CHANNELS and axes == spatial_axes and arr.size // c >= 16_384:
         result = _cv2_reduce_mean_per_channel(arr)
         if keepdims:
@@ -288,14 +307,13 @@ def _std_per_channel(
     keepdims: bool,
     eps: float,
 ) -> np.ndarray:
-    if (
-        arr.ndim == 3
-        and not keepdims
-        and axes == _per_channel_spatial_axes(arr)
-        and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS
-    ):
+    spatial_axes = _per_channel_spatial_axes(arr)
+    if arr.ndim == 3 and not keepdims and axes == spatial_axes and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         _, std = cv2.meanStdDev(arr)
         return np.asarray(std[:, 0] + eps, dtype=np.float64)
+    if axes == spatial_axes and not keepdims and (_is_uint8_image(arr) or (_is_float32_image(arr) and arr.ndim != 3)):
+        _, std = _mean_std_per_channel_numkong(arr, eps)
+        return std
     return np.asarray(arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps, dtype=np.float64)
 
 
@@ -314,8 +332,10 @@ def mean_std(
     Routing:
     - **uint8 global**: NumKong ``nk.moments`` (single pass, wide accumulator).
     - **float32 global**: ``np.mean`` + ``np.std`` (``dtype=float64`` for accuracy).
-    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.meanStdDev`` (any dtype).
-    - **everything else**: NumPy ``mean``/``std``.
+    - **per-channel uint8**: one NumKong ``moments`` call per channel.
+    - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``.
+    - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel.
+    - **explicit axes / keepdims**: NumPy-compatible ``mean``/``std``.
 
     Alternative: ``mean`` or ``std`` if only one statistic is needed.
 
@@ -386,8 +406,10 @@ def std(
     Routing:
     - **uint8 global**: NumKong ``nk.moments`` (single pass, wide accumulator).
     - **float32 global**: ``np.std(dtype=float64)``.
-    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.meanStdDev`` (fastest for HWC images).
-    - **everything else**: ``arr.std(dtype=float64)``.
+    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.meanStdDev``.
+    - **per-channel uint8 outside that OpenCV path**: one NumKong ``moments`` call per channel.
+    - **per-channel float32, ndim > 3**: one NumKong ``moments`` call per channel.
+    - **explicit axes / keepdims**: ``arr.std(dtype=float64)``.
 
     Alternative: ``mean_std`` if mean is also needed (avoids a redundant pass for uint8).
 

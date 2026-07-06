@@ -118,7 +118,7 @@ Ensure arrays are C-contiguous for optimal performance:
 
 ### 7. Central stats API (`mean`, `std`, `mean_std`)
 
-Use [`albucore.stats`](../albucore/stats.py) for reductions over image / batch / volume tensors (always with explicit channel dim). Routing is benchmark-driven: **uint8** global stats use **NumKong `moments`** (any rank; one pass for `mean_std`); **float32** global uses **NumPy**; **per-channel** on **3D** uses **`cv2.mean`** for `mean` only, **`cv2.meanStdDev`** when both mean and std are needed (`mean_std` / `std`), and **NumPy** axis reductions for higher rank or when `keepdims=True`. `normalize_per_image*` delegates here via `_compute_*_stats_*` helpers. Quick timings: `uv run python benchmarks/benchmark_stats.py`.
+Use [`albucore.stats`](../albucore/stats.py) for reductions over image / batch / volume tensors (always with explicit channel dim). Routing is benchmark-driven: **uint8** global stats use **NumKong `moments`** (any rank; one pass for `mean_std`); **float32** global uses **NumPy**; **per-channel mean** uses the existing OpenCV / NumKong / NumPy split; **per-channel `std` and `mean_std`** use OpenCV for 3D float32 RGB/RGBA-like cases and NumKong per-channel `moments` for uint8, single-channel, high-channel, and batch/volume cases. `keepdims=True` still uses NumPy-compatible axis reductions. `normalize_per_image*` delegates here via `_compute_*_stats_*` helpers. Quick timings: `uv run python benchmarks/benchmark_stats.py`.
 
 ## Regression investigation
 
