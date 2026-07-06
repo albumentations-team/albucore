@@ -97,6 +97,7 @@ def _check_release_workflow(errors: list[str]) -> None:
         "release regression checker": "tools/check_benchmark_regressions.py",
         "release regression mode": "--mode release",
         "regression report artifact": "dist/router-release-regressions.md",
+        "release validation headless extra": "uv sync --frozen --extra headless --group dev",
         "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
     }
     errors.extend(
