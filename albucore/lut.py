@@ -94,7 +94,8 @@ def opencv_shared_uint8_lut_faster_hwc(shape: tuple[int, ...]) -> bool:
 
     Routing uses ``n = np.prod(shape)`` (total elements ``H*W*C``) and ``hw = n // C``.
     **Rule:** ``C >= 2`` and (``hw >= 409600`` i.e. about ``640*640``, or
-    (``hw >= 262_144`` i.e. ``512*512`` and ``n >= 1_310_000``)).
+    (``hw >= 307_200`` i.e. ``480*640`` and ``C >= 3``), or
+    (``hw >= 262_144`` i.e. ``512*512`` and ``n >= 1_220_000``)).
     Single-channel stays on StringZilla.
 
     Tuned against ``benchmarks/benchmark_lut_shared_routing.py``. Re-benchmark after OpenCV/SZ upgrades.
@@ -108,7 +109,9 @@ def opencv_shared_uint8_lut_faster_hwc(shape: tuple[int, ...]) -> bool:
     hw = n // c
     if hw >= 409600:  # ~640x640
         return True
-    return hw >= 262_144 and n >= 1_310_000
+    if hw >= 307_200 and c >= 3:  # 480x640 RGB and wider
+        return True
+    return hw >= 262_144 and n >= 1_220_000
 
 
 def _apply_shared_uint8_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool) -> ImageUInt8:

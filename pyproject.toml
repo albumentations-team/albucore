@@ -43,10 +43,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-contrib = ["opencv-contrib-python>=4.13.0.90"]
-contrib-headless = ["opencv-contrib-python-headless>=4.13.0.90"]
-gui = ["opencv-python>=4.13.0.90"]
-headless = ["opencv-python-headless>=4.13.0.90"]
+contrib = ["opencv-contrib-python>=5.0.0.93"]
+contrib-headless = ["opencv-contrib-python-headless>=5.0.0.93"]
+gui = ["opencv-python>=5.0.0.93"]
+headless = ["opencv-python-headless>=5.0.0.93"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["albucore"]

@@ -60,9 +60,10 @@ def _min_max_per_channel(img: ImageType) -> tuple[np.ndarray, np.ndarray]:
         return img.min(axis=axes), img.max(axis=axes)
 
     flat = np.ascontiguousarray(img).reshape(-1, img.shape[-1])
+    flat_cv2 = cast("Any", flat)
     dtype = cv2.CV_32F if img.dtype == np.float32 else -1
-    img_min = cv2.reduce(flat, 0, cv2.REDUCE_MIN, dtype=dtype).reshape(-1)
-    img_max = cv2.reduce(flat, 0, cv2.REDUCE_MAX, dtype=dtype).reshape(-1)
+    img_min = cv2.reduce(flat_cv2, 0, cv2.REDUCE_MIN, dtype=dtype).reshape(-1)
+    img_max = cv2.reduce(flat_cv2, 0, cv2.REDUCE_MAX, dtype=dtype).reshape(-1)
     return img_min, img_max
 
 

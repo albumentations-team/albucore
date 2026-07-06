@@ -23,7 +23,7 @@ uv run python benchmarks/benchmark_stats.py                  # mean_std vs NumPy
 | `pairwise_distances_squared` | Small `n1×n2` | float32 | **`nk.cdist`** if `n1*n2 < 1000`; else NumPy. Still slower than 0.0.40 **SimSimd** `cdist` on some sizes (no simsimd dep). |
 | Global **mean** / **std** / **mean_std** | HWC, NHWC, NDHWC | uint8 | **Shipped** — [`albucore.stats`](../albucore/stats.py): global reduction uses **`nk.moments`** on a contiguous ravel (one pass for `mean_std`). |
 | Global mean / std / both | same | float32 | **NumPy** in `stats` (`np.mean` / `np.std`, float64 accumulators); not routed to NumKong. |
-| Per-channel **mean** / **std** / **mean_std** | `(H,W,C)`, `(N,H,W,C)`, … | uint8, float32 | **Shipped** in `stats` — 3D, `keepdims=False`: **`cv2.mean`** for **mean** only; **`cv2.meanStdDev`** for **std** / **mean_std** (joint mean+std); higher rank or `keepdims=True` → NumPy axis reduction. Normalization calls this via `_compute_per_channel_stats_opencv` → `mean_std(..., "per_channel")`. |
+| Per-channel **mean** / **std** / **mean_std** | `(H,W,C)`, `(N,H,W,C)`, … | uint8, float32 | **Shipped** in `stats` — `mean` keeps its benchmarked OpenCV / NumKong / NumPy split. `std` and `mean_std` use **`cv2.meanStdDev`** for 3D float32 RGB/RGBA-like cases, and **NumKong per-channel `moments`** for uint8, single-channel, high-channel, and batch/volume cases. `keepdims=True` stays on NumPy-compatible axis reduction. |
 | **min** (global on ravel) | `(H,W,C)` | uint8, float32 | **Not NumKong** — NumPy faster ([`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md)). |
 | **max** | same | same | **Not NumKong** — same bench as min. |
 | **minmax** (`Tensor.minmax`) | same | same | **Not NumKong** — see [`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md). |
@@ -149,7 +149,7 @@ Same semantics: one scalar mean/std over **all** elements.
 
 ## 2. Planned / under review (benchmarks first)
 
-- **Per-channel stats → NumKong:** production uses OpenCV / NumPy via **`stats.mean` / `stats.std` / `stats.mean_std`** (`axis='per_channel'`). Benchmarks show **C × `moments`** can win on **uint8** for some shapes; no default switch until winners are pinned per layout/dtype.
+- **Per-channel stats → NumKong:** production uses **C × `moments`** in **`stats.std`** and **`stats.mean_std`** where the OpenCV 5 / NumKong 7.7 rerun shows it wins: uint8, single-channel, high-channel, and batch/volume cases. 3D float32 RGB/RGBA-like cases stay on **`cv2.meanStdDev`**.
 - **Float32 global `mean_std`:** still **two NumPy passes** (`np.mean` + `np.std`); a single-pass alternative would need benchmarking vs accuracy requirements.
 - **Multiply / add (NumKong):** **`add_array_numkong`** uses **`blend`**; **`multiply_by_constant_numkong`** / **`add_constant_numkong`** use **`nk.scale`**. Production **`multiply_by_constant`** (float32) uses **`multiply_numpy`** (0.0.40 baseline); **`add_constant`** stays **OpenCV**. Raw **`fma`** is rarely the win for full-array multiply (see table below).
 

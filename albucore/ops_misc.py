@@ -18,6 +18,8 @@ from albucore.utils import (
     maybe_process_in_chunks,
 )
 
+MAX_OPENCV_FLIP_CHANNELS = 128
+
 
 @contiguous
 def hflip_numpy(img: ImageType) -> ImageType:
@@ -26,8 +28,7 @@ def hflip_numpy(img: ImageType) -> ImageType:
 
 @preserve_channel_dim
 def hflip_cv2(img: ImageType) -> ImageType:
-    # OpenCV's flip function has a limitation of 512 channels
-    if img.ndim > 2 and img.shape[2] > 512:
+    if img.ndim > 2 and img.shape[2] > MAX_OPENCV_FLIP_CHANNELS:
         return _flip_multichannel(img, flip_code=1)
     return cast("ImageType", cv2.flip(img, 1))
 
@@ -36,8 +37,8 @@ def hflip(img: ImageType) -> ImageType:
     """Flip image horizontally (mirror left-right).
 
     Routing:
-    - All channel counts: ``cv2.flip(img, 1)``.  Images with > 512 channels are split
-      into 512-channel chunks and concatenated (OpenCV limit).
+    - All channel counts: ``cv2.flip(img, 1)``. Images with more than
+      ``MAX_OPENCV_FLIP_CHANNELS`` channels are chunked for OpenCV.
 
     Alternative: ``hflip_numpy`` (NumPy slice ``img[:, ::-1, ...]``; useful when OpenCV is
     unavailable or for non-contiguous arrays).
@@ -53,8 +54,7 @@ def hflip(img: ImageType) -> ImageType:
 
 @preserve_channel_dim
 def vflip_cv2(img: ImageType) -> ImageType:
-    # OpenCV's flip function has a limitation of 512 channels
-    if img.ndim > 2 and img.shape[2] > 512:
+    if img.ndim > 2 and img.shape[2] > MAX_OPENCV_FLIP_CHANNELS:
         return _flip_multichannel(img, flip_code=0)
     return cast("ImageType", cv2.flip(img, 0))
 
@@ -68,7 +68,9 @@ def vflip(img: ImageType) -> ImageType:
     """Flip image vertically (mirror top-bottom).
 
     Routing:
-    - **C ≤ 4**: ``cv2.flip(img, 0)``.  Images with > 512 channels are chunked.
+    - **C <= 4**: ``cv2.flip(img, 0)``. Images with more than
+      ``MAX_OPENCV_FLIP_CHANNELS`` channels are chunked by the explicit OpenCV
+      backend.
     - **C > 4**: NumPy slice ``img[::-1, ...]`` (faster than OpenCV on benchmarked shapes).
 
     Alternative: ``vflip_numpy`` or ``vflip_cv2`` for explicit backend selection.
@@ -85,10 +87,10 @@ def vflip(img: ImageType) -> ImageType:
 
 
 def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
-    """Process images with more than 512 channels by splitting into chunks.
+    """Process images with more than OpenCV's flip channel limit.
 
-    OpenCV's flip function has a limitation where it can only handle images with up to 512 channels.
-    This function works around that limitation by splitting the image into chunks of 512 channels,
+    OpenCV 5 handles up to 128 channels for ``cv2.flip`` on this wheel. This
+    function works around that limit by splitting wider images into safe chunks,
     flipping each chunk separately, and then concatenating the results.
 
     Args:
@@ -101,16 +103,14 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     # Get image dimensions
     num_channels = img.shape[2]
 
-    # If the image has fewer than 512 channels, use cv2.flip directly
-    if num_channels <= 512:
+    if num_channels <= MAX_OPENCV_FLIP_CHANNELS:
         return cast("ImageType", cv2.flip(img, flip_code))
 
-    chunk_size = 512
     result: np.ndarray | None = None
     offset = 0
 
-    for i in range(0, num_channels, chunk_size):
-        end_idx = min(i + chunk_size, num_channels)
+    for i in range(0, num_channels, MAX_OPENCV_FLIP_CHANNELS):
+        end_idx = min(i + MAX_OPENCV_FLIP_CHANNELS, num_channels)
         chunk = img[:, :, i:end_idx]
         flipped_chunk = cast("np.ndarray", cv2.flip(chunk, flip_code))
 
