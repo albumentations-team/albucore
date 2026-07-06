@@ -308,10 +308,17 @@ def _std_per_channel(
     eps: float,
 ) -> np.ndarray:
     spatial_axes = _per_channel_spatial_axes(arr)
-    if arr.ndim == 3 and not keepdims and axes == spatial_axes and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
+    c = arr.shape[-1]
+    if (
+        _is_float32_image(arr)
+        and arr.ndim == 3
+        and not keepdims
+        and axes == spatial_axes
+        and 1 < c <= MAX_OPENCV_WORKING_CHANNELS
+    ):
         _, std = cv2.meanStdDev(arr)
         return np.asarray(std[:, 0] + eps, dtype=np.float64)
-    if axes == spatial_axes and not keepdims and (_is_uint8_image(arr) or (_is_float32_image(arr) and arr.ndim != 3)):
+    if axes == spatial_axes and not keepdims and (_is_uint8_image(arr) or _is_float32_image(arr)):
         _, std = _mean_std_per_channel_numkong(arr, eps)
         return std
     return np.asarray(arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps, dtype=np.float64)
@@ -406,9 +413,9 @@ def std(
     Routing:
     - **uint8 global**: NumKong ``nk.moments`` (single pass, wide accumulator).
     - **float32 global**: ``np.std(dtype=float64)``.
-    - **per-channel, ndim == 3, C ≤ 4**: ``cv2.meanStdDev``.
-    - **per-channel uint8 outside that OpenCV path**: one NumKong ``moments`` call per channel.
-    - **per-channel float32, ndim > 3**: one NumKong ``moments`` call per channel.
+    - **per-channel uint8**: one NumKong ``moments`` call per channel.
+    - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``.
+    - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel.
     - **explicit axes / keepdims**: ``arr.std(dtype=float64)``.
 
     Alternative: ``mean_std`` if mean is also needed (avoids a redundant pass for uint8).
