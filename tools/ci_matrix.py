@@ -92,7 +92,8 @@ def _check_support_policy(errors: list[str], versions: set[str]) -> None:
 def _check_release_workflow(errors: list[str]) -> None:
     text = RELEASE_WORKFLOW.read_text()
     required_fragments = {
-        "previous release resolver": "PREVIOUS_RELEASE_VERSION",
+        "previous PyPI release resolver": "tools/resolve_previous_pypi_release.py",
+        "previous release benchmark version": "PREVIOUS_RELEASE_VERSION",
         "baseline benchmark artifact": "dist/router-baseline.json",
         "release regression checker": "tools/check_benchmark_regressions.py",
         "release regression mode": "--mode release",

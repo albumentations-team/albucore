@@ -108,44 +108,11 @@ jobs:
       - name: Verify uv.lock is up-to-date
         run: uv lock --check
 
-      - name: Resolve previous release version
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          REPOSITORY: ${{ github.repository }}
+      - name: Resolve previous published PyPI version
         run: |
-          python - <<'PY' >> "$GITHUB_ENV"
-          import json
-          import os
-          import urllib.request
-
-          request = urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['REPOSITORY']}/releases?per_page=100",
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(request, timeout=30) as response:
-              releases = json.load(response)
-
-          current_tag = os.environ["RELEASE_TAG"]
-          previous = next(
-              (
-                  release
-                  for release in releases
-                  if not release.get("draft") and release.get("tag_name") != current_tag
-              ),
-              None,
-          )
-          if previous is None:
-              raise SystemExit(f"No previous GitHub Release found before {current_tag}.")
-
-          previous_tag = previous["tag_name"]
-          print(f"PREVIOUS_RELEASE_TAG={previous_tag}")
-          print(f"PREVIOUS_RELEASE_VERSION={previous_tag.removeprefix('v')}")
-          PY
+          python tools/resolve_previous_pypi_release.py \
+            --current-version "${PACKAGE_VERSION}" \
+            --github-env "${GITHUB_ENV}"
 
       - name: Run current release router benchmark
         run: |
