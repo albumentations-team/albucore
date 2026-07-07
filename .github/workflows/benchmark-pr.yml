@@ -10,8 +10,6 @@ on:
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/benchmark-pr.yml"
-      - ".github/workflows/performance.yml"
-      - ".github/workflows/release-candidate.yml"
 
 permissions:
   contents: read

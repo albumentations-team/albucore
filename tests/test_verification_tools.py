@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from tests.router_contracts import ROUTER_CONTRACTS
 from tools import (
     check_benchmark_regressions,
     check_router_contracts,
@@ -16,11 +17,10 @@ from tools import (
     resolve_previous_pypi_release,
     summarize_benchmarks,
     validate_release_candidate,
-    verify_publish_artifacts,
     verify_golden_vectors,
+    verify_publish_artifacts,
 )
 from tools.golden_vectors import array_metadata
-from tests.router_contracts import ROUTER_CONTRACTS
 
 
 def _router_json(ms: float) -> dict[str, object]:
@@ -279,100 +279,6 @@ def test_release_candidate_ci_run_validator_requires_success() -> None:
         validate_release_candidate.validate_ci_runs(runs[:1])
 
 
-def test_release_candidate_benchmark_evidence_is_validated_and_copied(tmp_path) -> None:
-    evidence = tmp_path / "benchmark-evidence"
-    dist = tmp_path / "dist"
-    evidence.mkdir()
-    for filename in validate_release_candidate.BENCHMARK_EVIDENCE_DESTINATIONS:
-        (evidence / filename).write_text("{}")
-    (evidence / "benchmark-run.json").write_text(
-        json.dumps(
-            {
-                "status": "completed",
-                "conclusion": "success",
-                "workflowName": "Performance",
-                "headSha": "abc123",
-            },
-        ),
-    )
-    (evidence / "release-benchmark-metadata.json").write_text(
-        json.dumps(
-            {
-                "version": "0.2.2",
-                "commit_sha": "abc123",
-                "baseline_version": "0.1.6",
-            },
-        ),
-    )
-
-    validate_release_candidate.validate_reusable_benchmark_evidence(
-        evidence,
-        dist,
-        "abc123",
-        "0.2.2",
-        "0.1.6",
-    )
-
-    assert (dist / "router-release.json").exists()
-    assert (dist / "release-benchmark-metadata.json").exists()
-
-
-def test_release_candidate_benchmark_evidence_rejects_wrong_baseline(tmp_path) -> None:
-    evidence = tmp_path / "benchmark-evidence"
-    dist = tmp_path / "dist"
-    evidence.mkdir()
-    for filename in validate_release_candidate.BENCHMARK_EVIDENCE_DESTINATIONS:
-        (evidence / filename).write_text("{}")
-    (evidence / "benchmark-run.json").write_text(
-        json.dumps(
-            {
-                "status": "completed",
-                "conclusion": "success",
-                "workflowName": "Performance",
-                "headSha": "abc123",
-            },
-        ),
-    )
-    (evidence / "release-benchmark-metadata.json").write_text(
-        json.dumps(
-            {
-                "version": "0.2.2",
-                "commit_sha": "abc123",
-                "baseline_version": "0.1.5",
-            },
-        ),
-    )
-
-    with pytest.raises(ValueError, match="baseline"):
-        validate_release_candidate.validate_reusable_benchmark_evidence(
-            evidence,
-            dist,
-            "abc123",
-            "0.2.2",
-            "0.1.6",
-        )
-
-
-def test_release_candidate_benchmark_evidence_rejects_duplicate_basenames(tmp_path) -> None:
-    evidence = tmp_path / "benchmark-evidence"
-    dist = tmp_path / "dist"
-    first = evidence / "first"
-    second = evidence / "second"
-    first.mkdir(parents=True)
-    second.mkdir()
-    (first / "router-current.json").write_text("{}")
-    (second / "router-current.json").write_text("{}")
-
-    with pytest.raises(ValueError, match="duplicate basename 'router-current.json'"):
-        validate_release_candidate.validate_reusable_benchmark_evidence(
-            evidence,
-            dist,
-            "abc123",
-            "0.2.2",
-            "0.1.6",
-        )
-
-
 def test_publish_artifact_verifier_checks_provenance_files_and_checksums(tmp_path) -> None:
     dist = tmp_path / "dist"
     dist.mkdir()
@@ -545,29 +451,14 @@ def test_benchmark_summary_reads_router_json(tmp_path, monkeypatch, capsys) -> N
     assert "`normalize`" in captured.out
 
 
-def test_release_summary_includes_accepted_regression_rationale(tmp_path) -> None:
+def test_release_summary_omits_release_benchmark_artifacts(tmp_path) -> None:
     dist = tmp_path / "dist"
     dist.mkdir()
-    (dist / "router-release-regressions.md").write_text(
-        "\n".join(
-            [
-                "# Benchmark Regression Check",
-                "",
-                "## Accepted Regression Rationale",
-                "",
-                "| Operation | Layout | Shape | Dtype | Approved by | Reason |",
-                "| --- | --- | --- | --- | --- | --- |",
-                "| `normalize` | `HWC` | `128x160x3` | `float32` | maintainer | correctness fix |",
-                "",
-            ],
-        ),
-    )
 
     summary = generate_release_summary.generate_summary("0.2.2", dist)
 
-    assert "## Accepted Regression Rationale" in summary
-    assert "correctness fix" in summary
-    assert "maintainer" in summary
+    assert "Router benchmark" not in summary
+    assert "memory-smoke" not in summary
 
 
 def test_previous_pypi_release_skips_unpublished_release() -> None:

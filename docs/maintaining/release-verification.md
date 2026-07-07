@@ -6,8 +6,8 @@ Albucore release verification is based on three things:
 2. PyPI publishes the same wheel and sdist via trusted publishing.
 3. PyPI provenance/attestations bind the uploaded package files to the GitHub Actions workflow that produced them.
 
-Behavior and performance verification are separate release evidence. They come from the release
-summary, tests, router contract checks, and benchmark comparison artifacts.
+Behavior verification is separate release evidence. It comes from the release summary, tests, and
+router contract checks. Performance evidence is reviewed in PR benchmark checks before merge.
 
 ## Official Artifacts
 
@@ -66,21 +66,19 @@ The CycloneDX SBOM attached to the GitHub Release is generated from the locked r
 
 The SBOM is a transparency artifact. The checksum manifest and PyPI provenance are the primary authenticity artifacts.
 
-## Behavior And Performance Evidence
+## Behavior Evidence
 
 Release verification should also attach or link:
 
 - the release summary;
 - router contract check output;
 - correctness test summary;
-- router benchmark comparison against the previous release;
-- any accepted release-blocking performance regression notes.
 - runtime dependency audit result;
 - workflow hardening audit result;
 - Scorecard result when available.
 
-These artifacts prove compatibility and performance intent. They do not replace checksum, SBOM, or
-provenance verification.
+These artifacts prove compatibility intent. They do not replace checksum, SBOM, or provenance
+verification.
 
 ## Maintainer Guardrail
 

@@ -21,27 +21,25 @@ Benchmark grids must include non-square H/W sizes so height-width swaps are visi
 
 ## Modes
 
-PR quick mode:
+PR mode:
 
-- advisory only;
+- advisory in CI;
 - non-square HWC sizes;
 - channels 1 and 3;
 - `uint8` and `float32`;
 - quick public-router registry.
 
-Scheduled/release mode:
+Targeted local mode:
 
-- compares current code to a published PyPI release baseline;
-- includes larger non-square HWC sizes;
-- includes channels 1, 3, and 9;
-- includes stats batch cases;
-- includes geometric routers when practical.
+- use the full or targeted scripts relevant to the route being changed;
+- include larger non-square HWC sizes when the change is shape-sensitive;
+- include channels 1, 3, and 9 when OpenCV channel limits or high-channel paths are relevant;
+- include stats batch cases for stats routing changes;
+- include geometric routers for geometry routing changes.
 
 ## Baselines
 
-- Attach release baseline JSON to each validated release-candidate artifact bundle.
-- Compare scheduled `main` runs against the selected PyPI release baseline.
-- Compare release candidates against the previous published PyPI release.
+- PR benchmarks compare against the PR target branch.
 - Keep raw noisy artifacts in workflow artifacts.
 - Update committed baselines only intentionally, with a PR explanation.
 
@@ -51,17 +49,11 @@ Start advisory on hosted runners.
 
 PR warning:
 
-- more than 15% slowdown on a release-blocking hot-path cell;
+- more than 15% slowdown on a hot-path cell;
 - more than 10% median slowdown across a router family;
 - more than 25% slowdown on one noisy cell remains warning-only until repeated.
 
-Release review:
-
-- more than 5% slowdown on a release-blocking hot path requires explanation;
-- more than 10% slowdown blocks release unless accepted by a maintainer;
-- large memory regression blocks release unless intentional and documented.
-
-Initial release-blocking hot paths:
+Initial hot paths:
 
 - `normalize`, `normalize_per_image`
 - `apply_uint8_lut`, `sz_lut`
@@ -71,7 +63,7 @@ Initial release-blocking hot paths:
 - `to_float`, `from_float`
 - `hflip`, `vflip`, `resize`, `remap`
 
-Other public routers are reported first and promoted to blocking after baselines stabilize.
+Other public routers are reported first and reviewed when baselines stabilize.
 
 ## Memory Smoke
 

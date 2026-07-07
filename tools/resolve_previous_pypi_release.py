@@ -1,4 +1,4 @@
-"""Resolve the previous published PyPI release for release benchmarks."""
+"""Resolve the previous published PyPI release for benchmark comparisons."""
 
 from __future__ import annotations
 
