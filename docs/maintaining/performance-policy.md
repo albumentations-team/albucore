@@ -31,7 +31,7 @@ PR quick mode:
 
 Scheduled/release mode:
 
-- compares current code to the latest release baseline;
+- compares current code to a published PyPI release baseline;
 - includes larger non-square HWC sizes;
 - includes channels 1, 3, and 9;
 - includes stats batch cases;
@@ -39,9 +39,9 @@ Scheduled/release mode:
 
 ## Baselines
 
-- Attach release baseline JSON to each GitHub Release.
-- Compare scheduled `main` runs against the latest release.
-- Compare release candidates against the previous release.
+- Attach release baseline JSON to each validated release-candidate artifact bundle.
+- Compare scheduled `main` runs against the selected PyPI release baseline.
+- Compare release candidates against the previous published PyPI release.
 - Keep raw noisy artifacts in workflow artifacts.
 - Update committed baselines only intentionally, with a PR explanation.
 

@@ -1,120 +1,146 @@
 # Release Process
 
-This document defines the release process for albucore. Releases are cut from `main`, validated in CI, built in GitHub Actions, published to PyPI via trusted publishing, and attached to the corresponding GitHub Release together with checksums and SBOM artifacts.
+Albucore releases are built from validated release-candidate artifacts and published to PyPI through
+trusted publishing. The public GitHub Release is created or updated only after PyPI confirms the
+package files exist.
 
 ## Release Ownership
 
 - Primary release owner: Vladimir Iglovikov
 - Backup release owner: Mikhail Druzhinin
 
+## Required Workflows
+
+- `.github/workflows/ci.yml` verifies correctness on every PR and on `main`.
+- `.github/workflows/benchmark-pr.yml` produces early PR benchmark evidence for performance-sensitive
+  changes.
+- `.github/workflows/performance.yml` monitors scheduled or manually requested benchmark drift.
+- `.github/workflows/release-candidate.yml` validates the exact release commit and produces all
+  release artifacts.
+- `.github/workflows/publish.yml` publishes already validated release-candidate artifacts.
+
+All public publishing is manual and artifact-based through `publish.yml`; validation happens before
+any public package release is created.
+
 ## Release Gates
 
-Before a release is published, all of the following must be true:
+Before publishing, all of the following must be true:
 
-1. `main` is green in CI.
-2. The release version in `pyproject.toml` matches the version/tag published in the GitHub Release.
-3. Release notes are prepared.
-4. There is no known blocking security issue requiring a coordinated release hold.
-5. The release workflow can build:
-   - an sdist
-   - a wheel
-   - a CycloneDX SBOM
-   - a checksum manifest
-6. Artifact verification passes:
-   - `twine check dist/*`
-   - clean-environment wheel install with `opencv-python-headless`
-   - `import albucore` from outside the repository checkout
-7. Lockfile consistency passes:
-   - `uv lock --check`
-   - if `pyproject.toml` changed, `uv.lock` is updated in the same PR
-8. Core verification evidence is available:
-   - router contract check
-   - correctness test summary
-   - benchmark comparison against the previous release
-   - release summary using `docs/maintaining/release-summary-template.md`
-9. Security evidence is available:
-   - runtime dependency audit
-   - GitHub Actions hardening audit
-   - Scorecard result when available
+1. The release commit is reachable from `origin/main`.
+2. Required CI checks for the release commit are green.
+3. `pyproject.toml` and `uv.lock` contain the same release version.
+4. The version is not already present on PyPI.
+5. The release-candidate workflow succeeds for the exact commit SHA and version.
+6. The release-candidate artifact bundle contains:
+   - wheel
+   - source distribution
+   - CycloneDX SBOM
+   - `SHA256SUMS.txt`
+   - release summary
+   - current benchmark JSON
+   - previous published PyPI baseline benchmark JSON
+   - benchmark regression report
+   - memory smoke JSON
+   - runtime requirements export
+   - release-candidate metadata
+   - reusable benchmark metadata when benchmark evidence came from `performance.yml`
+7. Benchmark regressions are either below release-blocking thresholds or explicitly accepted with
+   documented maintainer approval.
+8. PyPI trusted publishing is configured for `.github/workflows/publish.yml` and the `pypi`
+   environment.
 
-## CI Quality Gates
+## PR Requirements
 
-The release process depends on the repository CI in `.github/workflows/ci.yml`:
+Normal code PRs must pass CI. PRs touching performance-sensitive paths also run
+`benchmark-pr.yml`, which compares the PR branch against the target branch. The PR benchmark is early
+review evidence; it is not a substitute for release-candidate evidence unless the artifact is
+provably for the exact release commit, lockfile, benchmark script version, and previous PyPI baseline.
 
-- test matrix on `ubuntu-latest`
-- supported Python versions: `3.10`, `3.11`, `3.12`, `3.13`, `3.14`
-- code formatting and type checks through `pre-commit`
-- lockfile freshness check through `uv lock --check`
-- router contract coverage through `uv run python tools/check_router_contracts.py`
-- support matrix consistency through `uv run python tools/ci_matrix.py check`
-- security workflow in `.github/workflows/security.yml`
+Version bump PRs should contain only version and lockfile changes unless they are explicitly fixing
+release infrastructure. Do not create a public GitHub Release for a version bump PR.
 
-Releases must not be cut from a commit that has failing required checks.
+## Release Candidate Steps
 
-## Supported Release Artifacts
+1. Merge the version bump PR to `main`.
+2. Copy the exact release commit SHA from `main`.
+3. Run `release-candidate.yml` manually with:
+   - `version`
+   - `commit_sha`
+   - optional `accepted_regressions` JSON file path
+   - optional successful `benchmark_run_id` from `performance.yml`
+4. Review the workflow summary and artifacts.
+5. If the workflow fails, fix the repository in a new PR and restart from step 1.
+6. If the workflow succeeds, record the release-candidate workflow run id.
 
-Each official release must publish:
+The release-candidate workflow validates packaging, correctness, benchmark evidence, memory smoke,
+SBOM generation, checksums, and release summary generation. If `benchmark_run_id` is provided, it
+verifies that the `performance.yml` run succeeded for the exact commit, version, and previous PyPI
+baseline, then reuses those benchmark artifacts instead of rerunning benchmarks. It does not publish
+to PyPI and does not create a public GitHub Release.
 
-- source distribution (`sdist`)
-- wheel
-- `SHA256SUMS.txt`
-- CycloneDX SBOM in JSON format
-- PyPI provenance/attestation generated by trusted publishing
+Release-candidate metadata, CI-run checks, benchmark-evidence provenance, and reusable benchmark
+metadata are validated by `tools/validate_release_candidate.py`. These rules are unit-tested in
+`tests/test_verification_tools.py`; do not reimplement them as ad hoc workflow snippets.
 
-## Release Steps
+## Publish Steps
 
-1. Update the version in `pyproject.toml`.
-2. Prepare release notes.
-3. Ensure `main` is green and the version bump commit is merged.
-4. Publish the GitHub Release notes for the new version and create the matching tag as part of the release flow.
-5. GitHub Actions performs the release workflow:
-   - checks out the released tag/source
-   - builds wheel and sdist with `uv build`
-   - runs `twine check`
-   - installs the built wheel in a clean virtual environment together with `opencv-python-headless`
-   - imports `albucore` from outside the repository checkout
-   - verifies lock freshness with `uv lock --check`
-   - exports locked runtime dependencies from `uv.lock`
-   - generates a CycloneDX SBOM
-   - computes `SHA256SUMS.txt`
-   - uploads artifacts to the GitHub Release
-   - publishes to PyPI via trusted publishing
-6. Verify the published release:
-   - release assets exist on GitHub
-   - PyPI shows the new version
-   - PyPI file details show provenance/attestation metadata
-7. If verification fails, pause announcements until the issue is resolved.
+1. Run `publish.yml` manually with:
+   - `version`
+   - `commit_sha`
+   - `candidate_run_id`
+2. The publish workflow downloads the `release-candidate-artifacts` bundle from the successful
+   candidate run.
+3. The publish workflow verifies:
+   - the candidate run succeeded
+   - the candidate workflow was `Release Candidate`
+   - the candidate run SHA matches `commit_sha`
+   - release-candidate metadata matches `version` and `commit_sha`
+   - checksums match every referenced file
+   - the expected wheel and sdist exist
+   - PyPI does not already contain the version
+4. The publish workflow stages only the wheel and sdist into `pypi-dist/`.
+5. The publish workflow uploads `pypi-dist/` to PyPI through trusted publishing.
+6. The publish workflow verifies PyPI now exposes the new version and files.
+7. Publish to PyPI before creating or publishing the GitHub Release.
+8. The publish workflow creates or updates the GitHub Release for the version and attaches the
+   validated artifacts.
 
-## Compatibility Checks
+Publishing should not run performance benchmarks. It consumes release-candidate benchmark evidence.
+Candidate-run provenance, artifact filenames, checksum verification, duplicate-version checks, and
+PyPI upload staging/post-publish PyPI verification are owned by `tools/verify_publish_artifacts.py`.
 
-Release validation must preserve the documented support matrix:
+## Benchmark Baselines
 
-- Python `>=3.10`
-- Linux (ubuntu-latest in CI)
+Release-candidate benchmarks compare against the previous published PyPI release, not the latest
+GitHub Release. The resolver must ignore GitHub Releases because a GitHub Release can exist without
+installable PyPI files.
 
-The wheel smoke test is the minimum packaging compatibility check. If a release changes dependency constraints or packaging behavior, perform an extra install test from the uploaded wheel before announcing the release.
+PR benchmarks compare against the PR target branch so reviewers see the impact of that PR alone.
+Scheduled benchmarks compare `main` against a PyPI release baseline and are used for drift
+monitoring.
 
-## Security Release Handling
+## Accepted Performance Regressions
 
-For coordinated security releases:
+Accepted regressions must be explicit. The `accepted_regressions` file passed to
+`release-candidate.yml` must identify each accepted cell by:
 
-1. Keep issue details private until a fix is published.
-2. Prepare the patch release on a private branch or temporary restricted fork if needed.
-3. Publish the fix.
-4. Publish the GitHub Security Advisory and release notes once users can update.
+- operation
+- layout
+- shape
+- dtype
+- reason
+- approving maintainer
+
+Accepted regressions must be summarized in the release notes or release summary. Do not weaken global
+thresholds to hide an intentional slowdown.
 
 ## Rollback And Hotfix
 
-If a release is broken:
+If PyPI publishing succeeds but post-publish verification finds a problem:
 
 1. Stop promotion immediately.
-2. Document the issue in the GitHub Release notes.
-3. If the issue is packaging-only, yank or replace the release where the registry allows it and publish a fixed patch release.
-4. If the issue affects runtime behavior, cut a patch release from the smallest safe fix.
-5. Update the release notes and, if relevant, the security advisory.
+2. Update the GitHub Release notes with the known issue.
+3. Yank the release on PyPI if the package is unsafe to install.
+4. Publish a new patch release from the smallest safe fix.
 
-Do not silently republish a different artifact under the same version.
-
-## Preconditions For Trusted Publishing
-
-PyPI must be configured with a trusted publisher entry for this repository and workflow before the release job can publish successfully. The GitHub Actions environment name for production publishing is `pypi`.
+Do not silently republish different files under the same version.
