@@ -25,16 +25,6 @@ Release URL: `<url>`
 | Golden vectors |  |  |
 | Property tests |  |  |
 
-## Performance
-
-Baseline version: `<previous-version>`
-
-| Area | Result | Evidence |
-| --- | --- | --- |
-| Router benchmark comparison |  |  |
-| Release-blocking hot paths |  |  |
-| Memory smoke |  |  |
-
 ## Security And Artifacts
 
 | Check | Result | Evidence |
@@ -48,5 +38,4 @@ Baseline version: `<previous-version>`
 ## Known Limitations
 
 - Behavior tests use `opencv-python-headless`.
-- Benchmark results from hosted runners are noisy; blocking decisions use documented thresholds and
-  maintainer review.
+- Performance evidence is reviewed in PR benchmark checks, not in release workflows.

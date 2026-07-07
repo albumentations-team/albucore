@@ -17,7 +17,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
-PERFORMANCE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "performance.yml"
 PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
@@ -106,6 +105,17 @@ def _check_file_fragments(errors: list[str], path: Path, required_fragments: dic
     )
 
 
+def _check_file_absent_fragments(errors: list[str], path: Path, forbidden_fragments: dict[str, str]) -> None:
+    if not path.exists():
+        return
+    text = path.read_text()
+    errors.extend(
+        f"{path.relative_to(REPO_ROOT)} must not contain {label}"
+        for label, fragment in forbidden_fragments.items()
+        if fragment in text
+    )
+
+
 def _check_release_workflows(errors: list[str]) -> None:
     _check_file_fragments(
         errors,
@@ -119,19 +129,6 @@ def _check_release_workflows(errors: list[str]) -> None:
     )
     _check_file_fragments(
         errors,
-        PERFORMANCE_WORKFLOW,
-        {
-            "previous PyPI release resolver": "tools/resolve_previous_pypi_release.py",
-            "package version resolver": "tools/validate_release_candidate.py package-version",
-            "release benchmark metadata writer": "tools/validate_release_candidate.py benchmark-metadata",
-            "benchmark artifact upload on failure": "if: always()",
-            "baseline benchmark artifact": "benchmarks/results/router-baseline.json",
-            "release regression mode": "--mode release",
-            "reusable benchmark evidence": "release-benchmark-evidence",
-        },
-    )
-    _check_file_fragments(
-        errors,
         RELEASE_CANDIDATE_WORKFLOW,
         {
             "manual release candidate trigger": "workflow_dispatch:",
@@ -139,18 +136,22 @@ def _check_release_workflows(errors: list[str]) -> None:
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
-            "previous PyPI release resolver": "tools/resolve_previous_pypi_release.py",
-            "baseline benchmark artifact": "dist/router-baseline.json",
-            "release regression checker": "tools/check_benchmark_regressions.py",
-            "release regression mode": "--mode release",
-            "accepted regression support": "--accepted-regressions",
-            "reusable benchmark run input": "benchmark_run_id:",
-            "reusable benchmark evidence validator": "tools/validate_release_candidate.py benchmark-evidence",
-            "regression report artifact": "dist/router-release-regressions.md",
             "release validation headless extra": "uv sync --frozen --extra headless --group dev",
             "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
             "release candidate artifact upload": "release-candidate-artifacts",
+        },
+    )
+    _check_file_absent_fragments(
+        errors,
+        RELEASE_CANDIDATE_WORKFLOW,
+        {
+            "release benchmark runner": "benchmarks/benchmark_router_synthetic.py",
+            "release benchmark regression checker": "tools/check_benchmark_regressions.py",
+            "accepted benchmark regression input": "accepted_regressions:",
+            "reusable benchmark run input": "benchmark_run_id:",
+            "release benchmark artifacts": "router-release",
+            "release memory smoke": "memory-smoke",
         },
     )
     _check_file_fragments(
@@ -167,14 +168,21 @@ def _check_release_workflows(errors: list[str]) -> None:
             "GitHub Release only after PyPI": "Create or update GitHub Release",
         },
     )
+    _check_file_absent_fragments(
+        errors,
+        PUBLISH_WORKFLOW,
+        {
+            "published release benchmark artifacts": "router-release",
+            "published benchmark baseline artifacts": "router-baseline",
+            "published memory smoke artifacts": "memory-smoke",
+        },
+    )
     _check_file_fragments(
         errors,
         VALIDATE_RELEASE_CANDIDATE_TOOL,
         {
             "release metadata validator": "validate_release_environment",
             "candidate CI run validator": "validate_ci_runs",
-            "reusable benchmark evidence validator": "validate_reusable_benchmark_evidence",
-            "release benchmark metadata writer": "write_benchmark_metadata",
         },
     )
     _check_file_fragments(

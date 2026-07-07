@@ -92,11 +92,6 @@ jobs:
             dist/*.tar.gz
             dist/*-sbom.cdx.json
             dist/SHA256SUMS.txt
-            dist/router-release.json
-            dist/router-baseline.json
-            dist/router-release-summary.md
-            dist/router-release-regressions.md
-            dist/memory-smoke.json
             dist/runtime-requirements.txt
             dist/release-candidate-metadata.json
             dist/albucore-*-release-summary.md

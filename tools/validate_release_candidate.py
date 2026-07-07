@@ -1,12 +1,10 @@
-"""Validate release-candidate metadata and benchmark evidence."""
+"""Validate release-candidate metadata and workflow evidence."""
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -19,19 +17,6 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 PROJECT_NAME: Final = "albucore"
-BENCHMARK_HASH_FILES: Final = (
-    "benchmarks/benchmark_router_synthetic.py",
-    "tools/check_benchmark_regressions.py",
-    "uv.lock",
-)
-BENCHMARK_EVIDENCE_DESTINATIONS: Final = {
-    "router-current.json": "router-release.json",
-    "router-baseline.json": "router-baseline.json",
-    "REPORT_router_regressions.md": "router-release-regressions.md",
-    "REPORT_router_current_summary.md": "router-release-summary.md",
-    "memory-smoke.json": "memory-smoke.json",
-    "release-benchmark-metadata.json": "release-benchmark-metadata.json",
-}
 
 
 @dataclass(frozen=True)
@@ -186,14 +171,6 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text())
 
 
-def _load_json_object(path: Path) -> dict[str, Any]:
-    payload = _load_json(path)
-    if not isinstance(payload, dict):
-        msg = f"{path} must contain a JSON object."
-        raise TypeError(msg)
-    return payload
-
-
 def validate_ci_runs(runs: object) -> str:
     """Return the first successful CI run URL, or fail if none exists."""
     if not isinstance(runs, list):
@@ -210,78 +187,6 @@ def validate_ci_runs(runs: object) -> str:
         "Run CI on main before validating a release candidate."
     )
     raise ValueError(msg)
-
-
-def validate_benchmark_run(run: dict[str, Any], expected_sha: str) -> None:
-    """Validate that a reusable benchmark run is a successful Performance run."""
-    if run.get("status") != "completed" or run.get("conclusion") != "success":
-        msg = f"Benchmark run did not succeed: {run}."
-        raise ValueError(msg)
-    if run.get("workflowName") != "Performance":
-        msg = f"Benchmark run used workflow {run.get('workflowName')!r}, expected 'Performance'."
-        raise ValueError(msg)
-    if run.get("headSha") != expected_sha:
-        msg = f"Benchmark run SHA {run.get('headSha')} does not match candidate SHA {expected_sha}."
-        raise ValueError(msg)
-
-
-def validate_benchmark_metadata(
-    metadata: dict[str, Any],
-    expected_sha: str,
-    expected_version: str,
-    expected_baseline: str,
-) -> None:
-    """Validate reusable benchmark metadata against the release candidate."""
-    if metadata.get("commit_sha") != expected_sha:
-        msg = "Benchmark metadata commit does not match candidate SHA."
-        raise ValueError(msg)
-    if metadata.get("version") != expected_version:
-        msg = "Benchmark metadata version does not match package version."
-        raise ValueError(msg)
-    if metadata.get("baseline_version") != expected_baseline:
-        msg = "Benchmark metadata baseline does not match previous PyPI version."
-        raise ValueError(msg)
-
-
-def _evidence_files(evidence_dir: Path) -> dict[str, Path]:
-    evidence_files: dict[str, Path] = {}
-    for path in sorted((candidate for candidate in evidence_dir.rglob("*") if candidate.is_file()), key=str):
-        existing = evidence_files.get(path.name)
-        if existing is not None:
-            msg = (
-                f"Reusable benchmark evidence contains duplicate basename {path.name!r}: "
-                f"{existing.relative_to(evidence_dir)} and {path.relative_to(evidence_dir)}."
-            )
-            raise ValueError(msg)
-        evidence_files[path.name] = path
-    return evidence_files
-
-
-def validate_reusable_benchmark_evidence(
-    evidence_dir: Path,
-    dist_dir: Path,
-    expected_sha: str,
-    expected_version: str,
-    expected_baseline: str,
-) -> None:
-    """Validate and copy reusable Performance workflow benchmark evidence."""
-    evidence_files = _evidence_files(evidence_dir)
-    missing = sorted(filename for filename in BENCHMARK_EVIDENCE_DESTINATIONS if filename not in evidence_files)
-    if missing:
-        msg = f"Reusable benchmark evidence is missing files: {missing}."
-        raise FileNotFoundError(msg)
-
-    validate_benchmark_run(_load_json_object(evidence_dir / "benchmark-run.json"), expected_sha)
-    validate_benchmark_metadata(
-        _load_json_object(evidence_files["release-benchmark-metadata.json"]),
-        expected_sha,
-        expected_version,
-        expected_baseline,
-    )
-
-    dist_dir.mkdir(parents=True, exist_ok=True)
-    for source_name, destination_name in BENCHMARK_EVIDENCE_DESTINATIONS.items():
-        shutil.copy2(evidence_files[source_name], dist_dir / destination_name)
 
 
 def github_context_from_env() -> GitHubRunContext:
@@ -306,14 +211,12 @@ def required_env(name: str) -> str:
 def candidate_metadata(
     version: str,
     commit_sha: str,
-    previous_pypi_version: str,
     context: GitHubRunContext,
 ) -> dict[str, str]:
     """Build release-candidate metadata."""
     return {
         "version": version,
         "commit_sha": commit_sha,
-        "previous_pypi_version": previous_pypi_version,
         "workflow": context.workflow,
         "run_id": context.run_id,
         "run_attempt": context.run_attempt,
@@ -325,51 +228,12 @@ def write_candidate_metadata(
     dist_dir: Path,
     version: str,
     commit_sha: str,
-    previous_pypi_version: str,
     context: GitHubRunContext,
 ) -> None:
     """Write release-candidate metadata to dist."""
     dist_dir.mkdir(parents=True, exist_ok=True)
-    payload = candidate_metadata(version, commit_sha, previous_pypi_version, context)
+    payload = candidate_metadata(version, commit_sha, context)
     (dist_dir / "release-candidate-metadata.json").write_text(json.dumps(payload, indent=2) + "\n")
-
-
-def _file_hash(repo_root: Path, relative_path: str) -> str:
-    return hashlib.sha256((repo_root / relative_path).read_bytes()).hexdigest()
-
-
-def benchmark_metadata(
-    repo_root: Path,
-    version: str,
-    commit_sha: str,
-    baseline_version: str,
-    context: GitHubRunContext,
-) -> dict[str, object]:
-    """Build reusable release benchmark metadata."""
-    return {
-        "version": version,
-        "commit_sha": commit_sha,
-        "baseline_version": baseline_version,
-        "workflow": context.workflow,
-        "run_id": context.run_id,
-        "run_attempt": context.run_attempt,
-        "repository": context.repository,
-        "hashes": {filename: _file_hash(repo_root, filename) for filename in BENCHMARK_HASH_FILES},
-    }
-
-
-def write_benchmark_metadata(
-    output_json: Path,
-    repo_root: Path,
-    commit_sha: str,
-    baseline_version: str,
-    context: GitHubRunContext,
-) -> None:
-    """Write reusable release benchmark metadata."""
-    output_json.parent.mkdir(parents=True, exist_ok=True)
-    version = load_pyproject_version(repo_root / "pyproject.toml")
-    payload = benchmark_metadata(repo_root, version, commit_sha, baseline_version, context)
-    output_json.write_text(json.dumps(payload, indent=2) + "\n")
 
 
 def _metadata_command(args: argparse.Namespace) -> None:
@@ -389,32 +253,11 @@ def _ci_runs_command(args: argparse.Namespace) -> None:
     sys.stdout.write(f"Found successful CI run: {url}\n")
 
 
-def _benchmark_evidence_command(args: argparse.Namespace) -> None:
-    validate_reusable_benchmark_evidence(
-        args.evidence_dir,
-        args.dist_dir,
-        args.commit_sha,
-        args.version,
-        args.baseline_version,
-    )
-
-
 def _candidate_metadata_command(args: argparse.Namespace) -> None:
     write_candidate_metadata(
         args.dist_dir,
         args.version,
         args.commit_sha,
-        args.previous_pypi_version,
-        github_context_from_env(),
-    )
-
-
-def _benchmark_metadata_command(args: argparse.Namespace) -> None:
-    write_benchmark_metadata(
-        args.output_json,
-        args.repo_root,
-        args.commit_sha,
-        args.baseline_version,
         github_context_from_env(),
     )
 
@@ -440,27 +283,11 @@ def _build_parser() -> argparse.ArgumentParser:
     ci_runs.add_argument("--runs-json", type=Path, required=True)
     ci_runs.set_defaults(func=_ci_runs_command)
 
-    benchmark_evidence = subparsers.add_parser("benchmark-evidence")
-    benchmark_evidence.add_argument("--evidence-dir", type=Path, default=Path("benchmark-evidence"))
-    benchmark_evidence.add_argument("--dist-dir", type=Path, default=Path("dist"))
-    benchmark_evidence.add_argument("--commit-sha", required=True)
-    benchmark_evidence.add_argument("--version", required=True)
-    benchmark_evidence.add_argument("--baseline-version", required=True)
-    benchmark_evidence.set_defaults(func=_benchmark_evidence_command)
-
     candidate = subparsers.add_parser("candidate-metadata")
     candidate.add_argument("--dist-dir", type=Path, default=Path("dist"))
     candidate.add_argument("--version", required=True)
     candidate.add_argument("--commit-sha", required=True)
-    candidate.add_argument("--previous-pypi-version", required=True)
     candidate.set_defaults(func=_candidate_metadata_command)
-
-    benchmark = subparsers.add_parser("benchmark-metadata")
-    benchmark.add_argument("--repo-root", type=Path, default=Path())
-    benchmark.add_argument("--output-json", type=Path, required=True)
-    benchmark.add_argument("--commit-sha", required=True)
-    benchmark.add_argument("--baseline-version", required=True)
-    benchmark.set_defaults(func=_benchmark_metadata_command)
 
     package_version = subparsers.add_parser("package-version")
     package_version.add_argument("--pyproject", type=Path, default=Path("pyproject.toml"))

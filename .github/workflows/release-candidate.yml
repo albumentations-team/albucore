@@ -9,14 +9,6 @@ on:
       commit_sha:
         description: Exact commit SHA to validate
         required: true
-      accepted_regressions:
-        description: Optional JSON file path with accepted benchmark regressions
-        required: false
-        default: ""
-      benchmark_run_id:
-        description: Optional successful Performance workflow run id to reuse benchmark evidence
-        required: false
-        default: ""
 
 permissions:
   actions: read
@@ -110,96 +102,6 @@ jobs:
       - name: Verify uv.lock is up-to-date
         run: uv lock --check
 
-      - name: Resolve previous published PyPI version
-        run: |
-          python tools/resolve_previous_pypi_release.py \
-            --current-version "${PACKAGE_VERSION}" \
-            --github-env "${GITHUB_ENV}"
-
-      - name: Download reusable benchmark evidence
-        if: ${{ inputs.benchmark_run_id != '' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: release-benchmark-evidence
-          path: benchmark-evidence
-          run-id: ${{ inputs.benchmark_run_id }}
-          github-token: ${{ github.token }}
-
-      - name: Verify reusable benchmark evidence
-        if: ${{ inputs.benchmark_run_id != '' }}
-        env:
-          BENCHMARK_RUN_ID: ${{ inputs.benchmark_run_id }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          gh run view "${BENCHMARK_RUN_ID}" \
-            --json conclusion,headSha,status,workflowName,url \
-            > benchmark-evidence/benchmark-run.json
-          python tools/validate_release_candidate.py benchmark-evidence \
-            --evidence-dir benchmark-evidence \
-            --dist-dir dist \
-            --commit-sha "${CANDIDATE_COMMIT_SHA}" \
-            --version "${PACKAGE_VERSION}" \
-            --baseline-version "${PREVIOUS_RELEASE_VERSION}"
-
-      - name: Run current release router benchmark
-        if: ${{ inputs.benchmark_run_id == '' }}
-        run: |
-          uv run python benchmarks/benchmark_router_synthetic.py \
-            --with-geometric \
-            --repeats 7 \
-            --warmup 2 \
-            --benchmark-label "release-${PACKAGE_VERSION}" \
-            --output-json dist/router-release.json
-
-      - name: Run previous published release router benchmark baseline
-        if: ${{ inputs.benchmark_run_id == '' }}
-        run: |
-          uv run --no-project \
-            --with "albucore==${PREVIOUS_RELEASE_VERSION}" \
-            --with opencv-python-headless \
-            --with numkong \
-            --with stringzilla \
-            --with numpy \
-            python benchmarks/benchmark_router_synthetic.py \
-              --with-geometric \
-              --repeats 7 \
-              --warmup 2 \
-              --benchmark-label "baseline-${PREVIOUS_RELEASE_VERSION}" \
-              --output-json dist/router-baseline.json
-
-      - name: Check release benchmark regressions
-        if: ${{ inputs.benchmark_run_id == '' }}
-        env:
-          ACCEPTED_REGRESSIONS: ${{ inputs.accepted_regressions }}
-        run: |
-          if [ -n "${ACCEPTED_REGRESSIONS}" ]; then
-            uv run python tools/check_benchmark_regressions.py \
-              --baseline dist/router-baseline.json \
-              --current dist/router-release.json \
-              --mode release \
-              --accepted-regressions "${ACCEPTED_REGRESSIONS}" \
-              --output-md dist/router-release-regressions.md
-          else
-            uv run python tools/check_benchmark_regressions.py \
-              --baseline dist/router-baseline.json \
-              --current dist/router-release.json \
-              --mode release \
-              --output-md dist/router-release-regressions.md
-          fi
-
-      - name: Summarize release router benchmark
-        if: ${{ always() && inputs.benchmark_run_id == '' }}
-        run: |
-          if [ -f dist/router-release.json ]; then
-            uv run python tools/summarize_benchmarks.py \
-              dist/router-release.json \
-              --output-md dist/router-release-summary.md
-          fi
-
-      - name: Run memory smoke
-        if: ${{ inputs.benchmark_run_id == '' }}
-        run: uv run python tools/run_memory_smoke.py --output-json dist/memory-smoke.json
-
       - name: Export locked runtime dependencies
         run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file dist/runtime-requirements.txt
 
@@ -214,8 +116,7 @@ jobs:
           python tools/validate_release_candidate.py candidate-metadata \
             --dist-dir dist \
             --version "${PACKAGE_VERSION}" \
-            --commit-sha "${CANDIDATE_COMMIT_SHA}" \
-            --previous-pypi-version "${PREVIOUS_RELEASE_VERSION}"
+            --commit-sha "${CANDIDATE_COMMIT_SHA}"
 
       - name: Generate checksums
         run: |
@@ -225,17 +126,9 @@ jobs:
               ./*.whl
               ./*.tar.gz
               ./*-sbom.cdx.json
-              ./router-release.json
-              ./router-baseline.json
-              ./router-release-summary.md
-              ./router-release-regressions.md
-              ./memory-smoke.json
               ./runtime-requirements.txt
               ./release-candidate-metadata.json
             )
-            if [ -f ./release-benchmark-metadata.json ]; then
-              files+=(./release-benchmark-metadata.json)
-            fi
             sha256sum "${files[@]}" > SHA256SUMS.txt
           )
 
@@ -258,13 +151,6 @@ jobs:
             echo
             echo "- Version: ${PACKAGE_VERSION:-unknown}"
             echo "- Commit: ${CANDIDATE_COMMIT_SHA:-unknown}"
-            echo "- Previous PyPI baseline: ${PREVIOUS_RELEASE_VERSION:-unknown}"
-            echo
-            if [ -f dist/router-release-regressions.md ]; then
-              cat dist/router-release-regressions.md
-            else
-              echo "Benchmark regression report was not generated."
-            fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload release candidate artifacts
@@ -277,13 +163,7 @@ jobs:
             dist/*.tar.gz
             dist/*-sbom.cdx.json
             dist/SHA256SUMS.txt
-            dist/router-release.json
-            dist/router-baseline.json
-            dist/router-release-summary.md
-            dist/router-release-regressions.md
-            dist/memory-smoke.json
             dist/runtime-requirements.txt
-            dist/release-benchmark-metadata.json
             dist/release-candidate-metadata.json
             dist/albucore-*-release-summary.md
           if-no-files-found: warn
