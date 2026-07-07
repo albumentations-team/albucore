@@ -126,8 +126,8 @@ def test_benchmark_regression_check_accepts_explicit_release_regression(tmp_path
                         "layout": "HWC",
                         "shape": [128, 160, 3],
                         "dtype": "float32",
-                        "reason": "intentional correctness fix",
-                        "approved_by": "maintainer",
+                        "reason": "intentional | correctness fix",
+                        "approved_by": "maintainer | release owner",
                     },
                 ],
             },
@@ -154,8 +154,8 @@ def test_benchmark_regression_check_accepts_explicit_release_regression(tmp_path
     assert check_benchmark_regressions.main() == 0
     report_text = report.read_text()
     assert "`accepted`" in report_text
-    assert "intentional correctness fix" in report_text
-    assert "maintainer" in report_text
+    assert r"`intentional \| correctness fix`" in report_text
+    assert r"`maintainer \| release owner`" in report_text
 
 
 def test_benchmark_regression_check_rejects_undocumented_accepted_regression(tmp_path, monkeypatch) -> None:
@@ -195,6 +195,56 @@ def test_benchmark_regression_check_rejects_undocumented_accepted_regression(tmp
     )
 
     with pytest.raises(TypeError, match="reason"):
+        check_benchmark_regressions.main()
+
+
+def test_benchmark_regression_check_rejects_duplicate_accepted_regression_key(tmp_path, monkeypatch) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    accepted = tmp_path / "accepted.json"
+    baseline.write_text(json.dumps(_router_json(1.0)))
+    current.write_text(json.dumps(_router_json(1.2)))
+    accepted.write_text(
+        json.dumps(
+            {
+                "regressions": [
+                    {
+                        "op": "normalize",
+                        "layout": "HWC",
+                        "shape": [128, 160, 3],
+                        "dtype": "float32",
+                        "reason": "first approval",
+                        "approved_by": "maintainer-a",
+                    },
+                    {
+                        "op": "normalize",
+                        "layout": "HWC",
+                        "shape": [128, 160, 3],
+                        "dtype": "float32",
+                        "reason": "second approval",
+                        "approved_by": "maintainer-b",
+                    },
+                ],
+            },
+        ),
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "check_benchmark_regressions.py",
+            "--baseline",
+            str(baseline),
+            "--current",
+            str(current),
+            "--mode",
+            "release",
+            "--accepted-regressions",
+            str(accepted),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="duplicate accepted regression keys"):
         check_benchmark_regressions.main()
 
 
@@ -303,6 +353,26 @@ def test_release_candidate_benchmark_evidence_rejects_wrong_baseline(tmp_path) -
         )
 
 
+def test_release_candidate_benchmark_evidence_rejects_duplicate_basenames(tmp_path) -> None:
+    evidence = tmp_path / "benchmark-evidence"
+    dist = tmp_path / "dist"
+    first = evidence / "first"
+    second = evidence / "second"
+    first.mkdir(parents=True)
+    second.mkdir()
+    (first / "router-current.json").write_text("{}")
+    (second / "router-current.json").write_text("{}")
+
+    with pytest.raises(ValueError, match="duplicate basename 'router-current.json'"):
+        validate_release_candidate.validate_reusable_benchmark_evidence(
+            evidence,
+            dist,
+            "abc123",
+            "0.2.2",
+            "0.1.6",
+        )
+
+
 def test_publish_artifact_verifier_checks_provenance_files_and_checksums(tmp_path) -> None:
     dist = tmp_path / "dist"
     dist.mkdir()
@@ -353,6 +423,48 @@ def test_publish_artifact_verifier_checks_provenance_files_and_checksums(tmp_pat
         verify_publish_artifacts.verify_checksums(dist)
 
 
+def test_publish_artifact_verifier_rejects_candidate_run_mismatches() -> None:
+    valid = {
+        "status": "completed",
+        "conclusion": "success",
+        "workflowName": "Release Candidate",
+        "headSha": "abc123",
+    }
+
+    with pytest.raises(ValueError, match="did not succeed"):
+        verify_publish_artifacts.verify_candidate_run({**valid, "conclusion": "failure"}, "abc123")
+    with pytest.raises(ValueError, match="expected 'Release Candidate'"):
+        verify_publish_artifacts.verify_candidate_run({**valid, "workflowName": "Other"}, "abc123")
+    with pytest.raises(ValueError, match="does not match abc123"):
+        verify_publish_artifacts.verify_candidate_run({**valid, "headSha": "deadbeef"}, "abc123")
+
+
+def test_publish_artifact_verifier_rejects_release_metadata_mismatches() -> None:
+    metadata = {"version": "0.2.2", "commit_sha": "abc123"}
+
+    with pytest.raises(ValueError, match="version"):
+        verify_publish_artifacts.verify_release_metadata({**metadata, "version": "0.2.3"}, "0.2.2", "abc123")
+    with pytest.raises(ValueError, match="SHA"):
+        verify_publish_artifacts.verify_release_metadata({**metadata, "commit_sha": "deadbeef"}, "0.2.2", "abc123")
+
+
+def test_publish_artifact_verifier_rejects_missing_and_malformed_checksums(tmp_path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="SHA256SUMS"):
+        verify_publish_artifacts.verify_checksums(dist)
+
+    checksums = dist / "SHA256SUMS.txt"
+    checksums.write_text("0" * 64 + "missing-separator")
+    with pytest.raises(ValueError, match="Malformed checksum line"):
+        verify_publish_artifacts.verify_checksums(dist)
+
+    checksums.write_text("0" * 10 + "  ./artifact.whl\n")
+    with pytest.raises(ValueError, match="Malformed sha256 digest"):
+        verify_publish_artifacts.verify_checksums(dist)
+
+
 class _FakeResponse:
     def __init__(self, payload: dict[str, object] | None = None, status: int = 200) -> None:
         self.payload = payload or {}
@@ -398,6 +510,27 @@ def test_publish_artifact_verifier_waits_for_pypi_files() -> None:
     )
 
     assert file_count == 1
+
+
+def test_publish_artifact_verifier_requires_pypi_urls_list() -> None:
+    with pytest.raises(TypeError, match="urls"):
+        verify_publish_artifacts.pypi_file_count({"urls": {"filename": "albucore-0.2.2.tar.gz"}})
+
+
+def test_publish_artifact_verifier_rejects_pypi_publication_without_files() -> None:
+    def empty_version(url: str, *, timeout: float) -> _FakeResponse:
+        return _FakeResponse(payload={"urls": []})
+
+    with pytest.raises(ValueError, match="metadata but no files"):
+        verify_publish_artifacts.verify_pypi_publication(
+            "albucore",
+            "0.2.2",
+            verify_publish_artifacts.PyPIWaitConfig(
+                attempts=1,
+                sleep_seconds=0.0,
+                urlopen=empty_version,
+            ),
+        )
 
 
 def test_benchmark_summary_reads_router_json(tmp_path, monkeypatch, capsys) -> None:

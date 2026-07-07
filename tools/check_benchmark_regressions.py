@@ -140,6 +140,9 @@ def _load_accepted_regressions(
             tuple(int(part) for part in shape),
             _required_text(item, path, index, "dtype"),
         )
+        if key in accepted:
+            msg = f"{path} contains duplicate accepted regression keys for {key!r}."
+            raise ValueError(msg)
         accepted[key] = AcceptedRegression(
             reason=_required_text(item, path, index, "reason"),
             approved_by=_required_text(item, path, index, "approved_by"),
@@ -202,6 +205,20 @@ def _shape_text(shape: tuple[int, ...]) -> str:
     return "x".join(str(part) for part in shape)
 
 
+def _markdown_code_cell(value: str | None) -> str:
+    text = (value or "").replace("\n", " ").replace("|", r"\|")
+    longest_backtick_run = 0
+    current_run = 0
+    for character in text:
+        if character == "`":
+            current_run += 1
+            longest_backtick_run = max(longest_backtick_run, current_run)
+        else:
+            current_run = 0
+    delimiter = "`" * (longest_backtick_run + 1)
+    return f"{delimiter}{text}{delimiter}"
+
+
 def _markdown_report(
     baseline_path: Path,
     current_path: Path,
@@ -251,7 +268,7 @@ def _markdown_report(
         cell = regression.cell
         lines.append(
             f"| `{cell.op}` | `{cell.layout}` | `{_shape_text(cell.shape)}` | `{cell.dtype}` | "
-            f"{regression.accepted_by} | {regression.accepted_reason} |",
+            f"{_markdown_code_cell(regression.accepted_by)} | {_markdown_code_cell(regression.accepted_reason)} |",
         )
     if not accepted_regressions:
         lines.append("| none | none | none | none | none | none |")

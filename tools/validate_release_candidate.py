@@ -244,7 +244,17 @@ def validate_benchmark_metadata(
 
 
 def _evidence_files(evidence_dir: Path) -> dict[str, Path]:
-    return {path.name: path for path in evidence_dir.rglob("*") if path.is_file()}
+    evidence_files: dict[str, Path] = {}
+    for path in sorted((candidate for candidate in evidence_dir.rglob("*") if candidate.is_file()), key=str):
+        existing = evidence_files.get(path.name)
+        if existing is not None:
+            msg = (
+                f"Reusable benchmark evidence contains duplicate basename {path.name!r}: "
+                f"{existing.relative_to(evidence_dir)} and {path.relative_to(evidence_dir)}."
+            )
+            raise ValueError(msg)
+        evidence_files[path.name] = path
+    return evidence_files
 
 
 def validate_reusable_benchmark_evidence(
