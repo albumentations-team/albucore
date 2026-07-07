@@ -1,0 +1,103 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish
+        required: true
+      commit_sha:
+        description: Exact release candidate commit SHA
+        required: true
+      candidate_run_id:
+        description: Successful Release Candidate workflow run id
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  publish:
+    name: Publish validated artifacts
+    runs-on: ubuntu-latest
+    environment: pypi
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Download release candidate artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-candidate-artifacts
+          path: dist
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify release candidate provenance and artifacts
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_COMMIT_SHA: ${{ inputs.commit_sha }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh run view "${CANDIDATE_RUN_ID}" \
+            --json conclusion,headSha,status,workflowName,url \
+            > dist/candidate-run.json
+          python tools/verify_publish_artifacts.py prepublish \
+            --dist-dir dist \
+            --candidate-run-json dist/candidate-run.json \
+            --version "${REQUESTED_VERSION}" \
+            --commit-sha "${REQUESTED_COMMIT_SHA}"
+
+      - name: Prepare PyPI upload directory
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          python tools/verify_publish_artifacts.py prepare-pypi-dist \
+            --dist-dir dist \
+            --output-dir pypi-dist \
+            --version "${REQUESTED_VERSION}"
+
+      - name: Publish distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pypi-dist
+          attestations: true
+
+      - name: Verify PyPI publication
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          python tools/verify_publish_artifacts.py publication \
+            --version "${REQUESTED_VERSION}"
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          target_commitish: ${{ inputs.commit_sha }}
+          body_path: dist/albucore-${{ inputs.version }}-release-summary.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*-sbom.cdx.json
+            dist/SHA256SUMS.txt
+            dist/router-release.json
+            dist/router-baseline.json
+            dist/router-release-summary.md
+            dist/router-release-regressions.md
+            dist/memory-smoke.json
+            dist/runtime-requirements.txt
+            dist/release-candidate-metadata.json
+            dist/albucore-*-release-summary.md
+          fail_on_unmatched_files: true

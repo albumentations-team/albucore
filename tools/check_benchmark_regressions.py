@@ -6,7 +6,7 @@ import argparse
 import json
 import statistics
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -14,6 +14,7 @@ from typing import Literal
 from tests.router_contracts import ROUTER_CONTRACTS
 
 Mode = Literal["advisory", "release"]
+Status = Literal["report", "warning", "review", "blocking", "accepted"]
 
 RELEASE_BLOCKING_OPS = frozenset(
     benchmark_name
@@ -47,7 +48,7 @@ class Regression:
     baseline_ms: float
     current_ms: float
     slowdown: float
-    status: str
+    status: Status
 
     @property
     def slowdown_pct(self) -> float:
@@ -81,8 +82,8 @@ def _load_cells(path: Path) -> dict[tuple[str, str, tuple[int, ...], str], Bench
     return cells
 
 
-def _status_for_slowdown(op: str, slowdown: float, mode: Mode) -> str:
-    status = "ok"
+def _status_for_slowdown(op: str, slowdown: float, mode: Mode) -> Status | None:
+    status: Status | None = None
     if slowdown > 0 and op not in RELEASE_BLOCKING_OPS:
         status = "report"
     elif mode == "release" and slowdown > 0.10:
@@ -94,10 +95,41 @@ def _status_for_slowdown(op: str, slowdown: float, mode: Mode) -> str:
     return status
 
 
+def _load_accepted_regressions(path: Path | None) -> set[tuple[str, str, tuple[int, ...], str]]:
+    if path is None:
+        return set()
+
+    payload = json.loads(path.read_text())
+    raw_items = payload.get("regressions", []) if isinstance(payload, dict) else payload
+    if not isinstance(raw_items, list):
+        msg = f"{path} must contain a list or an object with a 'regressions' list"
+        raise TypeError(msg)
+
+    accepted: set[tuple[str, str, tuple[int, ...], str]] = set()
+    for index, item in enumerate(raw_items):
+        if not isinstance(item, dict):
+            msg = f"{path} accepted regression #{index + 1} must be an object"
+            raise TypeError(msg)
+        shape = item.get("shape")
+        if not isinstance(shape, list):
+            msg = f"{path} accepted regression #{index + 1} must define shape as a list"
+            raise TypeError(msg)
+        accepted.add(
+            (
+                str(item.get("op")),
+                str(item.get("layout")),
+                tuple(int(part) for part in shape),
+                str(item.get("dtype")),
+            ),
+        )
+    return accepted
+
+
 def _regressions(
     baseline: dict[tuple[str, str, tuple[int, ...], str], BenchCell],
     current: dict[tuple[str, str, tuple[int, ...], str], BenchCell],
     mode: Mode,
+    accepted: set[tuple[str, str, tuple[int, ...], str]],
 ) -> list[Regression]:
     regressions: list[Regression] = []
     for key in sorted(set(baseline) & set(current)):
@@ -107,7 +139,9 @@ def _regressions(
             continue
         slowdown = current_cell.median_ms / base_cell.median_ms - 1.0
         status = _status_for_slowdown(current_cell.op, slowdown, mode)
-        if status != "ok":
+        if status is not None:
+            if current_cell.key in accepted:
+                status = "accepted"
             regressions.append(
                 Regression(
                     cell=current_cell,
@@ -156,6 +190,8 @@ def _markdown_report(
         f"- Baseline: `{baseline_path}`",
         f"- Current: `{current_path}`",
         f"- Regressions reported: {len(regressions)}",
+        f"- Blocking regressions: {sum(regression.status == 'blocking' for regression in regressions)}",
+        f"- Accepted regressions: {sum(regression.status == 'accepted' for regression in regressions)}",
         "",
         "## Cell Regressions",
         "",
@@ -179,19 +215,47 @@ def _markdown_report(
     return "\n".join(lines)
 
 
+def _summary(regressions: list[Regression], max_rows: int) -> str:
+    counts = Counter(regression.status for regression in regressions)
+    lines = [
+        "Benchmark regression summary:",
+        f"- regressions reported: {len(regressions)}",
+        f"- blocking: {counts['blocking']}",
+        f"- review: {counts['review']}",
+        f"- warning: {counts['warning']}",
+        f"- report: {counts['report']}",
+        f"- accepted: {counts['accepted']}",
+    ]
+    blocking = [regression for regression in regressions if regression.status == "blocking"]
+    if blocking:
+        lines.extend(["", "Top blocking regressions:"])
+        for regression in blocking[:max_rows]:
+            cell = regression.cell
+            lines.append(
+                "- "
+                f"{cell.op} {cell.layout} {_shape_text(cell.shape)} {cell.dtype}: "
+                f"{regression.baseline_ms:.6g} ms -> {regression.current_ms:.6g} ms "
+                f"({regression.slowdown_pct:.2f}%)",
+            )
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--current", type=Path, required=True)
     parser.add_argument("--mode", choices=("advisory", "release"), default="advisory")
     parser.add_argument("--output-md", type=Path, default=None)
+    parser.add_argument("--accepted-regressions", type=Path, default=None)
     parser.add_argument("--max-rows", type=int, default=25)
+    parser.add_argument("--summary-rows", type=int, default=10)
     args = parser.parse_args()
 
     mode = args.mode
     baseline = _load_cells(args.baseline)
     current = _load_cells(args.current)
-    regressions = _regressions(baseline, current, mode)
+    accepted = _load_accepted_regressions(args.accepted_regressions)
+    regressions = _regressions(baseline, current, mode, accepted)
     family_warnings = _family_warnings(baseline, current)
     report = _markdown_report(args.baseline, args.current, regressions, family_warnings, args.max_rows)
 
@@ -199,6 +263,7 @@ def main() -> int:
         args.output_md.write_text(report)
     else:
         sys.stdout.write(report)
+    sys.stdout.write(_summary(regressions, args.summary_rows))
 
     if mode == "release" and any(regression.status == "blocking" for regression in regressions):
         return 1

@@ -1,0 +1,115 @@
+name: PR Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - "albucore/**"
+      - "benchmarks/**"
+      - "tests/router_contracts.py"
+      - "tests/verification_constants.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/benchmark-pr.yml"
+      - ".github/workflows/performance.yml"
+      - ".github/workflows/release-candidate.yml"
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  router-benchmark:
+    name: PR router benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install PR tree
+        run: uv sync --frozen --extra headless --group dev
+
+      - name: Run PR quick router benchmark
+        run: |
+          mkdir -p benchmarks/results
+          uv run python benchmarks/benchmark_router_synthetic.py \
+            --quick \
+            --with-geometric \
+            --repeats 7 \
+            --warmup 2 \
+            --benchmark-label "pr-${GITHUB_SHA}" \
+            --output-json benchmarks/results/router-pr.json
+
+      - name: Checkout base tree
+        run: |
+          git fetch origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" --depth=1
+          git worktree add ../albucore-base "origin/${GITHUB_BASE_REF}"
+
+      - name: Install base tree
+        working-directory: ../albucore-base
+        run: uv sync --frozen --extra headless --group dev
+
+      - name: Run base quick router benchmark
+        working-directory: ../albucore-base
+        run: |
+          uv run python benchmarks/benchmark_router_synthetic.py \
+            --quick \
+            --with-geometric \
+            --repeats 7 \
+            --warmup 2 \
+            --benchmark-label "base-${GITHUB_BASE_REF}" \
+            --output-json "${GITHUB_WORKSPACE}/benchmarks/results/router-base.json"
+
+      - name: Check PR benchmark regressions
+        run: |
+          uv run python tools/check_benchmark_regressions.py \
+            --baseline benchmarks/results/router-base.json \
+            --current benchmarks/results/router-pr.json \
+            --mode advisory \
+            --output-md benchmarks/results/REPORT_router_pr_regressions.md
+
+      - name: Summarize PR router benchmark
+        run: |
+          uv run python tools/summarize_benchmarks.py \
+            benchmarks/results/router-pr.json \
+            --output-md benchmarks/results/REPORT_router_pr_summary.md
+
+      - name: Write benchmark step summary
+        if: always()
+        run: |
+          {
+            echo "## PR Benchmark Summary"
+            echo
+            if [ -f benchmarks/results/REPORT_router_pr_regressions.md ]; then
+              cat benchmarks/results/REPORT_router_pr_regressions.md
+            else
+              echo "Regression report was not generated."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-router-benchmark-results
+          path: |
+            benchmarks/results/router-pr.json
+            benchmarks/results/router-base.json
+            benchmarks/results/REPORT_router_pr_regressions.md
+            benchmarks/results/REPORT_router_pr_summary.md
+          if-no-files-found: warn

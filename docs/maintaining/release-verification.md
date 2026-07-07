@@ -50,7 +50,7 @@ PyPI exposes attestation data through its integrity APIs and file details pages.
 
 Albucore relies on ecosystem-standard trust roots instead of manual long-lived signing keys:
 
-- GitHub Actions OIDC identity for the release workflow
+- GitHub Actions OIDC identity for `.github/workflows/publish.yml`
 - PyPI trusted publishing
 - PyPI-hosted provenance/attestations for published distribution files
 
@@ -84,7 +84,7 @@ provenance verification.
 
 ## Maintainer Guardrail
 
-The release pipeline enforces lockfile consistency with:
+The release-candidate pipeline enforces lockfile consistency with:
 
 ```bash
 uv lock --check

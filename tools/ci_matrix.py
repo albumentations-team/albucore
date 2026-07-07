@@ -16,9 +16,14 @@ except ModuleNotFoundError:
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "upload_to_pypi.yml"
+BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
+PERFORMANCE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "performance.yml"
+PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
+RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
 SUPPORT_POLICY = REPO_ROOT / "docs" / "maintaining" / "support-policy.md"
+VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candidate.py"
+VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -89,21 +94,133 @@ def _check_support_policy(errors: list[str], versions: set[str]) -> None:
         errors.append("Support policy does not state explicit grayscale channel convention")
 
 
-def _check_release_workflow(errors: list[str]) -> None:
-    text = RELEASE_WORKFLOW.read_text()
+def _check_file_fragments(errors: list[str], path: Path, required_fragments: dict[str, str]) -> None:
+    if not path.exists():
+        errors.append(f"Required workflow {path.relative_to(REPO_ROOT)} is missing")
+        return
+    text = path.read_text()
+    errors.extend(
+        f"{path.relative_to(REPO_ROOT)} is missing {label}"
+        for label, fragment in required_fragments.items()
+        if fragment not in text
+    )
+
+
+def _check_release_workflows(errors: list[str]) -> None:
+    _check_file_fragments(
+        errors,
+        BENCHMARK_PR_WORKFLOW,
+        {
+            "PR trigger": "pull_request:",
+            "PR router benchmark": "benchmarks/benchmark_router_synthetic.py",
+            "PR advisory regression check": "--mode advisory",
+            "PR benchmark artifacts": "pr-router-benchmark-results",
+        },
+    )
+    _check_file_fragments(
+        errors,
+        PERFORMANCE_WORKFLOW,
+        {
+            "previous PyPI release resolver": "tools/resolve_previous_pypi_release.py",
+            "package version resolver": "tools/validate_release_candidate.py package-version",
+            "release benchmark metadata writer": "tools/validate_release_candidate.py benchmark-metadata",
+            "benchmark artifact upload on failure": "if: always()",
+            "baseline benchmark artifact": "benchmarks/results/router-baseline.json",
+            "release regression mode": "--mode release",
+            "reusable benchmark evidence": "release-benchmark-evidence",
+        },
+    )
+    _check_file_fragments(
+        errors,
+        RELEASE_CANDIDATE_WORKFLOW,
+        {
+            "manual release candidate trigger": "workflow_dispatch:",
+            "exact commit input": "commit_sha:",
+            "release metadata validator": "tools/validate_release_candidate.py metadata",
+            "candidate CI success check": "Verify CI workflow succeeded for candidate",
+            "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
+            "previous PyPI release resolver": "tools/resolve_previous_pypi_release.py",
+            "baseline benchmark artifact": "dist/router-baseline.json",
+            "release regression checker": "tools/check_benchmark_regressions.py",
+            "release regression mode": "--mode release",
+            "accepted regression support": "--accepted-regressions",
+            "reusable benchmark run input": "benchmark_run_id:",
+            "reusable benchmark evidence validator": "tools/validate_release_candidate.py benchmark-evidence",
+            "regression report artifact": "dist/router-release-regressions.md",
+            "release validation headless extra": "uv sync --frozen --extra headless --group dev",
+            "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
+            "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
+            "release candidate artifact upload": "release-candidate-artifacts",
+        },
+    )
+    _check_file_fragments(
+        errors,
+        PUBLISH_WORKFLOW,
+        {
+            "manual publish trigger": "workflow_dispatch:",
+            "candidate run input": "candidate_run_id:",
+            "candidate artifact download": "release-candidate-artifacts",
+            "prepublish verifier": "tools/verify_publish_artifacts.py prepublish",
+            "PyPI distribution staging": "tools/verify_publish_artifacts.py prepare-pypi-dist",
+            "PyPI publication verifier": "tools/verify_publish_artifacts.py publication",
+            "trusted publishing": "pypa/gh-action-pypi-publish",
+            "GitHub Release only after PyPI": "Create or update GitHub Release",
+        },
+    )
+    _check_file_fragments(
+        errors,
+        VALIDATE_RELEASE_CANDIDATE_TOOL,
+        {
+            "release metadata validator": "validate_release_environment",
+            "candidate CI run validator": "validate_ci_runs",
+            "reusable benchmark evidence validator": "validate_reusable_benchmark_evidence",
+            "release benchmark metadata writer": "write_benchmark_metadata",
+        },
+    )
+    _check_file_fragments(
+        errors,
+        VERIFY_PUBLISH_ARTIFACTS_TOOL,
+        {
+            "candidate run validator": "verify_candidate_run",
+            "checksum verifier": "verify_checksums",
+            "distribution staging": "copy_distribution_files",
+            "PyPI existing-version guard": "verify_pypi_absent",
+            "PyPI publication verifier": "verify_pypi_publication",
+        },
+    )
+
+    github_release_published_workflows = [
+        path.relative_to(REPO_ROOT)
+        for path in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
+        if "release:" in path.read_text(errors="ignore") and "published" in path.read_text(errors="ignore")
+    ]
+    if github_release_published_workflows:
+        errors.append(
+            f"GitHub Release published-trigger workflows must not exist: {github_release_published_workflows}",
+        )
+
+
+def _check_release_docs(errors: list[str]) -> None:
+    process = (REPO_ROOT / "docs" / "maintaining" / "release-process.md").read_text()
     required_fragments = {
-        "previous PyPI release resolver": "tools/resolve_previous_pypi_release.py",
-        "previous release benchmark version": "PREVIOUS_RELEASE_VERSION",
-        "baseline benchmark artifact": "dist/router-baseline.json",
-        "release regression checker": "tools/check_benchmark_regressions.py",
-        "release regression mode": "--mode release",
-        "regression report artifact": "dist/router-release-regressions.md",
-        "release validation headless extra": "uv sync --frozen --extra headless --group dev",
-        "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
+        "release candidate workflow": "release-candidate.yml",
+        "publish workflow": "publish.yml",
+        "PyPI-before-GitHub-Release ordering": "Publish to PyPI before creating or publishing the GitHub Release",
     }
     errors.extend(
-        f"Release workflow is missing {label}" for label, fragment in required_fragments.items() if fragment not in text
+        f"release-process.md is missing {label}"
+        for label, fragment in required_fragments.items()
+        if fragment not in process
     )
+
+
+def _check_release_workflows_and_docs(errors: list[str]) -> None:
+    _check_release_workflows(errors)
+    _check_release_docs(errors)
+
+
+def _check_release_workflow(errors: list[str]) -> None:
+    _check_release_workflows_and_docs(errors)
 
 
 def _check_security_workflow(errors: list[str]) -> None:
