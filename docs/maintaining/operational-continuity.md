@@ -28,8 +28,8 @@ Public issues must not be used for unpatched security reports.
 Escalation happens when any of the following are true:
 
 - a suspected vulnerability affects supported versions
-- release verification fails for a tagged release
-- the release workflow fails after a public release is published
+- release-candidate verification fails for a planned release
+- PyPI publication succeeds but post-publish verification fails
 - a maintainer is unavailable during an active incident or scheduled release
 
 Escalation actions:
