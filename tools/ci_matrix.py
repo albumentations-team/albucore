@@ -107,7 +107,6 @@ def _check_file_fragments(errors: list[str], path: Path, required_fragments: dic
 
 def _check_file_absent_fragments(errors: list[str], path: Path, forbidden_fragments: dict[str, str]) -> None:
     if not path.exists():
-        errors.append(f"Required workflow {path.relative_to(REPO_ROOT)} is missing")
         return
     text = path.read_text()
     errors.extend(

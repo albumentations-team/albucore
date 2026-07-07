@@ -59,6 +59,16 @@ def test_ci_matrix_check_passes() -> None:
     assert ci_matrix.check() == []
 
 
+def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None:
+    missing_workflow = ci_matrix.REPO_ROOT / ".github" / "workflows" / "__missing__.yml"
+
+    monkeypatch.setattr(ci_matrix, "RELEASE_CANDIDATE_WORKFLOW", missing_workflow)
+
+    errors = ci_matrix.check()
+
+    assert errors.count(f"Required workflow {missing_workflow.relative_to(ci_matrix.REPO_ROOT)} is missing") == 1
+
+
 def test_benchmark_regression_check_blocks_release(tmp_path, monkeypatch) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
