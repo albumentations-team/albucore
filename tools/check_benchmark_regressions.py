@@ -49,11 +49,21 @@ class Regression:
     current_ms: float
     slowdown: float
     status: Status
+    accepted_reason: str | None = None
+    accepted_by: str | None = None
 
     @property
     def slowdown_pct(self) -> float:
         """Slowdown as a percentage."""
         return self.slowdown * 100.0
+
+
+@dataclass(frozen=True)
+class AcceptedRegression:
+    """Maintainer approval metadata for an accepted benchmark regression."""
+
+    reason: str
+    approved_by: str
 
 
 def _load_cells(path: Path) -> dict[tuple[str, str, tuple[int, ...], str], BenchCell]:
@@ -95,9 +105,19 @@ def _status_for_slowdown(op: str, slowdown: float, mode: Mode) -> Status | None:
     return status
 
 
-def _load_accepted_regressions(path: Path | None) -> set[tuple[str, str, tuple[int, ...], str]]:
+def _required_text(item: dict[str, object], path: Path, index: int, field: str) -> str:
+    value = item.get(field)
+    if not isinstance(value, str) or not value.strip():
+        msg = f"{path} accepted regression #{index + 1} must define non-empty {field!r}"
+        raise TypeError(msg)
+    return value.strip()
+
+
+def _load_accepted_regressions(
+    path: Path | None,
+) -> dict[tuple[str, str, tuple[int, ...], str], AcceptedRegression]:
     if path is None:
-        return set()
+        return {}
 
     payload = json.loads(path.read_text())
     raw_items = payload.get("regressions", []) if isinstance(payload, dict) else payload
@@ -105,7 +125,7 @@ def _load_accepted_regressions(path: Path | None) -> set[tuple[str, str, tuple[i
         msg = f"{path} must contain a list or an object with a 'regressions' list"
         raise TypeError(msg)
 
-    accepted: set[tuple[str, str, tuple[int, ...], str]] = set()
+    accepted: dict[tuple[str, str, tuple[int, ...], str], AcceptedRegression] = {}
     for index, item in enumerate(raw_items):
         if not isinstance(item, dict):
             msg = f"{path} accepted regression #{index + 1} must be an object"
@@ -114,13 +134,15 @@ def _load_accepted_regressions(path: Path | None) -> set[tuple[str, str, tuple[i
         if not isinstance(shape, list):
             msg = f"{path} accepted regression #{index + 1} must define shape as a list"
             raise TypeError(msg)
-        accepted.add(
-            (
-                str(item.get("op")),
-                str(item.get("layout")),
-                tuple(int(part) for part in shape),
-                str(item.get("dtype")),
-            ),
+        key = (
+            _required_text(item, path, index, "op"),
+            _required_text(item, path, index, "layout"),
+            tuple(int(part) for part in shape),
+            _required_text(item, path, index, "dtype"),
+        )
+        accepted[key] = AcceptedRegression(
+            reason=_required_text(item, path, index, "reason"),
+            approved_by=_required_text(item, path, index, "approved_by"),
         )
     return accepted
 
@@ -129,7 +151,7 @@ def _regressions(
     baseline: dict[tuple[str, str, tuple[int, ...], str], BenchCell],
     current: dict[tuple[str, str, tuple[int, ...], str], BenchCell],
     mode: Mode,
-    accepted: set[tuple[str, str, tuple[int, ...], str]],
+    accepted: dict[tuple[str, str, tuple[int, ...], str], AcceptedRegression],
 ) -> list[Regression]:
     regressions: list[Regression] = []
     for key in sorted(set(baseline) & set(current)):
@@ -140,6 +162,7 @@ def _regressions(
         slowdown = current_cell.median_ms / base_cell.median_ms - 1.0
         status = _status_for_slowdown(current_cell.op, slowdown, mode)
         if status is not None:
+            accepted_match = accepted.get(current_cell.key)
             if current_cell.key in accepted:
                 status = "accepted"
             regressions.append(
@@ -149,6 +172,8 @@ def _regressions(
                     current_ms=current_cell.median_ms,
                     slowdown=slowdown,
                     status=status,
+                    accepted_reason=accepted_match.reason if accepted_match is not None else None,
+                    accepted_by=accepted_match.approved_by if accepted_match is not None else None,
                 ),
             )
     return sorted(regressions, key=lambda item: item.slowdown, reverse=True)
@@ -211,6 +236,25 @@ def _markdown_report(
         lines.append(f"| `{op}` | {slowdown * 100.0:.2f}% |")
     if not family_warnings:
         lines.append("| none | 0.00% |")
+
+    accepted_regressions = [regression for regression in regressions if regression.status == "accepted"]
+    lines.extend(
+        [
+            "",
+            "## Accepted Regression Rationale",
+            "",
+            "| Operation | Layout | Shape | Dtype | Approved by | Reason |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ],
+    )
+    for regression in accepted_regressions:
+        cell = regression.cell
+        lines.append(
+            f"| `{cell.op}` | `{cell.layout}` | `{_shape_text(cell.shape)}` | `{cell.dtype}` | "
+            f"{regression.accepted_by} | {regression.accepted_reason} |",
+        )
+    if not accepted_regressions:
+        lines.append("| none | none | none | none | none | none |")
     lines.append("")
     return "\n".join(lines)
 

@@ -12,6 +12,7 @@ from tools import (
     check_benchmark_regressions,
     check_router_contracts,
     ci_matrix,
+    generate_release_summary,
     resolve_previous_pypi_release,
     summarize_benchmarks,
     validate_release_candidate,
@@ -151,7 +152,50 @@ def test_benchmark_regression_check_accepts_explicit_release_regression(tmp_path
     )
 
     assert check_benchmark_regressions.main() == 0
-    assert "`accepted`" in report.read_text()
+    report_text = report.read_text()
+    assert "`accepted`" in report_text
+    assert "intentional correctness fix" in report_text
+    assert "maintainer" in report_text
+
+
+def test_benchmark_regression_check_rejects_undocumented_accepted_regression(tmp_path, monkeypatch) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    accepted = tmp_path / "accepted.json"
+    baseline.write_text(json.dumps(_router_json(1.0)))
+    current.write_text(json.dumps(_router_json(1.2)))
+    accepted.write_text(
+        json.dumps(
+            {
+                "regressions": [
+                    {
+                        "op": "normalize",
+                        "layout": "HWC",
+                        "shape": [128, 160, 3],
+                        "dtype": "float32",
+                    },
+                ],
+            },
+        ),
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "check_benchmark_regressions.py",
+            "--baseline",
+            str(baseline),
+            "--current",
+            str(current),
+            "--mode",
+            "release",
+            "--accepted-regressions",
+            str(accepted),
+        ],
+    )
+
+    with pytest.raises(TypeError, match="reason"):
+        check_benchmark_regressions.main()
 
 
 def test_benchmark_blocking_ops_come_from_router_contracts() -> None:
@@ -366,6 +410,31 @@ def test_benchmark_summary_reads_router_json(tmp_path, monkeypatch, capsys) -> N
     captured = capsys.readouterr()
     assert "Benchmark Summary" in captured.out
     assert "`normalize`" in captured.out
+
+
+def test_release_summary_includes_accepted_regression_rationale(tmp_path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "router-release-regressions.md").write_text(
+        "\n".join(
+            [
+                "# Benchmark Regression Check",
+                "",
+                "## Accepted Regression Rationale",
+                "",
+                "| Operation | Layout | Shape | Dtype | Approved by | Reason |",
+                "| --- | --- | --- | --- | --- | --- |",
+                "| `normalize` | `HWC` | `128x160x3` | `float32` | maintainer | correctness fix |",
+                "",
+            ],
+        ),
+    )
+
+    summary = generate_release_summary.generate_summary("0.2.2", dist)
+
+    assert "## Accepted Regression Rationale" in summary
+    assert "correctness fix" in summary
+    assert "maintainer" in summary
 
 
 def test_previous_pypi_release_skips_unpublished_release() -> None:
