@@ -158,13 +158,17 @@ def _check_release_workflows(errors: list[str]) -> None:
         errors,
         PUBLISH_WORKFLOW,
         {
+            "GitHub Release publish trigger": "release:",
+            "published release trigger": "types: [published]",
             "manual publish trigger": "workflow_dispatch:",
             "candidate run input": "candidate_run_id:",
             "candidate artifact download": "release-candidate-artifacts",
             "prepublish verifier": "tools/verify_publish_artifacts.py prepublish",
+            "direct release verifier": "tools/verify_publish_artifacts.py direct-release",
             "PyPI distribution staging": "tools/verify_publish_artifacts.py prepare-pypi-dist",
             "PyPI publication verifier": "tools/verify_publish_artifacts.py publication",
             "trusted publishing": "pypa/gh-action-pypi-publish",
+            "release event publish job": "Publish from GitHub Release",
             "GitHub Release only after PyPI": "Create or update GitHub Release",
         },
     )
@@ -194,18 +198,9 @@ def _check_release_workflows(errors: list[str]) -> None:
             "distribution staging": "copy_distribution_files",
             "PyPI existing-version guard": "verify_pypi_absent",
             "PyPI publication verifier": "verify_pypi_publication",
+            "direct release artifact verifier": "verify_direct_release_artifacts",
         },
     )
-
-    github_release_published_workflows = [
-        path.relative_to(REPO_ROOT)
-        for path in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
-        if "release:" in path.read_text(errors="ignore") and "published" in path.read_text(errors="ignore")
-    ]
-    if github_release_published_workflows:
-        errors.append(
-            f"GitHub Release published-trigger workflows must not exist: {github_release_published_workflows}",
-        )
 
 
 def _check_release_docs(errors: list[str]) -> None:

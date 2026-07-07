@@ -1,8 +1,9 @@
 # Release Process
 
-Albucore releases are built from validated release-candidate artifacts and published to PyPI through
-trusted publishing. The public GitHub Release is created or updated only after PyPI confirms the
-package files exist.
+Albucore releases are published to PyPI through trusted publishing. The preferred path builds
+validated release-candidate artifacts first, then publishes those exact artifacts manually. Maintainer
+GitHub Release publishing is also supported: publishing release notes for a tag whose version matches
+`pyproject.toml` and `uv.lock` triggers PyPI publication and attaches the generated artifacts.
 
 ## Release Ownership
 
@@ -16,10 +17,11 @@ package files exist.
   changes.
 - `.github/workflows/release-candidate.yml` validates the exact release commit and produces all
   release artifacts.
-- `.github/workflows/publish.yml` publishes already validated release-candidate artifacts.
+- `.github/workflows/publish.yml` publishes already validated release-candidate artifacts, or publishes
+  directly when a maintainer publishes a GitHub Release.
 
-All public publishing is manual and artifact-based through `publish.yml`; validation happens before
-any public package release is created.
+Manual publishing is artifact-based through `publish.yml`; GitHub Release publishing validates and
+builds from the release tag before uploading to PyPI.
 
 ## Release Gates
 
@@ -29,8 +31,9 @@ Before publishing, all of the following must be true:
 2. Required CI checks for the release commit are green.
 3. `pyproject.toml` and `uv.lock` contain the same release version.
 4. The version is not already present on PyPI.
-5. The release-candidate workflow succeeds for the exact commit SHA and version.
-6. The release-candidate artifact bundle contains:
+5. For manual publishing, the release-candidate workflow succeeds for the exact commit SHA and
+   version.
+6. For manual publishing, the release-candidate artifact bundle contains:
    - wheel
    - source distribution
    - CycloneDX SBOM
@@ -69,7 +72,7 @@ Release-candidate metadata and CI-run checks are validated by `tools/validate_re
 These rules are unit-tested in `tests/test_verification_tools.py`; do not reimplement them as ad hoc
 workflow snippets.
 
-## Publish Steps
+## Manual Publish Steps
 
 1. Run `publish.yml` manually with:
    - `version`
@@ -95,6 +98,26 @@ workflow snippets.
 Publishing should not run performance benchmarks.
 Candidate-run provenance, artifact filenames, checksum verification, duplicate-version checks, and
 PyPI upload staging/post-publish PyPI verification are owned by `tools/verify_publish_artifacts.py`.
+
+## GitHub Release Publish Steps
+
+This path preserves the maintainer workflow where writing and publishing GitHub Release notes starts
+the PyPI upload.
+
+1. Merge the version bump PR to `main`.
+2. Confirm CI is green for the release commit.
+3. Create or publish the GitHub Release for the release tag.
+4. The `publish.yml` release-published job checks out that tag, normalizes a leading `v` if present,
+   and verifies that the tag version matches `pyproject.toml` and `uv.lock`.
+5. The workflow verifies the release commit is reachable from `origin/main` and that CI succeeded for
+   that commit.
+6. The workflow builds and validates the wheel and sdist, generates SBOM/checksum/summary artifacts,
+   verifies PyPI does not already contain the version, uploads only the wheel and sdist to PyPI, and
+   verifies PyPI now exposes the files.
+7. After PyPI verification succeeds, the workflow attaches the generated artifacts to the existing
+   GitHub Release.
+
+Until the `publish.yml` run succeeds, a GitHub Release is not proof that the version exists on PyPI.
 
 ## Benchmark Baselines
 

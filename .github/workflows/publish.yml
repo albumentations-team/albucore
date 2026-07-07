@@ -1,6 +1,8 @@
 name: Publish
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -24,6 +26,7 @@ env:
 jobs:
   publish:
     name: Publish validated artifacts
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: pypi
     timeout-minutes: 20
@@ -87,6 +90,172 @@ jobs:
           tag_name: ${{ inputs.version }}
           target_commitish: ${{ inputs.commit_sha }}
           body_path: dist/albucore-${{ inputs.version }}-release-summary.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*-sbom.cdx.json
+            dist/SHA256SUMS.txt
+            dist/runtime-requirements.txt
+            dist/release-candidate-metadata.json
+            dist/albucore-*-release-summary.md
+          fail_on_unmatched_files: true
+
+  publish-from-release:
+    name: Publish from GitHub Release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: pypi
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.11"
+          activate-environment: true
+
+      - name: Resolve release metadata from published release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+          RELEASE_COMMIT_SHA="$(git rev-parse HEAD)"
+          python tools/validate_release_candidate.py metadata \
+            --version "${RELEASE_VERSION}" \
+            --commit-sha "${RELEASE_COMMIT_SHA}" \
+            --github-env "${GITHUB_ENV}" \
+            --fetch-origin-main \
+            --require-origin-main
+
+      - name: Verify CI workflow succeeded for release commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh run list \
+            --workflow CI \
+            --commit "${CANDIDATE_COMMIT_SHA}" \
+            --json conclusion,status,databaseId,url \
+            --limit 20 \
+            > /tmp/albucore-ci-runs.json
+          python tools/validate_release_candidate.py ci-runs \
+            --runs-json /tmp/albucore-ci-runs.json
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Install release validation dependencies
+        run: uv sync --frozen --extra headless --group dev
+
+      - name: Check public router contracts
+        run: uv run python tools/check_router_contracts.py
+
+      - name: Check CI matrix policy
+        run: uv run python tools/ci_matrix.py check
+
+      - name: Verify golden vectors
+        run: uv run python tools/verify_golden_vectors.py
+
+      - name: Run release property tests
+        run: uv run pytest tests/property --hypothesis-profile=release
+
+      - name: Check distribution metadata
+        run: uv tool run --from twine twine check dist/*
+
+      - name: Smoke test built wheel
+        run: |
+          VENV_DIR="$(mktemp -d /tmp/albucore-release-venv.XXXXXX)"
+          trap 'rm -rf "$VENV_DIR"' EXIT
+          python -m venv "$VENV_DIR"
+          . "$VENV_DIR/bin/activate"
+          python -m pip install --upgrade pip
+          if [ -n "${HEADLESS_RUNTIME_DEPENDENCIES:-}" ]; then
+            printf '%s\n' "${HEADLESS_RUNTIME_DEPENDENCIES}" > "$VENV_DIR/headless-runtime-requirements.txt"
+            python -m pip install -r "$VENV_DIR/headless-runtime-requirements.txt"
+          fi
+          python -m pip install dist/*.whl
+          cd /tmp
+          python -c 'import albucore, numpy as np; img = np.zeros((64, 64, 3), dtype=np.uint8); print("albucore smoke test passed, version:", albucore.__version__)'
+
+      - name: Verify uv.lock is up-to-date
+        run: uv lock --check
+
+      - name: Export locked runtime dependencies
+        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file dist/runtime-requirements.txt
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          uv tool run --from cyclonedx-bom cyclonedx-py requirements dist/runtime-requirements.txt \
+            --output-format JSON \
+            --output-file "dist/${SBOM_FILENAME}"
+
+      - name: Generate release metadata
+        run: |
+          python tools/validate_release_candidate.py candidate-metadata \
+            --dist-dir dist \
+            --version "${PACKAGE_VERSION}" \
+            --commit-sha "${CANDIDATE_COMMIT_SHA}"
+
+      - name: Generate checksums
+        run: |
+          (
+            cd dist
+            files=(
+              ./*.whl
+              ./*.tar.gz
+              ./*-sbom.cdx.json
+              ./runtime-requirements.txt
+              ./release-candidate-metadata.json
+            )
+            sha256sum "${files[@]}" > SHA256SUMS.txt
+          )
+
+      - name: Generate release summary
+        run: |
+          uv run python tools/generate_release_summary.py \
+            --version "${PACKAGE_VERSION}" \
+            --dist-dir dist \
+            --output-md "dist/albucore-${PACKAGE_VERSION}-release-summary.md"
+          (
+            cd dist
+            sha256sum ./albucore-*-release-summary.md >> SHA256SUMS.txt
+          )
+
+      - name: Verify release artifacts before PyPI
+        run: |
+          python tools/verify_publish_artifacts.py direct-release \
+            --dist-dir dist \
+            --version "${PACKAGE_VERSION}" \
+            --commit-sha "${CANDIDATE_COMMIT_SHA}"
+
+      - name: Prepare PyPI upload directory
+        run: |
+          python tools/verify_publish_artifacts.py prepare-pypi-dist \
+            --dist-dir dist \
+            --output-dir pypi-dist \
+            --version "${PACKAGE_VERSION}"
+
+      - name: Publish distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pypi-dist
+          attestations: true
+
+      - name: Verify PyPI publication
+        run: |
+          python tools/verify_publish_artifacts.py publication \
+            --version "${PACKAGE_VERSION}"
+
+      - name: Attach artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
           files: |
             dist/*.whl
             dist/*.tar.gz

@@ -110,17 +110,19 @@ This workflow should not run benchmarks, publish to PyPI, or create a public Git
 
 ### 4. `publish.yml`
 
-Purpose: publish a previously validated release candidate.
+Purpose: publish a previously validated release candidate, or publish directly from a maintainer
+GitHub Release event.
 
 Trigger:
 
+- GitHub Release `published`
 - manual `workflow_dispatch`
 - inputs:
   - `version`
   - `commit_sha`
   - `candidate_run_id`
 
-Required checks:
+Manual publish required checks:
 
 - download artifacts from `candidate_run_id`
 - verify the candidate run succeeded
@@ -134,19 +136,43 @@ Required checks:
 - create or publish the GitHub Release only after PyPI publish succeeds
 - attach the validated artifacts to the GitHub Release
 
+GitHub Release publish required checks:
+
+- checkout the published release tag
+- normalize a leading `v` from the tag before comparing versions
+- verify the tag version equals `pyproject.toml` and `uv.lock`
+- verify the release commit is reachable from `origin/main`
+- verify the `CI` workflow succeeded for that commit
+- build wheel and sdist
+- install release validation dependencies with `uv sync --frozen --extra headless --group dev`
+- run router contract checks, CI matrix policy checks, golden vectors, release property tests, and
+  `twine check`
+- smoke test the built wheel in a clean venv outside the repository checkout
+- export locked runtime dependencies
+- generate SBOM, release metadata, checksums, and release summary
+- verify PyPI does not already have this version
+- stage only the wheel and sdist into the PyPI upload directory
+- publish to PyPI through trusted publishing
+- verify PyPI JSON shows the new version and files
+- attach generated artifacts to the existing GitHub Release
+
 Implementation:
 
 - `tools/verify_publish_artifacts.py prepublish` owns candidate-run provenance, artifact names,
   checksums, metadata matching, and the PyPI duplicate-version guard.
+- `tools/verify_publish_artifacts.py direct-release` owns artifact names, metadata matching,
+  checksums, and the PyPI duplicate-version guard for the release-published path.
 - `tools/verify_publish_artifacts.py prepare-pypi-dist` stages only publishable distribution files
   so release evidence files are not passed to the PyPI upload action.
 - `tools/verify_publish_artifacts.py publication` owns post-publish PyPI JSON verification.
 
-Publishing should not run benchmarks or rebuild release artifacts.
+Publishing should not run benchmarks. The manual path must not rebuild release-candidate artifacts;
+the GitHub Release path builds from the published release tag because the release itself is the
+maintainer action that starts publication.
 
 ## Correct Publishing Sequence
 
-Use this sequence for every normal release:
+Use this sequence for a fully artifact-validated release:
 
 1. Open a normal PR for all feature and bug-fix changes.
 2. Run CI and PR benchmark checks when touched paths require them.
@@ -163,14 +189,18 @@ Use this sequence for every normal release:
 
 Do not publish a public GitHub Release before step 9 succeeds.
 
+For the maintainer GitHub Release workflow, merge the version bump PR, confirm CI is green on `main`,
+then publish the GitHub Release. That release event runs `publish.yml`, uploads the matching version
+to PyPI, verifies PyPI, and attaches generated artifacts to the existing release.
+
 ## Publishing Invariants
 
 The release system must avoid these failure modes:
 
-1. Publishing a public GitHub Release before validation succeeds.
+1. Treating a public GitHub Release as completed before its `publish.yml` run succeeds.
 2. Treating a GitHub Release as proof that a package version exists on PyPI.
 3. Running tools that import optional dependencies before installing the matching extras.
-4. Rebuilding different artifacts at publish time than the artifacts that were validated.
+4. Rebuilding different artifacts at manual publish time than the artifacts that were validated.
 5. Allowing a failed release attempt to become the baseline for the next release.
 
 ## CI Matrix Policy Check
@@ -182,9 +212,10 @@ stay benchmark-free.
 
 The publishing system is healthy when all of these are true:
 
-- A public GitHub Release cannot exist without validated artifacts.
+- A public GitHub Release either already has validated artifacts or has a corresponding in-progress
+  or successful `publish.yml` release-published run.
 - PRs show performance impact before merge.
 - Release candidates do not run benchmarks.
-- Publishing does not rebuild unvalidated artifacts.
+- Manual publishing does not rebuild validated artifacts.
 - Failed release-candidate runs leave enough artifacts to diagnose the failure.
-- Failed publish runs do not create empty public GitHub Releases.
+- Failed manual publish runs do not create empty public GitHub Releases.
