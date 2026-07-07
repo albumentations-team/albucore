@@ -326,6 +326,7 @@ def test_publish_artifact_verifier_checks_provenance_files_and_checksums(tmp_pat
     )
 
     verify_publish_artifacts.verify_prepublish_artifacts(dist, candidate_run, version, commit_sha)
+    verify_publish_artifacts.verify_direct_release_artifacts(dist, version, commit_sha)
 
     pypi_dist = tmp_path / "pypi-dist"
     verify_publish_artifacts.copy_distribution_files(dist, pypi_dist, version)

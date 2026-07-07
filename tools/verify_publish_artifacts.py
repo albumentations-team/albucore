@@ -163,6 +163,13 @@ def verify_prepublish_artifacts(dist_dir: Path, candidate_run_json: Path, versio
     verify_checksums(dist_dir)
 
 
+def verify_direct_release_artifacts(dist_dir: Path, version: str, commit_sha: str) -> None:
+    """Validate artifacts built by the release-published publish job before uploading."""
+    verify_release_metadata(_load_json_object(dist_dir / "release-candidate-metadata.json"), version, commit_sha)
+    verify_distribution_files(dist_dir, version)
+    verify_checksums(dist_dir)
+
+
 def pypi_file_count(payload: dict[str, Any]) -> int:
     """Return the number of files listed in a PyPI version JSON payload."""
     files = payload.get("urls", [])
@@ -205,6 +212,11 @@ def _prepublish_command(args: argparse.Namespace) -> None:
     verify_pypi_absent(args.project, args.version)
 
 
+def _direct_release_command(args: argparse.Namespace) -> None:
+    verify_direct_release_artifacts(args.dist_dir, args.version, args.commit_sha)
+    verify_pypi_absent(args.project, args.version)
+
+
 def _prepare_pypi_dist_command(args: argparse.Namespace) -> None:
     copy_distribution_files(args.dist_dir, args.output_dir, args.version)
 
@@ -233,6 +245,13 @@ def _build_parser() -> argparse.ArgumentParser:
     prepublish.add_argument("--commit-sha", required=True)
     prepublish.add_argument("--project", default=PROJECT_NAME)
     prepublish.set_defaults(func=_prepublish_command)
+
+    direct_release = subparsers.add_parser("direct-release")
+    direct_release.add_argument("--dist-dir", type=Path, default=Path("dist"))
+    direct_release.add_argument("--version", required=True)
+    direct_release.add_argument("--commit-sha", required=True)
+    direct_release.add_argument("--project", default=PROJECT_NAME)
+    direct_release.set_defaults(func=_direct_release_command)
 
     prepare = subparsers.add_parser("prepare-pypi-dist")
     prepare.add_argument("--dist-dir", type=Path, default=Path("dist"))
