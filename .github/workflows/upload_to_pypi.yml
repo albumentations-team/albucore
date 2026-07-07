@@ -111,7 +111,6 @@ jobs:
       - name: Resolve previous published PyPI version
         run: |
           python tools/resolve_previous_pypi_release.py \
-            --project albucore \
             --current-version "${PACKAGE_VERSION}" \
             --github-env "${GITHUB_ENV}"
 

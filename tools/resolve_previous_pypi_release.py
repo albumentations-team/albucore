@@ -55,6 +55,15 @@ def fetch_pypi_releases(project: str, timeout: float = 30.0) -> dict[str, Any]:
     with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310
         payload = json.load(response)
 
+    return pypi_releases_from_payload(project, payload)
+
+
+def pypi_releases_from_payload(project: str, payload: object) -> dict[str, Any]:
+    """Extract the releases table from a PyPI JSON payload."""
+    if not isinstance(payload, dict):
+        msg = f"PyPI response for {project!r} is not a JSON object."
+        raise TypeError(msg)
+
     releases = payload.get("releases")
     if not isinstance(releases, dict):
         msg = f"PyPI response for {project!r} does not contain a releases table."

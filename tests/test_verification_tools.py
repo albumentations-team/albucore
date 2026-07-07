@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from tools import (
     check_benchmark_regressions,
@@ -133,6 +134,11 @@ def test_previous_pypi_release_cli_writes_github_env(tmp_path, monkeypatch, caps
     assert resolve_previous_pypi_release.main() == 0
     assert env_path.read_text() == "PREVIOUS_RELEASE_VERSION=0.1.6\n"
     assert "PREVIOUS_RELEASE_VERSION=0.1.6" in capsys.readouterr().out
+
+
+def test_pypi_release_payload_must_be_json_object() -> None:
+    with pytest.raises(TypeError, match="not a JSON object"):
+        resolve_previous_pypi_release.pypi_releases_from_payload("albucore", [])
 
 
 def test_golden_vector_verify_checks_computed_dtype(tmp_path, monkeypatch) -> None:
