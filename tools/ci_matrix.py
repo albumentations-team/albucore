@@ -17,12 +17,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
+LEGAL_INTEGRITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "legal-integrity.yml"
 PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
 SUPPORT_POLICY = REPO_ROOT / "docs" / "maintaining" / "support-policy.md"
 VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candidate.py"
 VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
+LEGAL_ARTIFACT_VERIFY_COMMAND = "python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz"
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -129,6 +131,25 @@ def _check_release_workflows(errors: list[str]) -> None:
     )
     _check_file_fragments(
         errors,
+        LEGAL_INTEGRITY_WORKFLOW,
+        {
+            "pull request trigger": "pull_request:",
+            "manual trigger": "workflow_dispatch:",
+            "minimal contents permission": "contents: read",
+            "legal integrity job": "License, CLA, and package notices",
+            "source-tree verifier step": "Verify source-tree legal integrity",
+            "source-tree legal verifier": "python tools/verify_legal_integrity.py",
+            "legal verifier tests": "tests/test_legal_integrity.py",
+            "distribution build": 'uv build --out-dir "${RUNNER_TEMP}/albucore-legal-dist"',
+            "artifact verifier step": "Verify distribution license and CLA exclusion",
+            "distribution legal verifier": "python tools/verify_legal_integrity.py --artifacts",
+            "wheel verification": "albucore-legal-dist/*.whl",
+            "source distribution verification": "albucore-legal-dist/*.tar.gz",
+            "distribution metadata check": 'twine check "${RUNNER_TEMP}"/albucore-legal-dist/*',
+        },
+    )
+    _check_file_fragments(
+        errors,
         RELEASE_CANDIDATE_WORKFLOW,
         {
             "manual release candidate trigger": "workflow_dispatch:",
@@ -139,6 +160,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "release validation headless extra": "uv sync --frozen --extra headless --group dev",
             "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
+            "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
             "release candidate artifact upload": "release-candidate-artifacts",
         },
     )
@@ -163,6 +185,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "manual publish trigger": "workflow_dispatch:",
             "candidate run input": "candidate_run_id:",
             "candidate artifact download": "release-candidate-artifacts",
+            "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
             "prepublish verifier": "tools/verify_publish_artifacts.py prepublish",
             "direct release verifier": "tools/verify_publish_artifacts.py direct-release",
             "PyPI distribution staging": "tools/verify_publish_artifacts.py prepare-pypi-dist",
@@ -172,6 +195,10 @@ def _check_release_workflows(errors: list[str]) -> None:
             "GitHub Release only after PyPI": "Create or update GitHub Release",
         },
     )
+    if PUBLISH_WORKFLOW.exists() and PUBLISH_WORKFLOW.read_text().count(LEGAL_ARTIFACT_VERIFY_COMMAND) == 1:
+        errors.append(
+            f"{PUBLISH_WORKFLOW.relative_to(REPO_ROOT)} must run the legal artifact verifier in both publish paths",
+        )
     _check_file_absent_fragments(
         errors,
         PUBLISH_WORKFLOW,
