@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import urllib.error
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -67,6 +68,45 @@ def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None
     errors = ci_matrix.check()
 
     assert errors.count(f"Required workflow {missing_workflow.relative_to(ci_matrix.REPO_ROOT)} is missing") == 1
+
+
+def test_ci_matrix_requires_legal_artifact_verifier_commands(monkeypatch) -> None:
+    release_candidate_text = ci_matrix.RELEASE_CANDIDATE_WORKFLOW.read_text().replace(
+        ci_matrix.LEGAL_ARTIFACT_VERIFY_COMMAND,
+        "",
+    )
+    publish_text = ci_matrix.PUBLISH_WORKFLOW.read_text().replace(ci_matrix.LEGAL_ARTIFACT_VERIFY_COMMAND, "")
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.RELEASE_CANDIDATE_WORKFLOW:
+            return release_candidate_text
+        if path == ci_matrix.PUBLISH_WORKFLOW:
+            return publish_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/release-candidate.yml is missing legal artifact verifier" in errors
+    assert ".github/workflows/publish.yml is missing legal artifact verifier" in errors
+
+
+def test_ci_matrix_requires_legal_artifact_verifier_in_both_publish_paths(monkeypatch) -> None:
+    publish_text = ci_matrix.PUBLISH_WORKFLOW.read_text().replace(ci_matrix.LEGAL_ARTIFACT_VERIFY_COMMAND, "", 1)
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.PUBLISH_WORKFLOW:
+            return publish_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/publish.yml must run the legal artifact verifier in both publish paths" in errors
 
 
 def test_benchmark_regression_check_blocks_release(tmp_path, monkeypatch) -> None:

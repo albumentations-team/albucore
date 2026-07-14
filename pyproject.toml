@@ -10,7 +10,8 @@ version = "0.2.4"
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
 keywords = [ "deep learning", "image processing" ]
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 maintainers = [ { name = "Vladimir Iglovikov" } ]
 
 authors = [ { name = "Vladimir Iglovikov" } ]
@@ -53,7 +54,25 @@ packages = ["albucore"]
 include = ["albucore/py.typed"]
 
 [tool.hatch.build.targets.sdist]
-exclude = ["tests/**", "benchmarks/**", "benchmark/**", "conda.recipe/**"]
+exclude = [
+  "CLA.md",
+  "legal/**",
+  "_internal/**",
+  "private/**",
+  "data/private/**",
+  "**/*signature*",
+  "**/*signer*",
+  "**/*acceptance*record*/**",
+  "**/*entity*acceptance*/**",
+  "**/*cla*assistant*/**",
+  "dist/**",
+  "**/*.whl",
+  "**/*.tar.gz",
+  "tests/**",
+  "benchmarks/**",
+  "benchmark/**",
+  "conda.recipe/**",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

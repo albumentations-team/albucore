@@ -18,6 +18,12 @@ repos:
         entry: uv lock --check
         language: system
         pass_filenames: false
+      - id: check-legal-integrity
+        name: Check license and CLA provenance integrity
+        entry: python tools/verify_legal_integrity.py
+        language: system
+        pass_filenames: false
+        files: ^(LICENSE$|CLA\.md$|CONTRIBUTING\.md$|README\.md$|legal/cla/|pyproject\.toml$|docs/maintaining/license-provenance\.md$|tools/verify_legal_integrity\.py$|tests/test_legal_integrity\.py$|\.github/workflows/(legal-integrity|release-candidate|publish)\.yml$)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
