@@ -1,0 +1,43 @@
+name: Legal Integrity
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legal_integrity:
+    name: License, CLA, and package notices
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.11"
+          activate-environment: true
+
+      - name: Verify source-tree legal integrity
+        run: python tools/verify_legal_integrity.py
+
+      - name: Test legal-integrity verifier
+        run: uv run --no-project --with pytest pytest --noconftest -q tests/test_legal_integrity.py
+
+      - name: Build wheel and source distribution
+        run: uv build --out-dir "${RUNNER_TEMP}/albucore-legal-dist"
+
+      - name: Verify distribution license and CLA exclusion
+        run: >-
+          python tools/verify_legal_integrity.py --artifacts
+          "${RUNNER_TEMP}"/albucore-legal-dist/*.whl
+          "${RUNNER_TEMP}"/albucore-legal-dist/*.tar.gz
+
+      - name: Check distribution metadata
+        run: uv tool run --from twine twine check "${RUNNER_TEMP}"/albucore-legal-dist/*

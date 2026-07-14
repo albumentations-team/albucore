@@ -210,6 +210,7 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for det
 
 ## Documentation
 
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Pull request process and CLA acceptance paths
 - [AGENTS.md](AGENTS.md) - AI development guidelines for working with this codebase
 - [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
 - [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
@@ -221,7 +222,13 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for det
 
 ## License
 
-MIT
+Albucore is publicly available under the [MIT License](LICENSE), including
+contributions accepted under the
+[Albucore Contributor License Agreement Version 1.0](CLA.md). The CLA does not
+change the repository's public license. Historical contributions remain
+available under MIT and become CLA-covered only through an applicable Version
+1.0 Acceptance Record. See [CONTRIBUTING.md](CONTRIBUTING.md) for the individual
+CLA Assistant and entity acceptance paths.
 
 ## Acknowledgements
 

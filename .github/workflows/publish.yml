@@ -46,6 +46,9 @@ jobs:
           run-id: ${{ inputs.candidate_run_id }}
           github-token: ${{ github.token }}
 
+      - name: Verify distribution license and CLA integrity
+        run: python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz
+
       - name: Verify release candidate provenance and artifacts
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
@@ -147,8 +150,14 @@ jobs:
           python tools/validate_release_candidate.py ci-runs \
             --runs-json /tmp/albucore-ci-runs.json
 
+      - name: Verify license and CLA provenance
+        run: python tools/verify_legal_integrity.py
+
       - name: Build distributions
         run: uv build
+
+      - name: Verify distribution license and CLA integrity
+        run: python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz
 
       - name: Install release validation dependencies
         run: uv sync --frozen --extra headless --group dev
