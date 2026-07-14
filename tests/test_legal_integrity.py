@@ -99,6 +99,18 @@ def test_source_legal_integrity_with_windows_default_encoding(monkeypatch) -> No
     assert collect_source_errors() == []
 
 
+def test_pre_commit_legal_integrity_hook_always_runs() -> None:
+    config_lines = (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8").splitlines()
+    hook_start = config_lines.index("      - id: check-legal-integrity")
+    hook_lines: list[str] = []
+    for line in config_lines[hook_start + 1 :]:
+        if not line.startswith("        "):
+            break
+        hook_lines.append(line)
+
+    assert "        always_run: true" in hook_lines
+
+
 def test_cli_reports_missing_required_file_without_artifacts(tmp_path, monkeypatch, capsys) -> None:
     missing_file = "LICENSE"
     for relative_path in REQUIRED_SOURCE_FILES:
