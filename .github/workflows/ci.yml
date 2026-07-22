@@ -14,7 +14,38 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  change_scope:
+    name: Classify change scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_tests: ${{ steps.classify.outputs.run_tests }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Classify version-only changes
+        id: classify
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python tools/classify_ci_changes.py
+          --repo .
+          "${BASE_REVISION}"
+          "${HEAD_REVISION}"
+          >> "${GITHUB_OUTPUT}"
+
   test:
+    needs: change_scope
+    if: needs.change_scope.outputs.run_tests == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -85,6 +116,8 @@ jobs:
           fail_ci_if_error: false
 
   declared-dependency-ranges:
+    needs: change_scope
+    if: needs.change_scope.outputs.run_tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
