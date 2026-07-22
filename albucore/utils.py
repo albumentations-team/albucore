@@ -257,6 +257,7 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
 
     Raises:
         TypeError: If value is of unsupported type
+        ValueError: If a channel vector has fewer values than the target image has channels
     """
     # Handle scalar types
     if isinstance(value, (float, int, np.float32, np.float64)):
@@ -273,7 +274,14 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
             return value
 
         # Handle 1D arrays
-        if len(value) == 1 or num_channels == 1 or len(value) < num_channels:
+        num_values = len(value)
+        if num_values == 1:
+            return float(value[0])
+
+        if num_values < num_channels:
+            raise ValueError(f"Expected a scalar or at least {num_channels} values, got {num_values}")
+
+        if num_channels == 1:
             return float(value[0])
 
         return value[:num_channels]
