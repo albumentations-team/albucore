@@ -52,6 +52,12 @@ def test_convert_value(value, num_channels, expected):
     else:
         assert result == expected
 
+
+def test_convert_value_rejects_channel_vector_with_fewer_values_than_channels() -> None:
+    with pytest.raises(ValueError, match=r"Expected a scalar or at least 3 values, got 2"):
+        convert_value(np.array([1.5, 2.5], dtype=np.float32), num_channels=3)
+
+
 @contiguous
 def process_image(img: np.ndarray) -> np.ndarray:
     # For demonstration, let's just return a non-contiguous view
