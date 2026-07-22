@@ -80,6 +80,10 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow is missing declared-dependency-ranges job")
     if "tools/check_router_contracts.py" not in text:
         errors.append("CI workflow does not run router contract check")
+    if "python tools/classify_ci_changes.py" not in text:
+        errors.append("CI workflow is missing version-only change classifier")
+    if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 2:
+        errors.append("CI workflow does not gate both test jobs on change scope")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
 
