@@ -70,6 +70,27 @@ def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None
     assert errors.count(f"Required workflow {missing_workflow.relative_to(ci_matrix.REPO_ROOT)} is missing") == 1
 
 
+def test_ci_matrix_requires_version_only_test_gating(monkeypatch) -> None:
+    ci_text = (
+        ci_matrix.CI_WORKFLOW.read_text()
+        .replace("python tools/classify_ci_changes.py", "")
+        .replace("if: needs.change_scope.outputs.run_tests == 'true'", "")
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI workflow is missing version-only change classifier" in errors
+    assert "CI workflow does not gate both test jobs on change scope" in errors
+
+
 def test_ci_matrix_requires_legal_artifact_verifier_commands(monkeypatch) -> None:
     release_candidate_text = ci_matrix.RELEASE_CANDIDATE_WORKFLOW.read_text().replace(
         ci_matrix.LEGAL_ARTIFACT_VERIFY_COMMAND,
