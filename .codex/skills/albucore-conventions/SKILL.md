@@ -5,6 +5,9 @@ description: Albucore image processing conventions - shapes (H,W,C), dtypes (uin
 
 # Albucore Conventions
 
+For runtime implementation or review, also read `../performance-optimization/SKILL.md` and its canonical reference
+completely before acting.
+
 ## When to Apply
 
 - Implementing or changing code under `albucore/`.
@@ -45,6 +48,7 @@ No float64 in public paths. Raise `ValueError` for unsupported dtypes.
 
 - Do not assume LUT is fastest for uint8; benchmark.
 - NumKong is used where benchmarks win (`blend`, `moments`, `scale`, `cdist`, etc.); see `docs/numkong-performance.md`.
+- StringZilla is a candidate for uint8 translation paths; compare it with the public LUT router and OpenCV.
 - OpenCV has a 4-channel limit for many ops. Use `MAX_OPENCV_WORKING_CHANNELS`, then fall back to NumPy or chunking for more channels.
 - Route from benchmark evidence in `benchmarks/` and `docs/numkong-performance.md`, not convention.
 
