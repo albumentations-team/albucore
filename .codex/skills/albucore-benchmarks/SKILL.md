@@ -5,6 +5,11 @@ description: Running Albucore micro-benchmarks under benchmarks/, synthetic rout
 
 # Albucore Benchmarks
 
+Before designing a performance comparison, read `../performance-optimization/SKILL.md` and
+`../../../docs/performance-optimization.md` completely. Extend the benchmark along the dimension that controls the
+candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random
+generation.
+
 ## Layout
 
 - `benchmarks/` - Python timing scripts. Run from repo root: `uv run python benchmarks/<script>.py`.

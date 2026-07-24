@@ -43,6 +43,9 @@ Repo-specific Codex skills live in `.codex/skills/`:
 
 - `albucore-conventions` - Apply when implementing or reviewing image-processing code, tests, shape handling, dtype handling, and backend routing.
 - `albucore-benchmarks` - Apply when adding benchmarks, comparing versions, or documenting benchmark workflow.
+- `performance-optimization` - Apply for every runtime implementation, review, profile, or optimization. It loads
+  `docs/performance-optimization.md` completely and runs the delete-first, vectorization, grouped-reduction, LUT, RNG,
+  backend, extraction, and safe in-place audit.
 - `albucore-public-api` - Apply when changing exports, documenting API status, or deciding what belongs in package `__all__`.
 
 Keep these skills aligned with `AGENTS.md` and the docs above when conventions change.
@@ -211,24 +214,30 @@ return operation_opencv(img, value)
 
 ## Performance Guidelines
 
-1. **Routing is benchmark-driven** — LUT, OpenCV, NumPy: use whichever is fastest. Don't assume LUT wins for uint8.
-2. **NumKong** is used where benchmarks win (`blend`, `moments`, `scale`, `cdist`, etc.); see `docs/numkong-performance.md`.
-3. **NumPy** is usually best for >4 channels because OpenCV has a 4-channel limit for many operations.
-4. **Always cast LUTs to float32** to avoid dtype promotion issues. OpenCV statistics functions often return float64 values; cast the small LUT table to float32 instead of widening the output array.
-5. **For uint8 LUT paths**, pass a uint8 source image to `cv2.LUT`; the lookup table may be float32 when the output should be float32.
-6. **Use in-place operations** when safe to reduce memory allocation.
+Read `docs/performance-optimization.md` and use the `performance-optimization` skill for the complete required pass.
+
+1. Delete redundant work and full-array passes before selecting a backend.
+2. Vectorize loops when the benchmark supports the resulting memory layout.
+3. Consider `np.bincount` for grouped reductions over dense non-negative integer labels.
+4. Compare applicable NumPy, OpenCV, NumKong, StringZilla, LUT, and small Python implementations end to end.
+5. Compare Python, NumPy, and OpenCV random generation without breaking seeded isolation or replay.
+6. Route by benchmarked dtype, shape, channel, size, contiguity, and allocation regions.
+7. Cast float LUTs to float32 and keep full working arrays from widening to float64.
+8. Use in-place operations when ownership and aliasing make them safe.
 
 ## Questions to Ask
 
 When implementing a new function, consider:
 
 1. **Supported dtypes: uint8 and float32 only**
-2. Benchmark LUT vs OpenCV vs NumPy — use the fastest. Don't assume LUT wins.
-3. Does OpenCV support this operation? What's the behavior for >4 channels?
-4. Should this support batches/volumes?
-5. Are there any edge cases with single-channel images?
-6. What should the output dtype be?
-7. Is an in-place option appropriate?
+2. Can any work, full-array pass, conversion, or allocation be deleted?
+3. Can loops be vectorized or dense labels be reduced with `np.bincount`?
+4. Is the operation a LUT, reduction, fused arithmetic kernel, or existing Albucore atom?
+5. Which NumPy, OpenCV, NumKong, StringZilla, LUT, Python, or random-generation candidates apply?
+6. Does OpenCV support the channel count, rank, layout, and aliasing mode?
+7. Should this support batches and volumes?
+8. What should the output dtype and mutation contract be?
+9. Is an in-place option safe and measurably faster?
 
 ## Resources
 
