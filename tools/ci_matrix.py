@@ -276,6 +276,7 @@ def _check_cla_status_workflow(errors: list[str]) -> None:
             "read-only status permission": "statuses: read",
             "CLA reporter job": "CLA status reported",
             "hosted CLA context": "license/cla",
+            "paginated status lookup": "--paginate --slurp",
             "CLA Assistant recheck URL": "https://cla-assistant.io/check/",
             "maintainer recovery procedure": "docs/maintaining/license-provenance.md",
         },

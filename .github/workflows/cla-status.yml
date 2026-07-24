@@ -38,9 +38,9 @@ jobs:
           fi
 
           for attempt in {1..12}; do
-            cla_state="$(gh api \
-              "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/statuses" \
-              --jq 'map(select(.context == "license/cla")) | sort_by(.created_at) | reverse | .[0].state // ""')"
+            cla_state="$(gh api --paginate --slurp \
+              "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/statuses?per_page=100" |
+              jq -r 'add | map(select(.context == "license/cla")) | sort_by(.created_at) | reverse | .[0].state // ""')"
 
             if [[ -n "${cla_state}" ]]; then
               echo "CLA Assistant reported license/cla=${cla_state} for ${HEAD_SHA}."
