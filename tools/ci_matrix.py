@@ -18,6 +18,7 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
 LEGAL_INTEGRITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "legal-integrity.yml"
+CLA_STATUS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "cla-status.yml"
 PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
@@ -265,6 +266,30 @@ def _check_security_workflow(errors: list[str]) -> None:
         errors.append("Security workflow dev audit must omit the editable project from exported requirements")
 
 
+def _check_cla_status_workflow(errors: list[str]) -> None:
+    _check_file_fragments(
+        errors,
+        CLA_STATUS_WORKFLOW,
+        {
+            "pull request trigger": "pull_request:",
+            "manual recovery trigger": "workflow_dispatch:",
+            "read-only status permission": "statuses: read",
+            "CLA reporter job": "CLA status reported",
+            "hosted CLA context": "license/cla",
+            "CLA Assistant recheck URL": "https://cla-assistant.io/check/",
+            "maintainer recovery procedure": "docs/maintaining/license-provenance.md",
+        },
+    )
+    _check_file_absent_fragments(
+        errors,
+        CLA_STATUS_WORKFLOW,
+        {
+            "status write permission": "statuses: write",
+            "pull-request write permission": "pull-requests: write",
+        },
+    )
+
+
 def check() -> list[str]:
     """Return support-matrix consistency errors."""
     errors: list[str] = []
@@ -274,6 +299,7 @@ def check() -> list[str]:
         _check_support_policy(errors, versions)
         _check_release_workflow(errors)
         _check_security_workflow(errors)
+        _check_cla_status_workflow(errors)
     return errors
 
 

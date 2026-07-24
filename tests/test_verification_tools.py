@@ -130,6 +130,23 @@ def test_ci_matrix_requires_legal_artifact_verifier_in_both_publish_paths(monkey
     assert ".github/workflows/publish.yml must run the legal artifact verifier in both publish paths" in errors
 
 
+def test_ci_matrix_rejects_cla_status_write_permission(monkeypatch) -> None:
+    cla_status_text = ci_matrix.CLA_STATUS_WORKFLOW.read_text().replace("statuses: read", "statuses: write")
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CLA_STATUS_WORKFLOW:
+            return cla_status_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/cla-status.yml is missing read-only status permission" in errors
+    assert ".github/workflows/cla-status.yml must not contain status write permission" in errors
+
+
 def test_benchmark_regression_check_blocks_release(tmp_path, monkeypatch) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"

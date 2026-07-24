@@ -1,0 +1,67 @@
+name: CLA Status Reporter
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number to inspect
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  cla-status:
+    name: CLA status reported
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Wait for hosted CLA status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request }}
+        run: |
+          if [[ -z "${HEAD_SHA}" ]]; then
+            HEAD_SHA="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              --jq '.head.sha')"
+          fi
+
+          for attempt in {1..12}; do
+            cla_state="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/statuses" \
+              --jq 'map(select(.context == "license/cla")) | sort_by(.created_at) | reverse | .[0].state // ""')"
+
+            if [[ -n "${cla_state}" ]]; then
+              echo "CLA Assistant reported license/cla=${cla_state} for ${HEAD_SHA}."
+              exit 0
+            fi
+
+            if [[ "${attempt}" -lt 12 ]]; then
+              sleep 5
+            fi
+          done
+
+          recheck_url="https://cla-assistant.io/check/${GITHUB_REPOSITORY}?pullRequest=${PR_NUMBER}"
+          {
+            echo "## CLA Assistant did not report a status"
+            echo
+            echo "No \`license/cla\` commit status appeared for \`${HEAD_SHA}\` within one minute."
+            echo
+            echo "1. Open [CLA Assistant recheck](${recheck_url}) while signed in to GitHub."
+            echo "2. If the status is still absent, sign in at https://cla-assistant.io/ and run **Recheck PRs**."
+            echo "3. Follow the maintainer recovery procedure in \`docs/maintaining/license-provenance.md\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          echo "::error title=CLA Assistant did not report license/cla::Open ${recheck_url}"
+          exit 1
