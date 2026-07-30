@@ -29,6 +29,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | Large Markdown tables: `add_weighted`, global mean/std, per-channel stats — matches methodology in [`docs/numkong-performance.md`](../docs/numkong-performance.md). |
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
+| [`benchmark_elementwise.py`](benchmark_elementwise.py) | Public `exp`/`log`/`sqrt` vs NumPy/OpenCV: canonical non-square HWC C=1/3/9, DHWC/NDHWC, tiny Python `math`, strided, safe in-place, and NumKong `minmax` as a `log` guard. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
 | [`benchmark_reduce_sum.py`](benchmark_reduce_sum.py) | `albucore.stats.reduce_sum` (NumKong uint8 routing) vs `numpy.sum` global / per-channel. |
 | [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories). Defaults **`--repeats 21`**, **`--warmup 5`**; JSON includes spread (`ms_std`, `ms_mad`). **`sz_lut`** bench uses **`inplace=False`** so the image is not mutated across iterations. **`--skip-ops`** omits routers (no rows). **`--benchmark-label`** stored in JSON meta. |
@@ -80,6 +81,7 @@ policy.
 | [`benchmark_add_constant_uint8_channels.py`](benchmark_add_constant_uint8_channels.py) | **`add_constant`** | **`add_constant_numkong`** | **`add_opencv`** | **`add_lut`** | Saturated int16 reference |
 | [`benchmark_scale_vs_lut.py`](benchmark_scale_vs_lut.py) | No | **`nk.scale`** | **`cv2.LUT`** | **`sz_lut` full-buffer** | — |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | No | **Yes** | If installed | — | **Yes** |
+| [`benchmark_elementwise.py`](benchmark_elementwise.py) | **Yes** | `minmax` guard candidate | **Yes** | — | **Yes** |
 
 The **router** JSON is the regression guard vs an older wheel; it does **not** sweep alternate backends for the same op. Use the **multi-backend** scripts when checking “are we missing a faster library path?”.
 

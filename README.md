@@ -6,20 +6,20 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=albumentations-team/albucore@github)](https://gitads.dev/v1/ad-track?source=albumentations-team/albucore@github)
 
-Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), a popular image augmentation library.
+Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), an image augmentation library.
 
 ## Overview
 
-Image processing operations can be implemented in various ways, each with its own performance characteristics depending on the image type, size, and number of channels. Albucore aims to provide the fastest implementation for each operation by leveraging different backends such as NumPy, OpenCV, and custom optimized code.
+Image processing operations can be implemented in several ways, with performance depending on dtype, size, layout, and channel count. Albucore routes each operation to a benchmark-selected NumPy, OpenCV, NumKong, or StringZilla implementation.
 
-**Supported dtypes:** `uint8` and `float32` only.
+Most image-processing routers support `uint8` and `float32`. The elementwise `exp`, `log`, and `sqrt` routers are `float32`-only; conversion helpers also support additional integer dtypes.
 
 Key features:
 
 - Optimized atomic image processing functions
 - Automatic selection of the fastest implementation based on input image characteristics
 - Seamless integration with AlbumentationsX
-- Benchmark scripts available (see `./benchmark.sh <data_dir>`)
+- Reproducible micro-benchmarks and committed routing reports (see [benchmarks/README.md](benchmarks/README.md))
 
 ## Installation
 
@@ -109,9 +109,9 @@ batch_volumes = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
 
 ## Functions
 
-All symbols below are exported via `from albucore import *` (or `from albucore.functions import …`).
-Every function accepts `uint8` and `float32` images; inputs must have an explicit channel dimension
-(`(H, W, C)` — never bare `(H, W)`).
+The tables below highlight commonly used public routers. They are exported via `from albucore import *` and can also be imported from `albucore.functions`. See [docs/public-api.md](docs/public-api.md) for the complete export list and the distinction between public routers and backend-specific compatibility shims.
+
+Image routers use channel-last inputs with an explicit channel dimension (`(H, W, C)`, never bare `(H, W)`) and generally support `uint8` and `float32`. Exceptions are stated in the tables.
 
 ### Arithmetic
 
@@ -121,10 +121,20 @@ Every function accepts `uint8` and `float32` images; inputs must have an explici
 | `add` | `(img, value, inplace=False)` | `img + value`, clipped to dtype range | uint8 scalar → OpenCV saturate; uint8 vector → LUT; uint8 array → NumKong/OpenCV; float32 → NumPy |
 | `power` | `(img, exponent, inplace=False)` | `img ** exponent`, clipped to dtype range | uint8 → LUT; float32 scalar → `cv2.pow`; float32 array → NumPy |
 | `add_weighted` | `(img1, weight1, img2, weight2)` | `img1*w1 + img2*w2`, clipped | NumKong SIMD `blend`; large float32 → `cv2.addWeighted` |
-| `multiply_add` | `(img, factor, value, inplace=False)` | `img * factor + value`, clipped | uint8 → LUT (fused, one table); float32 → NumPy broadcast |
+| `multiply_add` | `(img, factor, value, inplace=False)` | `img * factor + value`, clipped | uint8 → LUT (fused, one table); large scalar float32 → NumKong `scale`; other float32 → NumPy broadcast |
 
 `value` / `factor` / `exponent` can be a scalar, a length-`C` 1-D array (per-channel), or a
 full image-shaped array.
+
+### Elementwise math
+
+| Function | Signature | What it does | How it works |
+|---|---|---|---|
+| `exp` | `(array, *, inplace=False)` | Elementwise exponential; float32 only | Small arrays → NumPy; large contiguous or strided arrays → OpenCV at benchmark-derived thresholds |
+| `log` | `(array, *, inplace=False)` | NumPy-compatible natural logarithm; float32 only | NumPy for special values and small/unsupported layouts; guarded OpenCV path for eligible large arrays |
+| `sqrt` | `(array, *, inplace=False)` | NumPy-compatible square root; float32 only | NumPy wins across the benchmark grid |
+
+These functions accept float32 arrays of any rank and preserve the exact input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
 
 ### Normalization
 
@@ -140,10 +150,10 @@ full image-shaped array.
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `mean` | `(arr, axis=None, *, keepdims=False, dtype=None)` | Population mean | uint8 global → NumKong `moments`; per-channel HWC ≤ 4ch → `cv2.mean`; else NumPy |
-| `std` | `(arr, axis=None, *, keepdims=False, eps=1e-4, dtype=None)` | Population std + eps | uint8 global → NumKong `moments`; per-channel HWC ≤ 4ch → `cv2.meanStdDev`; else NumPy |
-| `mean_std` | `(arr, axis=None, *, keepdims=False, eps=1e-4)` | Mean and std+eps jointly | Single NumKong `moments` pass for uint8 global (faster than separate `mean`+`std`) |
-| `reduce_sum` | `(arr, axis=None, *, keepdims=False)` | Sum with wide accumulator | uint8 → NumKong (avoids uint8 overflow); float32 → `np.sum(dtype=float64)` |
+| `mean` | `(arr, axis=None, *, keepdims=False, dtype=None)` | Population mean | uint8 global → NumKong `sum`; per-channel routes among NumKong, OpenCV, and NumPy by rank/channel count |
+| `std` | `(arr, axis=None, *, keepdims=False, eps=1e-4, dtype=None)` | Population std + eps | uint8 global → NumKong `moments`; per-channel routes among NumKong, OpenCV, and NumPy |
+| `mean_std` | `(arr, axis=None, *, keepdims=False, eps=1e-4)` | Mean and std+eps jointly | Single NumKong `moments` pass for uint8 global; selected per-channel paths use NumKong or OpenCV |
+| `reduce_sum` | `(arr, axis=None, *, keepdims=False)` | Sum with wide accumulator | uint8 and selected float32 per-channel layouts → NumKong; other float32 routes use a float64 NumPy accumulator |
 
 `axis` accepts `None`/`"global"` (scalar), `"per_channel"` (shape `(C,)`), or any NumPy-style
 `int`/`tuple[int, ...]`.
@@ -159,11 +169,13 @@ full image-shaped array.
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked for >512 channels |
+| `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked above OpenCV's 128-channel limit |
 | `vflip` | `(img)` | Mirror top-bottom | `cv2.flip(img, 0)` for ≤4 channels; NumPy slice for >4 channels |
 | `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | `cv2.medianBlur`; ksize ≥ 7 falls back to chunk processing for >4 channels. Accepts float32 via `@uint8_io` |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
+
+The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `warp_affine`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures.
 
 ### Type conversion
 
@@ -182,16 +194,16 @@ full image-shaped array.
 See [docs/decorators.md](docs/decorators.md) for `@preserve_channel_dim`, `@contiguous`,
 `@clipped`, and `@batch_transform` (used internally, not re-exported).
 
-### Batch Processing
+### Array layouts and batch processing
 
-Many functions in Albucore support batch processing out of the box. The library automatically handles different input shapes:
+Arithmetic, normalization, statistics, conversion, and elementwise routers operate on channel-last arrays and preserve these layouts where applicable:
 
 - Single images: `(H, W, C)`
 - Batches: `(N, H, W, C)`
 - Volumes: `(D, H, W, C)`
 - Batch of volumes: `(N, D, H, W, C)`
 
-Functions will preserve the input shape structure, applying operations efficiently across all images/slices in the batch.
+Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to batches and volumes while restoring the original layout.
 
 See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@contiguous`, `@clipped`, `@batch_transform`).
 
@@ -199,12 +211,12 @@ See [docs/decorators.md](docs/decorators.md) for internal decorator documentatio
 
 Albucore uses a combination of techniques to achieve high performance:
 
-1. **Multiple Implementations**: Each function may have several implementations using different backends (NumPy, OpenCV, custom code).
-2. **Automatic Selection**: The library automatically chooses the fastest implementation based on the input image type, size, and number of channels.
-3. **Optimized Algorithms**: Custom implementations are optimized for specific use cases, often outperforming general-purpose libraries.
-4. **NumKong**: SIMD `blend` for `add_weighted`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for **uint8** global mean/std in `stats`; `scale` for **float32** `multiply_by_constant` (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, or StringZilla.
+2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
+3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
+4. **NumKong**: SIMD `blend` for uint8 `add_weighted` and same-shaped `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 
-Micro-benchmarks vs NumPy/OpenCV: see [benchmarks/README.md](benchmarks/README.md); quick run: `uv run python benchmarks/benchmark_numkong.py` (OpenCV rows are skipped if `cv2` is not installed).
+Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 
 See [docs/performance-optimization.md](docs/performance-optimization.md) for detailed performance guidelines and best practices.
 
@@ -232,6 +244,6 @@ CLA Assistant and entity acceptance paths.
 
 ## Acknowledgements
 
-Albucore is part of the [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX) project. We'd like to thank all contributors to [AlbumentationsX](https://albumentations.ai/people) and the broader computer vision community for their inspiration and support.
+Albucore provides core image-processing primitives for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX). We'd like to thank all [AlbumentationsX contributors](https://albumentations.ai/people) and the broader computer vision community for their inspiration and support.
 
 <!-- GitAds-Verify: 1LSAKH1Y2GKIISALRDIFCG2T9YYNR5WD -->
