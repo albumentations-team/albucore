@@ -61,9 +61,11 @@ _FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
     "add_vector",
     "add_weighted",
     "apply_uint8_lut",
+    "exp",
     "float32_io",
     "from_float",
     "hflip",
+    "log",
     "matmul",
     "mean",
     "mean_std",
@@ -79,6 +81,7 @@ _FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
     "power",
     "reduce_sum",
     "std",
+    "sqrt",
     "sz_lut",
     "to_float",
     "uint8_io",
@@ -413,6 +416,28 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def exponential(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        array = img * np.float32(4.0) - np.float32(2.0)
+
+        def thunk() -> None:
+            alb.exp(array)
+
+        return thunk
+
+    def logarithm(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        array = img + np.float32(0.1)
+
+        def thunk() -> None:
+            alb.log(array)
+
+        return thunk
+
+    def square_root(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.sqrt(img)
+
+        return thunk
+
     def mb(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
             alb.median_blur(img, 3)
@@ -484,6 +509,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("add_constant", add_const),
         ("add_vector", add_vec),
         ("add_weighted", aw),
+        ("exp", exponential),
         ("multiply", mul_c),
         ("multiply_add", ma),
         ("multiply_by_array", mul_arr),
@@ -492,6 +518,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("normalize", norm),
         ("normalize_per_image", npi),
         ("hflip", hf),
+        ("log", logarithm),
         ("vflip", vf),
         ("median_blur", mb),
         ("matmul", add_c),  # placeholder — replaced by special-case
@@ -505,6 +532,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("reduce_sum_per_channel", rs_pc),
         ("std", st),
         ("std_per_channel", st_pc),
+        ("sqrt", square_root),
         ("sz_lut", lut),
         ("to_float", tf),
         ("from_float", ff),
@@ -638,7 +666,7 @@ def main() -> None:
         "reduce_sum_per_channel",
     }
     skip_uint8_only = {"apply_uint8_lut", "median_blur", "sz_lut", "to_float"}
-    skip_float_only = {"from_float"}
+    skip_float_only = {"exp", "from_float", "log", "sqrt"}
 
     declared = getattr(alb_fn, "__all__", None)
     if declared is not None:

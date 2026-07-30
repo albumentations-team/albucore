@@ -3,6 +3,7 @@
 
 from albucore.arithmetic import *
 from albucore.convert import *
+from albucore.elementwise import *
 from albucore.lut import apply_uint8_lut, sz_lut
 from albucore.normalize import *
 from albucore.ops_misc import *
@@ -15,9 +16,11 @@ __all__: list[str] = [
     "add_vector",
     "add_weighted",
     "apply_uint8_lut",
+    "exp",
     "float32_io",
     "from_float",
     "hflip",
+    "log",
     "matmul",
     "mean",
     "mean_std",
@@ -32,6 +35,7 @@ __all__: list[str] = [
     "pairwise_distances_squared",
     "power",
     "reduce_sum",
+    "sqrt",
     "std",
     "sz_lut",
     "to_float",

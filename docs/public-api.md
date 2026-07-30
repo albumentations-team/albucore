@@ -7,6 +7,7 @@
 User-facing entry points with benchmark-driven backends inside:
 
 - **Arithmetic / weighted:** `add`, `add_constant`, `add_array`, `add_vector`, `add_weighted`, `multiply`, `multiply_by_constant`, `multiply_by_vector`, `multiply_by_array`, `multiply_add`, `power`, `normalize`, `normalize_per_image`
+- **Elementwise float32:** `exp`, `log`, `sqrt` (NumPy-compatible special values, exact shape preservation, safe owned-buffer `inplace`)
 - **Uint8 LUT (`albucore.lut`):** `sz_lut`, `apply_uint8_lut` (StringZilla + OpenCV routing; re-exported on `albucore` for star imports)
 - **I/O:** `to_float`, `from_float`
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
@@ -21,7 +22,7 @@ User-facing entry points with benchmark-driven backends inside:
 
 Import explicitly from `albucore.functions` for tests and golden references:
 
-- Backend-specific: `*_numpy`, `*_opencv`, `*_lut`, `*_cv2`, `hflip_numpy`, `vflip_numpy`
+- Backend-specific: `*_numpy`, `*_opencv`, `*_lut`, `*_cv2`, `hflip_numpy`, `vflip_numpy`; this includes `exp_numpy`/`exp_opencv`, `log_numpy`/`log_opencv`, and `sqrt_numpy`/`sqrt_opencv`
 - NumKong helpers: `add_weighted_numkong`, `add_array_numkong`, `multiply_by_constant_numkong` (`albucore.functions`); `add_constant_numkong` lives on [`albucore.weighted`](../albucore/weighted.py) only
 - LUT plumbing: `create_lut_array`, `apply_lut`, `prepare_value_opencv`, `apply_numpy`
 
@@ -34,3 +35,4 @@ Names prefixed with `_` or used only inside albucore (not stable API).
 - `from albucore import *` no longer exposes backend-specific helpers (`add_opencv`, `normalize_per_image_numpy`, …). Import them explicitly: `from albucore.functions import add_opencv`.
 - Deprecated **SimSimd** aliases are removed; use `add_weighted_numkong` (and other `*_numkong` helpers) from `albucore.functions` if needed.
 - New stats entrypoints: `from albucore.stats import mean, std, mean_std, reduce_sum` (also re-exported on `albucore` for star-import users).
+- New float32 elementwise entrypoints: `from albucore import exp, log, sqrt`.
