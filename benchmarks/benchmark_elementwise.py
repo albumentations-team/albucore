@@ -63,6 +63,17 @@ STANDARD_SHAPES: tuple[tuple[str, tuple[int, ...]], ...] = (
     *(("NDHWC", shape) for shape in NDHWC_SHAPES),
 )
 TINY_SIZES: tuple[int, ...] = (1, 4, 16, 64, 256, 1_024, 4_096, 16_384, 65_536)
+STRIDED_LOG_CHANNELS: tuple[int, ...] = tuple(range(1, 13))
+STRIDED_LOG_SIZE_HW: tuple[tuple[int, int], ...] = (
+    (8, 10),
+    (16, 20),
+    (32, 40),
+    (64, 80),
+    (96, 128),
+    (128, 160),
+    (192, 256),
+    (240, 320),
+)
 FLOAT32_TINY = np.finfo(np.float32).tiny
 PYTHON_MATH: dict[str, Callable[[float], float]] = {
     "exp": math.exp,
@@ -193,6 +204,42 @@ def _benchmark_tiny(repeats: int, warmup: int) -> list[str]:
     return rows
 
 
+def _benchmark_log_strided_channels(repeats: int, warmup: int) -> list[str]:
+    rows = [
+        "| logical HxW | channels | elements | NumPy ms | OpenCV-safe ms | OpenCV / NumPy | fastest |",
+        "|---:|---:|---:|---:|---:|---:|---|",
+    ]
+    for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024)):
+        for channels in STRIDED_LOG_CHANNELS:
+            array = _input("log", (height, width * 2, channels))[:, ::2, :]
+            numpy_t = bench_wall_ms(lambda: log_numpy(array), repeats, warmup)
+            opencv_t = bench_wall_ms(lambda: log_opencv(array), repeats, warmup)
+            fastest = "OpenCV-safe" if opencv_t.median < numpy_t.median else "NumPy"
+            rows.append(
+                f"| {height}x{width} | {channels} | {array.size} | {_format_timing(numpy_t)} | "
+                f"{_format_timing(opencv_t)} | {opencv_t.median / numpy_t.median:.2f}x | {fastest} |",
+            )
+    return rows
+
+
+def _benchmark_log_strided_sizes(repeats: int, warmup: int) -> list[str]:
+    rows = [
+        "| logical shape | elements | NumPy µs | OpenCV-safe µs | OpenCV / NumPy | fastest |",
+        "|---:|---:|---:|---:|---:|---|",
+    ]
+    for channels in (1, 8):
+        for height, width in STRIDED_LOG_SIZE_HW:
+            array = _input("log", (height, width * 2, channels))[:, ::2, :]
+            numpy_t = bench_wall_ms(lambda: log_numpy(array), repeats, warmup)
+            opencv_t = bench_wall_ms(lambda: log_opencv(array), repeats, warmup)
+            fastest = "OpenCV-safe" if opencv_t.median < numpy_t.median else "NumPy"
+            rows.append(
+                f"| {height}x{width}x{channels} | {array.size} | {numpy_t.median * 1_000:.3f} | "
+                f"{opencv_t.median * 1_000:.3f} | {opencv_t.median / numpy_t.median:.2f}x | {fastest} |",
+            )
+    return rows
+
+
 def _log_numkong_guard(array: np.ndarray, *, inplace: bool = False) -> np.ndarray:
     minimum, _, maximum, _ = nk.minmax(array)
     safe = (
@@ -234,7 +281,7 @@ def _report(repeats: int, warmup: int) -> str:
         "## Decision",
         "",
         "- `exp`: OpenCV at 4,096 elements for C-contiguous arrays and 65,536 elements for strided arrays; NumPy below those thresholds.",
-        "- `log`: OpenCV at 4,096 elements for C-contiguous arrays and at 65,536 elements for strided single-channel arrays, limited to positive, finite, normal float32 values. Two NumPy reductions guard the call. Other inputs use NumPy.",
+        "- `log`: OpenCV at 4,096 elements for C-contiguous arrays, at 8,192 elements for strided single-channel arrays, and at 65,536 elements for strided arrays with C>=8. Inputs must be positive, finite, and normal float32 values. Two NumPy reductions guard the call; other inputs use NumPy.",
         "- `sqrt`: NumPy for every layout. `np.sqrt(..., out=array)` avoids allocation for safe in-place calls, and OpenCV showed no durable win.",
         "- NumKong: the installed Python API exposes none of `exp`, `log`, or `sqrt`. Its `minmax` primitive was tested as the `log` guard; the required NaN scan made it slower than NumPy `min`/`max`.",
         "- Python `math`: a per-element loop was tested on the tiny sweep and lost even at one element once array conversion and output allocation were included.",
@@ -272,6 +319,18 @@ def _report(repeats: int, warmup: int) -> str:
         "## Tiny dispatch sweep",
         "",
         *_benchmark_tiny(max(repeats, 41), max(warmup, 10)),
+        "",
+        "## Strided log channel sweep",
+        "",
+        "This sweep varies the channel count that controls whether OpenCV's required strided-input copy earns its cost.",
+        "",
+        *_benchmark_log_strided_channels(repeats, warmup),
+        "",
+        "### Strided log size calibration",
+        "",
+        "Single-channel and C>=8 are the winning regions above; this sweep locates conservative total-element thresholds.",
+        "",
+        *_benchmark_log_strided_sizes(max(repeats, 41), max(warmup, 10)),
         "",
         "## NumKong as a log correctness guard",
         "",

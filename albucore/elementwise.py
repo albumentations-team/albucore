@@ -26,7 +26,8 @@ __all__ = [
 
 _OPENCV_CONTIGUOUS_MIN_ELEMENTS = 4_096
 _EXP_OPENCV_STRIDED_MIN_ELEMENTS = 65_536
-_LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS = 65_536
+_LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS = 8_192
+_LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS = 65_536
 _FLOAT32_TINY = np.finfo(np.float32).tiny
 
 
@@ -116,10 +117,10 @@ def log_opencv(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
 def log(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     """Compute the NumPy-compatible natural logarithm of a float32 array.
 
-    Large C-contiguous arrays and large strided single-channel arrays use OpenCV
-    only after verifying that all values are finite, positive, and normal. Other
-    inputs use NumPy, preserving its behavior for negative values, zero,
-    subnormals, NaN, and infinity.
+    Large C-contiguous arrays, strided single-channel arrays, and strided arrays
+    with at least eight channels use OpenCV only after verifying that all values
+    are finite, positive, and normal. Other inputs use NumPy, preserving its
+    behavior for negative values, zero, subnormals, NaN, and infinity.
 
     Args:
         array: Float32 array of any rank. Image-like inputs use channel-last shapes.
@@ -141,10 +142,18 @@ def log(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     mutate = _can_mutate(array, inplace)
     contiguous_candidate = array.flags["C_CONTIGUOUS"] and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS
     single_channel = array.ndim == 2 or (array.ndim >= 3 and array.shape[-1] == 1)
+    high_channel = array.ndim >= 3 and array.shape[-1] >= 8
+    strided_min_elements = (
+        _LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS
+        if single_channel
+        else _LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS
+        if high_channel
+        else None
+    )
     strided_candidate = (
         not array.flags["C_CONTIGUOUS"]
-        and single_channel
-        and array.size >= _LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS
+        and strided_min_elements is not None
+        and array.size >= strided_min_elements
         and not mutate
     )
     if contiguous_candidate or strided_candidate:

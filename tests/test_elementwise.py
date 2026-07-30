@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import albucore as ac
+import albucore.elementwise as elementwise
 
 Unary = Callable[..., np.ndarray]
 
@@ -127,6 +128,42 @@ def test_elementwise_operations_match_numpy_on_large_batch_volume_layouts(
     assert result.shape == shape
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, reference(array), rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize(
+    ("shape", "expected_opencv"),
+    [
+        ((64, 127, 1), False),
+        ((64, 128, 1), True),
+        ((64, 127, 8), False),
+        ((64, 128, 8), True),
+    ],
+)
+def test_log_strided_routing_boundaries(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, int, int],
+    expected_opencv: bool,
+) -> None:
+    height, width, channels = shape
+    base = np.linspace(0.1, 4.0, height * width * 2 * channels, dtype=np.float32).reshape(
+        height,
+        width * 2,
+        channels,
+    )
+    array = base[:, ::2, :]
+    called = False
+
+    def fake_log_opencv(value: np.ndarray, *, inplace: bool = False) -> np.ndarray:
+        nonlocal called
+        called = True
+        return np.log(value, out=value if inplace else None)
+
+    monkeypatch.setattr(elementwise, "log_opencv", fake_log_opencv)
+
+    result = ac.log(array)
+
+    assert called is expected_opencv
+    np.testing.assert_allclose(result, np.log(array), rtol=1e-6, atol=0.0)
 
 
 @pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
