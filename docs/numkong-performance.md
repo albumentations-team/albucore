@@ -9,6 +9,7 @@ uv sync --extra headless
 uv run python benchmarks/benchmark_numkong_vs_albucore_backends.py
 uv run python benchmarks/benchmark_multiply_add_numkong.py   # multiply/add vs scale, fma, blend
 uv run python benchmarks/benchmark_stats.py                  # mean_std vs NumPy reference (smoke timings)
+uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and NumKong guard candidate
 ```
 
 **Reference run** (embedded tables below): Darwin `arm64`, Apple M4 Max, numkong 7.0.0, numpy 2.4.x, opencv-python-headless 4.13.x — median ms, 9 repeats, 3 warmup, seed **42**.
@@ -32,6 +33,7 @@ uv run python benchmarks/benchmark_stats.py                  # mean_std vs NumPy
 | `multiply_by_array` | same | uint8, float32 | **Not `fma`** — **NumPy** `multiply_numpy` fastest vs OpenCV and `nk.fma` here (§2). |
 | `add_array` | same | uint8, float32 | **Shipped** — float32 → NumPy; uint8 same shape/dtype → **`add_array_numkong`**; else OpenCV. **No `inplace` kwarg** (in-place OpenCV was not a win vs NumKong out-of-place on same-shape uint8). |
 | `multiply_by_vector` / `add_vector` | same | uint8, float32 | **Keep LUT/OpenCV** — channel-wise **`scale` loop** mixed vs one prod pass (§2). |
+| `exp` / `log` / `sqrt` | 2D, HWC, XHWC, NDHWC | float32 | NumKong 7.7 exposes no matching elementwise primitives. `nk.minmax` was slower than NumPy `min`/`max` as the correctness guard for `cv2.log`; production routes between NumPy and OpenCV ([full report](../benchmarks/results/benchmark_elementwise.md)). |
 
 Scripts: **[`benchmarks/benchmark_numkong_vs_albucore_backends.py`](../benchmarks/benchmark_numkong_vs_albucore_backends.py)** (tables in §1–§3), **[`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py)** (multiply/add vs `scale` / `fma` / `blend`), **[`benchmarks/benchmark_numkong.py`](../benchmarks/benchmark_numkong.py)** (`cdist` / blend / scale-fma microbenches), **[`benchmarks/benchmark_minmax_ravel.py`](../benchmarks/benchmark_minmax_ravel.py)**.
 
@@ -269,6 +271,12 @@ For **float32**, **1024×1024**, **C=9**, **OpenCV** beats NumKong on this run (
 ### Global min, max, combined minmax on image ravel
 
 **NumPy** `min` / `max` / paired min+max beat **NumKong `Tensor.minmax()`** on contiguous ravels in our tests — write-up [`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md); generator **[`benchmarks/benchmark_minmax_ravel.py`](../benchmarks/benchmark_minmax_ravel.py)**.
+
+### Elementwise `exp`, `log`, and `sqrt`
+
+NumKong 7.7 and its current upstream Python stub expose `sin`, `cos`, and `atan`, but no elementwise `exp`, `log`, or `sqrt`. The only relevant candidate was `nk.minmax` as a one-pass range guard before `cv2.log`. NumKong ignores NaN in that reduction, so a separate NaN scan is required; the complete guard was about 1.4× slower than NumPy `min`/`max` on the standard matrix.
+
+Albucore therefore routes `exp` and eligible `log` calls to OpenCV, keeps `sqrt` on NumPy, and uses NumPy for every special-value case where `cv2.log` changes the result. See the [21-repeat benchmark report](../benchmarks/results/benchmark_elementwise.md) and its generator [`benchmark_elementwise.py`](../benchmarks/benchmark_elementwise.py).
 
 ---
 
