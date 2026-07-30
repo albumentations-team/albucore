@@ -171,7 +171,7 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 |---|---|---|---|
 | `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked above OpenCV's 128-channel limit |
 | `vflip` | `(img)` | Mirror top-bottom | `cv2.flip(img, 0)` for ≤4 channels; NumPy slice for >4 channels |
-| `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | `cv2.medianBlur`; ksize ≥ 7 falls back to chunk processing for >4 channels. Accepts float32 via `@uint8_io` |
+| `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked `cv2.medianBlur`; float32 ksize 3/5 → native OpenCV; float32 ksize ≥ 7 → uint8 conversion fallback |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 

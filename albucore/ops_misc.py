@@ -14,6 +14,7 @@ from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ImageFloat32,
     ImageType,
+    ImageUInt8,
     get_num_channels,
     maybe_process_in_chunks,
 )
@@ -176,8 +177,8 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
     Example::
 
         @uint8_io
-        def median_blur(img: np.ndarray, ksize: int) -> np.ndarray:
-            return cv2.medianBlur(img, ksize)
+        def apply_uint8_operation(img: np.ndarray) -> np.ndarray:
+            return uint8_only_backend(img)
 
     Args:
         func: Image processing function whose first argument is a uint8 ``(H, W, C)`` image.
@@ -200,33 +201,45 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
     return uint8_wrapper
 
 
+def _median_blur_uint8(img: ImageUInt8, ksize: int) -> ImageUInt8:
+    """Apply the shared direct or chunked uint8 OpenCV route."""
+    if ksize in (3, 5) or get_num_channels(img) <= MAX_OPENCV_WORKING_CHANNELS:
+        return cast("ImageUInt8", cv2.medianBlur(img, ksize))
+    return cast("ImageUInt8", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
+
+
 @contiguous
 @preserve_channel_dim
-@uint8_io
 def median_blur(img: ImageType, ksize: int) -> ImageType:
-    """Median blur with optimal routing for multi-channel images.
+    """Median blur with dtype- and kernel-aware OpenCV routing.
 
-    cv2.medianBlur supports >4 channels only for ksize 3 and 5 (GHA-built OpenCV).
-    For ksize 7+, the SIMD path asserts cn <= 4. Uses uint8_io for float32 input.
+    uint8 images use OpenCV directly, chunking high-channel inputs for kernels 7 and larger. Float32 kernels 3 and 5
+    use OpenCV on the original values; larger float32 kernels use a documented float32-to-uint8 fallback because
+    OpenCV supports native CV_32F median filtering only for apertures 3 and 5.
 
     Args:
-        img: (H, W, C) image, uint8 or float32.
+        img: ``(H, W, C)`` image with uint8 or float32 dtype.
         ksize: Kernel size (odd: 3, 5, 7, 9, ...).
 
     Returns:
-        Median-filtered image, same shape and dtype.
+        Median-filtered image with the same shape and dtype. The result is C-contiguous and does not share storage
+        with the input.
+
+    Raises:
+        ValueError: If ``ksize`` is not odd and at least 3, or if ``img`` is not uint8 or float32.
     """
     if ksize % 2 != 1 or ksize < 3:
         raise ValueError(f"ksize must be odd and >= 3, got {ksize}")
 
-    num_channels = get_num_channels(img)
-
-    if ksize in (3, 5):
+    if img.dtype == np.uint8:
+        return _median_blur_uint8(cast("ImageUInt8", img), ksize)
+    if img.dtype == np.float32 and ksize in (3, 5):
         return cast("ImageType", cv2.medianBlur(img, ksize))
+    if img.dtype == np.float32:
+        quantized = cast("ImageUInt8", from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8)))
+        return to_float(_median_blur_uint8(quantized, ksize))
 
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return maybe_process_in_chunks(cv2.medianBlur, ksize)(img)
-    return cast("ImageType", cv2.medianBlur(img, ksize))
+    raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
 
 
 def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
