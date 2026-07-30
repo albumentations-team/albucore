@@ -1,6 +1,6 @@
 """Arithmetic: add, multiply, power, value-normalize, weighted sum, multiply-add."""
 
-from typing import Any, Literal, TypeGuard, cast
+from typing import Any, Literal, TypeAlias, TypeGuard, cast
 
 import cv2
 import numpy as np
@@ -26,6 +26,8 @@ from albucore.weighted import add_array_numkong, add_weighted_numkong, multiply_
 np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
 
 cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
+
+_PreparedValue: TypeAlias = float | int | np.float32 | np.ndarray
 
 
 def _is_uint8_image(img: ImageType) -> TypeGuard[ImageUInt8]:
@@ -123,14 +125,23 @@ def _prepare_array_value(
     return value
 
 
+def _prepare_numpy_value(value: ValueType | np.floating[Any]) -> _PreparedValue:
+    if isinstance(value, np.ndarray):
+        return value.astype(np.float32, copy=False)
+    if isinstance(value, np.floating):
+        return np.float32(value)
+    return value
+
+
 def apply_numpy(
     img: ImageType,
-    value: float | np.ndarray,
+    value: ValueType | np.floating[Any],
     operation: Literal["add", "multiply", "power"],
 ) -> ImageFloat32:
-    value_prepared: float | np.ndarray = value
     if operation == "add" and img.dtype == np.uint8:
-        value_prepared = np.asarray(value, dtype=np.int16)
+        value_prepared: _PreparedValue = np.asarray(value, dtype=np.int16)
+    else:
+        value_prepared = _prepare_numpy_value(value)
 
     return cast("ImageFloat32", np_operations[operation](img.astype(np.float32, copy=False), value_prepared))
 
@@ -557,13 +568,13 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
     return add_weighted_numkong(img1, weight1, img2, weight2)
 
 
-def _broadcast_channel_vector(x: ValueType, n_dim: int, c: int) -> float | np.ndarray:
+def _broadcast_channel_vector(x: _PreparedValue, n_dim: int, c: int) -> _PreparedValue:
     if isinstance(x, np.ndarray) and x.shape == (c,):
         return x.reshape((1,) * (n_dim - 1) + (c,))
     return x
 
 
-def _is_all_zero_param(x: float | np.ndarray) -> bool:
+def _is_all_zero_param(x: _PreparedValue) -> bool:
     if isinstance(x, np.ndarray):
         return not np.any(x)
     return float(x) == 0.0
@@ -580,13 +591,15 @@ def _use_numkong_scalar_multiply_add(img: ImageType, factor: ValueType, value: V
 
 def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> ImageFloat32:
     img_f = img.astype(np.float32, copy=False)
+    factor_prepared = _prepare_numpy_value(factor)
+    value_prepared = _prepare_numpy_value(value)
 
-    def _scalar_float(x: ValueType) -> float | None:
+    def _scalar_float(x: _PreparedValue) -> float | None:
         if isinstance(x, np.ndarray):
             return None
         return float(x)
 
-    sf, sv = _scalar_float(factor), _scalar_float(value)
+    sf, sv = _scalar_float(factor_prepared), _scalar_float(value_prepared)
     if sf is not None and sv is not None and sf == 0.0 and sv == 0.0:
         return np.zeros_like(img_f, dtype=np.float32)
 
@@ -595,8 +608,8 @@ def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> I
 
     n_dim = img_f.ndim
     c = int(img_f.shape[-1])
-    f_b = _broadcast_channel_vector(factor, n_dim, c)
-    v_b = _broadcast_channel_vector(value, n_dim, c)
+    f_b = _broadcast_channel_vector(factor_prepared, n_dim, c)
+    v_b = _broadcast_channel_vector(value_prepared, n_dim, c)
 
     result = np.zeros_like(img_f) if _is_all_zero_param(f_b) else np.multiply(img_f, f_b)
     return result if _is_all_zero_param(v_b) else np.add(result, v_b)
