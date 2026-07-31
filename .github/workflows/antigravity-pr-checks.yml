@@ -153,12 +153,28 @@ jobs:
             ordered by severity, and include the file path and changed line number for each finding. If there are no
             actionable findings, state that explicitly and mention only material residual test or operational risk.
 
+      - name: Prepare review artifact
+        if: >-
+          ${{
+            steps.plan.outputs.antigravity == 'true' &&
+            steps.gemini_review.outcome == 'success'
+          }}
+        id: prepare_review
+        continue-on-error: true
+        run: >-
+          python -m tools.antigravity_review
+          --input gemini-artifacts/stdout.log
+          --output .antigravity/review.md
+
       - name: Upload Gemini failure diagnostics
         if: >-
           ${{
             always() &&
             steps.plan.outputs.antigravity == 'true' &&
-            steps.gemini_review.outcome == 'failure'
+            (
+              steps.gemini_review.outcome == 'failure' ||
+              steps.prepare_review.outcome == 'failure'
+            )
           }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -171,18 +187,24 @@ jobs:
           retention-days: 1
 
       - name: Fail after preserving Gemini diagnostics
-        if: steps.gemini_review.outcome == 'failure'
+        if: >-
+          ${{
+            always() &&
+            steps.plan.outputs.antigravity == 'true' &&
+            (
+              steps.gemini_review.outcome == 'failure' ||
+              steps.prepare_review.outcome == 'failure'
+            )
+          }}
         run: exit 1
 
-      - name: Prepare review artifact
-        if: steps.plan.outputs.antigravity == 'true'
-        run: >-
-          python -m tools.antigravity_review
-          --input gemini-artifacts/stdout.log
-          --output .antigravity/review.md
-
       - name: Upload review artifact
-        if: steps.plan.outputs.antigravity == 'true'
+        if: >-
+          ${{
+            steps.plan.outputs.antigravity == 'true' &&
+            steps.gemini_review.outcome == 'success' &&
+            steps.prepare_review.outcome == 'success'
+          }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: antigravity-review-${{ github.event.pull_request.number }}

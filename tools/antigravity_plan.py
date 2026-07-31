@@ -34,6 +34,7 @@ SELF_CI_PATHS: Final = frozenset(
         ".github/workflows/antigravity-pr-checks.yml",
         "tools/antigravity_plan.py",
         "tools/antigravity_review.py",
+        "tools/ci_matrix.py",
     },
 )
 KNOWN_REPOSITORY_FILES: Final = frozenset(
@@ -105,12 +106,14 @@ def read_github_files(path: Path) -> list[str]:
             for item in value:
                 visit(item)
         elif isinstance(value, dict):
-            filename = value.get("filename")
-            if isinstance(filename, str):
-                paths.append(filename)
-            else:
-                for item in value.values():
-                    visit(item)
+            file_paths = tuple(
+                candidate for key in ("filename", "previous_filename") if isinstance(candidate := value.get(key), str)
+            )
+            if file_paths:
+                paths.extend(file_paths)
+                return
+            for item in value.values():
+                visit(item)
 
     visit(data)
     return paths

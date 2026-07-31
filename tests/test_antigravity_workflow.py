@@ -100,17 +100,20 @@ def test_antigravity_validates_cli_json_before_publishing_review() -> None:
     assert "REVIEW_BODY" not in workflow
 
 
-def test_antigravity_preserves_diagnostics_when_gemini_fails() -> None:
+def test_antigravity_preserves_diagnostics_when_gemini_or_validation_fails() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     review_index = workflow.index("- name: Run Antigravity pull request review")
+    preparation_index = workflow.index("- name: Prepare review artifact")
     diagnostics_index = workflow.index("- name: Upload Gemini failure diagnostics")
     failure_index = workflow.index("- name: Fail after preserving Gemini diagnostics")
 
-    assert review_index < diagnostics_index < failure_index
+    assert review_index < preparation_index < diagnostics_index < failure_index
     assert "id: gemini_review" in workflow
-    assert "continue-on-error: true" in workflow
+    assert "id: prepare_review" in workflow
+    assert workflow.count("continue-on-error: true") == 2
     assert "always() &&" in workflow
     assert "steps.gemini_review.outcome == 'failure'" in workflow
+    assert "steps.prepare_review.outcome == 'failure'" in workflow
     assert "name: antigravity-gemini-diagnostics-${{ github.event.pull_request.number }}" in workflow
     assert "gemini-artifacts/stdout.log" in workflow
     assert "gemini-artifacts/stderr.log" in workflow
