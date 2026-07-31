@@ -37,7 +37,7 @@ def nk_scale_flat(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
     out = nk.scale(flat, alpha=alpha, beta=beta)
     raw = np.frombuffer(out, dtype=img.dtype).reshape(img.shape)
     if img.dtype == np.float32:
-        return clip(raw, np.float32)
+        return raw
     return clip(raw, np.uint8)
 
 
@@ -50,7 +50,7 @@ def nk_scale_inplace(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarra
     nk.scale(flat, alpha=alpha, beta=beta, out=flat)
     raw = flat.reshape(img.shape)
     if img.dtype == np.float32:
-        return clip(raw, np.float32)
+        return raw
     return clip(raw, np.uint8)
 
 
@@ -59,8 +59,7 @@ def nk_fma_mul_flat(img: np.ndarray, other: np.ndarray) -> np.ndarray:
     b = np.ascontiguousarray(other.reshape(-1))
     z = np.zeros_like(a)
     out = nk.fma(nk.Tensor(a), nk.Tensor(b), nk.Tensor(z), alpha=1.0, beta=0.0)
-    raw = np.frombuffer(out, dtype=np.float32).reshape(img.shape)
-    return clip(raw, np.float32)
+    return np.frombuffer(out, dtype=np.float32).reshape(img.shape)
 
 
 def nk_channelwise_scale(img: np.ndarray, per_ch: np.ndarray, *, alpha_per_ch: bool) -> np.ndarray:
@@ -75,13 +74,12 @@ def nk_channelwise_scale(img: np.ndarray, per_ch: np.ndarray, *, alpha_per_ch: b
             t = nk.scale(flat, alpha=1.0, beta=float(per_ch[i]))
         out[..., i] = np.frombuffer(t, dtype=img.dtype).reshape(img.shape[:-1])
     if img.dtype == np.float32:
-        return clip(out, np.float32)
+        return out
     return clip(out, np.uint8)
 
 
 def cv2_addweighted_scalar_affine(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
-    raw = cv2.addWeighted(img, alpha, img, 0.0, beta, dtype=cv2.CV_32F)
-    return clip(raw, np.float32)
+    return cv2.addWeighted(img, alpha, img, 0.0, beta, dtype=cv2.CV_32F)
 
 
 def main() -> None:
@@ -99,7 +97,7 @@ def main() -> None:
 
     print("# multiply / add: albucore vs NumKong `scale` / `fma` / `blend` helpers")
     print()
-    print("Median ms; **prod** = current `@clipped` public API. **NK scale** = `α·x+β` on ravel.")
+    print("Median ms; **prod** = saturating uint8 / raw float32 public API. **NK scale** = `α·x+β` on ravel.")
     print()
 
     # --- scalar multiply ---
@@ -133,7 +131,7 @@ def main() -> None:
         for c in channels:
             img = rng.random((h, w, c), dtype=np.float32)
             t_prod = median_ms(lambda: multiply_add(img, s_mul, s_add), args.repeats, args.warmup)
-            t_np = median_ms(lambda: clip(multiply_add_numpy(img, s_mul, s_add), np.float32), args.repeats, args.warmup)
+            t_np = median_ms(lambda: multiply_add_numpy(img, s_mul, s_add), args.repeats, args.warmup)
             t_nk = median_ms(lambda: nk_scale_flat(img, alpha=s_mul, beta=s_add), args.repeats, args.warmup)
             t_cv = median_ms(
                 lambda: cv2_addweighted_scalar_affine(img, alpha=s_mul, beta=s_add),
@@ -162,7 +160,9 @@ def main() -> None:
 
                 t_prod = median_ms(lambda: add_constant(img, add_v), args.repeats, args.warmup)
                 t_sc = median_ms(lambda: nk_scale_flat(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup)
-                t_sc_ip = median_ms(lambda: nk_scale_inplace(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup)
+                t_sc_ip = median_ms(
+                    lambda: nk_scale_inplace(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup
+                )
                 opts = [("prod", t_prod), ("NK_alloc", t_sc), ("NK_inplace", t_sc_ip)]
                 best = min(opts, key=lambda x: x[1])[0]
                 dname = "uint8" if dtype == np.uint8 else "float32"
@@ -189,7 +189,15 @@ def main() -> None:
                     t_fma = median_ms(lambda: nk_fma_mul_flat(img, val), args.repeats, args.warmup)
                 else:
                     t_fma = float("nan")
-                t_np = median_ms(lambda: multiply_numpy(img, val), args.repeats, args.warmup)
+                t_np = median_ms(
+                    lambda: (
+                        multiply_numpy(img, val)
+                        if dtype == np.float32
+                        else clip(multiply_numpy(img, val), np.uint8)
+                    ),
+                    args.repeats,
+                    args.warmup,
+                )
                 if dtype == np.float32:
                     opts = [("prod", t_prod), ("NK_fma", t_fma), ("numpy", t_np)]
                 else:

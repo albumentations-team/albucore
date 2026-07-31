@@ -5,16 +5,13 @@ from typing import cast
 import numkong as nk
 import numpy as np
 
-from albucore.utils import ImageType, clip
+from albucore.utils import ImageType
 
 
 def add_weighted_numkong(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
-    """Fused weighted sum via NumKong ``blend`` (alpha*img1 + beta*img2), same as OpenCV addWeighted."""
+    """Fused weighted sum for already validated, same-shape and same-dtype inputs."""
     original_shape = img1.shape
     original_dtype = img1.dtype
-
-    if img2.dtype != original_dtype:
-        img2 = clip(cast("ImageType", img2.astype(original_dtype, copy=False)), original_dtype, inplace=True)
 
     a = np.ascontiguousarray(img1).reshape(-1)
     b = np.ascontiguousarray(img2).reshape(-1)

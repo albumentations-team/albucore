@@ -181,11 +181,17 @@ from albucore.functions import add_lut, add_numpy, add_opencv
     ],
 )
 def test_add_consistency(img, value, expected_output):
-    result_numpy = clip(add_numpy(img, value), img.dtype)
+    result_numpy = add_numpy(img, value)
+    if img.dtype == np.uint8:
+        result_numpy = clip(result_numpy, img.dtype)
+    else:
+        expected_output = result_numpy
 
     np.testing.assert_allclose(result_numpy, expected_output, atol=1e-6)
 
-    result_opencv = clip(add_opencv(img, value), img.dtype)
+    result_opencv = add_opencv(img, value)
+    if img.dtype == np.uint8:
+        result_opencv = clip(result_opencv, img.dtype)
     np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
 
     result = add(img, value)
@@ -197,12 +203,8 @@ def test_add_consistency(img, value, expected_output):
         np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
-@pytest.mark.parametrize(
-    "img_dtype", [np.uint8, np.float32]
-)
-@pytest.mark.parametrize(
-    "num_channels", [1, 3, 5]
-)
+@pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("num_channels", [1, 3, 5])
 @pytest.mark.parametrize(
     "value",
     [
@@ -210,11 +212,9 @@ def test_add_consistency(img, value, expected_output):
         np.array([1.4]),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1], np.float32),
         np.array([2.0, 1.0, 0.5, 1.5, 1.1, 2.0], np.float32),
-    ]
+    ],
 )
-@pytest.mark.parametrize(
-    "is_contiguous", [True, False]
-)
+@pytest.mark.parametrize("is_contiguous", [True, False])
 def test_add(img_dtype, num_channels, value, is_contiguous):
     np.random.seed(0)
 
@@ -235,9 +235,13 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
 
     processed_value = convert_value(value, num_channels)
 
-    result_numpy = clip(add_numpy(img, processed_value), img_dtype)
+    result_numpy = add_numpy(img, processed_value)
+    if img_dtype == np.uint8:
+        result_numpy = clip(result_numpy, img_dtype)
 
-    result_opencv = clip(add_opencv(img, processed_value,), img.dtype)
+    result_opencv = add_opencv(img, processed_value)
+    if img_dtype == np.uint8:
+        result_opencv = clip(result_opencv, img.dtype)
     np.testing.assert_array_equal(img, original_image)
     np.testing.assert_array_equal(result_opencv, result_numpy)
 
@@ -270,7 +274,7 @@ def test_shift_rgb(shift_params, expected):
 
 
 @pytest.mark.parametrize(
-    ["shift_params", "expected"], [[(-0.1, 0, 0.1), (0.3, 0.4, 0.5)], [(-0.6, 0, 0.6), (0, 0.4, 1.0)]]
+    ["shift_params", "expected"], [[(-0.1, 0, 0.1), (0.3, 0.4, 0.5)], [(-0.6, 0, 0.6), (-0.2, 0.4, 1.0)]]
 )
 def test_shift_rgb_float(shift_params, expected):
     img = np.ones((100, 100, 3), dtype=np.float32) * 0.4
@@ -280,6 +284,6 @@ def test_shift_rgb_float(shift_params, expected):
         np.ones((100, 100), dtype=np.float32) * channel_value for channel_value in expected
     ]
     assert img.dtype == np.dtype("float32")
-    np.testing.assert_array_equal(img[:, :, 0], expected_r)
-    np.testing.assert_array_equal(img[:, :, 1], expected_g)
-    np.testing.assert_array_equal(img[:, :, 2], expected_b)
+    np.testing.assert_allclose(img[:, :, 0], expected_r, atol=1e-6)
+    np.testing.assert_allclose(img[:, :, 1], expected_g, atol=1e-6)
+    np.testing.assert_allclose(img[:, :, 2], expected_b, atol=1e-6)

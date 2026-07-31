@@ -117,14 +117,18 @@ Image routers use channel-last inputs with an explicit channel dimension (`(H, W
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `multiply` | `(img, value, inplace=False)` | `img * value`, clipped to dtype range | uint8 scalar/vector → LUT; uint8 array → OpenCV; float32 → NumPy broadcast |
-| `add` | `(img, value, inplace=False)` | `img + value`, clipped to dtype range | uint8 scalar → OpenCV saturate; uint8 vector → LUT; uint8 array → NumKong/OpenCV; float32 → NumPy |
-| `power` | `(img, exponent, inplace=False)` | `img ** exponent`, clipped to dtype range | uint8 → LUT; float32 scalar → `cv2.pow`; float32 array → NumPy |
-| `add_weighted` | `(img1, weight1, img2, weight2)` | `img1*w1 + img2*w2`, clipped | NumKong SIMD `blend`; large float32 → `cv2.addWeighted` |
-| `multiply_add` | `(img, factor, value, inplace=False)` | `img * factor + value`, clipped | uint8 → LUT (fused, one table); large scalar float32 → NumKong `scale`; other float32 → NumPy broadcast |
+| `multiply` | `(img, value, inplace=False)` | Raw float32 `img * value`; uint8 saturates | uint8 scalar/vector → LUT; uint8 array → OpenCV; float32 → NumPy broadcast |
+| `add` | `(img, value, inplace=False)` | Raw float32 `img + value`; uint8 saturates | uint8 scalar → OpenCV saturate; uint8 vector → LUT; uint8 array → NumKong/OpenCV; float32 → NumPy |
+| `power` | `(img, exponent, inplace=False)` | Raw float32 `img ** exponent`; uint8 saturates | uint8 → LUT; float32 scalar → `cv2.pow`; float32 array → NumPy |
+| `add_weighted` | `(img1, weight1, img2, weight2)` | Raw float32 `img1*w1 + img2*w2`; uint8 saturates | uint8 and float32 C=1 → NumKong; float32 C>1 → OpenCV for HWC/contiguous inputs, NumKong for strided batch/volume inputs |
+| `multiply_add` | `(img, factor, value, inplace=False)` | Raw float32 `img * factor + value`; uint8 saturates | uint8 → LUT (fused, one table); scalar float32 → NumKong `scale`; vector/array float32 → NumPy broadcast |
 
 `value` / `factor` / `exponent` can be a scalar, a length-`C` 1-D array (per-channel), or a
 full image-shaped array.
+
+These arithmetic routers do not impose an image-range convention on float32 data. The explicit
+`@clipped` decorator remains available for callers, including AlbumentationsX operations whose own
+contract requires clipping.
 
 ### Elementwise math
 
@@ -214,7 +218,7 @@ Albucore uses a combination of techniques to achieve high performance:
 1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, or StringZilla.
 2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
 3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
-4. **NumKong**: SIMD `blend` for uint8 `add_weighted` and same-shaped `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 

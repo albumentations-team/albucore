@@ -58,9 +58,8 @@ def test_float32_arithmetic_preserves_finite_float64_operands_outside_float32_ra
     np.testing.assert_array_equal(result, expected)
 
     public_result = PUBLIC_OPERATIONS[operation](img, operand)
-    expected_public = np.clip(expected, 0, 1).astype(np.float32)
     assert public_result.dtype == np.float32
-    np.testing.assert_array_equal(public_result, expected_public)
+    np.testing.assert_array_equal(public_result, expected)
 
 
 @pytest.mark.parametrize("operation", ["add", "multiply", "power"])
@@ -80,9 +79,8 @@ def test_float32_arithmetic_preserves_finite_scalars_outside_float32_range(
     np.testing.assert_array_equal(result, expected)
 
     public_result = PUBLIC_OPERATIONS[operation](img, operand)  # type: ignore[arg-type]
-    expected_public = np.clip(expected, 0, 1).astype(np.float32)
     assert public_result.dtype == np.float32
-    np.testing.assert_array_equal(public_result, expected_public)
+    np.testing.assert_array_equal(public_result, expected)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16])
@@ -112,9 +110,8 @@ def test_float32_multiply_add_preserves_finite_float64_operand_outside_float32_r
     np.testing.assert_array_equal(result, expected)
 
     public_result = multiply_add(img, factor, 0.0)
-    expected_public = np.clip(expected, 0, 1).astype(np.float32)
     assert public_result.dtype == np.float32
-    np.testing.assert_array_equal(public_result, expected_public)
+    np.testing.assert_array_equal(public_result, expected)
 
 
 @pytest.mark.parametrize("factor", [1e40, np.float64(1e40)], ids=["python_float", "numpy_float64"])
@@ -132,9 +129,8 @@ def test_float32_multiply_add_preserves_finite_scalar_outside_float32_range(
     np.testing.assert_array_equal(result, expected)
 
     public_result = multiply_add(img, factor, 0.0)  # type: ignore[arg-type]
-    expected_public = np.clip(expected, 0, 1).astype(np.float32)
     assert public_result.dtype == np.float32
-    np.testing.assert_array_equal(public_result, expected_public)
+    np.testing.assert_array_equal(public_result, expected)
 
 
 def test_float32_multiply_add_avoids_numkong_for_scalar_outside_float32_range() -> None:
@@ -185,7 +181,7 @@ def test_float32_arithmetic_normalizes_float64_operands(
     public_result = PUBLIC_OPERATIONS[operation](img, operand)
     assert public_result.dtype == np.float32
     assert public_result.shape == img.shape
-    np.testing.assert_allclose(public_result, np.clip(expected, 0, 1), rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(public_result, expected, rtol=1e-6, atol=1e-7)
 
 
 @pytest.mark.parametrize("parameter", ["factor", "value"])
@@ -213,4 +209,4 @@ def test_float32_multiply_add_normalizes_float64_operands(
     public_result = multiply_add(img, factor, value)  # type: ignore[arg-type]
     assert public_result.dtype == np.float32
     assert public_result.shape == img.shape
-    np.testing.assert_allclose(public_result, np.clip(expected, 0, 1), rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(public_result, expected, rtol=1e-6, atol=1e-7)
