@@ -117,6 +117,46 @@ def test_ci_matrix_requires_macos_arm64_warning_regressions(monkeypatch) -> None
     assert "CI workflow does not install test dependencies for the macOS regression tests" in errors
 
 
+def test_ci_matrix_accepts_equivalent_macos_dependency_formatting(monkeypatch) -> None:
+    ci_text = (
+        ci_matrix.CI_WORKFLOW.read_text()
+        .replace("runs-on: macos-latest", "runs-on: 'macos-latest'")
+        .replace(
+            'run: uv pip install -e ".[headless]" "numpy==2.2.6" -r requirements-dev.txt',
+            "run: uv pip install -e '.[headless]' 'numpy==2.2.6' --requirement=requirements-dev.txt",
+        )
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    assert ci_matrix.check() == []
+
+
+def test_ci_matrix_requires_dev_dependencies_in_macos_job(monkeypatch) -> None:
+    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace(
+        'run: uv pip install -e ".[headless]" "numpy==2.2.6" -r requirements-dev.txt',
+        'run: uv pip install -e ".[headless]" "numpy==2.2.6"',
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI workflow does not install test dependencies for the macOS regression tests" in errors
+
+
 def test_ci_matrix_requires_legal_artifact_verifier_commands(monkeypatch) -> None:
     release_candidate_text = ci_matrix.RELEASE_CANDIDATE_WORKFLOW.read_text().replace(
         ci_matrix.LEGAL_ARTIFACT_VERIFY_COMMAND,
