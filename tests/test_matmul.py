@@ -1,3 +1,5 @@
+import warnings
+
 import cv2
 import numpy as np
 import pytest
@@ -99,6 +101,46 @@ class TestMatmul:
         result = matmul(a, zeros)
         expected = np.zeros((3, 5), dtype=np.float32)
         np.testing.assert_array_equal(result, expected)
+
+    def test_tall_float32_inputs_do_not_emit_runtime_warnings(self) -> None:
+        """Verify finite tall inputs do not trigger spurious NumPy matmul warnings."""
+        points = np.linspace(0, 1, 4096 * 2, dtype=np.float32).reshape(4096, 2)
+        control_points = np.array(
+            [[0, 0], [0, 1], [1, 0], [1, 1], [0.5, 0.5]],
+            dtype=np.float32,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = matmul(points, control_points.T)
+
+        expected = cv2.gemm(points, control_points.T, 1.0, None, 0.0)
+        assert result.dtype == np.float32
+        assert np.isfinite(result).all()
+        np.testing.assert_allclose(result, expected, rtol=1e-4, atol=5e-5)
+
+    @pytest.mark.parametrize(
+        ("a_shape", "b_shape"),
+        [
+            ((32,), (32,)),
+            ((32,), (32, 2)),
+            ((2, 32), (32,)),
+        ],
+    )
+    def test_macos_warning_suppression_supports_vector_inputs(
+        self,
+        a_shape: tuple[int, ...],
+        b_shape: tuple[int, ...],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify the macOS warning gate preserves NumPy's vector matmul behavior."""
+        monkeypatch.setattr("albucore.ops_misc._IS_MACOS_ARM64", True)
+        a = np.arange(np.prod(a_shape), dtype=np.float32).reshape(a_shape)
+        b = np.arange(np.prod(b_shape), dtype=np.float32).reshape(b_shape)
+
+        result = matmul(a, b)
+
+        np.testing.assert_allclose(result, a @ b, rtol=1e-6, atol=1e-6)
 
 
 class TestPairwiseDistancesSquared:
@@ -263,6 +305,24 @@ class TestPairwiseDistancesSquared:
             j = np.random.randint(0, 100)
             expected_dist = np.sum((points1[i] - points2[j]) ** 2)
             np.testing.assert_allclose(result[i, j], expected_dist, rtol=1e-5, atol=1e-6)
+
+    def test_tall_float32_inputs_do_not_emit_runtime_warnings(self) -> None:
+        """Verify finite tall inputs do not trigger spurious NumPy matmul warnings."""
+        points1 = np.linspace(0, 1, 4096 * 2, dtype=np.float32).reshape(4096, 2)
+        points2 = np.array(
+            [[0, 0], [0, 1], [1, 0], [1, 1], [0.5, 0.5]],
+            dtype=np.float32,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = pairwise_distances_squared(points1, points2)
+
+        expected = ((points1[:, None, :] - points2[None, :, :]) ** 2).sum(axis=2)
+        assert result.dtype == np.float32
+        assert np.isfinite(result).all()
+        assert np.all(result >= 0)
+        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=2e-7)
 
     def test_edge_case_single_point(self) -> None:
         """Test with single points."""
