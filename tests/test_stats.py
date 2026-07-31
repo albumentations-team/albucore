@@ -129,7 +129,9 @@ def test_reduce_sum_matches_numpy(shape: tuple[int, ...], dtype: type) -> None:
     axes = tuple(range(arr.ndim - 1))
 
     g = reduce_sum(arr, "global")
-    np.testing.assert_array_equal(g, np.sum(arr, dtype=acc), err_msg=f"global {shape} {dtype}")
+    expected_g = np.sum(arr, dtype=acc)
+    assert np.shape(g) == np.shape(expected_g), f"global shape {shape} {dtype}"
+    np.testing.assert_array_equal(g, expected_g, err_msg=f"global {shape} {dtype}")
 
     pc = reduce_sum(arr, "per_channel")
     np.testing.assert_array_equal(
@@ -289,8 +291,13 @@ def test_axis_none_equals_string_global(shape: tuple[int, ...], dtype: type) -> 
     assert float(m0) == float(m1)
     assert float(s0) == float(s1)
     acc = np.uint64 if dtype == np.uint8 else np.float64
-    np.testing.assert_array_equal(reduce_sum(arr), reduce_sum(arr, "global"))
-    np.testing.assert_array_equal(reduce_sum(arr), np.sum(arr, dtype=acc))
+    g = reduce_sum(arr)
+    named_g = reduce_sum(arr, "global")
+    expected_g = np.sum(arr, dtype=acc)
+    assert np.shape(g) == np.shape(named_g)
+    np.testing.assert_array_equal(g, named_g)
+    assert np.shape(g) == np.shape(expected_g)
+    np.testing.assert_array_equal(g, expected_g)
 
 
 @pytest.mark.parametrize("shape", [(7, 8, 3), (2, 5, 6, 2)])
