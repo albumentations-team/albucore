@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from tests.verification_constants import (
+    CHANNEL_1,
+    CHANNEL_3,
+    CHANNEL_4,
     DTYPE_FLOAT32,
     DTYPE_FLOAT64,
     DTYPE_OTHER_NUMERIC_FALLBACK,
@@ -278,7 +281,7 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
         kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
-        channels=IMAGE_CHANNELS,
+        channels=(CHANNEL_1, CHANNEL_3, CHANNEL_4),
         values=(VALUE_KERNEL_SIZE,),
         output_shape="same as input",
         output_dtype="same as input",
