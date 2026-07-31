@@ -117,14 +117,18 @@ Image routers use channel-last inputs with an explicit channel dimension (`(H, W
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `multiply` | `(img, value, inplace=False)` | `img * value`, clipped to dtype range | uint8 scalar/vector → LUT; uint8 array → OpenCV; float32 → NumPy broadcast |
-| `add` | `(img, value, inplace=False)` | `img + value`, clipped to dtype range | uint8 scalar → OpenCV saturate; uint8 vector → LUT; uint8 array → NumKong/OpenCV; float32 → NumPy |
-| `power` | `(img, exponent, inplace=False)` | `img ** exponent`, clipped to dtype range | uint8 → LUT; float32 scalar → `cv2.pow`; float32 array → NumPy |
-| `add_weighted` | `(img1, weight1, img2, weight2)` | Raw float32 `img1*w1 + img2*w2`; uint8 saturates | float32 C=1 and uint8 → NumKong `blend`; float32 C>1 → `cv2.addWeighted` |
-| `multiply_add` | `(img, factor, value, inplace=False)` | `img * factor + value`, clipped | uint8 → LUT (fused, one table); large scalar float32 → NumKong `scale`; other float32 → NumPy broadcast |
+| `multiply` | `(img, value, inplace=False)` | Raw float32 `img * value`; uint8 saturates | uint8 scalar/vector → LUT; uint8 array → OpenCV; float32 → NumPy broadcast |
+| `add` | `(img, value, inplace=False)` | Raw float32 `img + value`; uint8 saturates | uint8 scalar → OpenCV saturate; uint8 vector → LUT; uint8 array → NumKong/OpenCV; float32 → NumPy |
+| `power` | `(img, exponent, inplace=False)` | Raw float32 `img ** exponent`; uint8 saturates | uint8 → LUT; float32 scalar → `cv2.pow`; float32 array → NumPy |
+| `add_weighted` | `(img1, weight1, img2, weight2)` | Raw float32 `img1*w1 + img2*w2`; uint8 saturates | uint8 and float32 C=1 → NumKong; float32 C>1 → OpenCV for HWC/contiguous inputs, NumKong for strided batch/volume inputs |
+| `multiply_add` | `(img, factor, value, inplace=False)` | Raw float32 `img * factor + value`; uint8 saturates | uint8 → LUT (fused, one table); scalar float32 → NumKong `scale`; vector/array float32 → NumPy broadcast |
 
 `value` / `factor` / `exponent` can be a scalar, a length-`C` 1-D array (per-channel), or a
 full image-shaped array.
+
+These arithmetic routers do not impose an image-range convention on float32 data. The explicit
+`@clipped` decorator remains available for callers, including AlbumentationsX operations whose own
+contract requires clipping.
 
 ### Elementwise math
 

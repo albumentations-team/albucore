@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from albucore import arithmetic
 from albucore.functions import (
     add,
     add_numpy,
@@ -99,6 +100,49 @@ def test_add_weighted_preserves_raw_float32_range(shape: tuple[int, ...], is_con
 
 
 @pytest.mark.parametrize(
+    ("shape", "contiguous1", "contiguous2", "expected_backend"),
+    [
+        ((9, 11, 3), False, False, "opencv"),
+        ((2, 9, 11, 3), True, True, "opencv"),
+        ((2, 9, 11, 3), True, False, "numkong"),
+        ((2, 9, 11, 3), False, True, "numkong"),
+        ((2, 3, 9, 11, 3), False, False, "numkong"),
+        ((2, 3, 9, 11, 3), True, True, "opencv"),
+        ((9, 11, 1), True, True, "numkong"),
+    ],
+)
+def test_add_weighted_float32_backend_routing(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+    contiguous1: bool,
+    contiguous2: bool,
+    expected_backend: str,
+) -> None:
+    def make_input(contiguous: bool) -> np.ndarray:
+        if contiguous:
+            return np.ones(shape, dtype=np.float32)
+        storage = np.ones((*shape[:-2], shape[-2] * 2, shape[-1]), dtype=np.float32)
+        return storage[..., ::2, :]
+
+    called: list[str] = []
+
+    def opencv_spy(img1: np.ndarray, _weight1: float, _img2: np.ndarray, _weight2: float) -> np.ndarray:
+        called.append("opencv")
+        return np.empty_like(img1)
+
+    def numkong_spy(img1: np.ndarray, _weight1: float, _img2: np.ndarray, _weight2: float) -> np.ndarray:
+        called.append("numkong")
+        return np.empty_like(img1)
+
+    monkeypatch.setattr(arithmetic, "add_weighted_opencv", opencv_spy)
+    monkeypatch.setattr(arithmetic, "add_weighted_numkong", numkong_spy)
+
+    add_weighted(make_input(contiguous1), 0.5, make_input(contiguous2), 0.5)
+
+    assert called == [expected_backend]
+
+
+@pytest.mark.parametrize(
     "img1, weight1, img2, weight2, expected_output",
     [
         # Test case 1: Both weights are 1, image of type uint8
@@ -173,13 +217,17 @@ def test_add_weighted_preserves_raw_float32_range(shape: tuple[int, ...], is_con
     ],
 )
 def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
-    result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img1.dtype)
+    result_numpy = add_weighted_numpy(img1, weight1, img2, weight2)
+    if img1.dtype == np.uint8:
+        result_numpy = clip(result_numpy, img1.dtype)
+    else:
+        expected_output = img1 * weight1 + img2 * weight2
     np.testing.assert_array_equal(result_numpy, expected_output)
 
-    result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
+    result_opencv = add_weighted_opencv(img1, weight1, img2, weight2)
     np.testing.assert_array_equal(result_opencv, expected_output)
 
-    result_numkong = clip(add_weighted_numkong(img1, weight1, img2, weight2), img1.dtype)
+    result_numkong = add_weighted_numkong(img1, weight1, img2, weight2)
     np.testing.assert_array_equal(result_numkong, expected_output)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
@@ -188,10 +236,12 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
 
 
 @pytest.mark.parametrize(
-    "img_dtype", [np.uint8, np.float32],
+    "img_dtype",
+    [np.uint8, np.float32],
 )
 @pytest.mark.parametrize(
-    "num_channels", [1, 3, 5],
+    "num_channels",
+    [1, 3, 5],
 )
 @pytest.mark.parametrize(
     "weight1, weight2",
@@ -205,18 +255,35 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
     ],
 )
 @pytest.mark.parametrize(
-    "is_contiguous", [True, False],
+    "is_contiguous",
+    [True, False],
 )
 def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
     np.random.seed(0)
     height, width = 9, 11
 
     if is_contiguous:
-        img1 = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype) if img_dtype == np.uint8 else np.random.rand(height, width, num_channels).astype(img_dtype)
-        img2 = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype) if img_dtype == np.uint8 else np.random.rand(height, width, num_channels).astype(img_dtype)
+        img1 = (
+            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
+            if img_dtype == np.uint8
+            else np.random.rand(height, width, num_channels).astype(img_dtype)
+        )
+        img2 = (
+            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
+            if img_dtype == np.uint8
+            else np.random.rand(height, width, num_channels).astype(img_dtype)
+        )
     else:
-        img1 = np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0) if img_dtype == np.uint8 else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
-        img2 = np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0) if img_dtype == np.uint8 else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+        img1 = (
+            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
+            if img_dtype == np.uint8
+            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+        )
+        img2 = (
+            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
+            if img_dtype == np.uint8
+            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+        )
 
     original_img1 = img1.copy()
     original_img2 = img2.copy()
@@ -247,24 +314,43 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 
 
 @pytest.mark.parametrize(
-    "img_dtype", [np.uint8, np.float32],
+    "img_dtype",
+    [np.uint8, np.float32],
 )
 @pytest.mark.parametrize(
-    "num_channels", [1, 3, 5],
+    "num_channels",
+    [1, 3, 5],
 )
 @pytest.mark.parametrize(
-    "is_contiguous", [True, False],
+    "is_contiguous",
+    [True, False],
 )
 def test_add_weighted_with_unit_weights(img_dtype, num_channels, is_contiguous):
     np.random.seed(0)
     height, width = 9, 11
 
     if is_contiguous:
-        img1 = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype) if img_dtype == np.uint8 else np.random.rand(height, width, num_channels).astype(img_dtype)
-        img2 = np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype) if img_dtype == np.uint8 else np.random.rand(height, width, num_channels).astype(img_dtype)
+        img1 = (
+            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
+            if img_dtype == np.uint8
+            else np.random.rand(height, width, num_channels).astype(img_dtype)
+        )
+        img2 = (
+            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
+            if img_dtype == np.uint8
+            else np.random.rand(height, width, num_channels).astype(img_dtype)
+        )
     else:
-        img1 = np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0) if img_dtype == np.uint8 else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
-        img2 = np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0) if img_dtype == np.uint8 else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+        img1 = (
+            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
+            if img_dtype == np.uint8
+            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+        )
+        img2 = (
+            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
+            if img_dtype == np.uint8
+            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
+        )
 
     original_img1 = img1.copy()
     original_img2 = img2.copy()

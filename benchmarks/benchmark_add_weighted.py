@@ -8,7 +8,8 @@ Run from the repository root:
 The issue #130 matrix uses contiguous and strided float32 HWC arrays in
 ``[0, 255]``, weights 0.5 / 0.5, spatial sizes 256 / 512 / 1024, and 1 / 3 / 5
 channels. The default run also includes Albucore's canonical non-square sizes
-and 9-channel inputs.
+and 9-channel inputs. Pass ``--grid rank`` to compare rank-4/5 inputs and
+asymmetric input layouts without running the larger HWC grids.
 """
 
 from __future__ import annotations
@@ -71,18 +72,24 @@ def benchmark_interleaved(
 
 def make_inputs(
     rng: np.random.Generator,
-    height: int,
-    width: int,
-    channels: int,
+    shape: tuple[int, ...],
     layout: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    storage_width = width if layout == "contiguous" else width * 2
-    shape = (height, storage_width, channels)
-    img1 = rng.random(shape, dtype=np.float32) * np.float32(255)
-    img2 = rng.random(shape, dtype=np.float32) * np.float32(255)
-    if layout == "strided":
-        return img1[:, ::2, :], img2[:, ::2, :]
-    return img1, img2
+    layout1, layout2 = {
+        "contiguous": ("contiguous", "contiguous"),
+        "strided": ("strided", "strided"),
+        "contiguous-strided": ("contiguous", "strided"),
+        "strided-contiguous": ("strided", "contiguous"),
+    }[layout]
+
+    def make_input(input_layout: str) -> np.ndarray:
+        if input_layout == "contiguous":
+            return rng.random(shape, dtype=np.float32) * np.float32(255)
+        storage_shape = (*shape[:-2], shape[-2] * 2, shape[-1])
+        storage = rng.random(storage_shape, dtype=np.float32) * np.float32(255)
+        return storage[..., ::2, :]
+
+    return make_input(layout1), make_input(layout2)
 
 
 def main() -> None:
@@ -90,15 +97,22 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=31)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--grid", choices=("all", "issue", "canonical"), default="all")
+    parser.add_argument("--grid", choices=("all", "issue", "canonical", "rank"), default="all")
+    parser.add_argument("--ranks", type=int, choices=(3, 4, 5), nargs="+")
     parser.add_argument("--channels", type=int, nargs="+", default=(1, 3, 5, 9))
     parser.add_argument(
         "--layouts",
-        choices=("contiguous", "strided"),
+        choices=("contiguous", "strided", "contiguous-strided", "strided-contiguous"),
         nargs="+",
-        default=("contiguous", "strided"),
     )
     args = parser.parse_args()
+
+    ranks = args.ranks or ((4, 5) if args.grid == "rank" else (3,))
+    layouts = args.layouts or (
+        ("contiguous", "strided", "contiguous-strided", "strided-contiguous")
+        if args.grid == "rank"
+        else ("contiguous", "strided")
+    )
 
     cv2.setNumThreads(0)
     rng = np.random.default_rng(args.seed)
@@ -109,6 +123,8 @@ def main() -> None:
         sizes = issue_hw
     elif args.grid == "canonical":
         sizes = canonical_hw
+    elif args.grid == "rank":
+        sizes = ((128, 160),)
     else:
         sizes = (*issue_hw, *canonical_hw)
 
@@ -129,42 +145,67 @@ def main() -> None:
     )
     print("|---|---|---:|---:|---:|---:|---|---:|---:|")
 
-    for layout_index, layout in enumerate(args.layouts):
-        for height, width in sizes:
-            for channels in args.channels:
-                shape = (height, width, channels)
-                img1, img2 = make_inputs(rng, height, width, channels, layout)
-                expected = img1 * weight1 + img2 * weight2
+    for layout_index, layout in enumerate(layouts):
+        for rank in ranks:
+            prefix = {3: (), 4: (4,), 5: (2, 4)}[rank]
+            for height, width in sizes:
+                for channels in args.channels:
+                    shape = (*prefix, height, width, channels)
+                    img1, img2 = make_inputs(rng, shape, layout)
+                    expected = img1 * weight1 + img2 * weight2
 
-                candidates: dict[str, Callable[[], np.ndarray]] = {
-                    "Public router": lambda: add_weighted(img1, weight1, img2, weight2),
-                    "NumPy": lambda: add_weighted_numpy(img1, weight1, img2, weight2),
-                    "OpenCV": lambda: add_weighted_opencv(img1, weight1, img2, weight2),
-                    "NumKong": lambda: add_weighted_numkong(img1, weight1, img2, weight2),
-                }
-                outputs = {name: candidate() for name, candidate in candidates.items()}
-                for output in outputs.values():
-                    assert output.shape == shape
-                    assert output.dtype == np.float32
-                    np.testing.assert_allclose(output, expected, rtol=1e-6, atol=1e-6)
+                    candidates: dict[str, Callable[[], np.ndarray]] = {
+                        "Public router": lambda first=img1, second=img2: add_weighted(
+                            first,
+                            weight1,
+                            second,
+                            weight2,
+                        ),
+                        "NumPy": lambda first=img1, second=img2: add_weighted_numpy(
+                            first,
+                            weight1,
+                            second,
+                            weight2,
+                        ),
+                        "OpenCV": lambda first=img1, second=img2: add_weighted_opencv(
+                            first,
+                            weight1,
+                            second,
+                            weight2,
+                        ),
+                        "NumKong": lambda first=img1, second=img2: add_weighted_numkong(
+                            first,
+                            weight1,
+                            second,
+                            weight2,
+                        ),
+                    }
+                    max_abs_diff = 0.0
+                    for candidate in candidates.values():
+                        output = candidate()
+                        assert output.shape == shape
+                        assert output.dtype == np.float32
+                        np.testing.assert_allclose(output, expected, rtol=1e-6, atol=1e-6)
+                        max_abs_diff = max(max_abs_diff, float(np.max(np.abs(output - expected))))
+                        del output
 
-                timings = benchmark_interleaved(
-                    candidates,
-                    repeats=args.repeats,
-                    warmup=args.warmup,
-                    seed=args.seed + layout_index * 100 + height + width + channels,
-                )
-                backend_timings = {name: timings[name] for name in ("NumPy", "OpenCV", "NumKong")}
-                fastest = min(backend_timings, key=lambda name: backend_timings[name].median)
-                best_ms = backend_timings[fastest].median
-                ratio = timings["Public router"].median / best_ms if best_ms > 0 else float("inf")
-                max_abs_diff = max(float(np.max(np.abs(output - expected))) for output in outputs.values())
+                    timings = benchmark_interleaved(
+                        candidates,
+                        repeats=args.repeats,
+                        warmup=args.warmup,
+                        seed=args.seed + layout_index * 100 + sum(shape),
+                    )
+                    backend_timings = {name: timings[name] for name in ("NumPy", "OpenCV", "NumKong")}
+                    fastest = min(backend_timings, key=lambda name: backend_timings[name].median)
+                    best_ms = backend_timings[fastest].median
+                    ratio = timings["Public router"].median / best_ms if best_ms > 0 else float("inf")
 
-                print(
-                    f"| {layout} | {height}×{width}×{channels} | {format_timing(timings['Public router'])} | "
-                    f"{format_timing(timings['NumPy'])} | {format_timing(timings['OpenCV'])} | "
-                    f"{format_timing(timings['NumKong'])} | {fastest} | {ratio:.2f}× | {max_abs_diff:.3g} |",
-                )
+                    shape_label = "×".join(str(dimension) for dimension in shape)
+                    print(
+                        f"| {layout} | {shape_label} | {format_timing(timings['Public router'])} | "
+                        f"{format_timing(timings['NumPy'])} | {format_timing(timings['OpenCV'])} | "
+                        f"{format_timing(timings['NumKong'])} | {fastest} | {ratio:.2f}× | {max_abs_diff:.3g} |",
+                    )
 
 
 if __name__ == "__main__":

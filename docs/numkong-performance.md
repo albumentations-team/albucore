@@ -21,7 +21,7 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 
 | Operation | Layouts in bench | dtypes | Status |
 |-----------|------------------|--------|--------|
-| `add_weighted` | Image `(H,W,C)`; batch `(N,H,W,C)` | uint8, float32 | **uint8** and single-channel float32 → `nk.blend`; multi-channel float32 → **`cv2.addWeighted`**. Float32 results keep the raw numeric range. |
+| `add_weighted` | HWC, XHWC, NDHWC | uint8, float32 | **uint8** and single-channel float32 → `nk.blend`; multi-channel float32 → **`cv2.addWeighted`** for HWC/two contiguous inputs and NumKong when a higher-rank input is strided. Float32 results keep the raw numeric range. |
 | `pairwise_distances_squared` | Small `n1×n2` | float32 | **`nk.cdist`** if `n1*n2 < 1000`; else NumPy. Still slower than 0.0.40 **SimSimd** `cdist` on some sizes (no simsimd dep). |
 | Global **mean** / **std** / **mean_std** | HWC, NHWC, NDHWC | uint8 | **Shipped** — [`albucore.stats`](../albucore/stats.py): global reduction uses **`nk.moments`** on a contiguous ravel (one pass for `mean_std`). |
 | Global mean / std / both | same | float32 | **NumPy** in `stats` (`np.mean` / `np.std`, float64 accumulators); not routed to NumKong. |
@@ -30,8 +30,9 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 | **max** | same | same | **Not NumKong** — same bench as min. |
 | **minmax** (`Tensor.minmax`) | same | same | **Not NumKong** — see [`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md). |
 | `multiply_by_constant` | same | uint8, float32 | **float32 → NumPy** (`multiply_numpy`, same as 0.0.40); uint8 LUT. **`multiply_by_constant_numkong`** for microbenches only. |
-| `add_constant` | same | uint8, float32 | **Keep OpenCV** — **`nk.scale`(1,β)** rarely wins (§2). |
-| `multiply_by_array` | same | uint8, float32 | **Not `fma`** — **NumPy** `multiply_numpy` fastest vs OpenCV and `nk.fma` here (§2). |
+| `multiply_add` | same | uint8, float32 | uint8 LUT; float32 scalar factor/bias → **`nk.scale`**; vector/array operands → NumPy. |
+| `add_constant` | same | uint8, float32 | uint8 → OpenCV; float32 → NumPy. Allocating **`nk.scale`(1,β)** has no reliable win (§2). |
+| `multiply_by_array` | same | uint8, float32 | uint8 → OpenCV plus saturation; float32 → NumPy. **Do not use `nk.fma`** (§2). |
 | `add_array` | same | uint8, float32 | **Shipped** — float32 → NumPy; uint8 same shape/dtype → **`add_array_numkong`**; else OpenCV. **No `inplace` kwarg** (in-place OpenCV was not a win vs NumKong out-of-place on same-shape uint8). |
 | `multiply_by_vector` / `add_vector` | same | uint8, float32 | **Keep LUT/OpenCV** — channel-wise **`scale` loop** mixed vs one prod pass (§2). |
 | `exp` / `log` / `sqrt` | 2D, HWC, XHWC, NDHWC | float32 | NumKong 7.7 exposes no matching elementwise primitives. `nk.minmax` was slower than NumPy `min`/`max` as the correctness guard for `cv2.log`; production routes between NumPy and OpenCV ([full report](../benchmarks/results/benchmark_elementwise.md)). |
@@ -44,7 +45,7 @@ Scripts: **[`benchmarks/benchmark_add_weighted.py`](../benchmarks/benchmark_add_
 
 ### `add_weighted` — `nk.blend` (uint8) vs `cv2.addWeighted` (float32)
 
-Production: **uint8** and single-channel float32 use **`add_weighted_numkong`**; multi-channel float32 uses **`add_weighted_opencv`**. The current OpenCV 5 / NumKong 7.7 routing evidence is in [`benchmark_add_weighted_issue_130.md`](../benchmarks/results/benchmark_add_weighted_issue_130.md). The older tables below remain useful historical measurements.
+Production: **uint8** and single-channel float32 use **`add_weighted_numkong`**. Multi-channel float32 uses **`add_weighted_opencv`** for HWC or two C-contiguous inputs and NumKong for strided batch/volume inputs. The current OpenCV 5 / NumKong 7.7 routing evidence is in [`benchmark_add_weighted_issue_130.md`](../benchmarks/results/benchmark_add_weighted_issue_130.md). The older tables below remain useful historical measurements.
 
 Weights **0.5 / 0.5**. **Image** `(H,W,C)` — H×W ∈ {256, 512, 1024}, C ∈ {1, 3, 9}. **Batch / video** `(N,H,W,C)` with **N=4**, H=W=256, same C.
 
@@ -154,19 +155,20 @@ Same semantics: one scalar mean/std over **all** elements.
 
 - **Per-channel stats → NumKong:** production uses **C × `moments`** in **`stats.std`** and **`stats.mean_std`** where the OpenCV 5 / NumKong 7.7 rerun shows it wins: uint8, single-channel, high-channel, and batch/volume cases. 3D float32 RGB/RGBA-like cases stay on **`cv2.meanStdDev`**.
 - **Float32 global `mean_std`:** still **two NumPy passes** (`np.mean` + `np.std`); a single-pass alternative would need benchmarking vs accuracy requirements.
-- **Multiply / add (NumKong):** **`add_array_numkong`** uses **`blend`**; **`multiply_by_constant_numkong`** / **`add_constant_numkong`** use **`nk.scale`**. Production **`multiply_by_constant`** (float32) uses **`multiply_numpy`** (0.0.40 baseline); **`add_constant`** stays **OpenCV**. Raw **`fma`** is rarely the win for full-array multiply (see table below).
+- **Multiply / add (NumKong):** **`add_array_numkong`** uses **`blend`**; **`multiply_by_constant_numkong`** / **`add_constant_numkong`** / scalar **`multiply_add_numkong`** use **`nk.scale`**. Production **`multiply_by_constant`** and float32 **`add_constant`** use NumPy; uint8 **`add_constant`** uses OpenCV. Raw **`fma`** is not a win for full-array multiply (see table below).
 
 ### Multiply / add — `nk.scale`, `nk.fma`, vs `nk.blend`
 
-**Question:** Should `multiply_by_constant`, `add_constant`, `multiply_by_array`, `add_array`, `multiply_by_vector`, `add_vector` use NumKong via **`scale`** (α·x+β), **`fma`** (α·a·b+β·c), or **`blend`** (`add_weighted_numkong`–style helpers)?
+**Question:** Should `multiply_by_constant`, `multiply_add`, `add_constant`, `multiply_by_array`, `add_array`, `multiply_by_vector`, `add_vector` use NumKong via **`scale`** (α·x+β), **`fma`** (α·a·b+β·c), or **`blend`** (`add_weighted_numkong`–style helpers)?
 
-**Benchmark:** [`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py) — same H×W / C grid as the main tables; compares **production** `@clipped` APIs vs NumKong (including `multiply_by_constant_numkong` and `add_array_numkong`).
+**Benchmark:** [`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py) — same H×W / C grid as the main tables; compares the **production saturating-uint8/raw-float32 APIs** vs NumKong (including `multiply_by_constant_numkong` and `add_array_numkong`).
 
 | Public-style op | NumKong mapping | Verdict (reference Mac) |
 |-----------------|-----------------|-------------------------|
 | **`multiply_by_constant`** | **`multiply_by_constant_numkong`** → **`nk.scale`(α=value, β=0)** | **Production: NumPy** (`multiply_numpy`) — matches 0.0.40; NK helper in **`weighted`** for benches. |
-| **`add_constant`** | `nk.scale(α=1, β=scalar)` | **Keep OpenCV** — no reliable `scale` win. |
-| **`multiply_by_array`** | `nk.fma` vs OpenCV vs **NumPy** | **Do not use `fma`** — **NumPy** wins; consider OpenCV→NumPy separately, not NumKong. |
+| **`multiply_add`** | **`multiply_add_numkong`** → **`nk.scale`(α=factor, β=value)** | **Scalar float32: NumKong** across contiguous and strided checks; vector/array operands stay on NumPy. |
+| **`add_constant`** | `nk.scale(α=1, β=scalar)` | **Keep production NumPy/OpenCV split** — no reliable allocating `scale` win. |
+| **`multiply_by_array`** | `nk.fma` vs OpenCV vs **NumPy** | **Do not use `fma`** — float32 NumPy wins; uint8 OpenCV and saturated NumPy are close. |
 | **`add_array`** | **`add_array_numkong`** (`blend`) | **Shipped** — float32 → NumPy; uint8 same shape/dtype → NumKong; else OpenCV. **No `inplace`** on this op; **`add` / `add_constant` / `add_vector`** still take `inplace` where LUT / OpenCV `dst=` helps. |
 | **`multiply_by_vector`**, **`add_vector`** | C× **`scale`** loop vs LUT/OpenCV | **Keep production** — NK loop is mixed and loses on large float paths. |
 
@@ -265,7 +267,7 @@ Reduce over all axes except **channel** (`shape[-1]`). Columns: **NP mean**, **N
 
 ### `add_weighted` — current float32 split
 
-The OpenCV 5 / NumKong 7.7 rerun routes single-channel float32 inputs to NumKong and multi-channel float32 inputs to OpenCV. Close cells stay on the channel-based split; their differences were smaller than the project threshold and did not justify size- or contiguity-specific branches. See the [issue #130 benchmark report](../benchmarks/results/benchmark_add_weighted_issue_130.md).
+The OpenCV 5 / NumKong 7.7 rerun routes single-channel float32 inputs to NumKong. Multi-channel HWC and fully contiguous higher-rank inputs use OpenCV; higher-rank inputs route to NumKong when either input is strided. See the [issue #130 benchmark report](../benchmarks/results/benchmark_add_weighted_issue_130.md).
 
 ---
 
