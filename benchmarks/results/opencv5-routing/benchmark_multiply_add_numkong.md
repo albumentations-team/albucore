@@ -1,6 +1,7 @@
 # multiply / add: albucore vs NumKong `scale` / `fma` / `blend` helpers
 
-Median ms; **prod** = current `@clipped` public API. **NK scale** = `α·x+β` on ravel.
+Historical run captured when production float32 arithmetic was clipped to `[0, 1]`. Rerun
+`benchmarks/benchmark_multiply_add_numkong.py` for the current raw-float32 contract.
 
 ## `multiply_by_constant` — scalar
 

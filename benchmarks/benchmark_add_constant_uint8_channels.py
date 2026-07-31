@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 ``add_constant`` uint8: compare **OpenCV** (scalar if C<=4 else ``np.full`` + cv2), **LUT**/stringzilla,
-**NumKong** ``nk.scale``, **NumPy** saturated int16 add, and the production **@clipped** ``add_constant`` wrapper.
+**NumKong** ``nk.scale``, **NumPy** saturated int16 add, and the production saturating ``add_constant`` router.
 
-Sweep C in 5..9 at several spatial sizes. Production: **C≤4** OpenCV scalar/tensor prep, **C≥5** NumKong
-``add_constant_numkong`` (see ``albucore.arithmetic.add_constant``).
+Sweep C in 5..9 at several spatial sizes. Production uses OpenCV scalar/tensor preparation for every channel count
+(see ``albucore.arithmetic.add_constant``).
 
 Run from repo root::
 
