@@ -39,6 +39,7 @@ Committed outputs from deep-dive benchmark scripts. Document the routing decisio
 
 | File | Source script | What it shows |
 |------|--------------|---------------|
+| `benchmark_add_weighted_issue_130.md` | `benchmark_add_weighted.py` | Raw float32 `add_weighted`: public router vs NumPy/OpenCV/NumKong on issue #130, canonical non-square, and strided grids |
 | `benchmark_elementwise.md` | `benchmark_elementwise.py` | `exp`/`log`/`sqrt`: public routers vs NumPy/OpenCV on standard, tiny, strided, safe in-place, and NumKong-guard sweeps |
 | `reliable_benchmark_numkong_vs_albucore_backends.md` | `benchmark_numkong_vs_albucore_backends.py` | `add_weighted`, global/per-channel mean+std: NumKong vs OpenCV vs NumPy vs LUT |
 | `reliable_benchmark_multiply_add_numkong.md` | `benchmark_multiply_add_numkong.py` | Scalar/array multiply & add: production APIs vs NK `scale`/`fma`/`blend` |

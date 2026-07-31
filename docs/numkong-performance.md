@@ -6,6 +6,7 @@ Albucore picks backends by **measured** speed (OpenCV, NumPy, LUT, NumKong). Thi
 
 ```bash
 uv sync --extra headless
+uv run python benchmarks/benchmark_add_weighted.py             # public router and float32 backend split
 uv run python benchmarks/benchmark_numkong_vs_albucore_backends.py
 uv run python benchmarks/benchmark_multiply_add_numkong.py   # multiply/add vs scale, fma, blend
 uv run python benchmarks/benchmark_stats.py                  # mean_std vs NumPy reference (smoke timings)
@@ -20,7 +21,7 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 
 | Operation | Layouts in bench | dtypes | Status |
 |-----------|------------------|--------|--------|
-| `add_weighted` | Image `(H,W,C)`; batch `(N,H,W,C)` | uint8, float32 | **uint8** → `nk.blend`; **float32** → **`cv2.addWeighted`** (router vs 0.0.40 SimSimd `wsum`). |
+| `add_weighted` | Image `(H,W,C)`; batch `(N,H,W,C)` | uint8, float32 | **uint8** and single-channel float32 → `nk.blend`; multi-channel float32 → **`cv2.addWeighted`**. Float32 results keep the raw numeric range. |
 | `pairwise_distances_squared` | Small `n1×n2` | float32 | **`nk.cdist`** if `n1*n2 < 1000`; else NumPy. Still slower than 0.0.40 **SimSimd** `cdist` on some sizes (no simsimd dep). |
 | Global **mean** / **std** / **mean_std** | HWC, NHWC, NDHWC | uint8 | **Shipped** — [`albucore.stats`](../albucore/stats.py): global reduction uses **`nk.moments`** on a contiguous ravel (one pass for `mean_std`). |
 | Global mean / std / both | same | float32 | **NumPy** in `stats` (`np.mean` / `np.std`, float64 accumulators); not routed to NumKong. |
@@ -35,7 +36,7 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 | `multiply_by_vector` / `add_vector` | same | uint8, float32 | **Keep LUT/OpenCV** — channel-wise **`scale` loop** mixed vs one prod pass (§2). |
 | `exp` / `log` / `sqrt` | 2D, HWC, XHWC, NDHWC | float32 | NumKong 7.7 exposes no matching elementwise primitives. `nk.minmax` was slower than NumPy `min`/`max` as the correctness guard for `cv2.log`; production routes between NumPy and OpenCV ([full report](../benchmarks/results/benchmark_elementwise.md)). |
 
-Scripts: **[`benchmarks/benchmark_numkong_vs_albucore_backends.py`](../benchmarks/benchmark_numkong_vs_albucore_backends.py)** (tables in §1–§3), **[`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py)** (multiply/add vs `scale` / `fma` / `blend`), **[`benchmarks/benchmark_numkong.py`](../benchmarks/benchmark_numkong.py)** (`cdist` / blend / scale-fma microbenches), **[`benchmarks/benchmark_minmax_ravel.py`](../benchmarks/benchmark_minmax_ravel.py)**.
+Scripts: **[`benchmarks/benchmark_add_weighted.py`](../benchmarks/benchmark_add_weighted.py)** (current public route and float32 candidates), **[`benchmarks/benchmark_numkong_vs_albucore_backends.py`](../benchmarks/benchmark_numkong_vs_albucore_backends.py)** (tables in §1–§3), **[`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py)** (multiply/add vs `scale` / `fma` / `blend`), **[`benchmarks/benchmark_numkong.py`](../benchmarks/benchmark_numkong.py)** (`cdist` / blend / scale-fma microbenches), **[`benchmarks/benchmark_minmax_ravel.py`](../benchmarks/benchmark_minmax_ravel.py)**.
 
 ---
 
@@ -43,7 +44,7 @@ Scripts: **[`benchmarks/benchmark_numkong_vs_albucore_backends.py`](../benchmark
 
 ### `add_weighted` — `nk.blend` (uint8) vs `cv2.addWeighted` (float32)
 
-Production: **uint8** uses **`add_weighted_numkong`**; **float32** uses **`add_weighted_opencv`** (router vs 0.0.40 SimSimd). Microbench tables below still compare NK / OpenCV / NumPy.
+Production: **uint8** and single-channel float32 use **`add_weighted_numkong`**; multi-channel float32 uses **`add_weighted_opencv`**. The current OpenCV 5 / NumKong 7.7 routing evidence is in [`benchmark_add_weighted_issue_130.md`](../benchmarks/results/benchmark_add_weighted_issue_130.md). The older tables below remain useful historical measurements.
 
 Weights **0.5 / 0.5**. **Image** `(H,W,C)` — H×W ∈ {256, 512, 1024}, C ∈ {1, 3, 9}. **Batch / video** `(N,H,W,C)` with **N=4**, H=W=256, same C.
 
@@ -262,9 +263,9 @@ Reduce over all axes except **channel** (`shape[-1]`). Columns: **NP mean**, **N
 
 ---
 
-### `add_weighted` — exception on default path
+### `add_weighted` — current float32 split
 
-For **float32**, **1024×1024**, **C=9**, **OpenCV** beats NumKong on this run (see §1 image float32 table). We still **default to NumKong** everywhere in code today; **optional** future work is **shape-aware routing** to OpenCV for that corner (benchmark-driven).
+The OpenCV 5 / NumKong 7.7 rerun routes single-channel float32 inputs to NumKong and multi-channel float32 inputs to OpenCV. Close cells stay on the channel-based split; their differences were smaller than the project threshold and did not justify size- or contiguity-specific branches. See the [issue #130 benchmark report](../benchmarks/results/benchmark_add_weighted_issue_130.md).
 
 ---
 

@@ -14,6 +14,53 @@ from albucore.functions import (
 from albucore.utils import clip
 
 
+def test_add_weighted_does_not_clip_float32_result_to_unit_range():
+    img1 = np.full((1, 1, 1), 128, dtype=np.float32)
+    img2 = np.full((1, 1, 1), 64, dtype=np.float32)
+
+    result = add_weighted(img1, 0.5, img2, 0.5)
+
+    np.testing.assert_array_equal(result, np.full_like(img1, 96))
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (9, 11, 1),
+        (9, 11, 3),
+        (9, 11, 5),
+        (2, 9, 11, 1),
+        (2, 9, 11, 3),
+        (2, 9, 11, 5),
+        (2, 3, 9, 11, 1),
+        (2, 3, 9, 11, 3),
+        (2, 3, 9, 11, 5),
+    ],
+)
+@pytest.mark.parametrize("is_contiguous", [True, False])
+def test_add_weighted_preserves_raw_float32_range(shape: tuple[int, ...], is_contiguous: bool):
+    rng = np.random.default_rng(42)
+    storage_width = shape[-2] if is_contiguous else shape[-2] * 2
+    storage_shape = (*shape[:-2], storage_width, shape[-1])
+    img1 = rng.random(storage_shape, dtype=np.float32) * np.float32(255)
+    img2 = rng.random(storage_shape, dtype=np.float32) * np.float32(255)
+    if not is_contiguous:
+        img1 = img1[..., ::2, :]
+        img2 = img2[..., ::2, :]
+
+    original_img1 = img1.copy()
+    original_img2 = img2.copy()
+    expected = img1 * 0.5 + img2 * 0.5
+
+    result = add_weighted(img1, 0.5, img2, 0.5)
+
+    assert result.shape == img1.shape
+    assert result.dtype == np.float32
+    np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
+    np.testing.assert_array_equal(img1, original_img1)
+    np.testing.assert_array_equal(img2, original_img2)
+
+
 @pytest.mark.parametrize(
     "img1, weight1, img2, weight2, expected_output",
     [
@@ -139,17 +186,19 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 
     result = add_weighted(img1, weight1, img2, weight2)
 
-    result_numkong = clip(add_weighted_numkong(img1, weight1, img2, weight2), img_dtype)
+    result_numkong = add_weighted_numkong(img1, weight1, img2, weight2)
 
     if img_dtype == np.uint8:
         np.testing.assert_allclose(result, result_numkong, atol=1)
     else:
         np.testing.assert_allclose(result, result_numkong, atol=1e-6)
 
-    result_numpy = clip(add_weighted_numpy(img1, weight1, img2, weight2), img_dtype)
+    result_numpy = add_weighted_numpy(img1, weight1, img2, weight2)
+    if img_dtype == np.uint8:
+        result_numpy = clip(result_numpy, img_dtype)
     np.testing.assert_allclose(result, result_numpy, atol=1)
 
-    result_opencv = clip(add_weighted_opencv(img1, weight1, img2, weight2), img1.dtype)
+    result_opencv = add_weighted_opencv(img1, weight1, img2, weight2)
     np.testing.assert_allclose(result, result_opencv, atol=1)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
@@ -169,7 +218,7 @@ def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
 @pytest.mark.parametrize(
     "is_contiguous", [True, False],
 )
-def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
+def test_add_weighted_with_unit_weights(img_dtype, num_channels, is_contiguous):
     np.random.seed(0)
     height, width = 9, 11
 
@@ -188,27 +237,24 @@ def test_add_weighted_vs_add(img_dtype, num_channels, is_contiguous):
     assert result.dtype == img1.dtype
     assert result.shape == img1.shape
 
-    result_add = add(img1, img2)
+    result_numpy = add_weighted_numpy(img1, 1, img2, 1)
+    result_opencv = add_weighted_opencv(img1, 1, img2, 1)
 
     if img_dtype == np.uint8:
+        result_add = add(img1, img2)
+        result_numpy = clip(result_numpy, img_dtype)
+        result_numpy_add = clip(add_numpy(img1, img2), img_dtype)
+        result_opencv_add = clip(add_opencv(img1, img2), img1.dtype)
+
         np.testing.assert_array_equal(result, result_add)
-    else:
-        np.testing.assert_allclose(result, result_add, atol=1e-6)
+        np.testing.assert_array_equal(result_numpy, result_numpy_add)
+        np.testing.assert_array_equal(result_opencv, result_opencv_add)
 
-    result_numpy = clip(add_weighted_numpy(img1, 1, img2, 1), img_dtype)
-    result_numpy_add = clip(add_numpy(img1, img2), img_dtype)
-
-    np.testing.assert_array_equal(result, result_numpy)
-    np.testing.assert_array_equal(result_numpy, result_numpy_add)
-
-    result_opencv = clip(add_weighted_opencv(img1, 1, img2, 1), img1.dtype)
-    result_opencv_add = clip(add_opencv(img1, img2), img1.dtype)
-
-    np.testing.assert_array_equal(result_opencv, result_opencv_add)
-    np.testing.assert_array_equal(result, result_opencv)
+    np.testing.assert_allclose(result, result_numpy, atol=1e-6)
+    np.testing.assert_allclose(result, result_opencv, atol=1e-6)
 
     if img1.dtype == np.uint8 and img2.dtype == np.uint8:
-        result_lut = clip(add_weighted_lut(img1, 1, img2, 1), img1.dtype)
+        result_lut = add_weighted_lut(img1, 1, img2, 1)
 
         np.testing.assert_allclose(result, result_lut, atol=1)
 

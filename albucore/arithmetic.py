@@ -549,22 +549,16 @@ def add_weighted_lut(
     return add_opencv(result1, result2, inplace)
 
 
-@preserve_channel_dim
-def _add_weighted_opencv(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
-    return cast("ImageType", cv2.addWeighted(img1, weight1, img2, weight2, 0))
-
-
-@clipped
 def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
     """Blend two images: ``img1 * weight1 + img2 * weight2``.
 
     Both images must have identical shapes and dtypes.
 
     Routing:
-    - **float32, large (> 4 M elements)**: ``cv2.addWeighted`` (~4x faster than NumKong at
-      1024x1024x9 due to reduced memory pressure on ARM; threshold from
-      ``benchmarks/reliable_benchmark_numkong_vs_albucore_backends.md``).
-    - **everything else**: NumKong SIMD ``blend`` (fastest for uint8 and small float32).
+    - **float32 with more than one channel**: ``cv2.addWeighted``.
+    - **single-channel float32 and uint8**: NumKong SIMD ``blend``.
+
+    The split is calibrated by ``benchmarks/benchmark_add_weighted.py`` across the issue #130 and canonical grids.
 
     Alternative low-level paths: ``add_weighted_numpy``, ``add_weighted_opencv``, ``add_weighted_lut``.
 
@@ -575,7 +569,8 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
         weight2: Scalar weight for ``img2``.
 
     Returns:
-        Blended image, same shape and dtype as inputs, clipped to dtype range.
+        Blended image with the same shape and dtype as the inputs. Float32 results are not clipped to the image
+        range; uint8 results retain the backend's saturating arithmetic semantics.
 
     Raises:
         ValueError: If ``img1`` and ``img2`` shapes differ.
@@ -583,11 +578,8 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
 
-    # NK blend degrades on large float32 tensors (memory pressure at >~4M elems on ARM);
-    # OpenCV addWeighted is ~4x faster at 1024x1024x9 float32.
-    # Threshold calibrated from benchmarks/reliable_benchmark_numkong_vs_albucore_backends.md.
-    if _is_float32_image(img1) and img1.size > 4_000_000:
-        return _add_weighted_opencv(img1, weight1, img2, weight2)
+    if _is_float32_image(img1) and get_num_channels(img1) > 1:
+        return add_weighted_opencv(img1, weight1, img2, weight2)
 
     return add_weighted_numkong(img1, weight1, img2, weight2)
 

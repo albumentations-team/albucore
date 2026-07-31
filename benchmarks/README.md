@@ -26,6 +26,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 
 | Script | Purpose |
 |--------|---------|
+| [`benchmark_add_weighted.py`](benchmark_add_weighted.py) | Public `add_weighted` and NumPy/OpenCV/NumKong float32 backends on the issue #130 `[0, 255]` matrix. |
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | Large Markdown tables: `add_weighted`, global mean/std, per-channel stats — matches methodology in [`docs/numkong-performance.md`](../docs/numkong-performance.md). |
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
@@ -76,6 +77,7 @@ policy.
 
 | Script | Wrapper (`functions` API) | NumKong | OpenCV | LUT | NumPy |
 |--------|---------------------------|---------|--------|-----|-------|
+| [`benchmark_add_weighted.py`](benchmark_add_weighted.py) | **`add_weighted`** | **Yes** | **Yes** | — | **Yes** |
 | [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | **Yes** — times whatever each export routes to | No (unless the export calls NK internally) | No (unless routed) | No (unless routed) | No (unless routed) |
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | No | **Yes** | **Yes** | **Yes** (uint8 where applicable) | **Yes** |
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Partial (`multiply` / `add_array` paths) | **Yes** | **Yes** | **Yes** (uint8) | Via prod APIs |
