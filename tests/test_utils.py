@@ -3,7 +3,16 @@ import pytest
 import cv2
 from albucore.decorators import contiguous
 from albucore.functions import float32_io, from_float, to_float, uint8_io
-from albucore.utils import NPDTYPE_TO_OPENCV_DTYPE, clip, convert_value, get_opencv_dtype_from_numpy, get_num_channels, is_grayscale_image, get_image_data
+from albucore.utils import (
+    NPDTYPE_TO_OPENCV_DTYPE,
+    clip,
+    convert_value,
+    get_image_data,
+    get_num_channels,
+    get_opencv_dtype_from_numpy,
+    get_opencv_max_channels,
+    is_grayscale_image,
+)
 
 
 @pytest.mark.parametrize("input_img, dtype, expected", [
@@ -31,6 +40,13 @@ def test_cv_dtype_from_np():
     assert get_opencv_dtype_from_numpy(np.float32) == cv2.CV_32F
     assert get_opencv_dtype_from_numpy(np.dtype("uint8")) == cv2.CV_8U
     assert get_opencv_dtype_from_numpy(np.dtype("float32")) == cv2.CV_32F
+
+
+def test_get_opencv_max_channels_matches_matrix_type_encoding():
+    max_channels = get_opencv_max_channels()
+
+    assert cv2.CV_MAKETYPE(cv2.CV_8U, max_channels) <= cv2.MAT_TYPE_MASK
+    assert cv2.CV_MAKETYPE(cv2.CV_8U, max_channels + 1) > cv2.MAT_TYPE_MASK
 
 
 @pytest.mark.parametrize(

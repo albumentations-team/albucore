@@ -15,7 +15,7 @@ User-facing entry points with benchmark-driven backends inside:
 - **Decorators:** see `decorators.__all__` in [`albucore/decorators.py`](../albucore/decorators.py)
 - **Geometric:** `copy_make_border`, `remap`, `resize`, `warp_affine`, `warp_perspective`
 - **Utils:** see `utils.__all__` in [`albucore/utils.py`](../albucore/utils.py)
-- **Types / constants:** `ImageType`, `ImageUInt8`, `ImageFloat32`, `SupportedDType`, `NormalizationType`, `ValueType`, `MAX_OPENCV_WORKING_CHANNELS`, etc.
+- **Types / constants:** `ImageType`, `ImageUInt8`, `ImageFloat32`, `SupportedDType`, `NormalizationType`, `ValueType`, `MAX_OPENCV_WORKING_CHANNELS`, `get_opencv_max_channels`, etc.
 - **Metadata:** `__version__`, `__author__`, `__maintainer__`
 
 ## Shims (submodule-only, not star-exported)
