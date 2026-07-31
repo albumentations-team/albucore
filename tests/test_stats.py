@@ -53,8 +53,14 @@ def test_mean_std_per_channel_matches_numpy(shape: tuple[int, ...], dtype: type)
     m, s = mean_std(arr, "per_channel")
     assert m.shape == (shape[-1],), f"mean shape mismatch: {m.shape}"
     assert s.shape == (shape[-1],), f"std shape mismatch: {s.shape}"
-    assert np.allclose(m, arr.mean(axis=axes, dtype=np.float64), rtol=1e-5, atol=1e-5)
-    assert np.allclose(s, arr.std(axis=axes, dtype=np.float64) + DEFAULT_EPS, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(m, arr.mean(axis=axes, dtype=np.float64), rtol=1e-5, atol=1e-5, equal_nan=False)
+    np.testing.assert_allclose(
+        s,
+        arr.std(axis=axes, dtype=np.float64) + DEFAULT_EPS,
+        rtol=1e-4,
+        atol=1e-4,
+        equal_nan=False,
+    )
 
 
 @pytest.mark.parametrize(
@@ -74,7 +80,7 @@ def test_mean_per_channel_matches_numpy(shape: tuple[int, ...], dtype: type) -> 
     arr = rng.integers(0, 256, size=shape, dtype=np.uint8) if dtype == np.uint8 else rng.random(shape, dtype=np.float32)
     axes = tuple(range(arr.ndim - 1))
     m = mean(arr, "per_channel")
-    assert np.allclose(m, arr.mean(axis=axes, dtype=np.float64), rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(m, arr.mean(axis=axes, dtype=np.float64), rtol=1e-5, atol=1e-5, equal_nan=False)
 
 
 @pytest.mark.parametrize(
@@ -94,7 +100,13 @@ def test_std_per_channel_matches_numpy(shape: tuple[int, ...], dtype: type) -> N
     arr = rng.integers(0, 256, size=shape, dtype=np.uint8) if dtype == np.uint8 else rng.random(shape, dtype=np.float32)
     axes = tuple(range(arr.ndim - 1))
     s = std(arr, "per_channel")
-    assert np.allclose(s, arr.std(axis=axes, dtype=np.float64) + DEFAULT_EPS, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(
+        s,
+        arr.std(axis=axes, dtype=np.float64) + DEFAULT_EPS,
+        rtol=1e-4,
+        atol=1e-4,
+        equal_nan=False,
+    )
 
 
 @pytest.mark.parametrize(
@@ -117,17 +129,27 @@ def test_reduce_sum_matches_numpy(shape: tuple[int, ...], dtype: type) -> None:
     axes = tuple(range(arr.ndim - 1))
 
     g = reduce_sum(arr, "global")
-    assert np.array_equal(g, np.sum(arr, dtype=acc)), f"global {shape} {dtype}"
+    np.testing.assert_array_equal(g, np.sum(arr, dtype=acc), err_msg=f"global {shape} {dtype}")
 
     pc = reduce_sum(arr, "per_channel")
-    assert np.array_equal(pc, np.sum(arr, axis=axes, dtype=acc)), f"per_channel {shape} {dtype}"
+    np.testing.assert_array_equal(
+        pc,
+        np.sum(arr, axis=axes, dtype=acc),
+        err_msg=f"per_channel {shape} {dtype}",
+    )
 
     gk = reduce_sum(arr, "global", keepdims=True)
-    assert np.array_equal(gk, np.sum(arr, dtype=acc, keepdims=True)), f"global keepdims {shape} {dtype}"
+    np.testing.assert_array_equal(
+        gk,
+        np.sum(arr, dtype=acc, keepdims=True),
+        err_msg=f"global keepdims {shape} {dtype}",
+    )
 
     pck = reduce_sum(arr, "per_channel", keepdims=True)
-    assert np.array_equal(pck, np.sum(arr, axis=axes, dtype=acc, keepdims=True)), (
-        f"per_channel keepdims {shape} {dtype}"
+    np.testing.assert_array_equal(
+        pck,
+        np.sum(arr, axis=axes, dtype=acc, keepdims=True),
+        err_msg=f"per_channel keepdims {shape} {dtype}",
     )
 
 
@@ -177,8 +199,8 @@ def test_mean_std_explicit_axis_matches_numpy(
     m, s = mean_std(arr, axis, keepdims=keepdims)
     assert m.shape == ref_m.shape
     assert s.shape == ref_s.shape
-    assert np.allclose(m, ref_m, rtol=1e-5, atol=1e-5)
-    assert np.allclose(s, ref_s, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(m, ref_m, rtol=1e-5, atol=1e-5, equal_nan=False)
+    np.testing.assert_allclose(s, ref_s, rtol=1e-4, atol=1e-4, equal_nan=False)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
@@ -203,7 +225,7 @@ def test_mean_explicit_axis_matches_numpy(
     ref = np.mean(arr, axis=axis, dtype=np.float64, keepdims=keepdims)
     out = mean(arr, axis, keepdims=keepdims)
     assert out.shape == ref.shape
-    assert np.allclose(out, ref, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(out, ref, rtol=1e-5, atol=1e-5, equal_nan=False)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
@@ -228,7 +250,7 @@ def test_std_explicit_axis_matches_numpy(
     ref = np.std(arr, axis=axis, dtype=np.float64, keepdims=keepdims) + DEFAULT_EPS
     out = std(arr, axis, keepdims=keepdims)
     assert out.shape == ref.shape
-    assert np.allclose(out, ref, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(out, ref, rtol=1e-4, atol=1e-4, equal_nan=False)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
@@ -252,7 +274,7 @@ def test_reduce_sum_explicit_axis_matches_numpy(
     ref = np.sum(arr, axis=axis, dtype=acc, keepdims=keepdims)
     out = reduce_sum(arr, axis, keepdims=keepdims)
     assert out.shape == ref.shape
-    assert np.array_equal(out, ref)
+    np.testing.assert_array_equal(out, ref)
 
 
 @pytest.mark.parametrize("shape", [(5, 6, 3), (2, 4, 8, 9, 1)])
@@ -267,8 +289,8 @@ def test_axis_none_equals_string_global(shape: tuple[int, ...], dtype: type) -> 
     assert float(m0) == float(m1)
     assert float(s0) == float(s1)
     acc = np.uint64 if dtype == np.uint8 else np.float64
-    assert np.array_equal(reduce_sum(arr), reduce_sum(arr, "global"))
-    assert np.array_equal(reduce_sum(arr), np.sum(arr, dtype=acc))
+    np.testing.assert_array_equal(reduce_sum(arr), reduce_sum(arr, "global"))
+    np.testing.assert_array_equal(reduce_sum(arr), np.sum(arr, dtype=acc))
 
 
 @pytest.mark.parametrize("shape", [(7, 8, 3), (2, 5, 6, 2)])
@@ -282,17 +304,17 @@ def test_global_keepdims_matches_numpy(shape: tuple[int, ...], dtype: type) -> N
     s = std(arr, keepdims=True)
     ms_m, ms_s = mean_std(arr, keepdims=True)
     assert m.shape == ref_m.shape
-    assert np.allclose(m, ref_m, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(m, ref_m, rtol=1e-5, atol=1e-5, equal_nan=False)
     assert s.shape == ref_s.shape
-    assert np.allclose(s, ref_s, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(s, ref_s, rtol=1e-4, atol=1e-4, equal_nan=False)
     assert ms_m.shape == ref_m.shape
-    assert np.allclose(ms_m, ref_m, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(ms_m, ref_m, rtol=1e-5, atol=1e-5, equal_nan=False)
     assert ms_s.shape == ref_s.shape
-    assert np.allclose(ms_s, ref_s, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(ms_s, ref_s, rtol=1e-4, atol=1e-4, equal_nan=False)
 
     acc = np.uint64 if dtype == np.uint8 else np.float64
     gk = reduce_sum(arr, "global", keepdims=True)
-    assert np.array_equal(gk, np.sum(arr, dtype=acc, keepdims=True))
+    np.testing.assert_array_equal(gk, np.sum(arr, dtype=acc, keepdims=True))
 
 
 @pytest.mark.parametrize("shape", [(9, 10, 2), (4, 5, 6, 1)])
@@ -313,7 +335,13 @@ def test_mean_dtype_kwarg_matches_cast_numpy(
     )
     out = mean(arr, axis, dtype=np.float32)
     assert out.dtype == np.float32
-    assert np.allclose(out, np.asarray(ref64, dtype=np.float32), rtol=1e-5, atol=1e-4)
+    np.testing.assert_allclose(
+        out,
+        np.asarray(ref64, dtype=np.float32),
+        rtol=1e-5,
+        atol=1e-4,
+        equal_nan=False,
+    )
 
 
 @pytest.mark.parametrize("shape", [(6, 7, 2)])
@@ -389,13 +417,13 @@ def test_per_channel_mean_std_uint8_matches_numpy_and_opencv_reference(c: int) -
     mean_cv, std_cv = cv2.meanStdDev(arr)
     m_cv = mean_cv[:, 0].astype(np.float64, copy=False)
     s_cv = (std_cv[:, 0] + DEFAULT_EPS).astype(np.float64, copy=False)
-    assert np.allclose(m_al, m_np, rtol=1e-5, atol=1e-5)
-    assert np.allclose(s_al, s_np, rtol=1e-4, atol=1e-4)
-    assert np.allclose(m_cv, m_np, rtol=1e-5, atol=1e-5)
-    assert np.allclose(s_cv, s_np, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(m_al, m_np, rtol=1e-5, atol=1e-5, equal_nan=False)
+    np.testing.assert_allclose(s_al, s_np, rtol=1e-4, atol=1e-4, equal_nan=False)
+    np.testing.assert_allclose(m_cv, m_np, rtol=1e-5, atol=1e-5, equal_nan=False)
+    np.testing.assert_allclose(s_cv, s_np, rtol=1e-4, atol=1e-4, equal_nan=False)
     mu_only = np.asarray(cv2.mean(arr)[:c], dtype=np.float64)
-    assert np.allclose(mean(arr, "per_channel"), m_np, rtol=1e-5, atol=1e-5)
-    assert np.allclose(mu_only, m_np, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(mean(arr, "per_channel"), m_np, rtol=1e-5, atol=1e-5, equal_nan=False)
+    np.testing.assert_allclose(mu_only, m_np, rtol=1e-5, atol=1e-5, equal_nan=False)
 
 
 def test_std_per_channel_uint8_hwc_uses_numkong_route(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -421,7 +449,7 @@ def test_std_per_channel_uint8_hwc_uses_numkong_route(monkeypatch: pytest.Monkey
     ref = arr.std(axis=(0, 1), dtype=np.float64) + DEFAULT_EPS
 
     assert called
-    assert np.allclose(out, ref, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(out, ref, rtol=1e-4, atol=1e-4, equal_nan=False)
 
 
 def test_std_per_channel_float32_rgb_keeps_opencv_route(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -447,4 +475,4 @@ def test_std_per_channel_float32_rgb_keeps_opencv_route(monkeypatch: pytest.Monk
     ref = arr.std(axis=(0, 1), dtype=np.float64) + DEFAULT_EPS
 
     assert called
-    assert np.allclose(out, ref, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(out, ref, rtol=1e-4, atol=1e-4, equal_nan=False)

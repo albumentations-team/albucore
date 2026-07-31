@@ -41,7 +41,7 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
 )
 def test_power_with_numpy(img, exponent, expected_output):
     result_numpy = clip(power_numpy(img, exponent), img.dtype)
-    assert np.allclose(result_numpy, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result_numpy, expected_output, rtol=1e-5, atol=1e-6, equal_nan=False)
 
     assert result_numpy.dtype == img.dtype, "Input image was modified"
     assert result_numpy.shape == img.shape
