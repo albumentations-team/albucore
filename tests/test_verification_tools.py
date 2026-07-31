@@ -163,6 +163,25 @@ def test_ci_matrix_requires_paginated_cla_status_lookup(monkeypatch) -> None:
     assert ".github/workflows/cla-status.yml is missing paginated status lookup" in errors
 
 
+def test_ci_matrix_requires_antigravity_trusted_base_checkout(monkeypatch) -> None:
+    workflow_text = ci_matrix.ANTIGRAVITY_WORKFLOW.read_text().replace(
+        "ref: ${{ github.event.pull_request.base.sha }}",
+        "",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.ANTIGRAVITY_WORKFLOW:
+            return workflow_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/antigravity-pr-checks.yml is missing trusted base checkout" in errors
+
+
 def test_benchmark_regression_check_blocks_release(tmp_path, monkeypatch) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
