@@ -157,7 +157,7 @@ def main() -> None:
                 backend_timings = {name: timings[name] for name in ("NumPy", "OpenCV", "NumKong")}
                 fastest = min(backend_timings, key=lambda name: backend_timings[name].median)
                 best_ms = backend_timings[fastest].median
-                ratio = timings["Public router"].median / best_ms
+                ratio = timings["Public router"].median / best_ms if best_ms > 0 else float("inf")
                 max_abs_diff = max(float(np.max(np.abs(output - expected))) for output in outputs.values())
 
                 print(

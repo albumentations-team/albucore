@@ -23,6 +23,26 @@ def test_add_weighted_does_not_clip_float32_result_to_unit_range():
     np.testing.assert_array_equal(result, np.full_like(img1, 96))
 
 
+@pytest.mark.parametrize(("weight1", "weight2"), [(2.0, 3.0), (-2.0, 3.0)])
+def test_add_weighted_preserves_float32_values_outside_image_range(weight1: float, weight2: float):
+    img1 = np.full((1, 1, 1), 128, dtype=np.float32)
+    img2 = np.full((1, 1, 1), 64, dtype=np.float32)
+    expected = img1 * weight1 + img2 * weight2
+
+    result = add_weighted(img1, weight1, img2, weight2)
+
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("dtype", [np.int16, np.float64])
+def test_add_weighted_rejects_unsupported_dtypes(dtype: type[np.generic]):
+    img1 = np.ones((2, 3, 1), dtype=dtype)
+    img2 = np.ones_like(img1)
+
+    with pytest.raises(ValueError, match="Albucore supports only uint8 and float32"):
+        add_weighted(img1, 0.5, img2, 0.5)
+
+
 @pytest.mark.parametrize(
     "shape",
     [

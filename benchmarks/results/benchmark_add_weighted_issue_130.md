@@ -2,7 +2,7 @@
 
 ## Decision
 
-`add_weighted` returns the raw float32 weighted sum. The router uses NumKong for single-channel float32 inputs and OpenCV for float32 inputs with more than one channel. Uint8 keeps NumKong's saturating `blend` path.
+`add_weighted` returns the raw float32 weighted sum. The router uses NumKong for single-channel float32 inputs and OpenCV for float32 inputs with more than one channel. uint8 keeps NumKong's saturating `blend` path.
 
 The issue #130 grid supports the channel split: NumKong won all three single-channel cells; OpenCV won five of the six multi-channel cells, with the remaining result differing by less than 1%. NumPy took about twice as long as the selected compiled backend on contiguous inputs. Every candidate was byte-exact against `img1 * 0.5 + img2 * 0.5` in this workload.
 
