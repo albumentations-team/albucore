@@ -86,7 +86,7 @@ from albucore.functions import uint8_io
 @uint8_io
 def some_image_function(img: np.ndarray) -> np.ndarray:
     # Function implementation assuming uint8
-    return apply_lut(img, some_lut, "add", inplace=False)
+    return uint8_only_backend(img)
 ```
 
 ## Batch Processing Decorator

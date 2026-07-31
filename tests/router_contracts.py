@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from tests.verification_constants import (
+    CHANNEL_1,
+    CHANNEL_3,
+    CHANNEL_4,
     DTYPE_FLOAT32,
     DTYPE_FLOAT64,
     DTYPE_OTHER_NUMERIC_FALLBACK,
@@ -13,9 +16,6 @@ from tests.verification_constants import (
     HWC_XHWC_NDHWC,
     IMAGE_CHANNELS,
     IMAGE_DTYPES,
-    CHANNEL_1,
-    CHANNEL_3,
-    CHANNEL_4,
     LAYOUT_2D,
     LAYOUT_HWC,
     LAYOUT_POINTS,
@@ -279,14 +279,14 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "median_blur": RouterContract(
         name="median_blur",
         kind="function",
-        dtypes=(DTYPE_UINT8,),
+        dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         channels=(CHANNEL_1, CHANNEL_3, CHANNEL_4),
         values=(VALUE_KERNEL_SIZE,),
         output_shape="same as input",
         output_dtype="same as input",
         aliasing="does not mutate input",
-        reference="cv2.medianBlur with channel preservation",
+        reference="native cv2.medianBlur for uint8 and float32 kernels 3/5; quantized float32 fallback for ksize >= 7",
         benchmark_names=("median_blur",),
     ),
     "multiply": RouterContract(
