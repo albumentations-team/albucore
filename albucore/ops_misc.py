@@ -349,7 +349,10 @@ def pairwise_distances_squared(
     # Vectorized: ||a-b||² = ||a||² + ||b||² - 2(a·b)
     p1_squared = (points1**2).sum(axis=1, keepdims=True)  # (N, 1)
     p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
-    dot_product = points1 @ points2.T  # (N, M)
+    # NumPy can emit spurious divide, overflow, and invalid warnings for tall
+    # float32 matmul inputs on macOS Accelerate even when the result is finite.
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        dot_product = points1 @ points2.T  # (N, M)
 
     result = p1_squared + p2_squared - 2 * dot_product
     # Clamp to zero to handle numerical errors that can produce small negative values

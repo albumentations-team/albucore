@@ -1,3 +1,5 @@
+import warnings
+
 import cv2
 import numpy as np
 import pytest
@@ -263,6 +265,24 @@ class TestPairwiseDistancesSquared:
             j = np.random.randint(0, 100)
             expected_dist = np.sum((points1[i] - points2[j]) ** 2)
             np.testing.assert_allclose(result[i, j], expected_dist, rtol=1e-5, atol=1e-6)
+
+    def test_tall_float32_inputs_do_not_emit_runtime_warnings(self) -> None:
+        """Verify finite tall inputs do not trigger spurious NumPy matmul warnings."""
+        points1 = np.linspace(0, 1, 4096 * 2, dtype=np.float32).reshape(4096, 2)
+        points2 = np.array(
+            [[0, 0], [0, 1], [1, 0], [1, 1], [0.5, 0.5]],
+            dtype=np.float32,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = pairwise_distances_squared(points1, points2)
+
+        expected = ((points1[:, None, :] - points2[None, :, :]) ** 2).sum(axis=2)
+        np.testing.assert_equal(result.dtype, np.dtype(np.float32))
+        np.testing.assert_equal(np.isfinite(result).all(), True)
+        np.testing.assert_equal(np.all(result >= 0), True)
+        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=2e-7)
 
     def test_edge_case_single_point(self) -> None:
         """Test with single points."""
