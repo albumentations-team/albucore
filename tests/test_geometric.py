@@ -16,6 +16,7 @@ from albucore.geometric import (
     remap,
     resize,
 )
+from albucore.utils import get_opencv_max_channels
 
 # -----------------------------------------------------------------------------
 # Fixtures
@@ -39,6 +40,41 @@ def make_image(h: int, w: int, channels: int, dtype: type, rng: np.random.Genera
     else:
         img = rng.random((h, w, channels), dtype=np.float32)
     return np.ascontiguousarray(img)
+
+
+@pytest.mark.parametrize(
+    "channels",
+    [
+        get_opencv_max_channels(),
+        get_opencv_max_channels() + 1,
+        get_opencv_max_channels() + 64,
+    ],
+    ids=["at_limit", "above_limit", "well_above_limit"],
+)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("operation", ["remap", "warp_affine", "warp_perspective"])
+def test_geometric_identity_at_opencv_channel_boundary(channels: int, dtype: type, operation: str) -> None:
+    """Identity transforms preserve channels across OpenCV's encoded limit."""
+    height, width = 8, 8
+    channel_values = np.arange(channels, dtype=np.int64).astype(dtype)
+    img = np.broadcast_to(channel_values, (height, width, channels)).copy()
+    map_x, map_y = np.meshgrid(
+        np.arange(width, dtype=np.float32),
+        np.arange(height, dtype=np.float32),
+    )
+    affine = np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float32)
+    perspective = np.eye(3, dtype=np.float32)
+
+    if operation == "remap":
+        result = remap(img, map_x, map_y, interpolation=cv2.INTER_NEAREST)
+    elif operation == "warp_affine":
+        result = warp_affine(img, affine, (width, height), flags=cv2.INTER_NEAREST)
+    else:
+        result = warp_perspective(img, perspective, (width, height), flags=cv2.INTER_NEAREST)
+
+    assert result.shape == img.shape
+    assert result.dtype == img.dtype
+    np.testing.assert_array_equal(result, img)
 
 
 # -----------------------------------------------------------------------------

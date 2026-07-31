@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Benchmark float32 arithmetic with float64 ndarray operands.
+"""Benchmark float32 arithmetic across accepted ndarray operand dtypes.
 
 The legacy candidate intentionally leaves operands unchanged so NumPy creates a
-float64 result before the public clipping wrapper casts it back to float32. The
-current candidate normalizes the operand before image-sized arithmetic.
+promoted result where required. The current candidate normalizes only operands
+that would promote float32 image arithmetic, avoiding copies for uint8, float16,
+and float32 operands.
 
 Run from the repository root::
 
@@ -20,7 +21,12 @@ import numpy as np
 
 import albucore.arithmetic as arithmetic
 
-HWC_SHAPES = tuple((size, size, channels) for size in (256, 512, 1024) for channels in (1, 3, 5))
+HWC_SHAPES = tuple(
+    (height, width, channels)
+    for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024))
+    for channels in (1, 3, 9)
+)
+OPERAND_DTYPES = tuple(np.dtype(dtype) for dtype in (np.uint8, np.float16, np.float32, np.float64))
 
 
 def _legacy_apply_numpy(
@@ -64,6 +70,8 @@ def _legacy_multiply_add_numpy(
 
 
 def _operand(operation: str, shape: tuple[int, int, int], dtype: np.dtype, rng: np.random.Generator) -> np.ndarray:
+    if np.issubdtype(dtype, np.integer):
+        return rng.integers(0, 4, size=shape, dtype=dtype)
     if operation == "add":
         value = rng.uniform(-0.1, 0.1, size=shape)
     elif operation == "multiply":
@@ -168,60 +176,42 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
     print("# Float32 arithmetic operand dtype benchmark")
     print()
-    print("Median milliseconds. Regression ratio is current / legacy for existing float32 operands.")
+    print("Median milliseconds. Ratio is current / legacy; values below 1 are faster.")
     print()
-    print(
-        "| operation | shape | legacy float64 | current float64 | speedup | "
-        "legacy float32 | current float32 | regression ratio |",
-    )
-    print("|---|---:|---:|---:|---:|---:|---:|---:|")
+    print("| operation | shape | operand dtype | legacy | current | ratio |")
+    print("|---|---:|---:|---:|---:|---:|")
 
     for shape in HWC_SHAPES:
         img = rng.uniform(0.05, 0.95, size=shape).astype(np.float32)
         for operation in ("add", "multiply", "power"):
-            value_float64 = _operand(operation, shape, np.dtype(np.float64), rng)
-            value_float32 = value_float64.astype(np.float32)
-            legacy_float64, current_float64 = _time_apply(
-                operation,
+            for operand_dtype in OPERAND_DTYPES:
+                operand = _operand(operation, shape, operand_dtype, rng)
+                legacy_ms, current_ms = _time_apply(
+                    operation,
+                    img,
+                    operand,
+                    args.repeats,
+                    args.warmup,
+                )
+                print(
+                    f"| {operation} | {'×'.join(map(str, shape))} | {operand_dtype.name} | "
+                    f"{legacy_ms:.4f} | {current_ms:.4f} | {current_ms / legacy_ms:.3f}× |",
+                )
+
+        for operand_dtype in OPERAND_DTYPES:
+            factor = _operand("multiply", shape, operand_dtype, rng)
+            value = _operand("add", shape, operand_dtype, rng)
+            legacy_ms, current_ms = _time_multiply_add(
                 img,
-                value_float64,
-                args.repeats,
-                args.warmup,
-            )
-            legacy_float32, current_float32 = _time_apply(
-                operation,
-                img,
-                value_float32,
+                factor,
+                value,
                 args.repeats,
                 args.warmup,
             )
             print(
-                f"| {operation} | {'×'.join(map(str, shape))} | {legacy_float64:.4f} | {current_float64:.4f} | "
-                f"{legacy_float64 / current_float64:.2f}× | {legacy_float32:.4f} | {current_float32:.4f} | "
-                f"{current_float32 / legacy_float32:.3f}× |",
+                f"| multiply_add | {'×'.join(map(str, shape))} | {operand_dtype.name} | "
+                f"{legacy_ms:.4f} | {current_ms:.4f} | {current_ms / legacy_ms:.3f}× |",
             )
-
-        factor_float64 = _operand("multiply", shape, np.dtype(np.float64), rng)
-        value_float64 = _operand("add", shape, np.dtype(np.float64), rng)
-        legacy_float64, current_float64 = _time_multiply_add(
-            img,
-            factor_float64,
-            value_float64,
-            args.repeats,
-            args.warmup,
-        )
-        legacy_float32, current_float32 = _time_multiply_add(
-            img,
-            factor_float64.astype(np.float32),
-            value_float64.astype(np.float32),
-            args.repeats,
-            args.warmup,
-        )
-        print(
-            f"| multiply_add | {'×'.join(map(str, shape))} | {legacy_float64:.4f} | {current_float64:.4f} | "
-            f"{legacy_float64 / current_float64:.2f}× | {legacy_float32:.4f} | {current_float32:.4f} | "
-            f"{current_float32 / legacy_float32:.3f}× |",
-        )
 
 
 if __name__ == "__main__":

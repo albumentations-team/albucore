@@ -40,6 +40,16 @@ NPDTYPE_TO_OPENCV_DTYPE: dict[np.dtype | type, int] = {
 }
 
 
+def get_opencv_max_channels() -> int:
+    """Return the maximum channel count encodable by this OpenCV build.
+
+    OpenCV stores the channel count in the matrix type. The bit layout changed
+    between OpenCV 4 and 5, so deriving the limit keeps routing correct for both.
+    """
+    channel_stride = cv2.CV_MAKETYPE(cv2.CV_8U, 2) - cv2.CV_MAKETYPE(cv2.CV_8U, 1)
+    return int((cv2.MAT_TYPE_MASK + 1) // channel_stride)
+
+
 def maybe_process_in_chunks(
     process_fn: Callable[Concatenate[np.ndarray, P], np.ndarray],
     *args: P.args,
@@ -380,6 +390,7 @@ __all__ = [
     "get_max_value",
     "get_num_channels",
     "get_opencv_dtype_from_numpy",
+    "get_opencv_max_channels",
     "is_grayscale_image",
     "is_multispectral_image",
     "is_rgb_image",

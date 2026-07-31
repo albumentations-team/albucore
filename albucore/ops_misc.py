@@ -15,10 +15,11 @@ from albucore.utils import (
     ImageFloat32,
     ImageType,
     get_num_channels,
+    get_opencv_max_channels,
     maybe_process_in_chunks,
 )
 
-MAX_OPENCV_FLIP_CHANNELS = 128
+MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
 
 
 @contiguous
@@ -89,9 +90,9 @@ def vflip(img: ImageType) -> ImageType:
 def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     """Process images with more than OpenCV's flip channel limit.
 
-    OpenCV 5 handles up to 128 channels for ``cv2.flip`` on this wheel. This
-    function works around that limit by splitting wider images into safe chunks,
-    flipping each chunk separately, and then concatenating the results.
+    OpenCV's maximum encoded channel count depends on the major version. This
+    function works around the active build's limit by splitting wider images
+    into safe chunks, flipping each chunk separately, and then joining the results.
 
     Args:
         img: Input image with many channels
