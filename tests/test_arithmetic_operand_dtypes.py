@@ -13,7 +13,10 @@ PUBLIC_OPERATIONS: dict[str, Callable[[np.ndarray, np.ndarray | float], np.ndarr
 }
 
 
-@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize(
+    "dtype",
+    [np.bool_, np.uint8, np.int8, np.uint16, np.int16, np.float16, np.float32],
+)
 def test_prepare_numpy_value_reuses_operands_that_resolve_to_float32(dtype: type[np.generic]) -> None:
     operand = np.ones((5, 7, 3), dtype=dtype)
 
