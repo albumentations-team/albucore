@@ -43,6 +43,23 @@ def test_add_weighted_rejects_unsupported_dtypes(dtype: type[np.generic]):
         add_weighted(img1, 0.5, img2, 0.5)
 
 
+@pytest.mark.parametrize("num_channels", [1, 3])
+@pytest.mark.parametrize(
+    ("dtype1", "dtype2"),
+    [(np.uint8, np.float32), (np.float32, np.uint8)],
+)
+def test_add_weighted_rejects_mismatched_dtypes(
+    num_channels: int,
+    dtype1: type[np.generic],
+    dtype2: type[np.generic],
+):
+    img1 = np.ones((2, 3, num_channels), dtype=dtype1)
+    img2 = np.ones((2, 3, num_channels), dtype=dtype2)
+
+    with pytest.raises(ValueError, match="same dtype"):
+        add_weighted(img1, 0.5, img2, 0.5)
+
+
 @pytest.mark.parametrize(
     "shape",
     [

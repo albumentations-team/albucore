@@ -573,7 +573,7 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
         range; uint8 results retain the backend's saturating arithmetic semantics.
 
     Raises:
-        ValueError: If the input shapes differ or either dtype is not uint8 or float32.
+        ValueError: If input shapes or dtypes differ, or either dtype is not uint8 or float32.
     """
     if img1.shape != img2.shape:
         raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
@@ -582,6 +582,9 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
         raise ValueError(
             f"Unsupported dtypes {img1.dtype} and {img2.dtype}. Albucore supports only uint8 and float32.",
         )
+
+    if img1.dtype != img2.dtype:
+        raise ValueError(f"The input images must have the same dtype. Got {img1.dtype} and {img2.dtype}.")
 
     if _is_float32_image(img1) and get_num_channels(img1) > 1:
         return add_weighted_opencv(img1, weight1, img2, weight2)
