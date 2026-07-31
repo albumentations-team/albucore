@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+ANTIGRAVITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "antigravity-pr-checks.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
 LEGAL_INTEGRITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "legal-integrity.yml"
 CLA_STATUS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "cla-status.yml"
@@ -291,6 +292,32 @@ def _check_cla_status_workflow(errors: list[str]) -> None:
     )
 
 
+def _check_antigravity_workflow(errors: list[str]) -> None:
+    _check_file_fragments(
+        errors,
+        ANTIGRAVITY_WORKFLOW,
+        {
+            "pull_request_target trigger": "pull_request_target:",
+            "trusted base checkout": "ref: ${{ github.event.pull_request.base.sha }}",
+            "same-repository guard": "github.event.pull_request.head.repo.full_name == github.repository",
+            "Vertex AI authentication": 'use_vertex_ai: "true"',
+            "read-only Gemini tools": '"read_many_files"',
+            "Antigravity path selector": "python -m tools.antigravity_plan",
+            "validated review artifact": "python -m tools.antigravity_review",
+            "separate publisher job": "Publish Antigravity Review",
+        },
+    )
+    _check_file_absent_fragments(
+        errors,
+        ANTIGRAVITY_WORKFLOW,
+        {
+            "PR head checkout": "ref: ${{ github.event.pull_request.head.sha }}",
+            "Gemini API key": "secrets.GEMINI_API_KEY",
+            "Gemini shell tool": "run_shell_command",
+        },
+    )
+
+
 def check() -> list[str]:
     """Return support-matrix consistency errors."""
     errors: list[str] = []
@@ -301,6 +328,7 @@ def check() -> list[str]:
         _check_release_workflow(errors)
         _check_security_workflow(errors)
         _check_cla_status_workflow(errors)
+        _check_antigravity_workflow(errors)
     return errors
 
 

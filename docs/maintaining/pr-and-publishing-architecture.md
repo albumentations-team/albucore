@@ -1,8 +1,9 @@
 # PR And Publishing Architecture
 
-This document describes the Albucore PR, benchmark, release-candidate, and publishing architecture.
-Benchmarks are PR review evidence. Release-candidate and publish workflows validate packaging,
-correctness, provenance, and artifact integrity; they do not run performance benchmarks.
+This document describes the Albucore PR checks, benchmarks, Antigravity review, release candidates,
+and publishing architecture. Benchmarks and Antigravity provide PR review evidence. Release-candidate
+and publish workflows validate packaging, correctness, provenance, and artifact integrity; they do
+not run performance benchmarks.
 
 ## Core Rule
 
@@ -56,7 +57,42 @@ Policy:
 - regressions are advisory in PR context while thresholds and runner noise are calibrated
 - PRs that intentionally change routing should include benchmark evidence in the PR description
 
-### 3. `release-candidate.yml`
+### 3. `antigravity-pr-checks.yml`
+
+Purpose: add an advisory AI review to pull requests that can change runtime behavior or repository policy.
+
+Trigger:
+
+- non-draft pull requests from branches in `albumentations-team/albucore`
+- changes under `albucore/`, `tests/`, `.github/`, legal paths, Antigravity's own tools, or unclassified paths
+- documentation-only, benchmark-only, lockfile-only, and requirements-only changes skip the model
+- fork pull requests skip the workflow because they cannot use the repository's federated cloud identity
+
+Security boundary:
+
+- `pull_request_target` checks out the trusted base SHA and never executes the pull-request branch
+- the PR title, body, changed-file list, and diff are untrusted review data
+- Gemini can only list, search, and read the trusted-base worktree and prepared `.antigravity` context
+- the Gemini job can read the PR but cannot write to it
+- a separate job receives a validated one-day artifact and posts the review comment
+
+The workflow authenticates to Vertex AI through GitHub OIDC. Configure these repository variables:
+
+| Name | Value |
+| --- | --- |
+| `ANTIGRAVITY_GCP_PROJECT_ID` | `albumentations` |
+| `ANTIGRAVITY_GCP_LOCATION` | `global` |
+| `ANTIGRAVITY_GCP_SERVICE_ACCOUNT` | `antigravity-pr-review@albumentations.iam.gserviceaccount.com` |
+| `ANTIGRAVITY_GCP_WIF_PROVIDER` | `projects/663083315901/locations/global/workloadIdentityPools/github-actions/providers/albucore-pr-review` |
+
+The Workload Identity provider condition must match repository ID `799690272`, owner ID `57894582`,
+event `pull_request_target`, base branch `main`, and workflow ref
+`albumentations-team/albucore/.github/workflows/antigravity-pr-checks.yml@refs/heads/main`.
+
+`GEMINI_MODEL` and `GEMINI_CLI_VERSION` are optional repository variables. If
+`GEMINI_CLI_VERSION` is unset, the workflow uses `0.51.0`.
+
+### 4. `release-candidate.yml`
 
 Purpose: validate the exact release commit before anything public is published.
 
@@ -108,7 +144,7 @@ Artifacts:
 
 This workflow should not run benchmarks, publish to PyPI, or create a public GitHub Release.
 
-### 4. `publish.yml`
+### 5. `publish.yml`
 
 Purpose: publish a previously validated release candidate, or publish directly from a maintainer
 GitHub Release event.
@@ -175,7 +211,7 @@ maintainer action that starts publication.
 Use this sequence for a fully artifact-validated release:
 
 1. Open a normal PR for all feature and bug-fix changes.
-2. Run CI and PR benchmark checks when touched paths require them.
+2. Run CI, PR benchmark checks, and Antigravity review when touched paths select them.
 3. Merge the code changes.
 4. Open a version bump PR.
 5. Merge the version bump after CI is green.
@@ -205,8 +241,8 @@ The release system must avoid these failure modes:
 
 ## CI Matrix Policy Check
 
-`tools/ci_matrix.py check` enforces the intended workflow fragments and checks that release workflows
-stay benchmark-free.
+`tools/ci_matrix.py check` enforces the intended workflow fragments, protects the Antigravity security
+boundary, and checks that release workflows stay benchmark-free.
 
 ## Success Criteria
 
@@ -215,6 +251,7 @@ The publishing system is healthy when all of these are true:
 - A public GitHub Release either already has validated artifacts or has a corresponding in-progress
   or successful `publish.yml` release-published run.
 - PRs show performance impact before merge.
+- Review-relevant same-repository PRs receive an advisory Antigravity review.
 - Release candidates do not run benchmarks.
 - Manual publishing does not rebuild validated artifacts.
 - Failed release-candidate runs leave enough artifacts to diagnose the failure.
