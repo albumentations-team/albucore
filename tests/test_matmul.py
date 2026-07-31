@@ -102,6 +102,23 @@ class TestMatmul:
         expected = np.zeros((3, 5), dtype=np.float32)
         np.testing.assert_array_equal(result, expected)
 
+    def test_tall_float32_inputs_do_not_emit_runtime_warnings(self) -> None:
+        """Verify finite tall inputs do not trigger spurious NumPy matmul warnings."""
+        points = np.linspace(0, 1, 4096 * 2, dtype=np.float32).reshape(4096, 2)
+        control_points = np.array(
+            [[0, 0], [0, 1], [1, 0], [1, 1], [0.5, 0.5]],
+            dtype=np.float32,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = matmul(points, control_points.T)
+
+        expected = cv2.gemm(points, control_points.T, 1.0, None, 0.0)
+        assert result.dtype == np.float32
+        assert np.isfinite(result).all()
+        np.testing.assert_array_equal(result, expected)
+
 
 class TestPairwiseDistancesSquared:
     """Test pairwise_distances_squared function."""
@@ -279,9 +296,9 @@ class TestPairwiseDistancesSquared:
             result = pairwise_distances_squared(points1, points2)
 
         expected = ((points1[:, None, :] - points2[None, :, :]) ** 2).sum(axis=2)
-        np.testing.assert_equal(result.dtype, np.dtype(np.float32))
-        np.testing.assert_equal(np.isfinite(result).all(), True)
-        np.testing.assert_equal(np.all(result >= 0), True)
+        assert result.dtype == np.float32
+        assert np.isfinite(result).all()
+        assert np.all(result >= 0)
         np.testing.assert_allclose(result, expected, rtol=1e-5, atol=2e-7)
 
     def test_edge_case_single_point(self) -> None:

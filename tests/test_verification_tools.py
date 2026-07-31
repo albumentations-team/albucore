@@ -88,7 +88,31 @@ def test_ci_matrix_requires_version_only_test_gating(monkeypatch) -> None:
     errors = ci_matrix.check()
 
     assert "CI workflow is missing version-only change classifier" in errors
-    assert "CI workflow does not gate both test jobs on change scope" in errors
+    assert "CI workflow does not gate all three test jobs on change scope" in errors
+
+
+def test_ci_matrix_requires_macos_arm64_warning_regressions(monkeypatch) -> None:
+    ci_text = (
+        ci_matrix.CI_WORKFLOW.read_text()
+        .replace("runs-on: macos-latest", "")
+        .replace("pytest tests/test_matmul.py", "")
+        .replace("-W error", "")
+        .replace('"numpy==2.2.6"', "")
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI workflow is missing the macOS arm64 runner" in errors
+    assert "CI workflow is missing warnings-as-errors matmul tests on macOS" in errors
+    assert "CI workflow does not pin the affected NumPy version for the macOS regression tests" in errors
 
 
 def test_ci_matrix_requires_legal_artifact_verifier_commands(monkeypatch) -> None:

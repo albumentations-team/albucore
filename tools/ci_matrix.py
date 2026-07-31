@@ -84,8 +84,14 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not run router contract check")
     if "python tools/classify_ci_changes.py" not in text:
         errors.append("CI workflow is missing version-only change classifier")
-    if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 2:
-        errors.append("CI workflow does not gate both test jobs on change scope")
+    if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 3:
+        errors.append("CI workflow does not gate all three test jobs on change scope")
+    if "runs-on: macos-latest" not in text:
+        errors.append("CI workflow is missing the macOS arm64 runner")
+    if "pytest tests/test_matmul.py" not in text or "-W error" not in text:
+        errors.append("CI workflow is missing warnings-as-errors matmul tests on macOS")
+    if '"numpy==2.2.6"' not in text:
+        errors.append("CI workflow does not pin the affected NumPy version for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
 

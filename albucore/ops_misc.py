@@ -1,5 +1,7 @@
 """Flips, median blur, matmul, pairwise distances."""
 
+import platform
+import sys
 from collections.abc import Callable
 from functools import wraps
 from typing import Any, cast
@@ -21,6 +23,8 @@ from albucore.utils import (
 )
 
 MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
+_IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
 
 
 @contiguous
@@ -287,10 +291,28 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         this is the recommended replacement for cv2.gemm in geometric
         transformation contexts.
 
+        On macOS arm64, NumPy's Accelerate-backed kernels can emit spurious
+        divide, overflow, and invalid warnings for large finite floating-point
+        matrices. Those warning statuses are suppressed only on the affected
+        platform and size path; the computed values are returned unchanged.
+
         Use Cases:
         - ThinPlateSpline geometric transformation (3 uses in AlbumentationsX)
         - Macenko stain normalization for medical imaging (1 use in AlbumentationsX)
     """
+    if (
+        _IS_MACOS_ARM64
+        and (
+            a.shape[0] >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
+            or a.shape[1] >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
+            or b.shape[1] >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
+        )
+        and a.dtype.kind == "f"
+        and b.dtype.kind == "f"
+    ):
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            return cast("np.ndarray", a @ b)
+
     return cast("np.ndarray", a @ b)
 
 
@@ -332,6 +354,9 @@ def pairwise_distances_squared(
         The computation can produce very small negative values (e.g., -1e-6)
         due to floating-point rounding with float32 inputs. The result is
         automatically clamped to enforce non-negativity (distances >= 0).
+
+        The large-set route uses :func:`matmul`, including its narrowly scoped
+        macOS arm64 workaround for spurious NumPy Accelerate warnings.
     """
     # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
     points1 = points1.astype(np.float32, copy=False)
@@ -349,10 +374,7 @@ def pairwise_distances_squared(
     # Vectorized: ||a-b||² = ||a||² + ||b||² - 2(a·b)
     p1_squared = (points1**2).sum(axis=1, keepdims=True)  # (N, 1)
     p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
-    # NumPy can emit spurious divide, overflow, and invalid warnings for tall
-    # float32 matmul inputs on macOS Accelerate even when the result is finite.
-    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
-        dot_product = points1 @ points2.T  # (N, M)
+    dot_product = matmul(points1, points2.T)  # (N, M)
 
     result = p1_squared + p2_squared - 2 * dot_product
     # Clamp to zero to handle numerical errors that can produce small negative values

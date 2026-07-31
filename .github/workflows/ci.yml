@@ -115,6 +115,39 @@ jobs:
           files: ./coverage.xml
           fail_ci_if_error: false
 
+  macos-arm64-matmul:
+    name: macOS arm64 matmul warning regressions
+    needs: change_scope
+    if: needs.change_scope.outputs.run_tests == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.10"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install regression-test dependencies
+        run: uv pip install -e ".[headless]" "numpy==2.2.6" "pytest>=9.0.3"
+
+      - name: Verify arm64 runner
+        run: test "$(uname -m)" = "arm64"
+
+      - name: Run Accelerate warning regressions
+        run: >-
+          pytest tests/test_matmul.py
+          -W error
+          -q
+
   declared-dependency-ranges:
     needs: change_scope
     if: needs.change_scope.outputs.run_tests == 'true'
