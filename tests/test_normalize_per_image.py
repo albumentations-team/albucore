@@ -54,9 +54,9 @@ def test_normalize_np_cv_equal(image, normalization):
 
     res3 = normalize_per_image_lut(image, normalization)
 
-    assert np.array_equal(image.shape, res1.shape)
-    assert np.array_equal(image.shape, res2.shape)
-    assert np.array_equal(image.shape, res3.shape)
+    assert image.shape == res1.shape
+    assert image.shape == res2.shape
+    assert image.shape == res3.shape
 
     np.testing.assert_allclose(res1, res2, atol=1e-4)
     np.testing.assert_allclose(res1, res1_float, atol=1e-4)

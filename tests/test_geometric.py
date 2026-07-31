@@ -278,22 +278,22 @@ def test_warp_affine_edge_padding(
     )
 
     if translation[0] > 0:
-        assert np.all(warped[:, : translation[0]] == padding_value)
+        np.testing.assert_array_equal(warped[:, : translation[0]], padding_value)
     elif translation[0] < 0:
-        assert np.all(warped[:, translation[0] :] == padding_value)
+        np.testing.assert_array_equal(warped[:, translation[0] :], padding_value)
     if translation[1] > 0:
-        assert np.all(warped[: translation[1], :] == padding_value)
+        np.testing.assert_array_equal(warped[: translation[1], :], padding_value)
     elif translation[1] < 0:
-        assert np.all(warped[translation[1] :, :] == padding_value)
+        np.testing.assert_array_equal(warped[translation[1] :, :], padding_value)
 
     if translation[0] > 0:
-        assert np.all(warped[:, translation[0] :] == 255)
+        np.testing.assert_array_equal(warped[:, translation[0] :], 255)
     elif translation[0] < 0:
-        assert np.all(warped[:, : translation[0]] == 255)
+        np.testing.assert_array_equal(warped[:, : translation[0]], 255)
     if translation[1] > 0:
-        assert np.all(warped[translation[1] :, :] == 255)
+        np.testing.assert_array_equal(warped[translation[1] :, :], 255)
     elif translation[1] < 0:
-        assert np.all(warped[: translation[1], :] == 255)
+        np.testing.assert_array_equal(warped[: translation[1], :], 255)
 
 
 # Helpers for warp_affine integration tests (match Albumentations create_affine_transformation_matrix)
