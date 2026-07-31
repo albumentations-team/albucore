@@ -665,7 +665,7 @@ def main() -> None:
         "mean_std_per_channel",
         "reduce_sum_per_channel",
     }
-    skip_uint8_only = {"apply_uint8_lut", "median_blur", "sz_lut", "to_float"}
+    skip_uint8_only = {"apply_uint8_lut", "sz_lut", "to_float"}
     skip_float_only = {"exp", "from_float", "log", "sqrt"}
 
     declared = getattr(alb_fn, "__all__", None)

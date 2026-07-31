@@ -1,4 +1,4 @@
-"""Tests for median_blur."""
+"""Tests for the public median_blur router."""
 
 from __future__ import annotations
 
@@ -6,111 +6,128 @@ import cv2
 import numpy as np
 import pytest
 
-from albucore.functions import median_blur
-
-CHANNEL_COUNTS = [1, 3, 4, 5, 8]
-DTYPES = [np.uint8, np.float32]
-RNG = np.random.default_rng(42)
+from albucore import from_float, median_blur, to_float
 
 
-def _make_img(h: int, w: int, c: int, dtype: type) -> np.ndarray:
+def _make_image(channels: int, dtype: type[np.uint8 | np.float32]) -> np.ndarray:
+    rng = np.random.default_rng(137)
     if dtype == np.uint8:
-        return RNG.integers(0, 256, (h, w, c), dtype=np.uint8)
-    return RNG.random((h, w, c), dtype=np.float32)
+        return rng.integers(0, 256, (31, 37, channels), dtype=np.uint8)
+    return rng.random((31, 37, channels), dtype=np.float32)
 
 
-@pytest.mark.parametrize("channels", CHANNEL_COUNTS)
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("ksize", [3, 5])
-def test_median_blur_direct_path(channels: int, dtype: type, ksize: int) -> None:
-    """k=3,5 work for any channels (direct path)."""
-    img = _make_img(32, 32, channels, dtype)
-    result = median_blur(img, ksize)
-    assert result.shape == img.shape
-    assert result.dtype == img.dtype
+def _repair_channel_dim(result: np.ndarray, channels: int) -> np.ndarray:
+    return result[..., np.newaxis] if channels == 1 and result.ndim == 2 else result
 
 
-@pytest.mark.parametrize("channels", [1, 3, 4])
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("ksize", [7, 9, 11])
-def test_median_blur_direct_path_large_kernel(channels: int, dtype: type, ksize: int) -> None:
-    """k>=7 with 1-4ch: direct path. float32 uses uint8_io."""
-    img = _make_img(32, 32, channels, dtype)
-    result = median_blur(img, ksize)
-    assert result.shape == img.shape
-    assert result.dtype == img.dtype
-    if dtype == np.uint8:
-        expected = cv2.medianBlur(img, ksize)
-        if channels == 1 and expected.ndim == 2:
-            expected = np.expand_dims(expected, -1)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        expected = cv2.medianBlur(
-            (img * 255).astype(np.uint8), ksize
-        ).astype(np.float32) / 255
-        if channels == 1 and expected.ndim == 2:
-            expected = np.expand_dims(expected, -1)
-        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1 / 255)
+def _uint8_reference(image: np.ndarray, kernel_size: int) -> np.ndarray:
+    channels = image.shape[-1]
+    if kernel_size in (3, 5) or channels <= 4:
+        return _repair_channel_dim(cv2.medianBlur(image, kernel_size), channels)
+    return np.concatenate(
+        [
+            _repair_channel_dim(cv2.medianBlur(image[..., index : index + 1], kernel_size), 1)
+            for index in range(channels)
+        ],
+        axis=-1,
+    )
 
 
-@pytest.mark.parametrize("channels", [5, 8])
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("ksize", [7, 9])
-def test_median_blur_chunked_path(channels: int, dtype: type, ksize: int) -> None:
-    """k>=7 with 5+ch: chunked path. float32 uses uint8_io."""
-    img = _make_img(32, 32, channels, dtype)
-    result = median_blur(img, ksize)
-    assert result.shape == img.shape
-    assert result.dtype == img.dtype
-    if dtype == np.uint8:
-        expected_chunks = []
-        for i in range(channels):
-            ch = img[:, :, i : i + 1]
-            out = cv2.medianBlur(ch, ksize)
-            if out.ndim == 2:
-                out = np.expand_dims(out, -1)
-            expected_chunks.append(out)
-        expected = np.concatenate(expected_chunks, axis=-1)
-        np.testing.assert_array_equal(result, expected)
-    else:
-        expected_chunks = []
-        for i in range(channels):
-            ch_uint8 = (img[:, :, i : i + 1] * 255).astype(np.uint8)
-            out = cv2.medianBlur(ch_uint8, ksize)
-            if out.ndim == 2:
-                out = np.expand_dims(out, -1)
-            expected_chunks.append(out.astype(np.float32) / 255)
-        expected = np.concatenate(expected_chunks, axis=-1)
-        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1 / 255)
+@pytest.mark.parametrize("channels", [1, 3, 4, 5])
+@pytest.mark.parametrize("kernel_size", [3, 5, 7])
+def test_median_blur_uint8_matches_opencv(channels: int, kernel_size: int) -> None:
+    image = _make_image(channels, np.uint8)
+
+    result = median_blur(image, kernel_size)
+
+    np.testing.assert_array_equal(result, _uint8_reference(image, kernel_size))
+    assert result.shape == image.shape
+    assert result.dtype == image.dtype
+    assert result.flags.c_contiguous
 
 
-@pytest.mark.parametrize("channels", [1, 3, 8])
-@pytest.mark.parametrize("dtype", DTYPES)
-def test_median_blur_matches_cv2_for_supported(channels: int, dtype: type) -> None:
-    """median_blur matches cv2.medianBlur for k=3,5. float32 via uint8_io (quantization)."""
-    img = _make_img(32, 32, channels, dtype)
-    for ksize in [3, 5]:
-        result = median_blur(img, ksize)
-        if dtype == np.uint8:
-            expected = cv2.medianBlur(img, ksize)
-        else:
-            expected = cv2.medianBlur(
-                (img * 255).astype(np.uint8), ksize
-            ).astype(np.float32) / 255
-        if channels == 1 and expected.ndim == 2:
-            expected = np.expand_dims(expected, -1)
-        if dtype == np.uint8:
-            np.testing.assert_array_equal(result, expected)
-        else:
-            np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1 / 255)
+@pytest.mark.parametrize("channels", [1, 3, 5])
+@pytest.mark.parametrize("kernel_size", [3, 5])
+def test_median_blur_float32_native_matches_opencv_exactly(channels: int, kernel_size: int) -> None:
+    image = _make_image(channels, np.float32)
+
+    result = median_blur(image, kernel_size)
+    expected = _repair_channel_dim(cv2.medianBlur(image, kernel_size), channels)
+
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == image.shape
+    assert result.dtype == np.float32
 
 
-def test_median_blur_invalid_ksize() -> None:
-    """Reject even or invalid ksize."""
-    img = _make_img(16, 16, 3, np.uint8)
-    with pytest.raises(ValueError, match="ksize must be odd"):
-        median_blur(img, 4)
-    with pytest.raises(ValueError, match="ksize must be odd"):
-        median_blur(img, 2)
-    with pytest.raises(ValueError, match="ksize must be odd"):
-        median_blur(img, 1)
+@pytest.mark.parametrize("kernel_size", [3, 5])
+def test_median_blur_float32_native_preserves_sub_uint8_precision(kernel_size: int) -> None:
+    image = np.linspace(0.1001, 0.1099, 9 * 11, dtype=np.float32).reshape(9, 11, 1)
+
+    result = median_blur(image, kernel_size)
+    native = _repair_channel_dim(cv2.medianBlur(image, kernel_size), 1)
+    legacy = to_float(_uint8_reference(from_float(image, np.dtype(np.uint8)), kernel_size))
+
+    np.testing.assert_array_equal(result, native)
+    assert not np.array_equal(result, legacy)
+
+
+@pytest.mark.parametrize("channels", [1, 3, 5])
+@pytest.mark.parametrize("kernel_size", [7, 9])
+def test_median_blur_float32_large_kernel_matches_quantized_fallback(channels: int, kernel_size: int) -> None:
+    image = _make_image(channels, np.float32)
+    quantized = from_float(image, np.dtype(np.uint8))
+    expected = to_float(_uint8_reference(quantized, kernel_size))
+
+    result = median_blur(image, kernel_size)
+
+    np.testing.assert_array_equal(result, expected)
+    assert result.shape == image.shape
+    assert result.dtype == np.float32
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("kernel_size", [3, 5, 7])
+def test_median_blur_accepts_non_contiguous_read_only_input(
+    dtype: type[np.uint8 | np.float32],
+    kernel_size: int,
+) -> None:
+    source = _make_image(5, dtype)
+    image = source[:, ::2, :]
+    image.setflags(write=False)
+    before = image.copy()
+
+    result = median_blur(image, kernel_size)
+
+    np.testing.assert_array_equal(image, before)
+    assert result.shape == image.shape
+    assert result.dtype == image.dtype
+    assert result.flags.c_contiguous
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("kernel_size", [3, 5, 7])
+def test_median_blur_does_not_mutate_input(
+    dtype: type[np.uint8 | np.float32],
+    kernel_size: int,
+) -> None:
+    image = _make_image(3, dtype)
+    before = image.copy()
+
+    result = median_blur(image, kernel_size)
+
+    np.testing.assert_array_equal(image, before)
+    assert not np.shares_memory(result, image)
+
+
+@pytest.mark.parametrize("kernel_size", [1, 2, 4])
+def test_median_blur_rejects_invalid_kernel(kernel_size: int) -> None:
+    with pytest.raises(ValueError, match="ksize must be odd and >= 3"):
+        median_blur(_make_image(3, np.uint8), kernel_size)
+
+
+@pytest.mark.parametrize("dtype", [np.uint16, np.int16, np.float16, np.float64])
+def test_median_blur_rejects_unsupported_dtype(dtype: type[np.generic]) -> None:
+    image = np.zeros((9, 11, 3), dtype=dtype)
+
+    with pytest.raises(ValueError, match="Albucore supports only uint8 and float32"):
+        median_blur(image, 3)
