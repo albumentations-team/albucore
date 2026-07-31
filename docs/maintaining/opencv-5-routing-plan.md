@@ -18,8 +18,8 @@ Implemented changes:
   and the latest resolver-compatible NumPy set.
 - Added `benchmarks/probes/opencv_behavior_probe.py` and saved raw OpenCV 5
   behavior evidence in `benchmarks/results/opencv5-routing/opencv5_behavior_probe.json`.
-- Updated `hflip_cv2` / `vflip_cv2` chunking to OpenCV 5's measured
-  `cv2.flip` limit of 128 channels.
+- Updated `hflip_cv2` / `vflip_cv2` chunking to derive the matrix-type channel
+  limit from the active OpenCV build (128 on OpenCV 5 and 512 on OpenCV 4).
 - Recalibrated shared HWC uint8 LUT routing for the OpenCV 5 + StringZilla 4.6.2
   stack.
 - Routed `std(..., "per_channel")` and `mean_std(..., "per_channel")` through

@@ -1,5 +1,6 @@
 """Arithmetic: add, multiply, power, value-normalize, weighted sum, multiply-add."""
 
+import math
 from typing import Any, Literal, TypeAlias, TypeGuard, cast
 
 import cv2
@@ -27,7 +28,11 @@ np_operations = {"multiply": np.multiply, "add": np.add, "power": np.power}
 
 cv2_operations = {"multiply": cv2.multiply, "add": cv2.add, "power": cv2.pow}
 
-_PreparedValue: TypeAlias = float | int | np.float32 | np.ndarray
+_PreparedValue: TypeAlias = float | int | np.floating[Any] | np.ndarray
+_FLOAT32_COMPATIBLE_OPERAND_DTYPES: frozenset[np.dtype[Any]] = frozenset(
+    np.dtype(dtype) for dtype in (np.bool_, np.uint8, np.int8, np.uint16, np.int16, np.float16, np.float32)
+)
+_FLOAT32_MAX = float(np.finfo(np.float32).max)
 
 
 def _is_uint8_image(img: ImageType) -> TypeGuard[ImageUInt8]:
@@ -127,9 +132,24 @@ def _prepare_array_value(
 
 def _prepare_numpy_value(value: ValueType | np.floating[Any]) -> _PreparedValue:
     if isinstance(value, np.ndarray):
-        return value.astype(np.float32, copy=False)
+        if value.dtype in _FLOAT32_COMPATIBLE_OPERAND_DTYPES or np.result_type(np.float32, value.dtype) == np.float32:
+            return value
+        try:
+            with np.errstate(over="raise"):
+                return value.astype(np.float32, copy=False)
+        except FloatingPointError:
+            # Preserve finite values outside the float32 range until after the
+            # arithmetic. Narrowing them first would turn them into infinities
+            # and make otherwise defined operations such as 0 * 1e40 return NaN.
+            return value
     if isinstance(value, np.floating):
-        return np.float32(value)
+        try:
+            with np.errstate(over="raise"):
+                return np.float32(value)
+        except FloatingPointError:
+            pass
+    elif isinstance(value, float) and math.isfinite(value) and not -_FLOAT32_MAX <= value <= _FLOAT32_MAX:
+        value = np.float64(value)
     return value
 
 
@@ -143,7 +163,11 @@ def apply_numpy(
     else:
         value_prepared = _prepare_numpy_value(value)
 
-    return cast("ImageFloat32", np_operations[operation](img.astype(np.float32, copy=False), value_prepared))
+    result = np_operations[operation](img.astype(np.float32, copy=False), value_prepared)
+    if result.dtype == np.float32:
+        return cast("ImageFloat32", result)
+    with np.errstate(over="ignore"):
+        return cast("ImageFloat32", result.astype(np.float32, copy=False))
 
 
 def multiply_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -> ImageUInt8:
@@ -585,6 +609,8 @@ def _use_numkong_scalar_multiply_add(img: ImageType, factor: ValueType, value: V
         _is_float32_image(img)
         and isinstance(factor, (float, int))
         and isinstance(value, (float, int))
+        and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
+        and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
         and img.size >= 1_000_000
     )
 
@@ -612,7 +638,11 @@ def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> I
     v_b = _broadcast_channel_vector(value_prepared, n_dim, c)
 
     result = np.zeros_like(img_f) if _is_all_zero_param(f_b) else np.multiply(img_f, f_b)
-    return result if _is_all_zero_param(v_b) else np.add(result, v_b)
+    result = result if _is_all_zero_param(v_b) else np.add(result, v_b)
+    if result.dtype == np.float32:
+        return cast("ImageFloat32", result)
+    with np.errstate(over="ignore"):
+        return cast("ImageFloat32", result.astype(np.float32, copy=False))
 
 
 @preserve_channel_dim

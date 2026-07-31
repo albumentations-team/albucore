@@ -14,12 +14,19 @@ import cv2
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageType, get_num_channels, maybe_process_in_chunks
+from albucore.utils import (
+    MAX_OPENCV_WORKING_CHANNELS,
+    ImageType,
+    get_num_channels,
+    get_opencv_max_channels,
+    maybe_process_in_chunks,
+)
 
 # Interpolations that require chunking for >4ch (CI: _src.channels() <= 4)
 _INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4, cv2.INTER_LINEAR_EXACT}
 # remap does not support INTER_LINEAR_EXACT; only CUBIC/LANCZOS4 need chunking
 _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
+_MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 
 __all__ = [
     "copy_make_border",
@@ -146,11 +153,12 @@ def warp_affine(
 
     Accepts 2x3 or 3x3 affine matrix (3x3 uses first two rows).
 
-    OpenCV warpAffine accepts >4 channels when:
+    OpenCV warpAffine accepts >4 channels up to its encoded channel limit when:
     - Interpolation is INTER_NEAREST, INTER_LINEAR, or INTER_AREA
     - border_value is scalar or len <= 4
 
     We chunk when:
+    - C exceeds OpenCV's encoded channel limit
     - C > 4 AND (flags in {INTER_CUBIC, INTER_LANCZOS4, INTER_LINEAR_EXACT} OR border_value_cv2 is None)
     - border_value_cv2 is None: per-channel border_value len>4 → _warp_affine_chunked
     - border_value_cv2 is not None: uniform border_value → maybe_process_in_chunks
@@ -172,7 +180,7 @@ def warp_affine(
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
 
     needs_chunk = num_channels > MAX_OPENCV_WORKING_CHANNELS and (
-        flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
+        num_channels > _MAX_OPENCV_CHANNELS or flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
     )
     if needs_chunk:
         if border_value_cv2 is None:
@@ -238,11 +246,12 @@ def warp_perspective(
 ) -> ImageType:
     """Perspective warp. Drop-in for cv2.warpPerspective with multi-channel support.
 
-    OpenCV warpPerspective accepts >4 channels when:
+    OpenCV warpPerspective accepts >4 channels up to its encoded channel limit when:
     - Interpolation is INTER_NEAREST, INTER_LINEAR, or INTER_AREA
     - border_value is scalar or len <= 4
 
     We chunk when:
+    - C exceeds OpenCV's encoded channel limit
     - C > 4 AND (flags in {INTER_CUBIC, INTER_LANCZOS4, INTER_LINEAR_EXACT} OR border_value_cv2 is None)
     - border_value_cv2 is None: per-channel border_value len>4 → _warp_perspective_chunked
     - border_value_cv2 is not None: uniform border_value → maybe_process_in_chunks
@@ -263,7 +272,7 @@ def warp_perspective(
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
 
     needs_chunk = num_channels > MAX_OPENCV_WORKING_CHANNELS and (
-        flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
+        num_channels > _MAX_OPENCV_CHANNELS or flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
     )
     if needs_chunk:
         if border_value_cv2 is None:
@@ -409,8 +418,10 @@ def remap(
 ) -> ImageType:
     """Remap image. Drop-in for cv2.remap with multi-channel support.
 
-    cv2.remap works for >4 channels when interpolation is NEAREST, LINEAR, or AREA,
-    and border_value is scalar or len<=4. We chunk when:
+    cv2.remap works for >4 channels up to its encoded channel limit when
+    interpolation is NEAREST, LINEAR, or AREA and border_value is scalar or
+    len<=4. We chunk when:
+    - C exceeds OpenCV's encoded channel limit
     - C > 4 AND (interpolation in {CUBIC, LANCZOS4} OR per-channel border_value len>4)
 
     Args:
@@ -429,7 +440,7 @@ def remap(
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
 
     needs_chunk = num_channels > MAX_OPENCV_WORKING_CHANNELS and (
-        interpolation in _REMAP_INTERP_NEEDS_CHUNK or border_value_cv2 is None
+        num_channels > _MAX_OPENCV_CHANNELS or interpolation in _REMAP_INTERP_NEEDS_CHUNK or border_value_cv2 is None
     )
     if needs_chunk:
         if border_value_cv2 is None:
