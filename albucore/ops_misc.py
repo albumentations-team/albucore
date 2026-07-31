@@ -302,13 +302,9 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """
     if (
         _IS_MACOS_ARM64
-        and (
-            a.shape[0] >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
-            or a.shape[1] >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
-            or b.shape[1] >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
-        )
         and a.dtype.kind == "f"
         and b.dtype.kind == "f"
+        and max((*a.shape, *b.shape), default=0) >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
     ):
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
             return cast("np.ndarray", a @ b)

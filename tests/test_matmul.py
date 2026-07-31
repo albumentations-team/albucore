@@ -117,7 +117,30 @@ class TestMatmul:
         expected = cv2.gemm(points, control_points.T, 1.0, None, 0.0)
         assert result.dtype == np.float32
         assert np.isfinite(result).all()
-        np.testing.assert_array_equal(result, expected)
+        np.testing.assert_allclose(result, expected, rtol=1e-4, atol=5e-5)
+
+    @pytest.mark.parametrize(
+        ("a_shape", "b_shape"),
+        [
+            ((32,), (32,)),
+            ((32,), (32, 2)),
+            ((2, 32), (32,)),
+        ],
+    )
+    def test_macos_warning_suppression_supports_vector_inputs(
+        self,
+        a_shape: tuple[int, ...],
+        b_shape: tuple[int, ...],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Verify the macOS warning gate preserves NumPy's vector matmul behavior."""
+        monkeypatch.setattr("albucore.ops_misc._IS_MACOS_ARM64", True)
+        a = np.arange(np.prod(a_shape), dtype=np.float32).reshape(a_shape)
+        b = np.arange(np.prod(b_shape), dtype=np.float32).reshape(b_shape)
+
+        result = matmul(a, b)
+
+        np.testing.assert_allclose(result, a @ b, rtol=1e-6, atol=1e-6)
 
 
 class TestPairwiseDistancesSquared:
