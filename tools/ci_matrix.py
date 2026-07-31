@@ -92,6 +92,8 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow is missing warnings-as-errors matmul tests on macOS")
     if '"numpy==2.2.6"' not in text:
         errors.append("CI workflow does not pin the affected NumPy version for the macOS regression tests")
+    if "-r requirements-dev.txt" not in text:
+        errors.append("CI workflow does not install test dependencies for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
 

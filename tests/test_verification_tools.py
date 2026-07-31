@@ -98,6 +98,7 @@ def test_ci_matrix_requires_macos_arm64_warning_regressions(monkeypatch) -> None
         .replace("pytest tests/test_matmul.py", "")
         .replace("-W error", "")
         .replace('"numpy==2.2.6"', "")
+        .replace("-r requirements-dev.txt", "")
     )
     original_read_text = Path.read_text
 
@@ -113,6 +114,7 @@ def test_ci_matrix_requires_macos_arm64_warning_regressions(monkeypatch) -> None
     assert "CI workflow is missing the macOS arm64 runner" in errors
     assert "CI workflow is missing warnings-as-errors matmul tests on macOS" in errors
     assert "CI workflow does not pin the affected NumPy version for the macOS regression tests" in errors
+    assert "CI workflow does not install test dependencies for the macOS regression tests" in errors
 
 
 def test_ci_matrix_requires_legal_artifact_verifier_commands(monkeypatch) -> None:
