@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "albucore"
-version = "0.2.9"
+version = "0.2.10"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
@@ -41,6 +41,7 @@ dependencies = [
   "numpy>=1.24.4",
   "numkong>=7.4.5",
   "stringzilla>=3.10.4",
+  "torch>=2.13.0",
 ]
 
 [project.optional-dependencies]
@@ -127,6 +128,8 @@ lint.select = [ "ALL" ]
 lint.ignore = [
   "ANN401",
   "ARG001",
+  # The project does not require boilerplate copyright headers in source files.
+  "CPY001",
   "D100",
   "D103",
   "D104",
@@ -136,6 +139,8 @@ lint.ignore = [
   "FBT001",
   "FBT002",
   "FBT003",
+  # Public OpenCV-compatible APIs intentionally have more than five parameters.
+  "PLR0917",
   "PLR2004",
   "TRY003",
 ]

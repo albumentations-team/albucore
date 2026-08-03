@@ -17,10 +17,12 @@ from tests.verification_constants import (
     IMAGE_CHANNELS,
     IMAGE_DTYPES,
     LAYOUT_2D,
+    LAYOUT_DHWC,
     LAYOUT_HWC,
     LAYOUT_POINTS,
     SCALAR_VECTOR_ARRAY,
     VALUE_ALPHA,
+    VALUE_ANTIALIAS,
     VALUE_BETA,
     VALUE_BIAS,
     VALUE_BORDER_MODE,
@@ -59,7 +61,6 @@ from tests.verification_constants import (
     LayoutName,
     ValueKind,
 )
-
 
 RouterKind = Literal["function", "decorator", "geometric"]
 
@@ -546,6 +547,23 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
         aliasing="does not mutate input",
         reference="cv2.resize with channel preservation",
         benchmark_names=("resize",),
+        release_blocking_performance=True,
+    ),
+    "resize3d": RouterContract(
+        name="resize3d",
+        kind="geometric",
+        dtypes=IMAGE_DTYPES,
+        layouts=(LAYOUT_DHWC,),
+        channels=IMAGE_CHANNELS,
+        values=(VALUE_DSIZE, VALUE_INTERPOLATION, VALUE_ANTIALIAS),
+        output_shape="requested D/H/W plus input channels",
+        output_dtype="same as input",
+        aliasing="identity returns input; a shape-changing resize does not alias input",
+        reference=(
+            "half-pixel linear or nearest 3D resize; Tensor all-axis linear upscale may use the "
+            "benchmark-selected NumPy/OpenCV bridge"
+        ),
+        benchmark_names=("resize3d",),
         release_blocking_performance=True,
     ),
     "warp_affine": RouterContract(

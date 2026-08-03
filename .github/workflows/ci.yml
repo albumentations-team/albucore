@@ -176,6 +176,7 @@ jobs:
             "numkong>=7.4.5" \
             "stringzilla>=3.10.4" \
             "opencv-python-headless>=4.13.0.90" \
+            "torch>=2.13.0" \
             hypothesis \
             pytest \
             pytest-randomly

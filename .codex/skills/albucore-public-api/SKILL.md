@@ -9,7 +9,7 @@ description: Albucore star-exported API (__all__), routers vs albucore.functions
 
 `from albucore import *` follows `albucore/__init__.py`, which merges `__all__` from `functions`, `decorators`, `geometric`, and `utils`, plus metadata.
 
-Routers live in `albucore/functions.py` `__all__`, re-exported from `arithmetic`, `lut`, `normalize`, `convert`, `ops_misc`, and `stats`.
+Most routers live in `albucore/functions.py` `__all__`, re-exported from `arithmetic`, `lut`, `normalize`, `convert`, `ops_misc`, and `stats`. Geometric routers live in `albucore/geometric.py` `__all__` and are separately merged by package `__init__`; `resize3d` is one such router.
 
 ## Classification Doc
 
@@ -27,6 +27,7 @@ Example: `sz_lut` and `apply_uint8_lut` are public routers on `__all__` and are 
 ## Adding an Export
 
 1. Implement in the appropriate submodule (`arithmetic.py`, `lut.py`, `geometric.py`, etc.).
-2. Ensure `from submodule import *` in `functions.py` exposes the name.
-3. Append to `functions.__all__`, sorted or grouped with peers.
-4. Update `docs/public-api.md` if classification changes.
+2. For a regular router, ensure `from submodule import *` in `functions.py` exposes the name and append it to `functions.__all__`, sorted or grouped with peers.
+3. For a geometric router, append it to `geometric.__all__`; do not add a compatibility shim to `functions.py` unless there is a separate public-API decision.
+4. Confirm `from albucore import <name>` succeeds and that the name occurs once in package `__all__`.
+5. Update `docs/public-api.md` if classification changes.

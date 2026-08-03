@@ -7,6 +7,7 @@ import numkong as nk
 import numpy as np
 from numpy.typing import DTypeLike
 
+from albucore.torch_backend import reduce_sum_torch
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8
 
 DEFAULT_EPS = 1e-4
@@ -53,6 +54,9 @@ def _cv2_reduce_mean_per_channel(arr: np.ndarray) -> np.ndarray:
 
 
 def _reduce_sum_global_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.uint64 | np.ndarray:
+    torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
+    if torch_result is not None:
+        return cast("np.uint64 | np.ndarray", torch_result)
     out = np.uint64(int(nk.sum(arr)))
     if keepdims:
         return np.array(out, dtype=np.uint64).reshape((1,) * arr.ndim)
@@ -60,6 +64,9 @@ def _reduce_sum_global_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.uint64 | 
 
 
 def _reduce_sum_global_float32(arr: ImageFloat32, *, keepdims: bool) -> np.float64 | np.ndarray:
+    torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
+    if torch_result is not None:
+        return cast("np.float64 | np.ndarray", torch_result)
     out = np.sum(arr, dtype=np.float64)
     if keepdims:
         return np.asarray(out, dtype=np.float64).reshape((1,) * arr.ndim)
@@ -82,6 +89,10 @@ def _reduce_sum_per_channel_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.ndar
 def _reduce_sum_per_channel_float32(arr: ImageFloat32, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
     """Per-channel sum for float32: nk.sum for ndim ≤ 4 and 1 < C ≤ 4 (4x faster than numpy), numpy otherwise."""
     c = arr.shape[-1]
+    if c <= MAX_OPENCV_WORKING_CHANNELS:
+        torch_result = reduce_sum_torch(arr, axes, keepdims=keepdims)
+        if torch_result is not None:
+            return cast("np.ndarray", torch_result)
     n_spatial = arr.size // c
     if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 16_384:
         result = _cv2_reduce_sum_per_channel(arr)
@@ -121,12 +132,15 @@ def reduce_sum(
     r"""Sum over image tensor axes with benchmark-driven routing.
 
     Routing:
-    - **uint8 global**: NumKong ``nk.sum`` (wide uint64 accumulator; avoids uint8 overflow).
+    - **large uint8 global**: Torch ``int64`` sum reinterpreted as the
+      documented uint64 accumulator; other global uint8 input uses NumKong ``nk.sum``.
     - **uint8 per-channel**: NumKong ``nk.sum(arr, axis=spatial_axes)`` — single call over
       all spatial dimensions for all ranks (HWC, DHWC, NHWC, …).
-    - **float32 global**: ``numpy.sum(dtype=float64)``.
-    - **float32 per-channel, ndim ≤ 4, 1 < C ≤ 4**: NumKong ``nk.sum`` — 4x faster than
-      numpy for RGB/RGBA images and 4-D batch/volume layouts.
+    - **large float32 global and per-channel C ≤ 4**: Torch float64
+      accumulation through a zero-copy NumPy wrapper.
+    - **other float32 global**: ``numpy.sum(dtype=float64)``.
+    - **other float32 per-channel, ndim ≤ 4, 1 < C ≤ 4**: NumKong ``nk.sum`` — 4x faster than
+      NumPy for RGB/RGBA images and 4-D batch/volume layouts.
     - **float32 per-channel, C=1 or C>4, or explicit-axis cases**: ``numpy.sum(dtype=float64)``.
 
     ``axis="per_channel"`` reduces all spatial axes (everything except the last / channel dim),

@@ -29,6 +29,9 @@ Key features:
 pip install albucore
 ```
 
+`torch>=2.13.0` is a required dependency and installs with Albucore. AlbumentationsX validates `resize3d` Tensor
+inputs as CPU and `requires_grad=False` before calling the Albucore primitive.
+
 **With OpenCV headless** (recommended for servers/CI):
 
 ```bash
@@ -179,7 +182,7 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `warp_affine`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures.
+The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` expects prevalidated NumPy `DHWC` volumes and Torch `CDHW` tensors.
 
 ### Type conversion
 

@@ -17,6 +17,8 @@ generation.
 - `./benchmark.sh` - Dataset-driven runner; expects an external `benchmark` package that is not always present in-tree. Prefer synthetic scripts for CI-style checks.
 - `benchmarks/benchmark_router_synthetic.py` - Times public routers on synthetic `uint8` and `float32` arrays: HWC, plus NHWC for `mean`, `std`, and `mean_std` only.
 - `benchmarks/compare_router_json.py` - Builds a Markdown table from two JSON outputs.
+- `benchmarks/benchmark_resize3d_tensor.py` - Times direct Tensor, zero-copy Tensor→NumPy→Tensor, and public
+  `resize3d` routes for contiguous and channel-last-strided CPU `CDHW` Tensors.
 
 ## Canonical Shape Grid
 
@@ -38,6 +40,8 @@ DHWC volumes:
 - `64x128x160x3` - deeper slab.
 - `96x128x160x1` - deep single-channel slab.
 - `48x240x320x3` - large in-plane, multi-channel.
+
+For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; retain the routing decision in `docs/research/resize3d-cpu-benchmark.md`.
 
 NDHWC batch of volumes:
 

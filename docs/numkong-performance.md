@@ -30,7 +30,7 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 | **max** | same | same | **Not NumKong** — same bench as min. |
 | **minmax** (`Tensor.minmax`) | same | same | **Not NumKong** — see [`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md). |
 | `multiply_by_constant` | same | uint8, float32 | **float32 → NumPy** (`multiply_numpy`, same as 0.0.40); uint8 LUT. **`multiply_by_constant_numkong`** for microbenches only. |
-| `multiply_add` | same | uint8, float32 | uint8 LUT; float32 scalar factor/bias → **`nk.scale`**; vector/array operands → NumPy. |
+| `multiply_add` | same | uint8, float32 | uint8 LUT; large scalar float32 inputs → Torch CPU; other scalar float32 inputs → **`nk.scale`**; vector/array operands → NumPy. |
 | `add_constant` | same | uint8, float32 | uint8 → OpenCV; float32 → NumPy. Allocating **`nk.scale`(1,β)** has no reliable win (§2). |
 | `multiply_by_array` | same | uint8, float32 | uint8 → OpenCV plus saturation; float32 → NumPy. **Do not use `nk.fma`** (§2). |
 | `add_array` | same | uint8, float32 | **Shipped** — float32 → NumPy; uint8 same shape/dtype → **`add_array_numkong`**; else OpenCV. **No `inplace` kwarg** (in-place OpenCV was not a win vs NumKong out-of-place on same-shape uint8). |

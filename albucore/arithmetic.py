@@ -9,6 +9,7 @@ import numpy as np
 from albucore.decorators import preserve_channel_dim
 from albucore.lut import _apply_float_lut
 from albucore.lut import apply_uint8_lut as _apply_uint8_lut
+from albucore.torch_backend import multiply_add_float32_torch, normalize_float32_torch
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
@@ -442,6 +443,7 @@ def normalize(img: ImageType, mean: ValueType, denominator: ValueType) -> ImageF
     - **uint8**: LUT (one 256-entry float32 table per channel, applied via ``cv2.LUT``).
       Very fast — 256 floats cover all possible pixel values.
     - **float32, identity** (mean ≈ 0 and denominator ≈ 1): cast-only, no arithmetic.
+    - **large multi-channel float32 input**: a zero-copy Torch CPU kernel for the fused affine expression.
     - **float32**: NumPy fused ``img * denominator - mean * denominator``.
 
     Alternative: ``normalize_per_image`` for image-adaptive mean/std normalization.
@@ -463,6 +465,10 @@ def normalize(img: ImageType, mean: ValueType, denominator: ValueType) -> ImageF
 
     if _normalize_is_identity(mean, denominator):
         return img.astype(np.float32, copy=False)
+
+    torch_result = normalize_float32_torch(cast("ImageFloat32", img), mean, denominator)
+    if torch_result is not None:
+        return torch_result
 
     return normalize_numpy(img, mean, denominator)
 
@@ -725,7 +731,8 @@ def multiply_add(img: ImageType, factor: ValueType, value: ValueType, inplace: b
     Routing:
     - **uint8**: LUT (``img * factor + value`` computed once for all 256 values, then applied
       via ``apply_uint8_lut``). Scalar and per-channel vectors both supported.
-    - **float32 scalar factor and value**: NumKong ``scale``.
+    - **large float32 scalar factor and value**: Torch CPU arithmetic through a zero-copy NumPy wrapper.
+    - **other float32 scalar factor and value**: NumKong ``scale``.
     - **float32 vector / array operands**: NumPy broadcast.
 
     Args:
@@ -750,6 +757,9 @@ def multiply_add(img: ImageType, factor: ValueType, value: ValueType, inplace: b
         return img
 
     if _use_numkong_scalar_multiply_add(img, factor, value):
+        torch_result = multiply_add_float32_torch(cast("ImageFloat32", img), float(factor), float(value))
+        if torch_result is not None:
+            return torch_result
         return multiply_add_numkong(img, float(factor), float(value))
 
     return multiply_add_numpy(img, factor, value)

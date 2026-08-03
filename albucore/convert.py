@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
+from albucore.torch_backend import from_float_uint8_torch
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
@@ -107,6 +108,7 @@ def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | Non
 
     Routing:
     - **target == float32**: no-op (returned as-is).
+    - **large float32 → uint8**: a zero-copy CPU Torch input wrapper, then Torch scale/round/clip/cast.
     - **float32 input, C ≤ 4**: NumPy ``rint(img * max_value)`` then clip — fastest on benchmarks
       (``benchmarks/benchmark_grayscale_paths.py``).
     - **float32 input, C > 4**: same NumPy path (``cv2.multiply`` broadcast is slower here).
@@ -126,6 +128,11 @@ def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | Non
         return img
 
     if img.dtype == np.float32:
+        if target_dtype == np.uint8:
+            resolved_max = get_max_value(target_dtype) if max_value is None else max_value
+            torch_result = from_float_uint8_torch(img, resolved_max)
+            if torch_result is not None:
+                return torch_result
         return from_float_opencv(img, target_dtype, max_value)
 
     return from_float_numpy(img, target_dtype, max_value)
