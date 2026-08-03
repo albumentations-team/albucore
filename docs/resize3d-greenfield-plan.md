@@ -30,7 +30,7 @@ prevalidated np.ndarray DHWC
     → np.ndarray DHWC
 
 prevalidated torch.Tensor CDHW
-    → native eager Torch CPU implementation
+    → native Torch или zero-copy DHWC NumPy/OpenCV route для large all-axis linear upscale
     → torch.Tensor CDHW
 ```
 
@@ -40,7 +40,7 @@ Backend-specific helpers не входят в package `__all__`. Если пос
 
 ## Статус реализации на 2026-08-03
 
-PR 1–3 реализованы в Albucore: `torch>=2.13.0` зафиксирован как обязательная dependency, package экспортирует `resize3d`, а Tensor path использует прямой `isinstance` dispatch и `torch.inference_mode()`. Контрактные и property tests покрывают валидные `DHWC`/`CDHW` inputs, uint8/float32, `C=1/3/5`, non-contiguous views, unit axes, identity и antialias failure Tensor path. AlbumentationsX проверяет layout, size, CPU и autograd до вызова primitive.
+PR 1–3 реализованы в Albucore: `torch>=2.13.0` зафиксирован как обязательная dependency, package экспортирует `resize3d`, а Tensor path использует прямой `isinstance` dispatch, `torch.inference_mode()` и benchmark-selected zero-copy bridge для large all-axis linear upscale (минимум 10,000 output elements). Контрактные и property tests покрывают валидные `DHWC`/`CDHW` inputs, uint8/float32, `C=1/3/5`, non-contiguous views, unit axes, identity и antialias failure Tensor path. AlbumentationsX проверяет layout, size, CPU и autograd до вызова primitive.
 
 NumPy router выбирает между three-pass NumPy, OpenCV axis packing, joint H/W packing, per-slice OpenCV и полным `NumPy → Torch → NumPy` путём. Выбор основан на full-path benchmark, включая packing и dtype conversion; результаты и команды находятся в [CPU benchmark report](research/resize3d-cpu-benchmark.md). Следующий release Albucore подготовлен как `0.2.10`. После его публикации AlbumentationsX обновляет pin с `albucore==0.2.9`, затем заменяет local kernels; до публикации такая замена сломала бы обычную установку downstream проекта.
 
@@ -242,14 +242,14 @@ def _resize3d_torch_cpu(
 
 PyTorch 2.13.0 не реализует uint8 trilinear CPU kernel. V1 переводит только Tensor data в float32, интерполирует и один раз округляет конечный output. Линейная интерполяция не создаёт значений вне convex hull input; `min(..., 255)` защищает conversion границу. Тесты всё равно проверяют полный `[0, 255]` range.
 
-Input Tensor может быть strided. Начальная реализация передаёт его в `F.interpolate` без безусловного `.contiguous()`: локальный capability check подтвердил прием non-contiguous float32 CPU input. Если benchmark покажет выигрыш explicit `.contiguous()` в связанном регионе, router может материализовать copy только в этом регионе.
+Input Tensor может быть strided. Router не делает безусловный `.contiguous()`: локальный capability check подтвердил прием non-contiguous float32 CPU input. Для linear resize, где строго увеличиваются depth, height и width и output содержит минимум 10,000 `C×D×H×W` элементов, он передаёт zero-copy `CDHW → DHWC` NumPy view в выбранный OpenCV/NumPy route и оборачивает его output обратно в Tensor view. Этот bridge дал 2.5–5.8× выигрыш на canonical measured upscale cells. Для float32 он сохраняет native Torch result в `rtol=2e-4`, `atol=3e-5`; для uint8 delta не превышает 1. Очень малые upscale, downscale, mixed resize и `D → 1` остаются native Torch: там bridge не быстрее либо расширяет uint8 difference.
 
 ## Прямой container dispatch
 
 Процесс обучения уже импортировал Torch. Router использует прямой container dispatch:
 
 1. `isinstance(volume, np.ndarray)` выбирает NumPy route.
-2. `isinstance(volume, torch.Tensor)` выбирает native Tensor route; AlbumentationsX уже передал CPU `CDHW` Tensor с `requires_grad=False`.
+2. `isinstance(volume, torch.Tensor)` выбирает Tensor route; large all-axis linear upscale проходит через zero-copy NumPy/OpenCV bridge, остальные regions используют native Torch. AlbumentationsX уже передал CPU `CDHW` Tensor с `requires_grad=False`.
 3. Другой container получает `TypeError` с перечнем поддерживаемых типов.
 
 `sys.modules`, class-name heuristics и lazy kernel imports для этого API не нужны. Прямой dispatch уменьшает число внутренних состояний и делает type narrowing очевидным для runtime и type checker.
@@ -263,6 +263,7 @@ Input Tensor может быть strided. Начальная реализаци�
 - не переставлять и не материализовывать channel axis между axis passes: весь NumPy path сохраняет `DHWC`;
 - не вызывать `.contiguous()` перед Torch kernel без benchmark evidence;
 - не переводить NumPy float32 в новый Tensor buffer, если `torch.from_numpy` может разделить CPU storage;
+- для выбранного large Tensor upscale не копировать buffer на Tensor/NumPy boundaries: `permute`, `.numpy()` и `torch.from_numpy` создают views;
 - переводить uint8 в float32 один раз на весь true trilinear route;
 - не clip’ать float32 linear result: interpolation сохраняет input range;
 - выбирать порядок separable passes только после проверки numerical contract.
@@ -288,6 +289,7 @@ LUT, grouped reductions, `bincount` и random generation к этой operation �
 | NumPy | N4 per-slice OpenCV | Python calls, slice outputs, depth pass |
 | Torch | T0 native trilinear | dispatch, unsqueeze/squeeze, kernel |
 | Torch uint8 | T1 cast + trilinear + round | two full dtype conversions и kernel |
+| Torch | T2 zero-copy Tensor → NumPy → Tensor | two layout views, selected NumPy/OpenCV route, output Tensor view |
 
 Custom C++/Rust candidate не нужен для первого measurement pass. Он появляется после профиля, если существующие libraries не выполняют функциональный или performance contract.
 
@@ -353,8 +355,8 @@ Router выбирается по полному public path. Candidate прин�
 
 ### Test oracles
 
-- Float32 Torch path сравнивается напрямую с `F.interpolate(..., mode="trilinear", align_corners=False)`.
-- Uint8 Torch path сравнивается с явным float32 Torch reference и зафиксированным final rounding rule.
+- Native Tensor regions сравниваются напрямую с `F.interpolate(..., mode="trilinear", align_corners=False)`.
+- Large all-axis linear Tensor upscale сравнивается с native float32 reference в `rtol=2e-4`, `atol=3e-5`; uint8 сравнивается с delta не больше 1.
 - NumPy linear path сравнивается с pure NumPy three-pass reference с документированной tolerance.
 - NumPy OpenCV production path получает backend-specific golden vectors для uint8, потому что intermediate rounding отличается от true float32 trilinear.
 - Identity проверяет `result is input`.
@@ -385,7 +387,7 @@ AlbumentationsX test suite отвечает за invalid rank, implicit channel 
 | `albucore/__init__.py` | `resize3d` появляется через `geometric.__all__` |
 | `docs/public-api.md` | классификация `resize3d` как public geometric router |
 | `tests/test_resize3d.py` | contract и differential tests |
-| `benchmarks/benchmark_resize3d.py` | candidate matrix и reports |
+| `benchmarks/benchmark_resize3d.py`, `benchmarks/benchmark_resize3d_tensor.py` | NumPy и Tensor candidate matrices, включая direct Tensor и zero-copy bridge |
 | `benchmarks/README.md` | команда запуска и scope benchmark |
 
 Реализация приняла `torch>=2.13.0`, обновлённый lock и eager `torch_backend.py`: Torch является обязательной runtime dependency, а benchmark/test switch остаётся только явным внутренним флагом.
@@ -525,6 +527,7 @@ uv run pytest tests/property/test_resize3d_properties.py -q
 uv run ruff check albucore tests/test_resize3d.py benchmarks/benchmark_resize3d.py
 uv run mypy albucore
 uv run python benchmarks/benchmark_resize3d.py --quick
+uv run python benchmarks/benchmark_resize3d_tensor.py --quick
 ```
 
 Перед release:
@@ -533,6 +536,7 @@ uv run python benchmarks/benchmark_resize3d.py --quick
 uv export --frozen
 uv run pytest -q
 uv run python benchmarks/benchmark_resize3d.py --full --output benchmarks/results/resize3d.md
+uv run python benchmarks/benchmark_resize3d_tensor.py --full --output benchmarks/results/resize3d-tensor.md
 ```
 
 CI также проверяет wheel/sdist install на заявленной OS/Python matrix. Linux job должен зафиксировать фактические Torch/Triton/CUDA transitive packages и размер окружения.
@@ -550,6 +554,7 @@ CI также проверяет wheel/sdist install на заявленной O
 - NumPy `DHWC` и CPU Tensor `CDHW` сохраняют container, dtype и channel count.
 - Output spatial shape в точности равен `(depth, height, width)` из `size`.
 - uint8 и float32 проходят correctness matrix для `C=1/3/5`, non-cubic shapes и unit-length axes.
+- Linear Tensor large all-axis upscale (минимум 10,000 output elements) использует zero-copy NumPy/OpenCV bridge только в benchmark-selected region; float32 остаётся в `rtol=2e-4`, `atol=3e-5` от native Torch, uint8 — в delta не больше 1.
 - AlbumentationsX отклоняет non-CPU device и `requires_grad=True` до вызова; Tensor route сообщает `antialias=True` отдельной ошибкой.
 - NumPy antialiasing применяется только к уменьшаемым axes.
 - Public route ссылается на сохранённый benchmark report; rejected candidates остаются в report.

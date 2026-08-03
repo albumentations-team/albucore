@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import cv2
 import numpy as np
 import torch
@@ -17,7 +19,7 @@ import albucore as ac
 @st.composite
 def dhwc_volumes(draw: st.DrawFn) -> np.ndarray:
     """Generate small supported DHWC volumes, including singleton spatial axes and C>4."""
-    dtype = draw(st.sampled_from((np.dtype(np.uint8), np.dtype(np.float32))))
+    dtype = cast("np.dtype[Any]", draw(st.sampled_from((np.dtype(np.uint8), np.dtype(np.float32)))))
     shape = (
         draw(st.integers(min_value=1, max_value=5)),
         draw(st.integers(min_value=1, max_value=6)),
@@ -57,11 +59,11 @@ def test_resize3d_numpy_property_preserves_shape_dtype_and_uint8_range(
 
 @given(dhwc_volumes(), resize_sizes)
 @settings(max_examples=50, deadline=None)
-def test_resize3d_torch_property_matches_native_interpolate(
+def test_resize3d_torch_property_preserves_the_documented_native_error_bound(
     volume: np.ndarray,
     size: tuple[int, int, int],
 ) -> None:
-    """Every supported CPU CDHW Tensor follows the documented native Torch interpolation contract."""
+    """Tensor results match native interpolation exactly or the bounded faster all-axis-upscale route."""
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
 
     result = ac.resize3d(tensor, size)
@@ -70,4 +72,9 @@ def test_resize3d_torch_property_matches_native_interpolate(
     if tensor.dtype == torch.uint8:
         expected = torch.minimum(expected + 0.5, expected.new_tensor(255)).to(torch.uint8)
 
-    torch.testing.assert_close(result, expected.squeeze(0), rtol=0, atol=0)
+    expected = expected.squeeze(0)
+    if tensor.dtype == torch.float32:
+        torch.testing.assert_close(result, expected, rtol=2e-4, atol=3e-5)
+    else:
+        delta = (result.to(torch.int16) - expected.to(torch.int16)).abs()
+        assert int(delta.max()) <= 1

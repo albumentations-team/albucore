@@ -66,6 +66,8 @@ No float64 in public paths. Raise `ValueError` for unsupported dtypes.
   Tensor inputs; Albucore kernels do not repeat those caller checks or silently detach/move data.
 - Benchmark NumPy-to-Torch routes end-to-end: wrapper creation, permutations, dtype casts, kernel execution, and
   returned NumPy layout all belong inside the timed region.
+- For `resize3d`, benchmark direct Tensor and zero-copy Tensor→NumPy→Tensor routes separately. A linear all-axis
+  upscale may select the bridge for speed; preserve its documented float32 tolerance and uint8 delta bound.
 
 ### 5. OpenCV LUT - Source vs Table Dtype
 

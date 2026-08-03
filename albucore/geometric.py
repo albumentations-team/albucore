@@ -522,6 +522,7 @@ def resize(
 
 _RESIZE3D_INTERPOLATIONS = frozenset((cv2.INTER_LINEAR, cv2.INTER_NEAREST))
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
+_RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
 
 
 def _validate_resize3d_interpolation(interpolation: int, antialias: bool) -> None:
@@ -738,6 +739,30 @@ def _resize3d_numpy(
     return _resize3d_numpy_axis_packing(volume, size, interpolation, antialias)
 
 
+def _should_resize3d_torch_use_numpy_route(
+    volume: torch.Tensor,
+    size: tuple[int, int, int],
+    interpolation: int,
+) -> bool:
+    """Select the measured zero-copy path for sufficiently large all-axis linear Tensor upscales."""
+    return (
+        interpolation == cv2.INTER_LINEAR
+        and volume.shape[0] * size[0] * size[1] * size[2] >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS
+        and all(output_size > input_size for input_size, output_size in zip(volume.shape[1:], size, strict=True))
+    )
+
+
+def _resize3d_torch_via_numpy(
+    volume: torch.Tensor,
+    size: tuple[int, int, int],
+    interpolation: int,
+) -> torch.Tensor:
+    """Bridge a prevalidated CPU CDHW Tensor through the faster benchmark-routed DHWC CPU path."""
+    numpy_volume = volume.permute(1, 2, 3, 0).numpy()
+    resized = _resize3d_numpy(numpy_volume, size, interpolation, antialias=False)
+    return torch.from_numpy(resized).permute(3, 0, 1, 2)
+
+
 def _resize3d_torch_cpu(
     volume: torch.Tensor,
     size: tuple[int, int, int],
@@ -788,6 +813,10 @@ def resize3d(
     NumPy input uses channel-last ``(D, H, W, C)`` layout. Torch input uses channel-first
     ``(C, D, H, W)`` layout. AlbumentationsX validates the input layout, spatial dimensions, output size,
     device, and autograd state before calling this primitive. The container, dtype, and channel count are preserved.
+    Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
+    benchmark-selected zero-copy NumPy/OpenCV CPU route. Its float32 output is within ``rtol=2e-4``, ``atol=3e-5``
+    of native Torch interpolation; uint8 differs by at most one value. Other Tensor regions use native Torch
+    interpolation.
 
     Args:
         volume: Prevalidated NumPy ``DHWC`` array or Torch ``CDHW`` tensor. Only uint8 and float32 are supported.
@@ -822,6 +851,8 @@ def resize3d(
             raise NotImplementedError(msg)
         if tuple(volume.shape[1:]) == size:
             return volume
+        if _should_resize3d_torch_use_numpy_route(volume, size, interpolation):
+            return _resize3d_torch_via_numpy(volume, size, interpolation)
         return _resize3d_torch_cpu(volume, size, interpolation)
 
     msg = f"resize3d supports np.ndarray and torch.Tensor, got {type(volume).__name__}."

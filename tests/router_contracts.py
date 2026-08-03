@@ -559,7 +559,10 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
         output_shape="requested D/H/W plus input channels",
         output_dtype="same as input",
         aliasing="identity returns input; a shape-changing resize does not alias input",
-        reference="half-pixel linear or nearest 3D resize; CPU Tensor input is CDHW via torch.interpolate",
+        reference=(
+            "half-pixel linear or nearest 3D resize; Tensor all-axis linear upscale may use the "
+            "benchmark-selected NumPy/OpenCV bridge"
+        ),
         benchmark_names=("resize3d",),
         release_blocking_performance=True,
     ),

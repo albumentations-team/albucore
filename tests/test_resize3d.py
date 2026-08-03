@@ -186,12 +186,12 @@ def test_resize3d_cross_container_unit_output_contract(
 @pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
 @pytest.mark.parametrize("channels", [1, 5], ids=["c1", "c5"])
 @pytest.mark.parametrize("size", [(3, 5, 12), (8, 11, 4)], ids=["mixed", "up_down"])
-def test_resize3d_torch_linear_matches_native_cpu_interpolate(
+def test_resize3d_torch_linear_matches_native_cpu_interpolate_outside_all_axis_upscales(
     dtype: torch.dtype,
     channels: int,
     size: tuple[int, int, int],
 ) -> None:
-    """CPU CDHW linear interpolation delegates to the explicit native Torch contract."""
+    """Non-upscale CPU CDHW Tensor regions retain the exact native Torch result."""
     if dtype == torch.uint8:
         volume = torch.arange(channels * 5 * 7 * 9, dtype=dtype).reshape(channels, 5, 7, 9)
     else:
@@ -203,6 +203,53 @@ def test_resize3d_torch_linear_matches_native_cpu_interpolate(
     assert isinstance(result, torch.Tensor)
     assert result.shape == (channels, *size)
     assert result.dtype == dtype
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("channels", [1, 5], ids=["c1", "c5"])
+@pytest.mark.parametrize("channel_last_strided", [False, True], ids=["contiguous", "channel_last_strided"])
+def test_resize3d_torch_all_axis_upscale_uses_the_fast_numpy_route(
+    dtype: torch.dtype,
+    channels: int,
+    channel_last_strided: bool,
+) -> None:
+    """At-threshold large all-axis Tensor upscales use the selected route without boundary copies."""
+    rng = np.random.default_rng(20260803)
+    volume: np.ndarray
+    if dtype == torch.uint8:
+        volume = rng.integers(0, 256, size=(5, 20, 20, channels), dtype=np.uint8)
+    else:
+        volume = rng.random((5, 20, 20, channels), dtype=np.float32)
+    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2).contiguous()
+    if channel_last_strided:
+        tensor = tensor.permute(1, 2, 3, 0).contiguous().permute(3, 0, 1, 2)
+    size = (10, 25, 40)
+
+    result = resize3d(tensor, size)
+    expected = torch.from_numpy(resize3d(volume, size)).permute(3, 0, 1, 2)
+    native = _torch_linear_reference(tensor, size)
+
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    if dtype == torch.float32:
+        torch.testing.assert_close(result, native, rtol=2e-4, atol=3e-5)
+    else:
+        delta = (result.to(torch.int16) - native.to(torch.int16)).abs()
+        assert int(delta.max()) <= 1
+
+
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+def test_resize3d_torch_small_all_axis_upscale_matches_native_cpu_interpolate(dtype: torch.dtype) -> None:
+    """Small all-axis Tensor upscales avoid a marginal bridge win and retain the native result exactly."""
+    if dtype == torch.uint8:
+        volume = torch.arange(5 * 7 * 9, dtype=dtype).reshape(1, 5, 7, 9)
+    else:
+        volume = torch.rand((1, 5, 7, 9), dtype=dtype)
+    size = (8, 11, 13)
+
+    result = resize3d(volume, size)
+    expected = _torch_linear_reference(volume, size)
+
     torch.testing.assert_close(result, expected, rtol=0, atol=0)
 
 
