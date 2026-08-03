@@ -29,8 +29,9 @@ Key features:
 pip install albucore
 ```
 
-`torch>=2.13.0` is a required dependency and installs with Albucore. AlbumentationsX validates `resize3d` Tensor
-inputs as CPU and `requires_grad=False` before calling the Albucore primitive.
+`torch>=2.13.0` is a required dependency and installs with Albucore. AlbumentationsX passes prevalidated CPU,
+strided Torch tensors with `requires_grad=False` to `resize3d` and `warp_affine3d`; the low-level routers do not
+repeat those checks or move/detach Tensor data.
 
 **With OpenCV headless** (recommended for servers/CI):
 
@@ -112,7 +113,9 @@ batch_volumes = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
 
 ## Functions
 
-The tables below highlight commonly used public routers. They are exported via `from albucore import *` and can also be imported from `albucore.functions`. See [docs/public-api.md](docs/public-api.md) for the complete export list and the distinction between public routers and backend-specific compatibility shims.
+The tables below highlight commonly used public routers. They are exported via `from albucore import *`. The
+compatibility shims in `albucore.functions` cover only the names documented in [docs/public-api.md](docs/public-api.md);
+`warp_affine3d` is intentionally public from `albucore` and `albucore.geometric` only.
 
 Image routers use channel-last inputs with an explicit channel dimension (`(H, W, C)`, never bare `(H, W)`) and generally support `uint8` and `float32`. Exceptions are stated in the tables.
 
@@ -179,10 +182,11 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 | `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked above OpenCV's 128-channel limit |
 | `vflip` | `(img)` | Mirror top-bottom | `cv2.flip(img, 0)` for ≤4 channels; NumPy slice for >4 channels |
 | `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked `cv2.medianBlur`; float32 ksize 3/5 → native OpenCV; float32 ksize ≥ 7 → uint8 conversion fallback |
+| `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix | One NumPy `DHWC` or CPU Torch `CDHW` volume; native Torch `affine_grid` + `grid_sample`; uint8 uses one float32 sampling buffer |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` expects prevalidated NumPy `DHWC` volumes and Torch `CDHW` tensors.
+The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` and `warp_affine3d` expect prevalidated NumPy `DHWC` volumes or Torch `CDHW` tensors. `warp_affine3d` accepts exactly one volume per call; it does not accept `NDHWC` or `NCDHW` batch layouts.
 
 ### Type conversion
 

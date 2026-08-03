@@ -12,7 +12,7 @@ from benchmarks.shape_grids import (
 )
 
 DTypeName: TypeAlias = Literal["uint8", "float32", "float64", "other numeric fallback"]
-LayoutName: TypeAlias = Literal["HWC", "XHWC", "NDHWC", "DHWC", "2D", "points"]
+LayoutName: TypeAlias = Literal["HWC", "XHWC", "NDHWC", "DHWC", "CDHW", "2D", "points"]
 ChannelSpec: TypeAlias = Literal["1", "3", "4", ">4"]
 ValueKind: TypeAlias = Literal[
     "alpha",
@@ -62,6 +62,7 @@ LAYOUT_HWC: Final[LayoutName] = "HWC"
 LAYOUT_XHWC: Final[LayoutName] = "XHWC"
 LAYOUT_NDHWC: Final[LayoutName] = "NDHWC"
 LAYOUT_DHWC: Final[LayoutName] = "DHWC"
+LAYOUT_CDHW: Final[LayoutName] = "CDHW"
 LAYOUT_2D: Final[LayoutName] = "2D"
 LAYOUT_POINTS: Final[LayoutName] = "points"
 
@@ -118,6 +119,7 @@ ALL_LAYOUT_NAMES: Final[tuple[LayoutName, ...]] = (
     LAYOUT_XHWC,
     LAYOUT_NDHWC,
     LAYOUT_DHWC,
+    LAYOUT_CDHW,
     LAYOUT_2D,
     LAYOUT_POINTS,
 )

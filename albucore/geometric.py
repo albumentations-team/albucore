@@ -15,6 +15,7 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore.affine3d import warp_affine3d
 from albucore.decorators import preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -36,6 +37,7 @@ __all__ = [
     "resize",
     "resize3d",
     "warp_affine",
+    "warp_affine3d",
     "warp_perspective",
 ]
 
