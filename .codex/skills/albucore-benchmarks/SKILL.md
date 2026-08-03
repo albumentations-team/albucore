@@ -19,6 +19,10 @@ generation.
 - `benchmarks/compare_router_json.py` - Builds a Markdown table from two JSON outputs.
 - `benchmarks/benchmark_resize3d_tensor.py` - Times direct Tensor, zero-copy Tensor→NumPy→Tensor, and public
   `resize3d` routes for contiguous and channel-last-strided CPU `CDHW` Tensors.
+- `benchmarks/benchmark_warp_affine3d.py` - Times full single-volume NumPy `DHWC` affine paths, including the
+  NumPy→Torch bridge and public router.
+- `benchmarks/benchmark_warp_affine3d_tensor.py` - Times native Torch affine-grid, manual-grid and coverage-fill
+  probes, and public single-volume `CDHW` routing.
 
 ## Canonical Shape Grid
 
@@ -42,6 +46,15 @@ DHWC volumes:
 - `48x240x320x3` - large in-plane, multi-channel.
 
 For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; retain the routing decision in `docs/research/resize3d-cpu-benchmark.md`.
+
+For `warp_affine3d`, benchmark only one volume per call: NumPy `DHWC` or CPU Tensor `CDHW`. The full matrix uses
+uint8/float32, `C=1/3/5/9`, canonical output sizes including a unit output axis, nearest/trilinear interpolation,
+one 3×4 forward matrix per scenario, and zero/nonzero fill. NumPy timings use contiguous inputs; Tensor timings add
+contiguous and channel-last-strided inputs. Test the equivalent homogeneous 4×4 representation as a contract, not a
+timing route. Run `uv run python benchmarks/benchmark_warp_affine3d.py --quick --threads 1` and `uv run python
+benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1`. A manual grid, coverage sampler, tiled route, or
+native extension remains a diagnostic candidate until it has exact correctness parity and a sustained full-path win.
+`NDHWC` and `NCDHW` do not belong in this benchmark because the router has no batch contract.
 
 NDHWC batch of volumes:
 

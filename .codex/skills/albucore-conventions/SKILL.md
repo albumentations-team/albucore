@@ -41,8 +41,9 @@ height = image.shape[-3]
 ```
 
 An API that explicitly accepts a `torch.Tensor` defines its layout independently; never infer a Tensor layout from its
-rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`, while AlbumentationsX validates layout, output size, CPU,
-and autograd preconditions before calling this primitive. Albucore does not repeat those shape/runtime checks.
+rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses the same single-volume layouts and
+explicitly rejects Tensor inputs that are not CPU, strided, or eager (`requires_grad=False`). It does not accept
+`NDHWC` or `NCDHW` batch layouts.
 
 ### 2. Supported Dtypes - uint8 and float32 Only
 
@@ -62,12 +63,16 @@ No float64 in public paths. Raise `ValueError` for unsupported dtypes.
   `sys.modules` checks, class-name heuristics, or lazy imports.
 - Training callers are expected to have imported Torch already. Do not optimize public CPU routing around deferred
   import cost.
-- A public Tensor path must state its layout. AlbumentationsX owns CPU and `requires_grad=False` validation for
-  Tensor inputs; Albucore kernels do not repeat those caller checks or silently detach/move data.
+- A public Tensor path must state its layout. For caller-prevalidated routers such as `resize3d`, AlbumentationsX owns
+  CPU and `requires_grad=False` validation. The directly callable `warp_affine3d` router validates CPU, strided layout,
+  and `requires_grad=False` itself; neither router silently detaches or moves data.
 - Benchmark NumPy-to-Torch routes end-to-end: wrapper creation, permutations, dtype casts, kernel execution, and
   returned NumPy layout all belong inside the timed region.
 - For `resize3d`, benchmark direct Tensor and zero-copy Tensor→NumPy→Tensor routes separately. A linear all-axis
   upscale may select the bridge for speed; preserve its documented float32 tolerance and uint8 delta bound.
+- For `warp_affine3d`, benchmark the full single-volume path: matrix conversion, affine grid, sampling, nonzero-fill
+  correction, uint8 conversion, NumPy/Torch views, and output materialization. Do not introduce a batch layout or an
+  unmeasured manual-grid/native fallback.
 
 ### 5. OpenCV LUT - Source vs Table Dtype
 
@@ -105,6 +110,6 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 | LUT | uint8 image in; float32 LUT table when output is float32 |
 | Normalize / math | float32 buffers; no float64 in public paths |
 | OpenCV limit | 4 channels unless chunked or using NumPy |
-| Torch Tensor route | Explicit layout; AlbumentationsX prevalidates CPU and `requires_grad=False` |
+| Torch Tensor route | Explicit layout; direct `warp_affine3d` validates CPU/strides/autograd itself |
 | Benchmarks | `benchmarks/` and `docs/numkong-performance.md` |
 | Lockfile | Keep `uv.lock` in sync with `pyproject.toml` |
