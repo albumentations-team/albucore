@@ -39,6 +39,8 @@ DHWC volumes:
 - `96x128x160x1` - deep single-channel slab.
 - `48x240x320x3` - large in-plane, multi-channel.
 
+For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. Use `uv run python benchmarks/benchmark_resize3d.py --quick` while iterating and retain the full-route decision in `docs/research/resize3d-cpu-benchmark.md`.
+
 NDHWC batch of volumes:
 
 - `2x32x128x160x1`

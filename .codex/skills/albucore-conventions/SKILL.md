@@ -1,6 +1,6 @@
 ---
 name: albucore-conventions
-description: Albucore image processing conventions - shapes (H,W,C), dtypes (uint8/float32), benchmark-driven backend routing (OpenCV, NumPy, LUT, NumKong), tests, and lockfile discipline. Use when implementing or modifying albucore modules, writing tests, or reviewing image-processing code.
+description: Albucore image processing conventions - shapes (H,W,C), dtypes (uint8/float32), benchmark-driven backend routing (OpenCV, NumPy, Torch CPU, LUT, NumKong), tests, and lockfile discipline. Use when implementing or modifying albucore modules, writing tests, or reviewing image-processing code.
 ---
 
 # Albucore Conventions
@@ -40,6 +40,10 @@ width = image.shape[-2]
 height = image.shape[-3]
 ```
 
+An API that explicitly accepts a `torch.Tensor` defines its layout independently; never infer a Tensor layout from its
+rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`, while AlbumentationsX validates layout, output size, CPU,
+and autograd preconditions before calling this primitive. Albucore does not repeat those shape/runtime checks.
+
 ### 2. Supported Dtypes - uint8 and float32 Only
 
 No float64 in public paths. Raise `ValueError` for unsupported dtypes.
@@ -52,27 +56,38 @@ No float64 in public paths. Raise `ValueError` for unsupported dtypes.
 - OpenCV has a 4-channel limit for many ops. Use `MAX_OPENCV_WORKING_CHANNELS`, then fall back to NumPy or chunking for more channels.
 - Route from benchmark evidence in `benchmarks/` and `docs/numkong-performance.md`, not convention.
 
-### 4. OpenCV LUT - Source vs Table Dtype
+### 4. Torch CPU Is a Mandatory Backend
+
+- `torch>=2.13.0` is a required runtime dependency, not an optional import. Use direct imports rather than
+  `sys.modules` checks, class-name heuristics, or lazy imports.
+- Training callers are expected to have imported Torch already. Do not optimize public CPU routing around deferred
+  import cost.
+- A public Tensor path must state its layout. AlbumentationsX owns CPU and `requires_grad=False` validation for
+  Tensor inputs; Albucore kernels do not repeat those caller checks or silently detach/move data.
+- Benchmark NumPy-to-Torch routes end-to-end: wrapper creation, permutations, dtype casts, kernel execution, and
+  returned NumPy layout all belong inside the timed region.
+
+### 5. OpenCV LUT - Source vs Table Dtype
 
 - `cv2.LUT` source image: for uint8 LUT paths, pass a uint8 `(H, W, C)` image.
 - `cv2.LUT` lookup table: for float outputs, the table must be float32, not float64. OpenCV stats often promote to float64; cast the small LUT to float32 so the output does not widen.
 
-### 5. Normalize / Float Work - float32 Only
+### 6. Normalize / Float Work - float32 Only
 
 Keep intermediate buffers float32 unless a benchmark proves otherwise. Public API supports uint8 and float32 only.
 
-### 6. Utilities and Decorators
+### 7. Utilities and Decorators
 
 - Utilities: `get_num_channels`, `convert_value`, `clip`, etc. in `albucore.utils`.
 - Decorators: `@preserve_channel_dim`, `@contiguous`, `@clipped`, `@batch_transform`, etc. in `albucore.decorators`.
 
-### 7. Tests
+### 8. Tests
 
 - Test uint8 and float32 only.
 - Test single images, batches, volumes, and batch-of-volumes where the router supports them.
 - Cover 1-channel and >4-channel edge cases.
 
-### 8. Dependency Lock Consistency
+### 9. Dependency Lock Consistency
 
 - When changing dependencies in `pyproject.toml`, update `uv.lock` in the same PR.
 - Validate with `uv lock --check`.
@@ -88,5 +103,6 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 | LUT | uint8 image in; float32 LUT table when output is float32 |
 | Normalize / math | float32 buffers; no float64 in public paths |
 | OpenCV limit | 4 channels unless chunked or using NumPy |
+| Torch Tensor route | Explicit layout; AlbumentationsX prevalidates CPU and `requires_grad=False` |
 | Benchmarks | `benchmarks/` and `docs/numkong-performance.md` |
 | Lockfile | Keep `uv.lock` in sync with `pyproject.toml` |

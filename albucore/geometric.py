@@ -8,10 +8,12 @@ OpenCV channel limits: see ``benchmarks/README.md``.
 # ruff: noqa: PLR0911 PLR0913  # chunked fns need many args
 
 from collections.abc import Callable
-from typing import cast
+from typing import cast, overload
 
 import cv2
 import numpy as np
+import torch
+import torch.nn.functional as torch_f
 
 from albucore.decorators import preserve_channel_dim
 from albucore.utils import (
@@ -32,6 +34,7 @@ __all__ = [
     "copy_make_border",
     "remap",
     "resize",
+    "resize3d",
     "warp_affine",
     "warp_perspective",
 ]
@@ -515,3 +518,311 @@ def resize(
         return maybe_process_in_chunks(cv2.resize, dsize=dsize, fx=fx, fy=fy, interpolation=interpolation)(img)
 
     return cast("ImageType", cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation))
+
+
+_RESIZE3D_INTERPOLATIONS = frozenset((cv2.INTER_LINEAR, cv2.INTER_NEAREST))
+_RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
+
+
+def _validate_resize3d_interpolation(interpolation: int, antialias: bool) -> None:
+    """Reject modes that do not have one shared NumPy/Torch 3D contract."""
+    if interpolation not in _RESIZE3D_INTERPOLATIONS:
+        msg = f"resize3d supports only cv2.INTER_LINEAR and cv2.INTER_NEAREST; got interpolation={interpolation}."
+        raise ValueError(msg)
+    if antialias and interpolation == cv2.INTER_NEAREST:
+        msg = "antialias=True requires cv2.INTER_LINEAR."
+        raise ValueError(msg)
+
+
+def _validate_resize3d_numpy(volume: np.ndarray) -> None:
+    """Validate the NumPy dtype required by the resize kernels."""
+    if volume.dtype not in (np.dtype(np.uint8), np.dtype(np.float32)):
+        msg = f"Unsupported dtype {volume.dtype}. Albucore resize3d supports only uint8 and float32."
+        raise ValueError(msg)
+
+
+def _validate_resize3d_torch(volume: torch.Tensor) -> None:
+    """Validate the Torch dtype required by the resize kernels."""
+    if volume.dtype not in (torch.uint8, torch.float32):
+        msg = f"Unsupported dtype {volume.dtype}. Albucore resize3d supports only torch.uint8 and torch.float32."
+        raise ValueError(msg)
+
+
+def _resize3d_axis_packing(
+    volume: np.ndarray,
+    axis: int,
+    output_size: int,
+    interpolation: int,
+) -> np.ndarray:
+    """Resize one DHWC spatial axis through a channel-safe packed 2D call."""
+    depth, height, width, channels = volume.shape
+    if volume.shape[axis] == output_size:
+        return volume
+
+    if axis == 0:
+        flattened = volume.transpose(1, 2, 0, 3).reshape(height * width, depth, channels)
+        resized = resize(flattened, (output_size, height * width), interpolation=interpolation)
+        return cast("np.ndarray", resized.reshape(height, width, output_size, channels).transpose(2, 0, 1, 3))
+    if axis == 1:
+        flattened = volume.transpose(0, 2, 1, 3).reshape(depth * width, height, channels)
+        resized = resize(flattened, (output_size, depth * width), interpolation=interpolation)
+        return cast("np.ndarray", resized.reshape(depth, width, output_size, channels).transpose(0, 2, 1, 3))
+
+    flattened = volume.reshape(depth * height, width, channels)
+    resized = resize(flattened, (output_size, depth * height), interpolation=interpolation)
+    return resized.reshape(depth, height, output_size, channels)
+
+
+def _axis_interpolation(input_size: int, output_size: int, interpolation: int, antialias: bool) -> int:
+    """Select area resampling only for a NumPy axis that shrinks."""
+    return cv2.INTER_AREA if antialias and output_size < input_size else interpolation
+
+
+def _resize3d_numpy_axis_packing(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> np.ndarray:
+    """Three independent axis passes; fallback for high packed channel counts and mixed antialiasing."""
+    result = volume
+    for axis, output_size in enumerate(size):
+        axis_interpolation = _axis_interpolation(result.shape[axis], output_size, interpolation, antialias)
+        result = _resize3d_axis_packing(result, axis, output_size, axis_interpolation)
+    return result
+
+
+def _resize3d_numpy_linear_axis(volume: np.ndarray, axis: int, output_size: int) -> np.ndarray:
+    """Apply one half-pixel linear axis pass in float32 without OpenCV channel packing."""
+    input_size = volume.shape[axis]
+    if input_size == output_size:
+        return volume
+
+    output_coordinates = np.arange(output_size, dtype=np.float32)
+    scale = np.float32(input_size) / np.float32(output_size)
+    source_coordinates = (output_coordinates + np.float32(0.5)) * scale - np.float32(0.5)
+    source_floor = np.floor(source_coordinates).astype(np.intp)
+    left = np.clip(source_floor, 0, input_size - 1)
+    right = np.clip(source_floor + 1, 0, input_size - 1)
+    weight_shape = [1] * volume.ndim
+    weight_shape[axis] = output_size
+    right_weight = (source_coordinates - source_floor.astype(np.float32)).reshape(weight_shape)
+    left_values = np.take(volume, left, axis=axis)
+    right_values = np.take(volume, right, axis=axis)
+    return cast("np.ndarray", left_values * (np.float32(1.0) - right_weight) + right_values * right_weight)
+
+
+def _resize3d_numpy_linear_three_pass(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    """Resize DHWC linearly with full-float intermediates and one final uint8 rounding step."""
+    result = volume.astype(np.float32, copy=False)
+    for axis, output_size in enumerate(size):
+        result = _resize3d_numpy_linear_axis(result, axis, output_size)
+    if volume.dtype == np.uint8:
+        return np.asarray(np.minimum(result + np.float32(0.5), np.float32(255)).astype(np.uint8))
+    return result
+
+
+def _resize3d_numpy_per_slice(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> np.ndarray:
+    """Resize each HWC slice in H/W before one packed depth pass."""
+    depth, height, width, channels = volume.shape
+    result = volume
+    if (height, width) != size[1:]:
+        hw_interpolation = _axis_interpolation(height, size[1], interpolation, antialias)
+        result = np.empty((depth, size[1], size[2], channels), dtype=volume.dtype)
+        for index in range(depth):
+            result[index] = resize(volume[index], (size[2], size[1]), interpolation=hw_interpolation)
+    if result.shape[0] != size[0]:
+        depth_interpolation = _axis_interpolation(result.shape[0], size[0], interpolation, antialias)
+        result = _resize3d_axis_packing(result, 0, size[0], depth_interpolation)
+    return result
+
+
+def _can_resize3d_numpy_torch(volume: np.ndarray, interpolation: int, antialias: bool) -> bool:
+    """Check that a NumPy volume can share CPU storage with Torch without an input repair copy."""
+    return (
+        interpolation == cv2.INTER_LINEAR
+        and not antialias
+        and volume.flags.writeable
+        and all(stride >= 0 for stride in volume.strides)
+    )
+
+
+def _resize3d_numpy_torch_cpu(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    """Use the measured full NumPy DHWC → Torch CDHW → NumPy route for selected CPU regions."""
+    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    result = _resize3d_torch_cpu(tensor, size, cv2.INTER_LINEAR)
+    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+
+
+def _can_resize3d_joint_hw(volume: np.ndarray, size: tuple[int, int, int], antialias: bool) -> bool:
+    """Check whether packing D*C as OpenCV channels preserves the requested antialias semantics."""
+    if volume.shape[0] * volume.shape[-1] > _MAX_OPENCV_CHANNELS:
+        return False
+    if not antialias:
+        return True
+
+    source_height, source_width = volume.shape[1:3]
+    target_height, target_width = size[1:]
+    directions = {
+        target_size > source_size
+        for source_size, target_size in ((source_height, target_height), (source_width, target_width))
+        if target_size != source_size
+    }
+    return len(directions) <= 1
+
+
+def _resize3d_numpy_joint_hw(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> np.ndarray:
+    """Resize H/W together, then depth; reduces one interpolation pass when D*C fits OpenCV."""
+    depth, height, width, channels = volume.shape
+    result = volume
+
+    if (height, width) != size[1:]:
+        hw_interpolation = _axis_interpolation(height, size[1], interpolation, antialias)
+        packed = result.transpose(1, 2, 0, 3).reshape(height, width, depth * channels)
+        resized_hw = resize(packed, (size[2], size[1]), interpolation=hw_interpolation)
+        result = resized_hw.reshape(size[1], size[2], depth, channels).transpose(2, 0, 1, 3)
+
+    if result.shape[0] != size[0]:
+        depth_interpolation = _axis_interpolation(result.shape[0], size[0], interpolation, antialias)
+        result = _resize3d_axis_packing(result, 0, size[0], depth_interpolation)
+    return result
+
+
+def _resize3d_numpy(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> np.ndarray:
+    """Choose the measured NumPy, OpenCV, or CPU Torch full route for one DHWC volume."""
+    source_size = volume.shape[:3]
+    all_down = all(target_axis < source_axis for source_axis, target_axis in zip(source_size, size, strict=True))
+    all_up = all(target_axis > source_axis for source_axis, target_axis in zip(source_size, size, strict=True))
+    torch_compatible = _can_resize3d_numpy_torch(volume, interpolation, antialias)
+
+    if interpolation == cv2.INTER_LINEAR and not antialias and size[0] == 1 and volume.shape[0] != 1:
+        if volume.dtype == np.uint8 and torch_compatible:
+            return _resize3d_numpy_torch_cpu(volume, size)
+        return _resize3d_numpy_linear_three_pass(volume, size)
+
+    if all_down:
+        if torch_compatible and (volume.dtype == np.float32 or volume.shape[-1] > 1):
+            return _resize3d_numpy_torch_cpu(volume, size)
+        if volume.shape[-1] == 1 and volume.size <= _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS:
+            return _resize3d_numpy_per_slice(volume, size, interpolation, antialias)
+
+    if (
+        torch_compatible
+        and volume.dtype == np.float32
+        and (volume.shape[-1] > 1 or volume.size > _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS)
+        and (volume.shape[1] == size[1] or volume.shape[2] == size[2])
+    ):
+        return _resize3d_numpy_torch_cpu(volume, size)
+
+    if volume.shape[1] == size[1] or volume.shape[2] == size[2]:
+        return _resize3d_numpy_axis_packing(volume, size, interpolation, antialias)
+    if _can_resize3d_joint_hw(volume, size, antialias):
+        return _resize3d_numpy_joint_hw(volume, size, interpolation, antialias)
+    if all_up:
+        return _resize3d_numpy_per_slice(volume, size, interpolation, antialias)
+    return _resize3d_numpy_axis_packing(volume, size, interpolation, antialias)
+
+
+def _resize3d_torch_cpu(
+    volume: torch.Tensor,
+    size: tuple[int, int, int],
+    interpolation: int,
+) -> torch.Tensor:
+    """Resize one CPU CDHW tensor with native Torch interpolation and no autograd graph."""
+    with torch.inference_mode():
+        if interpolation == cv2.INTER_NEAREST:
+            result = cast("torch.Tensor", torch_f.interpolate(volume.unsqueeze(0), size=size, mode="nearest"))
+            return result.squeeze(0)
+
+        working_volume = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
+        result = cast(
+            "torch.Tensor",
+            torch_f.interpolate(working_volume.unsqueeze(0), size=size, mode="trilinear", align_corners=False),
+        )
+        if volume.dtype == torch.uint8:
+            result = torch.minimum(result + 0.5, result.new_tensor(255)).to(torch.uint8)
+        return result.squeeze(0)
+
+
+@overload
+def resize3d(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int = cv2.INTER_LINEAR,
+    antialias: bool = False,
+) -> np.ndarray: ...
+
+
+@overload
+def resize3d(
+    volume: torch.Tensor,
+    size: tuple[int, int, int],
+    interpolation: int = cv2.INTER_LINEAR,
+    antialias: bool = False,
+) -> torch.Tensor: ...
+
+
+def resize3d(
+    volume: object,
+    size: tuple[int, int, int],
+    interpolation: int = cv2.INTER_LINEAR,
+    antialias: bool = False,
+) -> np.ndarray | torch.Tensor:
+    """Resize one volume along its depth, height, and width axes.
+
+    NumPy input uses channel-last ``(D, H, W, C)`` layout. Torch input uses channel-first
+    ``(C, D, H, W)`` layout. AlbumentationsX validates the input layout, spatial dimensions, output size,
+    device, and autograd state before calling this primitive. The container, dtype, and channel count are preserved.
+
+    Args:
+        volume: Prevalidated NumPy ``DHWC`` array or Torch ``CDHW`` tensor. Only uint8 and float32 are supported.
+        size: Prevalidated output ``(depth, height, width)``.
+        interpolation: ``cv2.INTER_LINEAR`` or ``cv2.INTER_NEAREST``.
+        antialias: For NumPy linear interpolation, use ``INTER_AREA`` on shrinking axes. Torch does not support
+            antialiased 5D trilinear interpolation and raises ``NotImplementedError`` when this is true.
+
+    Returns:
+        Resized volume in the same container and layout as ``volume``. An identity resize returns ``volume`` itself.
+
+    Raises:
+        ValueError: If the dtype or interpolation contract is invalid.
+        NotImplementedError: If a Torch input requests antialiasing.
+        TypeError: If ``volume`` is neither ``np.ndarray`` nor ``torch.Tensor``.
+    """
+    _validate_resize3d_interpolation(interpolation, antialias)
+
+    if isinstance(volume, np.ndarray):
+        _validate_resize3d_numpy(volume)
+        if volume.shape[:3] == size:
+            return volume
+        return _resize3d_numpy(volume, size, interpolation, antialias)
+
+    if isinstance(volume, torch.Tensor):
+        _validate_resize3d_torch(volume)
+        if antialias:
+            msg = (
+                "Torch does not support antialias=True for 5D trilinear interpolation. "
+                "See https://github.com/pytorch/pytorch/issues/191896."
+            )
+            raise NotImplementedError(msg)
+        if tuple(volume.shape[1:]) == size:
+            return volume
+        return _resize3d_torch_cpu(volume, size, interpolation)
+
+    msg = f"resize3d supports np.ndarray and torch.Tensor, got {type(volume).__name__}."
+    raise TypeError(msg)

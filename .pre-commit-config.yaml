@@ -58,7 +58,7 @@ repos:
       - id: python-check-blanket-noqa
       - id: text-unicode-replacement-char
   - repo: https://github.com/Ternaus/numpy-assert-lint
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: numpy-assert-lint
         files: ^tests/
@@ -69,7 +69,7 @@ repos:
         additional_dependencies: ["tomli"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.15.22
+    rev: v0.16.1
     hooks:
       # Run the linter.
       - id: ruff-check

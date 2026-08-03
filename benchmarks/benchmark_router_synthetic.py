@@ -9,8 +9,9 @@ Layouts:
 
 The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
-Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``warp_affine``,
-``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not ``functions.__all__``).
+Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``resize3d``,
+``warp_affine``, ``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not
+``functions.__all__``).
 
 Run::
 
@@ -217,6 +218,17 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def rsz3(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        depth = 5
+        h, w = img.shape[-3], img.shape[-2]
+        volume = np.repeat(img[np.newaxis, ...], depth, axis=0)
+        target = (max(depth // 2, 1), max(h // 2, 1), max(w // 2, 1))
+
+        def thunk() -> None:
+            alb.resize3d(volume, target, interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
     def waff(alb: Any, img: np.ndarray) -> Callable[[], object]:
         h, w = img.shape[-3], img.shape[-2]
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
@@ -247,6 +259,7 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
     return [
         ("copy_make_border", cmb),
         ("resize", rsz),
+        ("resize3d", rsz3),
         ("warp_affine", waff),
         ("warp_perspective", wper),
         ("remap", rmp),

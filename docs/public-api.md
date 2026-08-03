@@ -13,7 +13,7 @@ User-facing entry points with benchmark-driven backends inside:
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
 - **Stats:** `mean`, `std`, `mean_std`, `reduce_sum` (from `albucore.stats`)
 - **Decorators:** see `decorators.__all__` in [`albucore/decorators.py`](../albucore/decorators.py)
-- **Geometric:** `copy_make_border`, `remap`, `resize`, `warp_affine`, `warp_perspective`
+- **Geometric:** `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, `warp_perspective`. `resize3d` expects prevalidated NumPy `DHWC` or Torch `CDHW`, supports uint8/float32, and runs its Tensor kernel in inference mode. AlbumentationsX validates layout, output size, CPU, and autograd state before the call.
 - **Utils:** see `utils.__all__` in [`albucore/utils.py`](../albucore/utils.py)
 - **Types / constants:** `ImageType`, `ImageUInt8`, `ImageFloat32`, `SupportedDType`, `NormalizationType`, `ValueType`, `MAX_OPENCV_WORKING_CHANNELS`, `get_opencv_max_channels`, etc.
 - **Metadata:** `__version__`, `__author__`, `__maintainer__`
