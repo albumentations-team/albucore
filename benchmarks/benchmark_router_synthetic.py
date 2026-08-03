@@ -10,7 +10,7 @@ Layouts:
 The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
 Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``resize3d``,
-``warp_affine``, ``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not
+``warp_affine``, ``warp_affine3d``, ``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not
 ``functions.__all__``).
 
 Run::
@@ -238,6 +238,21 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def waff3(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        depth = 5
+        height, width = img.shape[-3], img.shape[-2]
+        volume = np.repeat(img[np.newaxis, ...], depth, axis=0)
+        matrix = np.array(
+            ((0.95, 0.1, 0.0, 0.25), (0.0, 1.05, 0.1, -0.25), (0.05, 0.0, 1.0, 0.125)),
+            dtype=np.float32,
+        )
+        target = max(depth // 2, 1), max(height // 2, 1), max(width // 2, 1)
+
+        def thunk() -> None:
+            alb.warp_affine3d(volume, matrix, target, interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
     def wper(alb: Any, img: np.ndarray) -> Callable[[], object]:
         h, w = img.shape[-3], img.shape[-2]
         m = np.eye(3, dtype=np.float32)
@@ -261,6 +276,7 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("resize", rsz),
         ("resize3d", rsz3),
         ("warp_affine", waff),
+        ("warp_affine3d", waff3),
         ("warp_perspective", wper),
         ("remap", rmp),
     ]

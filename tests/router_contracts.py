@@ -17,6 +17,7 @@ from tests.verification_constants import (
     IMAGE_CHANNELS,
     IMAGE_DTYPES,
     LAYOUT_2D,
+    LAYOUT_CDHW,
     LAYOUT_DHWC,
     LAYOUT_HWC,
     LAYOUT_POINTS,
@@ -564,6 +565,20 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
             "benchmark-selected NumPy/OpenCV bridge"
         ),
         benchmark_names=("resize3d",),
+        release_blocking_performance=True,
+    ),
+    "warp_affine3d": RouterContract(
+        name="warp_affine3d",
+        kind="geometric",
+        dtypes=IMAGE_DTYPES,
+        layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
+        channels=IMAGE_CHANNELS,
+        values=(VALUE_MATRIX, VALUE_DSIZE, VALUE_INTERPOLATION, VALUE_BORDER_MODE, VALUE_BORDER_VALUE),
+        output_shape="requested D/H/W plus input channels",
+        output_dtype="same as input",
+        aliasing="exact identity returns input; every real warp does not mutate or alias input",
+        reference="forward voxel-space affine with nearest or trilinear CPU Torch sampling",
+        benchmark_names=("warp_affine3d",),
         release_blocking_performance=True,
     ),
     "warp_affine": RouterContract(
