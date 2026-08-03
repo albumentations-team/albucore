@@ -12,7 +12,7 @@ The matrix, grid, sampling, output allocation, dtype repair, and container conve
 
 The 2026-08-03 quick run used macOS arm64, Torch 2.13.0, NumPy 2.2.6, OpenCV 5.0.0, one Torch/OpenCV CPU thread, 11 timed repetitions, and three warmups. It covered four non-batched shapes, uint8/float32, four output scenarios, and contiguous plus channel-last-strided Tensor inputs. That is 32 NumPy cells and 64 Tensor cells.
 
-Two representative NumPy `DHWC` rows show that public validation has no material full-path cost. For `16×128×160×5` float32, the direct bridge and public router took 2.895 ms and 2.897 ms for `8×96×120`, then 26.688 ms and 26.062 ms for `32×192×240`.
+Two representative NumPy `DHWC` rows show the cost of the public dispatch plus matrix normalization. For `16×128×160×5` float32, the direct bridge and public router took 2.895 ms and 2.897 ms for `8×96×120`, then 26.688 ms and 26.062 ms for `32×192×240`.
 
 The Tensor run compared two diagnostic alternatives. Manual broadcasted grid construction was faster in none of 64 cells and had a uint8 rounding difference at a sampling boundary. It fails both the stable-win and exact-parity gates. The coverage sampler won 4 of 16 nonzero-fill cells. On a contiguous `5×16×128×160` float32 Tensor with nonzero fill, native sampling took 3.864 ms and the coverage sampler took 5.404 ms. Production keeps the shifted-input fill adapter, which uses one data sampler instead of data plus coverage sampling.
 

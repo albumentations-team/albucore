@@ -84,7 +84,7 @@ def _native_affine_grid(
     interpolation: int,
     fill: float,
 ) -> torch.Tensor:
-    """Call the internal production kernel without public validation and dispatch overhead."""
+    """Call the internal production kernel without public dispatch overhead."""
     return _warp_affine3d_torch_cpu(
         volume,
         _inverse_matrix(_normalize_matrix(matrix)),
@@ -373,7 +373,7 @@ def main() -> None:
         f"OpenCV `{cv2.__version__}`. Torch/OpenCV CPU threads: `{args.threads}`. "
         f"Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
         "",
-        "Each row is one non-batched CPU CDHW Tensor and includes public dispatch, control-data validation, "
+        "Each row is one non-batched CPU CDHW Tensor and includes public dispatch, control-data normalization, "
         "matrix inversion, grid construction, sampling, dtype restoration, and output allocation. Public output "
         "must be bitwise equal to native affine-grid. `manual_grid` and `coverage_fill` are diagnostic candidates: "
         "they need exact parity and a stable win before they can become a production route.",

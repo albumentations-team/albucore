@@ -11,7 +11,7 @@
 
 ## Статус реализации на 2026-08-03
 
-V1 реализован в Albucore как public router `warp_affine3d`: NumPy `DHWC` и CPU Torch `CDHW`, `uint8`/`float32`, one-volume-per-call, forward matrix в `(x, y, z)`, nearest/trilinear interpolation и constant/replicate borders. Router проверяет direct Torch calls на CPU, `torch.strided` и `requires_grad=False`; он не делает `.detach()`, `.cpu()` или device transfer.
+V1 реализован в Albucore как public router `warp_affine3d`: NumPy `DHWC` и CPU Torch `CDHW`, `uint8`/`float32`, one-volume-per-call, forward matrix в `(x, y, z)`, nearest/trilinear interpolation и constant/replicate borders. AlbumentationsX передаёт уже проверенные input и control data. Router не повторяет проверки CPU, `torch.strided`, `requires_grad`, matrix, size, flags или fill; он не делает `.detach()`, `.cpu()` или device transfer.
 
 Quick CPU matrix зафиксировал `affine_grid` + `grid_sample` как единственный production kernel. Manual grid и coverage sampler остались diagnostic candidates: первый не имеет устойчивого выигрыша и меняет uint8 rounding на boundary, второй проиграл 12 из 16 nonzero-fill cells. Расширенный nine-shape sweep подтвердил scope public path, но не вводит размерный route. Полный протокол и конкретные числа находятся в [CPU benchmark report](research/warp-affine3d-cpu-benchmark.md).
 
@@ -76,7 +76,7 @@ AlbumentationsX владеет transform policy:
 - преобразование keypoints;
 - in-place execution и `out=`.
 
-AlbumentationsX проверяет target-specific rank и layout до kernel call. Albucore дополнительно проверяет direct Tensor calls на CPU device, `torch.strided` layout и `requires_grad=False`. Он не вызывает `.detach()`, `.cpu()` или скрытый device transfer.
+AlbumentationsX проверяет target-specific rank, layout, dtype, CPU device, `torch.strided`, `requires_grad=False` и control data до kernel call. Albucore использует эти preconditions и не вызывает `.detach()`, `.cpu()` или скрытый device transfer.
 
 `mask3d` использует тот же dtype contract, что и volume: только `uint8` или `float32` для NumPy и Torch. AlbumentationsX отклоняет `int64`, `bool` и любой другой dtype до вызова Albucore. Неявный cast mask в `float32` не допускается.
 
@@ -153,7 +153,7 @@ Identity matrix при одинаковых input/output spatial shapes возв
 ((W - 1) / 2, (H - 1) / 2, (D - 1) / 2)
 ```
 
-Albucore проверяет shape matrix, конечность значений и обратимость. Проверка охватывает 12–16 scalar values и не влияет на full-volume performance. Singular или non-finite matrix получает `ValueError`; backend не должен молча превращать NaN grid values в координату `-1`.
+AlbumentationsX проверяет shape matrix, конечность значений и обратимость до вызова. Albucore преобразует уже проверенную `3×4` matrix к homogeneous `4×4` и инвертирует её один раз; backend не должен получать NaN grid values или singular matrix.
 
 ### Преобразование voxel matrix в Torch `theta`
 
@@ -197,7 +197,7 @@ V1 принимает общий semantic subset:
 | `cv2.INTER_LINEAR` | `mode="bilinear"` на 5D input | trilinear intensity interpolation |
 | `cv2.INTER_NEAREST` | `mode="nearest"` | categorical masks и labels |
 
-`align_corners=False` передаётся и в `affine_grid`, и в `grid_sample`. Другие OpenCV interpolation flags получают `ValueError`.
+`align_corners=False` передаётся и в `affine_grid`, и в `grid_sample`. AlbumentationsX проверяет interpolation flag и передаёт только этот subset.
 
 V1 фиксирует nearest tie rule как round-to-nearest-even: source coordinates `0.5`, `1.5`, `2.5` выбирают indices `0`, `2`, `2`. Это поведение CPU `grid_sample` в Torch 2.13.0 закрепляется golden tests. Backend с другим rounding должен получить adapter или отдельный interpolation mode.
 
@@ -215,9 +215,9 @@ Affine downscale может alias high-frequency data. V1 не добавляе�
 | `cv2.BORDER_REFLECT` | отдельный differential gate | включить после exact boundary tests |
 | `cv2.BORDER_WRAP` | coordinate folding/circular-padding candidate | отложить, если exact adapter не проходит gate |
 
-Torch предоставляет только `zeros`, `border` и один `reflection` mode. Albucore не должен отображать оба OpenCV reflection modes в один Torch mode без доказанной parity. AlbumentationsX экспонирует только подтверждённый subset и сообщает unsupported mode до kernel call.
+Torch предоставляет только `zeros`, `border` и один `reflection` mode. Albucore не должен отображать оба OpenCV reflection modes в один Torch mode без доказанной parity. AlbumentationsX экспонирует только подтверждённый subset и отклоняет другой mode до kernel call.
 
-`border_value=None` означает scalar zero. Scalar value broadcast на все channels. Tuple или one-dimensional array должен иметь длину `C`; Albucore нормализует и проверяет этот cheap control-data contract для прямых вызовов.
+`border_value=None` означает scalar zero. Scalar value broadcast на все channels. Tuple или one-dimensional array имеет длину `C`; AlbumentationsX проверяет этот control-data contract, а Albucore только нормализует значения к contiguous float32 buffer для kernel.
 
 Для nonzero constant fill benchmark сравнивает минимум два algebraically correct paths:
 
@@ -276,7 +276,7 @@ Arbitrary rotations, scales и shears сравниваются с reference по
 Основной CPU Tensor path:
 
 ```text
-validated CPU CDHW Tensor
+prevalidated CPU CDHW Tensor
   → add N=1 view
   → matrix → normalized inverse theta
   → affine_grid
@@ -288,7 +288,7 @@ validated CPU CDHW Tensor
 
 Float32 data не копируется перед kernel. Strided input передаётся напрямую, пока benchmark не докажет пользу `.contiguous()` в связном регионе.
 
-Kernel выполняется внутри `torch.no_grad()`. Public router заранее отклоняет Tensor с `requires_grad=True`, поэтому не строит autograd graph, но возвращает normal Tensor, пригодный как input следующего trainable layer.
+Kernel выполняется внутри `torch.no_grad()`. AlbumentationsX передаёт Tensor с `requires_grad=False`, поэтому kernel не строит autograd graph, но возвращает normal Tensor, пригодный как input следующего trainable layer.
 
 ### T1: manual affine grid
 
@@ -387,7 +387,7 @@ LUT, random generation, `bincount` и grouped reductions неприменимы.
 
 | Input | Candidate | Что входит во время |
 |---|---|---|
-| Torch float32 | T0 `affine_grid + grid_sample` | matrix validation/inversion, theta, grid, kernel, output views |
+| Torch float32 | T0 `affine_grid + grid_sample` | matrix normalization/inversion, theta, grid, kernel, output views |
 | Torch float32 | T1 manual grid | coordinate vectors, broadcasts, stack, kernel |
 | Torch float32 | T2 tiled grid — deferred | Не реализован без peak-RSS trigger |
 | Torch uint8 | U0 full cast | float32 conversion, grid, kernel, clamp/round/cast |
@@ -424,7 +424,7 @@ Current scripts time four fixed 3×4 forward-matrix scenarios:
 3. mixed scale/shear/translation с nonzero scalar fill;
 4. unit-depth output с nearest interpolation.
 
-Они вместе покрывают zero/nonzero fill и nearest/trilinear sampling. Identity, per-channel fill, reflections, 90-degree rotations, homogeneous 4×4 matrix и arbitrary transform correctness принадлежат contract/differential tests, а не timing matrix. Matrix generation остаётся вне timed region; validation, inversion и backend conversion готовой matrix входят внутрь.
+Они вместе покрывают zero/nonzero fill и nearest/trilinear sampling. Identity, per-channel fill, reflections, 90-degree rotations, homogeneous 4×4 matrix и arbitrary transform correctness принадлежат contract/differential tests, а не timing matrix. Matrix generation и upstream validation остаются вне timed region; normalization, inversion и backend conversion готовой matrix входят внутрь.
 
 ### Controlled environment
 
@@ -489,20 +489,12 @@ Threshold нельзя вводить по одной shape или одному 
 - Если tiled route будет добавлен, он обязан совпадать с full-grid path по тому же contract.
 - Fill adapters сравниваются на coordinates внутри, ровно на edge, на half-voxel снаружи и далеко снаружи.
 
-### Failure tests
+### Validation tests
 
-Albucore tests проверяют:
-
-- unsupported image dtypes;
-- unsupported interpolation и border modes;
-- matrix shape кроме `3×4`/`4×4`;
-- non-finite и singular matrix;
-- invalid per-channel fill length;
-- unsupported container type.
-
-Albucore direct-call tests отвечают за invalid size, zero spatial axes, non-CPU Tensor, non-strided Tensor,
-`requires_grad=True` и dtype вне `uint8`/`float32`. AlbumentationsX tests отвечают за target-specific rank,
-missing explicit channel adapter, `mask3d` dtype и unsupported target combinations до вызова Albucore.
+AlbumentationsX tests отвечают за invalid dtype, size, interpolation, border mode, matrix, fill, input container,
+target-specific rank, missing explicit channel adapter, CPU/strided/autograd Tensor contract, `mask3d` dtype и
+unsupported target combinations до вызова Albucore. Albucore tests используют только inputs, удовлетворяющие этому
+contract, и проверяют resampling semantics, aliasing, layout repair и dtype preservation.
 
 Property tests генерируют только маленькие single-volume inputs. Они проверяют shape, dtype, channel count, uint8 range, finite float32 output и label-set preservation для nearest. Equality tiled/full-grid добавляется только вместе с tiled route.
 
@@ -557,7 +549,7 @@ AlbumentationsX обновляет exact Albucore pin только после п
 1. Зафиксировать public signature, layouts, dtypes, forward matrix и `(x, y, z)` order.
 2. Зафиксировать `align_corners=False`, interpolation subset и mandatory border subset.
 3. Добавить pure NumPy oracle и exact identity/translation/90-degree tests.
-4. Добавить API skeleton, overloads, matrix validation и identity fast path.
+4. Добавить API skeleton, overloads, matrix normalization и identity fast path.
 5. Добавить upstream links и capability smoke records.
 
 Условие завершения: один forward matrix даёт согласованные keypoint/raster coordinates, unit axes определены, а public contract не содержит layout или inverse-mapping ambiguity.
@@ -675,7 +667,7 @@ Reference machine повторяет full runs в фиксированном м�
 - Linear и nearest semantics, nearest rounding, uint8 saturation и border edges документированы и протестированы.
 - Constant zero/nonzero/per-channel fill проходит independent oracle; replicate border проходит exact edge tests.
 - Reflection/wrap modes либо проходят отдельные exact gates, либо получают явный unsupported error и не появляются в AlbumentationsX API.
-- Direct Torch calls reject non-CPU, non-strided and `requires_grad=True` inputs; Albucore never performs hidden `.detach()`, `.cpu()` or device transfer.
+- AlbumentationsX отклоняет non-CPU, non-strided и `requires_grad=True` Tensor до вызова; Albucore never performs hidden `.detach()`, `.cpu()` or device transfer.
 - NumPy↔Torch bridge для contiguous input измеряется end to end, включая dtype cast, grid и output view; stride repair проверяется contract tests до появления отдельного route.
 - Public router использует только benchmark-backed routes и ссылается на сохранённый CPU report.
 - Benchmark сохраняет wall time, MAD и rejected candidates; peak RSS, grid bytes and copy counts are required before any memory route is added.

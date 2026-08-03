@@ -41,9 +41,9 @@ height = image.shape[-3]
 ```
 
 An API that explicitly accepts a `torch.Tensor` defines its layout independently; never infer a Tensor layout from its
-rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses the same single-volume layouts and
-explicitly rejects Tensor inputs that are not CPU, strided, or eager (`requires_grad=False`). It does not accept
-`NDHWC` or `NCDHW` batch layouts.
+rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses the same prevalidated single-volume
+layouts. AlbumentationsX checks CPU, strided layout, eager (`requires_grad=False`) execution, and all control data
+before the call. It does not accept `NDHWC` or `NCDHW` batch layouts.
 
 ### 2. Supported Dtypes - uint8 and float32 Only
 
@@ -63,9 +63,9 @@ No float64 in public paths. Raise `ValueError` for unsupported dtypes.
   `sys.modules` checks, class-name heuristics, or lazy imports.
 - Training callers are expected to have imported Torch already. Do not optimize public CPU routing around deferred
   import cost.
-- A public Tensor path must state its layout. For caller-prevalidated routers such as `resize3d`, AlbumentationsX owns
-  CPU and `requires_grad=False` validation. The directly callable `warp_affine3d` router validates CPU, strided layout,
-  and `requires_grad=False` itself; neither router silently detaches or moves data.
+- A public Tensor path must state its layout. For caller-prevalidated routers such as `resize3d` and `warp_affine3d`,
+  AlbumentationsX owns CPU, strided-layout, and `requires_grad=False` validation. Neither router silently detaches or
+  moves data.
 - Benchmark NumPy-to-Torch routes end-to-end: wrapper creation, permutations, dtype casts, kernel execution, and
   returned NumPy layout all belong inside the timed region.
 - For `resize3d`, benchmark direct Tensor and zero-copy Tensor→NumPy→Tensor routes separately. A linear all-axis
@@ -110,6 +110,6 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 | LUT | uint8 image in; float32 LUT table when output is float32 |
 | Normalize / math | float32 buffers; no float64 in public paths |
 | OpenCV limit | 4 channels unless chunked or using NumPy |
-| Torch Tensor route | Explicit layout; direct `warp_affine3d` validates CPU/strides/autograd itself |
+| Torch Tensor route | Explicit layout; AlbumentationsX prevalidates CPU/strides/autograd before `warp_affine3d` |
 | Benchmarks | `benchmarks/` and `docs/numkong-performance.md` |
 | Lockfile | Keep `uv.lock` in sync with `pyproject.toml` |

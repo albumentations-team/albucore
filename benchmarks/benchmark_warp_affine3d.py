@@ -243,7 +243,7 @@ def main() -> None:
         f"OpenCV `{cv2.__version__}`. Torch/OpenCV CPU threads: `{args.threads}`. "
         f"Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
         "",
-        "Each row is one non-batched DHWC volume and includes public dispatch, matrix validation/inversion, "
+        "Each row is one non-batched DHWC volume and includes public dispatch, matrix normalization/inversion, "
         "NumPy-to-Torch views, permutations, grid construction, sampling, dtype restoration, "
         "and the NumPy output view. "
         "The direct bridge and public router must be bitwise equal before timing.",

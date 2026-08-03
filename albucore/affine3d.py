@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-from operator import index
-from typing import cast, overload
+from typing import overload
 
 import cv2
 import numpy as np
@@ -24,92 +23,20 @@ _WARP_AFFINE3D_BORDERS = {
 }
 
 
-def _validate_size(size: object) -> tuple[int, int, int]:
-    """Return one valid output ``(depth, height, width)`` tuple."""
-    if not isinstance(size, tuple) or len(size) != 3:
-        msg = f"size must contain three positive integer dimensions, got {size!r}."
-        raise ValueError(msg)
-    try:
-        output_size = tuple(index(axis) for axis in size)
-    except TypeError as error:
-        msg = f"size must contain three positive integer dimensions, got {size!r}."
-        raise ValueError(msg) from error
-    if any(axis <= 0 for axis in output_size):
-        msg = f"size must contain three positive integer dimensions, got {size!r}."
-        raise ValueError(msg)
-    return cast("tuple[int, int, int]", output_size)
-
-
-def _validate_numpy_volume(volume: np.ndarray) -> None:
-    """Validate the public NumPy ``DHWC`` contract without copying data."""
-    if volume.dtype not in (np.dtype(np.uint8), np.dtype(np.float32)):
-        msg = f"Unsupported dtype {volume.dtype}. Albucore warp_affine3d supports only uint8 and float32."
-        raise ValueError(msg)
-    if volume.ndim != 4 or any(axis_size <= 0 for axis_size in volume.shape):
-        msg = f"warp_affine3d expects a non-empty NumPy DHWC volume, got shape {volume.shape}."
-        raise ValueError(msg)
-
-
-def _validate_torch_volume(volume: torch.Tensor) -> None:
-    """Validate the public CPU Torch ``CDHW`` contract without moving data."""
-    if volume.dtype not in (torch.uint8, torch.float32):
-        msg = f"Unsupported dtype {volume.dtype}. Albucore warp_affine3d supports only torch.uint8 and torch.float32."
-        raise ValueError(msg)
-    if volume.ndim != 4 or any(axis_size <= 0 for axis_size in volume.shape):
-        msg = f"warp_affine3d expects a non-empty Torch CDHW volume, got shape {tuple(volume.shape)}."
-        raise ValueError(msg)
-    if volume.device.type != "cpu":
-        msg = f"warp_affine3d supports CPU Torch tensors only, got device {volume.device}."
-        raise ValueError(msg)
-    if volume.layout != torch.strided:
-        msg = f"warp_affine3d supports strided Torch tensors only, got layout {volume.layout}."
-        raise ValueError(msg)
-    if volume.requires_grad:
-        msg = "warp_affine3d supports eager tensors with requires_grad=False only."
-        raise ValueError(msg)
-
-
 def _normalize_matrix(matrix: np.ndarray) -> np.ndarray:
-    """Validate one forward voxel-space affine matrix and return homogeneous float64 control data."""
-    raw_matrix = np.asarray(matrix)
-    if np.iscomplexobj(raw_matrix):
-        msg = "matrix must contain real numeric values."
-        raise ValueError(msg)
-    try:
-        matrix_array = np.asarray(raw_matrix, dtype=np.float64)
-    except (TypeError, ValueError) as error:
-        msg = "matrix must contain finite numeric values."
-        raise ValueError(msg) from error
-
+    """Convert prevalidated forward affine control data to homogeneous float64 form."""
+    matrix_array = np.asarray(matrix, dtype=np.float64)
     if matrix_array.shape == (3, 4):
         homogeneous = np.eye(4, dtype=np.float64)
         homogeneous[:3] = matrix_array
-    elif matrix_array.shape == (4, 4):
-        homogeneous = matrix_array
-        if not np.array_equal(homogeneous[3], np.array((0.0, 0.0, 0.0, 1.0), dtype=np.float64)):
-            msg = "A 4x4 warp_affine3d matrix must have homogeneous final row [0, 0, 0, 1]."
-            raise ValueError(msg)
     else:
-        msg = f"matrix must have shape (3, 4) or (4, 4), got {matrix_array.shape}."
-        raise ValueError(msg)
-
-    if not np.all(np.isfinite(homogeneous)):
-        msg = "matrix must contain only finite values."
-        raise ValueError(msg)
+        homogeneous = matrix_array
     return homogeneous
 
 
 def _inverse_matrix(matrix: np.ndarray) -> np.ndarray:
-    """Invert small affine control data once and reject singular transforms."""
-    try:
-        inverse = np.linalg.inv(matrix)
-    except np.linalg.LinAlgError as error:
-        msg = "matrix must be invertible."
-        raise ValueError(msg) from error
-    if not np.all(np.isfinite(inverse)):
-        msg = "matrix inverse must contain only finite values."
-        raise ValueError(msg)
-    return inverse
+    """Invert prevalidated homogeneous affine control data once."""
+    return np.linalg.inv(matrix)
 
 
 def _is_identity_matrix(matrix: np.ndarray) -> bool:
@@ -151,31 +78,12 @@ def _normalize_border_value(
     border_value: float | tuple[float, ...] | np.ndarray | None,
     channels: int,
 ) -> np.ndarray:
-    """Return finite float32 constant-border values in channel order."""
+    """Convert prevalidated constant-border values to contiguous float32 channel data."""
     if border_value is None:
         return np.zeros(channels, dtype=np.float32)
-    try:
-        raw_values = np.asarray(border_value)
-    except (TypeError, ValueError) as error:
-        msg = "border_value must be a scalar or a one-dimensional numeric array."
-        raise ValueError(msg) from error
-    if np.iscomplexobj(raw_values):
-        msg = "border_value must contain real numeric values."
-        raise ValueError(msg)
-    try:
-        values = np.asarray(raw_values, dtype=np.float32)
-    except (TypeError, ValueError) as error:
-        msg = "border_value must be a scalar or a one-dimensional numeric array."
-        raise ValueError(msg) from error
-
+    values = np.asarray(border_value, dtype=np.float32)
     if values.ndim == 0:
         values = np.full(channels, values.item(), dtype=np.float32)
-    elif values.ndim != 1 or values.shape[0] != channels:
-        msg = f"border_value must be a scalar or have one value per channel ({channels}), got shape {values.shape}."
-        raise ValueError(msg)
-    if not np.all(np.isfinite(values)):
-        msg = "border_value must contain only finite values."
-        raise ValueError(msg)
     return np.ascontiguousarray(values, dtype=np.float32)
 
 
@@ -265,7 +173,7 @@ def warp_affine3d(
 
 
 def warp_affine3d(
-    volume: object,
+    volume: np.ndarray | torch.Tensor,
     matrix: np.ndarray,
     size: tuple[int, int, int],
     interpolation: int = cv2.INTER_LINEAR,
@@ -277,7 +185,8 @@ def warp_affine3d(
     NumPy input uses ``(D, H, W, C)`` layout; Torch input uses ``(C, D, H, W)``.
     The matrix maps voxel-center ``(x, y, z)`` input coordinates to output coordinates.
     ``size`` is ordered as ``(depth, height, width)``. Only ``uint8`` and ``float32`` are
-    supported. Torch inputs must be CPU strided eager tensors with ``requires_grad=False``.
+    supported. Callers validate the input container, layout, dtype, device, and control
+    data before calling this low-level kernel.
 
     Args:
         volume: NumPy ``DHWC`` array or CPU Torch ``CDHW`` tensor.
@@ -291,24 +200,10 @@ def warp_affine3d(
         A volume with the input container, dtype, layout, and channels. An exact identity
         matrix with unchanged spatial shape returns ``volume`` itself.
 
-    Raises:
-        ValueError: If the public dtype, shape, matrix, device, autograd, interpolation, border,
-            fill, or output-size contract is invalid.
-        TypeError: If ``volume`` is neither ``np.ndarray`` nor ``torch.Tensor``.
     """
-    output_size = _validate_size(size)
-    if interpolation not in _WARP_AFFINE3D_INTERPOLATIONS:
-        msg = f"warp_affine3d supports only cv2.INTER_LINEAR and cv2.INTER_NEAREST; got interpolation={interpolation}."
-        raise ValueError(msg)
-    if border_mode not in _WARP_AFFINE3D_BORDERS:
-        msg = (
-            f"warp_affine3d supports only cv2.BORDER_CONSTANT and cv2.BORDER_REPLICATE; got border_mode={border_mode}."
-        )
-        raise ValueError(msg)
-
+    output_size = size
     homogeneous_matrix = _normalize_matrix(matrix)
     if isinstance(volume, np.ndarray):
-        _validate_numpy_volume(volume)
         border_values = _normalize_border_value(border_value, volume.shape[-1])
         if volume.shape[:3] == output_size and _is_identity_matrix(homogeneous_matrix):
             return volume
@@ -322,20 +217,15 @@ def warp_affine3d(
             border_values,
         )
 
-    if isinstance(volume, torch.Tensor):
-        _validate_torch_volume(volume)
-        border_values = _normalize_border_value(border_value, volume.shape[0])
-        if tuple(volume.shape[1:]) == output_size and _is_identity_matrix(homogeneous_matrix):
-            return volume
-        inverse_matrix = _inverse_matrix(homogeneous_matrix)
-        return _warp_affine3d_torch_cpu(
-            volume,
-            inverse_matrix,
-            output_size,
-            interpolation,
-            border_mode,
-            border_values,
-        )
-
-    msg = f"warp_affine3d supports np.ndarray and torch.Tensor, got {type(volume).__name__}."
-    raise TypeError(msg)
+    border_values = _normalize_border_value(border_value, volume.shape[0])
+    if tuple(volume.shape[1:]) == output_size and _is_identity_matrix(homogeneous_matrix):
+        return volume
+    inverse_matrix = _inverse_matrix(homogeneous_matrix)
+    return _warp_affine3d_torch_cpu(
+        volume,
+        inverse_matrix,
+        output_size,
+        interpolation,
+        border_mode,
+        border_values,
+    )

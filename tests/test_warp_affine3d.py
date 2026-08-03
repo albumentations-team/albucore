@@ -1,9 +1,7 @@
-# ruff: noqa: PLR0913, S101
+# ruff: noqa: S101
 """Contract and differential tests for public single-volume ``warp_affine3d``."""
 
 from __future__ import annotations
-
-from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -332,77 +330,6 @@ def test_warp_affine3d_3x4_and_homogeneous_4x4_matrices_are_equivalent() -> None
     np.testing.assert_array_equal(result_3x4, result_4x4)
 
 
-@pytest.mark.parametrize(
-    ("volume", "message"),
-    [
-        (np.zeros((3, 4, 5, 1), dtype=np.int64), "only uint8 and float32"),
-        (torch.zeros((1, 3, 4, 5), dtype=torch.int64), "only torch.uint8 and torch.float32"),
-        (torch.zeros((1, 3, 4, 5), dtype=torch.float32, requires_grad=True), "requires_grad=False"),
-        (torch.empty((1, 3, 4, 5), dtype=torch.float32, device="meta"), "CPU Torch tensors only"),
-    ],
-    ids=["numpy_int64_mask", "torch_int64_mask", "autograd", "non_cpu"],
-)
-def test_warp_affine3d_rejects_unsupported_dtype_device_and_autograd(
-    volume: np.ndarray | torch.Tensor,
-    message: str,
-) -> None:
-    """Masks have the same uint8/float32 contract and direct Tensor calls cannot move or detach data."""
-    with pytest.raises(ValueError, match=message):
-        warp_affine3d(volume, np.eye(4, dtype=np.float32), (3, 4, 5))
-
-
-@pytest.mark.parametrize(
-    ("matrix", "size", "interpolation", "border_mode", "border_value", "message"),
-    [
-        (np.zeros((2, 3), dtype=np.float32), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, None, "shape"),
-        (np.diag((1.0, 1.0, 0.0, 1.0)), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, None, "invertible"),
-        (np.full((3, 4), np.nan, dtype=np.float32), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, None, "finite"),
-        (np.eye(4, dtype=np.complex64), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, None, "real"),
-        (np.eye(4, dtype=np.float32), (0, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, None, "positive"),
-        (
-            np.eye(4, dtype=np.float32),
-            cast("tuple[int, int, int]", [3, 4, 5]),
-            cv2.INTER_LINEAR,
-            cv2.BORDER_CONSTANT,
-            None,
-            "three positive integer",
-        ),
-        (
-            np.eye(4, dtype=np.float32),
-            cast("tuple[int, int, int]", (1.5, 4, 5)),
-            cv2.INTER_LINEAR,
-            cv2.BORDER_CONSTANT,
-            None,
-            "integer",
-        ),
-        (np.eye(4, dtype=np.float32), (3, 4, 5), cv2.INTER_CUBIC, cv2.BORDER_CONSTANT, None, "INTER_LINEAR"),
-        (np.eye(4, dtype=np.float32), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_REFLECT, None, "BORDER_CONSTANT"),
-        (np.eye(4, dtype=np.float32), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, (1.0, 2.0), "per channel"),
-        (np.eye(4, dtype=np.float32), (3, 4, 5), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, 1.0 + 2.0j, "real"),
-    ],
-)
-def test_warp_affine3d_rejects_invalid_control_data(
-    matrix: np.ndarray,
-    size: tuple[int, int, int],
-    interpolation: int,
-    border_mode: int,
-    border_value: float | tuple[float, ...] | np.ndarray | None,
-    message: str,
-) -> None:
-    """Cheap public control-data validation gives deterministic errors before grid allocation."""
-    volume = _volume(np.float32, channels=3)
-
-    with pytest.raises(ValueError, match=message):
-        warp_affine3d(
-            volume,
-            matrix,
-            size,
-            interpolation=interpolation,
-            border_mode=border_mode,
-            border_value=border_value,
-        )
-
-
 def test_warp_affine3d_does_not_mutate_a_real_warp_input() -> None:
     """Affine sampling is allocating because output voxels read source values in arbitrary order."""
     volume = _volume(np.float32, channels=3)
@@ -412,9 +339,3 @@ def test_warp_affine3d_does_not_mutate_a_real_warp_input() -> None:
 
     np.testing.assert_array_equal(volume, original)
     assert not np.shares_memory(result, volume)
-
-
-def test_warp_affine3d_rejects_invalid_input_container() -> None:
-    """The public router accepts only its documented NumPy or Torch single-volume containers."""
-    with pytest.raises(TypeError, match=r"np\.ndarray and torch\.Tensor"):
-        warp_affine3d(cast("Any", [[[[1.0]]]]), np.eye(4, dtype=np.float32), (1, 1, 1))

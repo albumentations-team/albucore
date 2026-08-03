@@ -35,7 +35,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_torch_uint8_lut.py`](benchmark_torch_uint8_lut.py) | Shared and per-channel uint8 LUTs: Albucore and NumPy byte indexing versus Torch eager’s int32/int64 index casts and separately warmed `torch.compile`. |
 | [`benchmark_resize3d.py`](benchmark_resize3d.py) | Full CPU `resize3d` paths for NumPy `DHWC`: pure NumPy, OpenCV packing, and NumPy→Torch→NumPy. Use `--shape D,H,W,C` to isolate a canonical cell. |
 | [`benchmark_resize3d_tensor.py`](benchmark_resize3d_tensor.py) | CPU Tensor→Tensor `resize3d`: native Torch, zero-copy Tensor→NumPy→Tensor bridge, and the public router across contiguous and channel-last-strided `CDHW` inputs. |
-| [`benchmark_warp_affine3d.py`](benchmark_warp_affine3d.py) | Full CPU `warp_affine3d` NumPy `DHWC` route: control-data validation, zero-copy Torch bridge, sampling, uint8 repair, and public dispatch. |
+| [`benchmark_warp_affine3d.py`](benchmark_warp_affine3d.py) | Full CPU `warp_affine3d` NumPy `DHWC` route: control-data normalization, zero-copy Torch bridge, sampling, uint8 repair, and public dispatch. |
 | [`benchmark_warp_affine3d_tensor.py`](benchmark_warp_affine3d_tensor.py) | CPU Tensor→Tensor `warp_affine3d`: native `affine_grid`, manual-grid and coverage-fill diagnostic candidates, and public routing across contiguous and channel-last-strided `CDHW` inputs. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
 | [`benchmark_reduce_sum.py`](benchmark_reduce_sum.py) | `albucore.stats.reduce_sum` (NumKong uint8 routing) vs `numpy.sum` global / per-channel. |

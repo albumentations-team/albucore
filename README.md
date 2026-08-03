@@ -29,8 +29,9 @@ Key features:
 pip install albucore
 ```
 
-`torch>=2.13.0` is a required dependency and installs with Albucore. `resize3d` and `warp_affine3d` accept CPU
-Torch tensors with `requires_grad=False`; `warp_affine3d` also rejects non-strided Tensor layouts before sampling.
+`torch>=2.13.0` is a required dependency and installs with Albucore. AlbumentationsX passes prevalidated CPU,
+strided Torch tensors with `requires_grad=False` to `resize3d` and `warp_affine3d`; the low-level routers do not
+repeat those checks or move/detach Tensor data.
 
 **With OpenCV headless** (recommended for servers/CI):
 
@@ -185,7 +186,7 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` expects prevalidated NumPy `DHWC` volumes and Torch `CDHW` tensors. `warp_affine3d` accepts exactly one volume per call; it does not accept `NDHWC` or `NCDHW` batch layouts.
+The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` and `warp_affine3d` expect prevalidated NumPy `DHWC` volumes or Torch `CDHW` tensors. `warp_affine3d` accepts exactly one volume per call; it does not accept `NDHWC` or `NCDHW` batch layouts.
 
 ### Type conversion
 
