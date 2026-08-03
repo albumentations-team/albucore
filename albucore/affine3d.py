@@ -199,7 +199,7 @@ def _warp_affine3d_torch_cpu(
     theta = torch.from_numpy(_normalized_theta(inverse_matrix, input_size, size)).unsqueeze(0)
     working_volume = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
 
-    with torch.inference_mode():
+    with torch.no_grad():
         grid = torch_f.affine_grid(theta, [1, volume.shape[0], *size], align_corners=False)
         if border_mode == cv2.BORDER_CONSTANT and np.any(border_values):
             fill = torch.from_numpy(border_values).reshape(1, volume.shape[0], 1, 1, 1)

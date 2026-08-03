@@ -307,6 +307,18 @@ def test_warp_affine3d_accepts_noncontiguous_torch_cdhw() -> None:
     assert result.dtype == torch.float32
 
 
+def test_warp_affine3d_output_can_feed_a_trainable_torch_module() -> None:
+    """A non-autograd input still produces a normal Tensor usable by later training layers."""
+    volume = torch.from_numpy(_volume(np.float32, channels=1)).permute(3, 0, 1, 2)
+    layer = torch.nn.Conv3d(1, 1, kernel_size=1)
+
+    result = warp_affine3d(volume, _translation(x=0.25), (2, 3, 4))
+    loss = layer(result.unsqueeze(0)).sum()
+    loss.backward()
+
+    assert layer.weight.grad is not None
+
+
 def test_warp_affine3d_3x4_and_homogeneous_4x4_matrices_are_equivalent() -> None:
     """The two documented affine matrix encodings produce the same output."""
     volume = _volume(np.float32, channels=3)

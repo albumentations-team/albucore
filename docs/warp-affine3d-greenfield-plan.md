@@ -13,7 +13,7 @@
 
 V1 реализован в Albucore как public router `warp_affine3d`: NumPy `DHWC` и CPU Torch `CDHW`, `uint8`/`float32`, one-volume-per-call, forward matrix в `(x, y, z)`, nearest/trilinear interpolation и constant/replicate borders. Router проверяет direct Torch calls на CPU, `torch.strided` и `requires_grad=False`; он не делает `.detach()`, `.cpu()` или device transfer.
 
-Quick CPU matrix зафиксировал `affine_grid` + `grid_sample` как единственный production kernel. Manual grid и coverage sampler остались diagnostic candidates: первый не имеет устойчивого выигрыша и меняет uint8 rounding на boundary, второй проиграл 13 из 16 nonzero-fill cells. Расширенный nine-shape sweep подтвердил scope public path, но не вводит размерный route. Полный протокол и конкретные числа находятся в [CPU benchmark report](research/warp-affine3d-cpu-benchmark.md).
+Quick CPU matrix зафиксировал `affine_grid` + `grid_sample` как единственный production kernel. Manual grid и coverage sampler остались diagnostic candidates: первый не имеет устойчивого выигрыша и меняет uint8 rounding на boundary, второй проиграл 12 из 16 nonzero-fill cells. Расширенный nine-shape sweep подтвердил scope public path, но не вводит размерный route. Полный протокол и конкретные числа находятся в [CPU benchmark report](research/warp-affine3d-cpu-benchmark.md).
 
 Tiled output, additional border modes, OpenCV/NumKong backend и native extension не входят в текущий router. Каждый из них требует отдельного correctness и full-path performance trigger. AlbumentationsX integration остаётся downstream work после release Albucore; local duplicate resampler не предусматривается.
 
@@ -226,7 +226,7 @@ Torch предоставляет только `zeros`, `border` и один `ref
 
 Первый path читает и записывает все input/output values дополнительно. Второй выполняет ещё один single-channel sampler. Их ranking зависит от `C`, dtype, output size и доли out-of-bounds coordinates. Router выбирает path только по full benchmark. Fill zero пропускает обе дополнительные работы.
 
-Quick matrix выбрал первый path, `grid_sample(input - fill, zeros) + fill`, как production F0. Coverage sampler выиграл только в 3 из 16 nonzero-fill cells и проиграл на large representative shape, поэтому не добавляет runtime branch.
+Quick matrix выбрал первый path, `grid_sample(input - fill, zeros) + fill`, как production F0. Coverage sampler выиграл только в 4 из 16 nonzero-fill cells и проиграл на large representative shape, поэтому не добавляет runtime branch.
 
 ## Проверенные capability gaps на 2026-08-03
 
@@ -288,11 +288,11 @@ validated CPU CDHW Tensor
 
 Float32 data не копируется перед kernel. Strided input передаётся напрямую, пока benchmark не докажет пользу `.contiguous()` в связном регионе.
 
-Kernel выполняется внутри `torch.inference_mode()`. Public router заранее отклоняет Tensor с `requires_grad=True`, поэтому не строит autograd graph и может выбирать NumPy bridge без изменения contract.
+Kernel выполняется внутри `torch.no_grad()`. Public router заранее отклоняет Tensor с `requires_grad=True`, поэтому не строит autograd graph, но возвращает normal Tensor, пригодный как input следующего trainable layer.
 
 ### T1: manual affine grid
 
-`affine_grid` сравнивался с manual grid construction из трёх one-dimensional normalized coordinate vectors и broadcasted affine combinations. Timed path включает все broadcasts, stacks и allocations. Quick matrix дал manual-grid выигрыш только в 1 из 64 cells и показал uint8 boundary rounding difference. Candidate отклонён и не входит в router.
+`affine_grid` сравнивался с manual grid construction из трёх one-dimensional normalized coordinate vectors и broadcasted affine combinations. Timed path включает все broadcasts, stacks и allocations. Quick matrix не дал manual-grid выигрыша ни в одной из 64 cells и показал uint8 boundary rounding difference. Candidate отклонён и не входит в router.
 
 ### T2: tiled output-depth grid
 

@@ -122,7 +122,7 @@ def _manual_grid(
     mode = "nearest" if interpolation == cv2.INTER_NEAREST else "bilinear"
     working = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
 
-    with torch.inference_mode():
+    with torch.no_grad():
         if fill_value != 0.0:
             fill = torch.full((1, volume.shape[0], 1, 1, 1), fill_value, dtype=torch.float32)
             result = (
@@ -162,7 +162,7 @@ def _coverage_fill(
     mode = "nearest" if interpolation == cv2.INTER_NEAREST else "bilinear"
     working = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
 
-    with torch.inference_mode():
+    with torch.no_grad():
         grid = torch_f.affine_grid(theta, [1, volume.shape[0], *size], align_corners=False)
         result = torch_f.grid_sample(
             working.unsqueeze(0),
