@@ -5,17 +5,18 @@ from __future__ import annotations
 from typing import Final, Literal, TypeAlias
 
 from benchmarks.shape_grids import (
-    NON_SQUARE_IMAGE_HW,
+    NON_SQUARE_IMAGE_HW,  # noqa: F401 - re-exported for existing test modules
     NON_SQUARE_RESIZE_TARGET_WH,
-    PROPERTY_CHANNELS,
+    PROPERTY_CHANNELS,  # noqa: F401 - re-exported for existing test modules
     PROPERTY_NON_SQUARE_HW,
 )
 
 DTypeName: TypeAlias = Literal["uint8", "float32", "float64", "other numeric fallback"]
-LayoutName: TypeAlias = Literal["HWC", "XHWC", "NDHWC", "2D", "points"]
+LayoutName: TypeAlias = Literal["HWC", "XHWC", "NDHWC", "DHWC", "2D", "points"]
 ChannelSpec: TypeAlias = Literal["1", "3", "4", ">4"]
 ValueKind: TypeAlias = Literal[
     "alpha",
+    "antialias",
     "beta",
     "bias",
     "border_mode",
@@ -60,6 +61,7 @@ DTYPE_OTHER_NUMERIC_FALLBACK: Final[DTypeName] = "other numeric fallback"
 LAYOUT_HWC: Final[LayoutName] = "HWC"
 LAYOUT_XHWC: Final[LayoutName] = "XHWC"
 LAYOUT_NDHWC: Final[LayoutName] = "NDHWC"
+LAYOUT_DHWC: Final[LayoutName] = "DHWC"
 LAYOUT_2D: Final[LayoutName] = "2D"
 LAYOUT_POINTS: Final[LayoutName] = "points"
 
@@ -69,6 +71,7 @@ CHANNEL_4: Final[ChannelSpec] = "4"
 CHANNEL_GT4: Final[ChannelSpec] = ">4"
 
 VALUE_ALPHA: Final[ValueKind] = "alpha"
+VALUE_ANTIALIAS: Final[ValueKind] = "antialias"
 VALUE_BETA: Final[ValueKind] = "beta"
 VALUE_BIAS: Final[ValueKind] = "bias"
 VALUE_BORDER_MODE: Final[ValueKind] = "border_mode"
@@ -114,12 +117,14 @@ ALL_LAYOUT_NAMES: Final[tuple[LayoutName, ...]] = (
     LAYOUT_HWC,
     LAYOUT_XHWC,
     LAYOUT_NDHWC,
+    LAYOUT_DHWC,
     LAYOUT_2D,
     LAYOUT_POINTS,
 )
 ALL_CHANNEL_SPECS: Final[tuple[ChannelSpec, ...]] = (CHANNEL_1, CHANNEL_3, CHANNEL_4, CHANNEL_GT4)
 ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
     VALUE_ALPHA,
+    VALUE_ANTIALIAS,
     VALUE_BETA,
     VALUE_BIAS,
     VALUE_BORDER_MODE,
