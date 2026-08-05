@@ -88,6 +88,44 @@ def test_gaussian_blur3d_zero_sigmas_return_the_original_container(container: st
     assert gaussian_blur3d(volume, sigma=(0.0, 0.0, 0.0)) is volume
 
 
+@pytest.mark.parametrize("container", ["numpy", "torch"])
+def test_gaussian_blur3d_float64_falls_back_to_float32(container: str) -> None:
+    """An unexpected float64 input follows the documented float32 working/output contract."""
+    numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3)).astype(np.float64)
+    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
+    expected = gaussian_blur3d(numpy_volume.astype(np.float32), sigma=(0.75, 1.25, 0.0), kernel_size=(5, 0, 0))
+
+    result = gaussian_blur3d(volume, sigma=(0.75, 1.25, 0.0), kernel_size=(5, 0, 0))
+
+    if container == "numpy":
+        assert isinstance(result, np.ndarray)
+        assert result.dtype == np.float32
+        np.testing.assert_array_equal(result, expected)
+    else:
+        assert isinstance(result, torch.Tensor)
+        assert result.dtype == torch.float32
+        np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), expected)
+
+
+@pytest.mark.parametrize("container", ["numpy", "torch"])
+def test_separable_filter3d_identity_converts_float64_to_float32(container: str) -> None:
+    """The no-op fast path has the same float64 fallback as a non-identity filter."""
+    numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3)).astype(np.float64)
+    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
+    identity = np.ones(1, dtype=np.float32)
+
+    result = separable_filter3d(volume, (identity, identity, identity))
+
+    if container == "numpy":
+        assert isinstance(result, np.ndarray)
+        assert result.dtype == np.float32
+        np.testing.assert_array_equal(result, numpy_volume.astype(np.float32))
+    else:
+        assert isinstance(result, torch.Tensor)
+        assert result.dtype == torch.float32
+        np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), numpy_volume.astype(np.float32))
+
+
 def test_separable_filter3d_restores_uint8_once_after_all_passes() -> None:
     """The uint8 path clips only the final float32 result and keeps all input channels."""
     volume = np.full((3, 5, 7, 5), 255, dtype=np.uint8)

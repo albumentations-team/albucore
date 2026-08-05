@@ -22,7 +22,7 @@ Read [`docs/torch-performance-optimization.md`](../../../docs/torch-performance-
 - Current public Tensor routes are eager CPU paths that do not record autograd inside the primitive and do not use `torch.compile`. Do not add device routes, graph-preserving primitive fallbacks, compilation, or their benchmark candidates.
 - Tensor layouts are explicit and independent of NumPy layouts. Do not infer `NCHW` versus `CDHW` from shape sizes.
 - Caller-prevalidated 3D routers leave validation outside the hot path. Do not add it back while optimizing.
-- A Tensor route must preserve the documented container, layout, dtype, border, interpolation, rounding, mutation, and aliasing behavior.
+- A Tensor route must preserve the documented container, layout, border, interpolation, rounding, mutation, and aliasing behavior. Its dtype contract must distinguish supported dtype preservation from any explicit fallback conversion.
 
 ## Required Handoff
 

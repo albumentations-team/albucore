@@ -22,7 +22,7 @@ Audit every per-call conversion, allocation, reshape, and Python/Tensor boundary
 
 - `permute`, `movedim`, `unsqueeze`, and `squeeze` are usually metadata views. Do not add `.contiguous()` or `clone()` defensively; each can materialize the full volume. Benchmark any backend that requires materialization end to end.
 - `torch.from_numpy` and CPU `Tensor.numpy()` can share storage. They require an eligible CPU buffer and do not repair unsupported negative strides, non-writable input, device placement, or autograd state. Copy exactly once only when the documented contract requires a repair.
-- Keep a NumPy return as `cast("np.ndarray", result.numpy())` after the final layout view when Torch stubs expose `numpy()` as `Any`. `np.asarray(result.numpy())` is a runtime no-op; use the type-only cast to preserve mypy's container contract without another wrapper call.
+- Return `np.asarray(result.numpy())` after the final layout view when the static checker needs an ndarray rather than `Any`. For an array already returned by `Tensor.numpy()`, `np.asarray` returns the same object without copying. `torch.from_numpy` goes in the opposite direction and cannot implement a Tensor-to-NumPy return.
 - Build a scalar, per-channel Tensor, filter weight, affine matrix, or index map once per public call. Cache it only when callers actually reuse an identical value and the cache has bounded lifetime, keying, device, dtype, and memory behavior.
 - Keep decisions about sizes, modes, and parameter tuples in Python before the Tensor hot loop. Avoid `.item()`, `.tolist()`, or Python branching on Tensor values inside a repeated Tensor path. On accelerators these can synchronize execution; on CPU they still add wrapper work.
 - Prefer one float32 working conversion and one final uint8 saturation/rounding step. Do not cast or clip after every separable pass unless that is the documented numerical contract.
@@ -33,7 +33,8 @@ Audit every per-call conversion, allocation, reshape, and Python/Tensor boundary
 Every Tensor route states its logical layout independently of NumPy conventions. A 4D Tensor can mean `NCHW` or `CDHW`; never infer that choice from an axis size.
 
 - Preserve the caller's container and declared layout.
-- Do not silently move a Tensor, call `.detach()`, make it contiguous, or change a dtype to rescue an unsupported input. The caller-owned adapter or public contract decides those actions.
+- Do not silently move a Tensor, call `.detach()`, make it contiguous, or change a dtype to rescue an unsupported input unless the public contract explicitly documents that fallback. The caller-owned adapter or public contract decides those actions.
+- "Same dtype as input" applies only to the listed supported dtypes. When a primitive deliberately has a fallback dtype, state its working and output dtype and test it, including any identity fast path. For example, `gaussian_blur3d` converts an unexpected float64 volume to float32 and returns float32.
 - Run the primitive under `torch.no_grad()` or `torch.inference_mode()`; neither builds an autograd graph inside Albucore. Choose `inference_mode` only when the returned Tensor will not later be used in a graph. It removes more bookkeeping, but an inference Tensor cannot be saved by a downstream trainable module. Use `no_grad` when the public contract permits the result to feed later training. [PyTorch grad-mode guide](https://docs.pytorch.org/docs/stable/notes/autograd.html)
 - Keep the conversion bridge visible in the benchmark. NumPy input may choose a Torch kernel and Tensor input may choose NumPy/OpenCV only when the complete route wins and its numerical tolerance is documented.
 

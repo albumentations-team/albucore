@@ -122,7 +122,18 @@ def _separable_filter3d_numpy(volume: np.ndarray, kernels: tuple[np.ndarray, np.
         volume = np.array(volume, copy=True, order="C")
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     result = _separable_filter3d_torch_cpu(tensor, kernels)
-    return cast("np.ndarray", result.permute(1, 2, 3, 0).numpy())
+    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+
+
+def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
+    """Keep documented no-op inputs by identity and match the float32 working-type fallback otherwise."""
+    if isinstance(volume, np.ndarray):
+        if volume.dtype in (np.uint8, np.float32):
+            return volume
+        return volume.astype(np.float32, copy=False)
+    if volume.dtype in (torch.uint8, torch.float32):
+        return volume
+    return volume.to(torch.float32)
 
 
 @overload
@@ -142,14 +153,16 @@ def separable_filter3d(
     NumPy uses channel-last ``(D, H, W, C)`` layout; Torch uses channel-first ``(C, D, H, W)``.
     The three prevalidated odd-length kernels are applied in ``(depth, height, width)`` order with
     OpenCV-compatible ``BORDER_REFLECT_101`` padding. The router runs in float32 and restores uint8
-    once after all three passes. It preserves container, dtype, layout, and channels; three exact
-    one-element identity kernels return ``volume`` itself.
+    once after all three passes. It preserves container, layout, and channels. Supported ``uint8``
+    and ``float32`` input preserve their dtype; unexpected ``float64`` input is converted to and
+    returned as ``float32``. Three exact one-element identity kernels return a supported input
+    ``volume`` itself.
 
     Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Batches,
     ``volumes``, and ``masks3d`` are intentionally outside this single-volume primitive.
     """
     if all(_is_identity_kernel(kernel) for kernel in kernels):
-        return volume
+        return _identity_result(volume)
     if isinstance(volume, np.ndarray):
         return _separable_filter3d_numpy(volume, kernels)
     return _separable_filter3d_torch_cpu(volume, kernels)
