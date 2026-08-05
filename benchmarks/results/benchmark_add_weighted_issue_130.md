@@ -2,11 +2,11 @@
 
 ## Decision
 
-`add_weighted` returns the raw float32 weighted sum. Uint8 and single-channel float32 use NumKong. Multi-channel float32 uses OpenCV for HWC or when both higher-rank inputs are C-contiguous; a strided rank-4/5 input routes the pair to NumKong.
+`add_weighted` returns the raw float32 weighted sum. Uint8 and single-channel float32 use NumKong. Multi-channel float32 uses OpenCV for HWC or when both rank-4 inputs are C-contiguous; a strided rank-4 input routes the pair to NumKong.
 
 The issue #130 grid supports the channel split: NumKong won all three contiguous single-channel cells; OpenCV won four of the six contiguous multi-channel cells, while NumKong's two wins were within 1%. NumPy took about twice as long as the selected compiled backend on contiguous inputs. Every candidate was byte-exact against `img1 * 0.5 + img2 * 0.5` in this workload.
 
-The higher-rank branch matters: OpenCV was 1.8–46× slower than NumKong when at least one rank-4/5 input was strided. The selected route stayed within 4% of the fastest backend across those 24 strided cells. On fully contiguous rank-4/5 inputs, OpenCV and NumKong were within 5%; the router keeps OpenCV for consistency with the HWC multi-channel route.
+The rank-4 branch matters: NumKong wins whenever at least one input is strided. On fully contiguous rank-4 inputs, OpenCV and NumKong are close; the router keeps OpenCV for consistency with the HWC multi-channel route.
 
 ## Method
 
@@ -61,7 +61,7 @@ Inputs were float32 arrays in `[0, 255]`; weights were `0.5, 0.5`. Each cell rep
 
 ## Higher-rank and asymmetric-layout grid
 
-The full run covered C=1/3/5/9. The representative C=3 cells below show why layout must be part of routing. Rank 4 uses `4×128×160×C`; rank 5 uses `2×4×128×160×C`.
+The full run covered C=1/3/5/9. The representative C=3 cells below show why layout must be part of routing. Rank 4 uses `4×128×160×C`.
 
 | Rank | Input layouts | Public router | NumPy | OpenCV | NumKong | Fastest backend |
 |---:|---|---:|---:|---:|---:|---|
@@ -69,10 +69,6 @@ The full run covered C=1/3/5/9. The representative C=3 cells below show why layo
 | 4 | strided / strided | 0.5467 ± 0.0140 | 0.7810 ± 0.0220 | 1.3642 ± 0.0459 | 0.5388 ± 0.0103 | NumKong |
 | 4 | contiguous / strided | 0.2824 ± 0.0073 | 0.4158 ± 0.0130 | 1.3356 ± 0.0434 | 0.2790 ± 0.0067 | NumKong |
 | 4 | strided / contiguous | 0.2806 ± 0.0067 | 0.4132 ± 0.0128 | 1.3132 ± 0.0340 | 0.2778 ± 0.0064 | NumKong |
-| 5 | contiguous / contiguous | 0.0411 ± 0.0009 | 0.0911 ± 0.0016 | 0.0400 ± 0.0007 | 0.0395 ± 0.0013 | NumKong (<2%) |
-| 5 | strided / strided | 1.0880 ± 0.0191 | 1.5402 ± 0.0332 | 2.8408 ± 0.0550 | 1.0773 ± 0.0238 | NumKong |
-| 5 | contiguous / strided | 0.5751 ± 0.0143 | 0.8435 ± 0.0204 | 2.8433 ± 0.0745 | 0.5702 ± 0.0153 | NumKong |
-| 5 | strided / contiguous | 0.5602 ± 0.0095 | 0.8308 ± 0.0218 | 2.8179 ± 0.0832 | 0.5613 ± 0.0130 | NumKong |
 
 ## Reproduce
 

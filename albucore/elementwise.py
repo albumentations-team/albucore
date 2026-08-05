@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, cast
 import cv2
 import numpy as np
 
+from albucore.utils import _validate_image_rank
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -32,6 +34,7 @@ _FLOAT32_TINY = np.finfo(np.float32).tiny
 
 
 def _validate_float32(array: np.ndarray) -> None:
+    _validate_image_rank(array)
     if array.dtype != np.float32:
         raise ValueError(f"Elementwise operation supports only float32 arrays, got {array.dtype}.")
 
@@ -72,7 +75,7 @@ def exp(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     benchmark-derived thresholds.
 
     Args:
-        array: Float32 array of any rank. Image-like inputs use channel-last shapes.
+        array: Float32 array with at most four dimensions. Image-like inputs use channel-last shapes.
         inplace: Reuse ``array`` only when it owns a writable buffer. Views and
             read-only arrays are never mutated and produce a new array instead.
 
@@ -80,7 +83,7 @@ def exp(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
         The elementwise exponential with the same shape and float32 dtype.
 
     Raises:
-        ValueError: If ``array`` is not float32.
+        ValueError: If ``array`` is not float32 or has more than four dimensions.
 
     Notes:
         OpenCV finite results are float32-close to NumPy but are not guaranteed
@@ -123,7 +126,7 @@ def log(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     behavior for negative values, zero, subnormals, NaN, and infinity.
 
     Args:
-        array: Float32 array of any rank. Image-like inputs use channel-last shapes.
+        array: Float32 array with at most four dimensions. Image-like inputs use channel-last shapes.
         inplace: Reuse ``array`` only when it owns a writable buffer. Views and
             read-only arrays are never mutated and produce a new array instead.
 
@@ -131,7 +134,7 @@ def log(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
         The elementwise natural logarithm with the same shape and float32 dtype.
 
     Raises:
-        ValueError: If ``array`` is not float32.
+        ValueError: If ``array`` is not float32 or has more than four dimensions.
 
     Notes:
         Eligible finite results are float32-close to NumPy but are not guaranteed
@@ -179,7 +182,7 @@ def sqrt(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     buffer.
 
     Args:
-        array: Float32 array of any rank. Image-like inputs use channel-last shapes.
+        array: Float32 array with at most four dimensions. Image-like inputs use channel-last shapes.
         inplace: Reuse ``array`` only when it owns a writable buffer. Views and
             read-only arrays are never mutated and produce a new array instead.
 
@@ -187,7 +190,7 @@ def sqrt(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
         The elementwise square root with the same shape and float32 dtype.
 
     Raises:
-        ValueError: If ``array`` is not float32.
+        ValueError: If ``array`` is not float32 or has more than four dimensions.
     """
     _validate_float32(array)
     return sqrt_numpy(array, inplace=_can_mutate(array, inplace))

@@ -50,7 +50,7 @@ Committed outputs from deep-dive benchmark scripts. Document the routing decisio
 | `reliable_benchmark_sum_mean_std_ravel.md` | `benchmark_sum_mean_std_ravel.py` | Sum/mean/std: NumPy vs NumKong on `(H,W,C)` |
 | `reliable_benchmark_minmax_ravel.md` | `benchmark_minmax_ravel.py` | `Tensor.minmax()` vs `np.min + np.max` |
 | `reliable_benchmark_normalize_numkong_patterns.md` | `benchmark_normalize_numkong_patterns.py` | ImageNet-style normalization patterns: NK vs OpenCV vs NumPy |
-| `bench_sz_lut_vs_cv2_reliable.md` | `benchmark_sz_lut_vs_cv2_lut.py` | `sz.translate` vs `cv2.LUT`: shared + per-channel, HWC/DHWC/NDHWC |
+| `bench_sz_lut_vs_cv2_reliable.md` | `benchmark_sz_lut_vs_cv2_lut.py` | `sz.translate` vs `cv2.LUT`: shared + per-channel, HWC/DHWC |
 | `bench_lut_shared_routing_reliable.md` | `benchmark_lut_shared_routing.py` | Calibrates `opencv_shared_uint8_lut_faster_hwc` heuristic |
 
 ## OpenCV 5 routing refresh

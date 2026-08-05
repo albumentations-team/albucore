@@ -46,7 +46,7 @@ NumPy router выбирает между three-pass NumPy, OpenCV axis packing, 
 
 ## Границы первой версии
 
-В release scope входят только одиночные volumes. Batch layouts `NDHWC` и `NCDHW` откладываются до отдельной задачи: у них другая memory/performance matrix. Уточнённый контракт issue #134 использует NumPy `DHWC` и Torch `CDHW`.
+В release scope входят только одиночные volumes. Уточнённый контракт issue #134 использует NumPy `DHWC` и Torch `CDHW`.
 
 В первую версию не входят:
 
@@ -131,7 +131,7 @@ Albucore проверяет только dtype, interpolation и Tensor antialia
 
 `antialias=False` оставляет выбранную interpolation без prefilter. Для NumPy с `antialias=True` каждая уменьшаемая ось использует `INTER_AREA`; оси, которые сохраняются или увеличиваются, используют публичную interpolation. Комбинация `INTER_NEAREST + antialias=True` завершается `ValueError`, потому что она задаёт конфликтующие sampling semantics.
 
-Для Torch `antialias=True` завершается `NotImplementedError`. PyTorch 2.13.0 ограничивает antialias 4D bilinear/bicubic/Lanczos input и не принимает 5D trilinear. Ограничение уже вынесено в [pytorch#191896](https://github.com/pytorch/pytorch/issues/191896). Albucore не должен молча игнорировать аргумент.
+Для Torch `antialias=True` завершается `NotImplementedError`. PyTorch 2.13.0 ограничивает antialias bilinear/bicubic/Lanczos input и не поддерживает trilinear mode. Ограничение уже вынесено в [pytorch#191896](https://github.com/pytorch/pytorch/issues/191896). Albucore не должен молча игнорировать аргумент.
 
 ## Проверенные capability gaps
 
@@ -142,7 +142,7 @@ Albucore проверяет только dtype, interpolation и Tensor antialia
 | float32 CPU `F.interpolate(..., mode="trilinear")` | работает для non-cubic output и unit-length output axes |
 | non-contiguous float32 CPU Tensor | принимается; результат contiguous |
 | uint8 CPU trilinear | `NotImplementedError: "compute_indices_weights_linear" not implemented for 'Byte'` |
-| 5D trilinear с `antialias=True` | `ValueError`: antialias разрешён только для поддерживаемых 4D modes |
+| trilinear с `antialias=True` | `ValueError`: antialias разрешён только для поддерживаемых modes |
 | NumKong resize/interpolate/resample API | в публичном namespace 7.7.0 подходящего API нет |
 | OpenCV `resize` | 2D API; готового true 3D volumetric resize route нет |
 
@@ -218,7 +218,7 @@ N4 вызывает 2D OpenCV resize для depth slices и отдельный p
 
 ## CPU Torch implementation
 
-Torch path принимает только `CDHW`. Внутри он добавляет batch dimension и вызывает native 5D interpolation:
+Torch path принимает только `CDHW`. Внутри он добавляет служебную batch dimension и вызывает native trilinear interpolation:
 
 ```python
 def _resize3d_torch_cpu(
@@ -400,10 +400,10 @@ AlbumentationsX test suite отвечает за invalid rank, implicit channel 
 
 Существующие issues:
 
-- [pytorch#191896: antialias support for 5D trilinear interpolate](https://github.com/pytorch/pytorch/issues/191896).
+- [pytorch#191896: antialias support for trilinear interpolate](https://github.com/pytorch/pytorch/issues/191896).
 - [pytorch#191907: CPU uint8 trilinear interpolate](https://github.com/pytorch/pytorch/issues/191907).
 
-Issue #191907 содержит минимальный 5D reproduction, exact error на Torch 2.13.0, ожидаемое сохранение uint8 dtype и Albucore use case.
+Issue #191907 содержит минимальный trilinear reproduction, exact error на Torch 2.13.0, ожидаемое сохранение uint8 dtype и Albucore use case.
 
 ### OpenCV
 

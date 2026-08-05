@@ -21,12 +21,9 @@ Median ms, repeats=31, warmup=7. `prod` = current router. Lower is better.
 | DHWC | 32x128x128x1 | True | 0.0393 | 0.0458 | 0.1400 | 0.0440 | prod | 1.00x |
 | DHWC | 64x128x128x3 | True | 0.2165 | 2.1565 | 2.7086 | 0.2009 | cv2 flat | 1.08x |
 | DHWC | 6x32x32x9 | True | 0.0212 | 0.0517 | 0.0526 | 0.0150 | cv2 flat | 1.42x |
-| NDHWC | 2x32x128x128x3 | True | 0.1844 | 2.1103 | 2.6463 | 0.2070 | prod | 1.00x |
-| NDHWC | 1x128x128x128x1 | True | 0.2290 | 0.3425 | 0.7165 | 0.1314 | cv2 flat | 1.74x |
 | HWC-stridedW | 512x512x3 | False | 0.4625 | 0.4671 | 0.5437 | 0.7471 | prod | 1.00x |
 | HWC-stridedW | 512x512x9 | False | 0.9785 | 1.5343 | 1.8765 | 0.9985 | prod | 1.00x |
 | DHWC-stridedW | 16x128x128x3 | False | 0.4848 | 0.4618 | 0.6269 | 0.7510 | sz loop | 1.05x |
-| NDHWC-stridedW | 2x8x128x128x3 | False | 0.4694 | 0.4711 | 0.6370 | 0.7474 | prod | 1.00x |
 
 ## float32 output per-channel LUT
 
@@ -47,9 +44,6 @@ Median ms, repeats=31, warmup=7. `prod` = current router. Lower is better.
 | DHWC | 32x128x128x1 | True | 0.3459 | 0.3382 | 0.0880 | cv2 flat | 3.93x |
 | DHWC | 64x128x128x3 | True | 0.1497 | 3.1146 | 0.1503 | prod | 1.00x |
 | DHWC | 6x32x32x9 | True | 0.0192 | 0.0587 | 0.0156 | cv2 flat | 1.23x |
-| NDHWC | 2x32x128x128x3 | True | 0.1477 | 3.1083 | 0.1522 | prod | 1.00x |
-| NDHWC | 1x128x128x128x1 | True | 1.3371 | 1.3065 | 0.2669 | cv2 flat | 5.01x |
 | HWC-stridedW | 512x512x3 | False | 0.7618 | 0.7586 | 0.8435 | cv2 loop | 1.00x |
 | HWC-stridedW | 512x512x9 | False | 0.9479 | 1.9241 | 0.9394 | cv2 flat | 1.01x |
 | DHWC-stridedW | 16x128x128x3 | False | 0.7321 | 0.7724 | 0.8063 | prod | 1.00x |
-| NDHWC-stridedW | 2x8x128x128x3 | False | 0.7844 | 0.7344 | 0.7987 | cv2 loop | 1.07x |

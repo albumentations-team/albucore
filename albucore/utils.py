@@ -138,6 +138,11 @@ def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Co
     return wrapped_function
 
 
+def _validate_image_rank(image: ImageType) -> None:
+    if image.ndim > FOUR:
+        raise ValueError(f"Albucore image routers support ranks up to 4, got rank {image.ndim}")
+
+
 def get_num_channels(image: ImageType) -> int:
     """Get the number of channels in an image array.
 
@@ -148,8 +153,7 @@ def get_num_channels(image: ImageType) -> int:
         image: Input image array. Expected shapes:
             - HWC: (height, width, channels) - multi-channel image
             - NHWC: (batch, height, width, channels) - batch of multi-channel images
-            - DHWC: (depth, height, width, channels) - 3D multi-channel volume
-            - NDHWC: (batch, depth, height, width, channels) - batch of 3D multi-channel volumes
+            - XHWC: (leading, height, width, channels) - image batch or single volume
 
     Returns:
         int: Number of channels (the size of the last dimension).
@@ -175,20 +179,12 @@ def get_num_channels(image: ImageType) -> int:
         >>> get_num_channels(img)
         3
 
-        >>> # 3D grayscale volume
-        >>> img = np.zeros((5, 100, 200, 1))
-        >>> get_num_channels(img)
-        1
-
-        >>> # Batch of 3D volumes with RGB
-        >>> img = np.zeros((5, 10, 100, 200, 3))
-        >>> get_num_channels(img)
-        3
-
     Note:
-        Since we always expect the channel dimension to be present (even for grayscale
-        images which have shape[..., 1]), this function simply returns shape[-1].
+        Since we always expect a channel-last channel dimension (including grayscale
+        arrays with shape[..., 1]), this function returns shape[-1] after validating
+        the public 3D/4D layout contract.
     """
+    _validate_image_rank(image)
     return int(image.shape[-1])
 
 
@@ -230,6 +226,7 @@ def is_grayscale_image(image: ImageType) -> bool:
         is_rgb_image: For checking if an image has exactly 3 channels (RGB).
         is_multispectral_image: For checking if an image has channels other than 1 or 3.
     """
+    _validate_image_rank(image)
     return bool(image.shape[-1] == 1)
 
 
@@ -247,10 +244,12 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
 
 
 def is_rgb_image(image: ImageType) -> bool:
+    _validate_image_rank(image)
     return bool(image.shape[-1] == NUM_RGB_CHANNELS)
 
 
 def is_multispectral_image(image: ImageType) -> bool:
+    _validate_image_rank(image)
     return image.shape[-1] not in {1, 3}
 
 
@@ -316,14 +315,13 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
     """Extract image metadata (dtype, height, width, num_channels) from a dictionary.
 
     This function checks for image data under specific keys in priority order:
-    'image' > 'images' > 'volume' > 'volumes'
+    'image' > 'images' > 'volume'
 
-    The function correctly extracts height and width by accounting for batch
-    and depth dimensions based on the key type:
+    The function correctly extracts height and width by accounting for the leading
+    dimension based on the key type:
     - 'image': Direct H, W from shape[0], shape[1]
     - 'images': Skip batch dimension (shape[1], shape[2])
     - 'volume': Skip depth dimension (shape[1], shape[2])
-    - 'volumes': Skip batch and depth dimensions (shape[2], shape[3])
 
     Args:
         data: Dictionary potentially containing image/volume arrays under specific keys.

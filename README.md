@@ -81,7 +81,6 @@ Albucore expects images to follow specific shape conventions, with the channel d
 - **Grayscale image**: `(H, W, 1)` - Height, Width, 1 channel
 - **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
 - **3D volume**: `(D, H, W, C)` - Depth, Height, Width, Channels
-- **Five-dimensional array**: `(N, D, H, W, C)` - Leading dimension, Depth, Height, Width, Channels
 
 ### Important Notes:
 
@@ -107,8 +106,6 @@ batch_gray = np.random.randint(0, 256, (10, 100, 100, 1), dtype=np.uint8)
 # 3D volume with 20 slices
 volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
 
-# Five-dimensional RGB array with a leading dimension and 20 depth slices
-rank5 = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
 ```
 
 ## Functions
@@ -144,7 +141,7 @@ contract requires clipping.
 | `log` | `(array, *, inplace=False)` | NumPy-compatible natural logarithm; float32 only | NumPy for special values and small/unsupported layouts; guarded OpenCV path for eligible large arrays |
 | `sqrt` | `(array, *, inplace=False)` | NumPy-compatible square root; float32 only | NumPy wins across the benchmark grid |
 
-These functions accept float32 arrays of any rank and preserve the exact input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
+These functions accept float32 arrays up to rank 4 and preserve the exact input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
 
 ### Normalization
 
@@ -188,7 +185,7 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect prevalidated NumPy `DHWC` volumes or Torch `CDHW` tensors. The two filters and `warp_affine3d` accept exactly one volume per call; they do not accept `NDHWC` or `NCDHW` batch layouts.
+The package also star-exports multi-channel wrappers for `copy_make_border`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect exactly one prevalidated NumPy `DHWC` volume or Torch `CDHW` tensor per call.
 
 ### Type conversion
 
@@ -214,7 +211,6 @@ Arithmetic, normalization, statistics, conversion, and elementwise routers opera
 - Single images: `(H, W, C)`
 - Batches: `(N, H, W, C)`
 - Single volumes: `(D, H, W, C)`
-- Five-dimensional arrays: `(N, D, H, W, C)`
 
 Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to documented array ranks while restoring the original layout.
 

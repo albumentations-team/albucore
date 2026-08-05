@@ -21,9 +21,9 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 
 | Operation | Layouts in bench | dtypes | Status |
 |-----------|------------------|--------|--------|
-| `add_weighted` | HWC, XHWC, NDHWC | uint8, float32 | **uint8** and single-channel float32 → `nk.blend`; multi-channel float32 → **`cv2.addWeighted`** for HWC/two contiguous inputs and NumKong when a higher-rank input is strided. Float32 results keep the raw numeric range. |
+| `add_weighted` | HWC, XHWC | uint8, float32 | **uint8** and single-channel float32 → `nk.blend`; multi-channel float32 → **`cv2.addWeighted`** for HWC/two contiguous inputs and NumKong when a higher-rank input is strided. Float32 results keep the raw numeric range. |
 | `pairwise_distances_squared` | Small `n1×n2` | float32 | **`nk.cdist`** if `n1*n2 < 1000`; else NumPy. Still slower than 0.0.40 **SimSimd** `cdist` on some sizes (no simsimd dep). |
-| Global **mean** / **std** / **mean_std** | HWC, NHWC, NDHWC | uint8 | **Shipped** — [`albucore.stats`](../albucore/stats.py): global reduction uses **`nk.moments`** on a contiguous ravel (one pass for `mean_std`). |
+| Global **mean** / **std** / **mean_std** | HWC, NHWC | uint8 | **Shipped** — [`albucore.stats`](../albucore/stats.py): global reduction uses **`nk.moments`** on a contiguous ravel (one pass for `mean_std`). |
 | Global mean / std / both | same | float32 | **NumPy** in `stats` (`np.mean` / `np.std`, float64 accumulators); not routed to NumKong. |
 | Per-channel **mean** / **std** / **mean_std** | `(H,W,C)`, `(N,H,W,C)`, … | uint8, float32 | **Shipped** in `stats` — `mean` keeps its benchmarked OpenCV / NumKong / NumPy split. `std` and `mean_std` use **`cv2.meanStdDev`** for 3D float32 RGB/RGBA-like cases, and **NumKong per-channel `moments`** for uint8, single-channel, high-channel, and batch/volume cases. `keepdims=True` stays on NumPy-compatible axis reduction. |
 | **min** (global on ravel) | `(H,W,C)` | uint8, float32 | **Not NumKong** — NumPy faster ([`research/minmax-ravel-benchmark.md`](research/minmax-ravel-benchmark.md)). |
@@ -35,7 +35,7 @@ uv run python benchmarks/benchmark_elementwise.py            # exp/log/sqrt and 
 | `multiply_by_array` | same | uint8, float32 | uint8 → OpenCV plus saturation; float32 → NumPy. **Do not use `nk.fma`** (§2). |
 | `add_array` | same | uint8, float32 | **Shipped** — float32 → NumPy; uint8 same shape/dtype → **`add_array_numkong`**; else OpenCV. **No `inplace` kwarg** (in-place OpenCV was not a win vs NumKong out-of-place on same-shape uint8). |
 | `multiply_by_vector` / `add_vector` | same | uint8, float32 | **Keep LUT/OpenCV** — channel-wise **`scale` loop** mixed vs one prod pass (§2). |
-| `exp` / `log` / `sqrt` | 2D, HWC, XHWC, NDHWC | float32 | NumKong 7.7 exposes no matching elementwise primitives. `nk.minmax` was slower than NumPy `min`/`max` as the correctness guard for `cv2.log`; production routes between NumPy and OpenCV ([full report](../benchmarks/results/benchmark_elementwise.md)). |
+| `exp` / `log` / `sqrt` | 2D, HWC, XHWC | float32 | NumKong 7.7 exposes no matching elementwise primitives. `nk.minmax` was slower than NumPy `min`/`max` as the correctness guard for `cv2.log`; production routes between NumPy and OpenCV ([full report](../benchmarks/results/benchmark_elementwise.md)). |
 
 Scripts: **[`benchmarks/benchmark_add_weighted.py`](../benchmarks/benchmark_add_weighted.py)** (current public route and float32 candidates), **[`benchmarks/benchmark_numkong_vs_albucore_backends.py`](../benchmarks/benchmark_numkong_vs_albucore_backends.py)** (tables in §1–§3), **[`benchmarks/benchmark_multiply_add_numkong.py`](../benchmarks/benchmark_multiply_add_numkong.py)** (multiply/add vs `scale` / `fma` / `blend`), **[`benchmarks/benchmark_numkong.py`](../benchmarks/benchmark_numkong.py)** (`cdist` / blend / scale-fma microbenches), **[`benchmarks/benchmark_minmax_ravel.py`](../benchmarks/benchmark_minmax_ravel.py)**.
 

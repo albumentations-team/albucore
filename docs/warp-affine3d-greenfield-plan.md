@@ -60,7 +60,7 @@ AlbumentationsX владеет transform policy:
 
 ## Границы первой версии
 
-`warp_affine3d` работает с одним volume за вызов. Batched layouts `NDHWC`/`NCDHW` не входят в план; AlbumentationsX предоставляет только single-volume target path.
+`warp_affine3d` работает с одним volume за вызов; AlbumentationsX предоставляет single-volume target path.
 
 В V1 не входят:
 
@@ -194,7 +194,7 @@ V1 принимает общий semantic subset:
 
 | Albucore argument | Torch mode | Назначение |
 |---|---|---|
-| `cv2.INTER_LINEAR` | `mode="bilinear"` на 5D input | trilinear intensity interpolation |
+| `cv2.INTER_LINEAR` | `mode="bilinear"` на volumetric input | trilinear intensity interpolation |
 | `cv2.INTER_NEAREST` | `mode="nearest"` | categorical masks и labels |
 
 `align_corners=False` передаётся и в `affine_grid`, и в `grid_sample`. AlbumentationsX проверяет interpolation flag и передаёт только этот subset.
@@ -234,16 +234,16 @@ Quick matrix выбрал первый path, `grid_sample(input - fill, zeros) +
 
 | Проверка | Результат |
 |---|---|
-| 5D float32 CPU `affine_grid` + `grid_sample` | работает; identity exact на проверенной non-cubic shape |
+| float32 CPU `affine_grid` + `grid_sample` | работает; identity exact на проверенной non-cubic shape |
 | non-contiguous float32 CPU `CDHW` | принимается; output contiguous |
 | nearest на half-voxel coordinates | использует round-to-nearest-even |
 | CPU `uint8`, nearest | `NotImplementedError: "grid_sampler3d_cpu" not implemented for 'Byte'` |
 | CPU `uint8`, trilinear | та же ошибка; нужен float32 working buffer |
-| MPS float32 5D identity smoke | работает локально, но V1 не обещает MPS support |
+| MPS float32 identity smoke | работает локально, но V1 не обещает MPS support |
 | OpenCV true 3D affine API | отсутствует в публичном namespace 5.0.0 |
 | NumKong warp/remap/affine API | отсутствует в публичном namespace 7.7.0 |
 
-PyTorch документирует 5D input, grid order `(x, y, z)`, trilinear behavior для `mode="bilinear"` и три padding modes в [`grid_sample`](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html). `affine_grid` получает `theta` shape `(1, 3, 4)` и служебную ось `N=1`; проект фиксирует `align_corners=False` для unit axes.
+PyTorch документирует volumetric input, grid order `(x, y, z)`, trilinear behavior для `mode="bilinear"` и три padding modes в [`grid_sample`](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html). `affine_grid` получает `theta` shape `(1, 3, 4)` и служебную ось `N=1`; проект фиксирует `align_corners=False` для unit axes.
 
 ## Reference semantics до оптимизации
 
@@ -327,7 +327,7 @@ Output contiguity не меняется скрыто без benchmark. Если 
 
 ### U0/U1: uint8 working paths
 
-CPU `grid_sample` не принимает uint8 5D input. Базовый U0:
+CPU `grid_sample` не принимает uint8 volumetric input. Базовый U0:
 
 ```text
 uint8 input
@@ -622,7 +622,7 @@ Native route проходит те же correctness и public-path performance g
 
 На 2026-08-03 OpenCV #29605 и NumKong #362 открыты. Они запрашивают matrix-based true 3D warp, arbitrary channels, uint8/float32, nearest/trilinear interpolation и explicit coordinate semantics.
 
-PyTorch предоставляет рабочий float32 baseline, но normalized coordinates требуют отдельного conversion layer. Запрос на absolute pixel coordinates отслеживается в [pytorch #36107](https://github.com/pytorch/pytorch/issues/36107). Перед созданием нового PyTorch issue для CPU uint8 `grid_sample` нужно повторить поиск и приложить standalone 5D reproduction на declared lower-bound version.
+PyTorch предоставляет рабочий float32 baseline, но normalized coordinates требуют отдельного conversion layer. Запрос на absolute pixel coordinates отслеживается в [pytorch #36107](https://github.com/pytorch/pytorch/issues/36107). Перед созданием нового PyTorch issue для CPU uint8 `grid_sample` нужно повторить поиск и приложить standalone volumetric reproduction на declared lower-bound version.
 
 Upstream implementation не меняет public Albucore contract. Она добавляется как benchmark candidate и получает route только после differential tests и full-path measurement.
 

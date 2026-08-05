@@ -70,7 +70,7 @@ def _reflect101_indices(size: int, radius: int) -> torch.Tensor:
 
 
 def _pad_reflect101(volume: torch.Tensor, axis: int, radius: int) -> torch.Tensor:
-    """Pad one ``NCDHW`` axis with Torch reflect mode or its singleton/large-radius equivalent."""
+    """Pad one spatial axis of the internal batched Tensor."""
     if radius == 0:
         return volume
 
@@ -87,7 +87,7 @@ def _pad_reflect101(volume: torch.Tensor, axis: int, radius: int) -> torch.Tenso
 
 
 def _apply_axis_filter(volume: torch.Tensor, kernel: np.ndarray, axis: int) -> torch.Tensor:
-    """Apply one same-shape grouped 1D correlation along one NCDHW spatial axis."""
+    """Apply one same-shape grouped 1D correlation along an internal spatial axis."""
     radius = kernel.size // 2
     padded = _pad_reflect101(volume, axis, radius)
     if axis == 2:
@@ -141,6 +141,13 @@ def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Te
     return volume.to(torch.float32)
 
 
+def _validate_single_volume_rank(volume: np.ndarray | torch.Tensor) -> None:
+    if volume.ndim != 4:
+        layout = "DHWC" if isinstance(volume, np.ndarray) else "CDHW"
+        msg = f"separable_filter3d expects one rank-4 {layout} volume, got rank {volume.ndim}."
+        raise ValueError(msg)
+
+
 @overload
 def separable_filter3d(volume: np.ndarray, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray: ...
 
@@ -163,9 +170,10 @@ def separable_filter3d(
     unexpected ``float64`` input is converted to and returned as ``float32``. Three exact
     one-element identity kernels return a supported input ``volume`` itself.
 
-    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Batched layouts
-    and target-level masks are intentionally outside this single-volume primitive.
+    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Target-level masks
+    are intentionally outside this single-volume primitive.
     """
+    _validate_single_volume_rank(volume)
     kernels = _float32_kernel(kernels[0]), _float32_kernel(kernels[1]), _float32_kernel(kernels[2])
     if all(_is_identity_kernel(kernel) for kernel in kernels):
         return _identity_result(volume)

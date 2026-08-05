@@ -158,7 +158,7 @@ OpenCV `cv2.meanStdDev` only matches **global** scalar semantics for **C=1**; fo
 | 4×256×256 | 3 | 786432 | 0.4518 | 0.5301 | N/A | NumPy |
 | 4×256×256 | 9 | 2359296 | 0.8889 | 1.1985 | N/A | NumPy |
 
-## Per-channel mean + std — `(H,W,C)`, `(N,H,W,C)`, `(N,D,H,W,C)`
+## Per-channel mean + std — `(H,W,C)`, `(N,H,W,C)`
 
 Reduce over **all axes except channel** (`shape[-1]`). **NP mean** / **NP std**: separate full reductions over those axes. **NP both**: `mean` then `std` in one timed block. **albucore**: `mean_std(img, "per_channel", eps=…)` (3D: OpenCV + NumPy routing in `stats`; higher rank → NumPy axis-reduce). **NK**: one NumKong `moments` per channel (no batched per-channel API in this bench).
 

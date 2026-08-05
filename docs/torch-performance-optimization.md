@@ -72,10 +72,6 @@ Check the following before adding branches:
 
 Keep a branch only when a sustained region wins on the public benchmark. Record both winning and rejected candidates with the shapes where they lose.
 
-## Treat memory format as a measured CPU candidate
-
-`channels_last_3d` is a stride layout for 5D `NCDHW` Tensors; it does not change the public logical axes. It can help supported convolution implementations, but a conversion can cost more than it saves for a one-off Albucore primitive. Compare a route that preserves the format through adjacent operators against the same complete route in contiguous format. [PyTorch memory-format docs](https://docs.pytorch.org/docs/stable/tensor_attributes.html)
-
 `torch.compile`, autograd through an Albucore primitive, GPU, MPS, CUDA graphs, mixed precision, and distributed execution are out of scope. Do not add them to a public route, a benchmark candidate, or a routing threshold. A future task that expands the contract must define device transfer, synchronization, compilation latency, dynamic-shape, graph, and correctness behavior before measuring them.
 
 ## Tests and review record

@@ -17,8 +17,6 @@ Albucore expects images to follow specific shape conventions where **the channel
 
 - **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
 - **Batch of grayscale images**: `(N, H, W, 1)`
-- **Five-dimensional array**: `(N, D, H, W, C)` - Leading dimension, Depth, Height, Width, Channels
-- **Five-dimensional grayscale array**: `(N, D, H, W, 1)`
 
 ## Accessing Dimensions
 
@@ -81,9 +79,6 @@ result = albucore.multiply(batch, 1.5)
 volume = np.random.randint(0, 256, (20, 256, 256, 1), dtype=np.uint8)
 result = albucore.multiply(volume, 1.5)
 
-# Five-dimensional RGB array with a leading dimension and 20 depth slices
-rank5 = np.random.randint(0, 256, (5, 20, 256, 256, 3), dtype=np.uint8)
-result = albucore.multiply(rank5, 1.5)
 ```
 
 ## Why This Convention?

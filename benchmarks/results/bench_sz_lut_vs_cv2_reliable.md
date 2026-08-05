@@ -21,8 +21,6 @@ _Median ms, repeats=41, warmup=12, seed=0; Darwin `arm64`, OpenCV 4.13.0, numpy 
 | HWC | 96×96×9 | 82944 | 0.0091 | 0.0622 | 0.0213 | SZ full |
 | DHWC | 8×64×64×3 | 98304 | 0.0101 | 0.0622 | 0.0285 | SZ full |
 | DHWC | 6×32×32×9 | 55296 | 0.0058 | 0.0427 | 0.0146 | SZ full |
-| NDHWC | 2×4×32×32×3 | 24576 | 0.0027 | 0.0178 | 0.0069 | SZ full |
-| NDHWC | 2×3×24×24×9 | 31104 | 0.0032 | 0.0280 | 0.0086 | SZ full |
 
 #### Per-channel LUT (different `256` table per channel)
 
@@ -42,11 +40,8 @@ _Median ms, repeats=41, warmup=12, seed=0; Darwin `arm64`, OpenCV 4.13.0, numpy 
 | HWC | 96×96×9 | 82944 | 0.0624 | 0.0286 | cv2 |
 | DHWC | 8×64×64×3 | 98304 | 0.0627 | 0.0798 | SZ loop |
 | DHWC | 6×32×32×9 | 55296 | 0.0425 | 0.0490 | SZ loop |
-| NDHWC | 2×4×32×32×3 | 24576 | 0.0178 | 0.0227 | SZ loop |
-| NDHWC | 2×3×24×24×9 | 31104 | 0.0289 | 0.0345 | SZ loop |
 
 **Notes:**
 - **SZ full** is only valid when one LUT applies to every byte (scalar `apply_lut` path).
 - **SZ loop** matches multi-channel `apply_lut` (`sz_lut` per channel).
-- **cv2** shared `(256,)`: contiguous `HWC` / `DHWC` / `NDHWC` work here. Per-channel distinct: `(256,1,C)` is **only** valid for `ndim==3`; volumes/batches use **C×** `cv2.LUT(..., 1D)` on `img[..., c]` (OpenCV `lut.cpp` otherwise asserts).
 - Regenerate on your CPU; routing should follow benchmarks, not assumptions.

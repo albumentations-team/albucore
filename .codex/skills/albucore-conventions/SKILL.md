@@ -25,7 +25,6 @@ grayscale = (H, W, 1)
 rgb = (H, W, 3)
 batch = (N, H, W, C)
 volume = (D, H, W, C)
-batch_volumes = (N, D, H, W, C)
 
 # Wrong - never use implicit channels
 gray = (H, W)
@@ -43,7 +42,7 @@ height = image.shape[-3]
 An API that explicitly accepts a `torch.Tensor` defines its layout independently; never infer a Tensor layout from its
 rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses the same prevalidated single-volume
 layouts. AlbumentationsX checks CPU, strided layout, eager (`requires_grad=False`) execution, and all control data
-before the call. It does not accept `NDHWC` or `NCDHW` batch layouts.
+before the call. Each volume router accepts exactly one volume.
 
 ### 2. Supported Dtypes - uint8 and float32 Only
 
@@ -91,7 +90,7 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 ### 8. Tests
 
 - Test uint8 and float32 only.
-- Test single images, image batches, single volumes, and supported five-dimensional arrays where the router supports them.
+- Test single images, image batches, and single volumes where the router supports them.
 - Cover 1-channel and >4-channel edge cases.
 
 ### 9. Dependency Lock Consistency

@@ -258,13 +258,13 @@
           "c_contiguous": true,
           "dtype": "float64",
           "max": 73.87320849808306,
-          "mean": 73.8473456131868,
-          "min": 73.82410398253838,
-          "sha256": "4cdbf7c19b5e47ea748104b7b2a3795ca8619ef13f6db0643c85eb0ce173f019",
+          "mean": 73.84734561318682,
+          "min": 73.82410398253839,
+          "sha256": "563a5475d6468672f86d16582f7422fe3098c47a57ae3af634b0cafd8eea7a16",
           "shape": [
             3
           ],
-          "sum": 221.5420368395604
+          "sum": 221.54203683956044
         },
         "sum": {
           "c_contiguous": true,
@@ -280,29 +280,6 @@
         }
       },
       "rtol": 1e-12
-    },
-    {
-      "atol": 1e-06,
-      "name": "batch_normalize_float32_ndhwc",
-      "outputs": {
-        "result": {
-          "c_contiguous": true,
-          "dtype": "float32",
-          "max": 1.0,
-          "mean": 0.49999999979034465,
-          "min": 0.0,
-          "sha256": "a350b166c402ec19eba05a7efd197ae9f577f63264375577a917f916a1a3b733",
-          "shape": [
-            2,
-            3,
-            8,
-            9,
-            1
-          ],
-          "sum": 215.99999990942888
-        }
-      },
-      "rtol": 1e-06
     }
   ],
   "outputs_file": "v1/outputs.npz",

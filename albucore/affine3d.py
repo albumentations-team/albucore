@@ -201,6 +201,11 @@ def warp_affine3d(
         matrix with unchanged spatial shape returns ``volume`` itself.
 
     """
+    if volume.ndim != 4:
+        layout = "DHWC" if isinstance(volume, np.ndarray) else "CDHW"
+        msg = f"warp_affine3d expects one rank-4 {layout} volume, got rank {volume.ndim}."
+        raise ValueError(msg)
+
     output_size = size
     homogeneous_matrix = _normalize_matrix(matrix)
     if isinstance(volume, np.ndarray):

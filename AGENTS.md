@@ -119,7 +119,7 @@ Albucore provides several useful decorators:
 ### 6. Testing
 
 - Write tests for uint8 and float32 only
-- Test single images, image batches, single volumes, and supported five-dimensional arrays
+- Test single images, image batches, and single volumes
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
 

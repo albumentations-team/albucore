@@ -15,6 +15,7 @@ from albucore.utils import (
     ImageType,
     ImageUInt8,
     NormalizationType,
+    _validate_image_rank,
     get_num_channels,
 )
 
@@ -39,7 +40,7 @@ def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: fl
     """Apply mean-std normalization using OpenCV or NumPy based on dimensionality."""
     img_f = img.astype(np.float32, copy=False)
     if img_f.ndim > 3 or (img_f.ndim == 3 and img_f.shape[-1] > MAX_OPENCV_WORKING_CHANNELS):
-        # Use NumPy operations for 4D/5D and 3D images with >4 channels.
+        # Use NumPy operations for 4D arrays and 3D images with >4 channels.
         mean_arr = np.asarray(mean, dtype=np.float32)
         std_arr = np.asarray(std, dtype=np.float32)
         normalized_img = cast("ImageFloat32", (img_f - mean_arr) / std_arr)
@@ -76,7 +77,7 @@ def _normalize_min_max_per_channel_opencv(img: ImageType) -> ImageFloat32:
         img_min = np.full_like(img, img_min)
         img_max = np.full_like(img, img_max)
 
-    # Use NumPy operations for 4D/5D (faster), OpenCV for 3D
+    # Use NumPy operations for 4D arrays (faster), OpenCV for 3D
     if img.ndim > 3:
         normalized_img = cast("ImageFloat32", (img - img_min) / (img_max - img_min + eps))
     else:
@@ -354,13 +355,14 @@ def normalize_per_image(img: ImageType, normalization: NormalizationType) -> Ima
     Alternative: ``normalize`` for fixed per-channel ImageNet-style constants.
 
     Args:
-        img: uint8 or float32 image, shape ``(H, W, C)``, ``(N, H, W, C)``, or ``(N, D, H, W, C)``.
+        img: uint8 or float32 image, shape ``(H, W, C)`` or ``(X, H, W, C)``.
         normalization: One of ``"image"``, ``"image_per_channel"``, ``"min_max"``,
             ``"min_max_per_channel"``.
 
     Returns:
         float32 image, same spatial shape as ``img``.
     """
+    _validate_image_rank(img)
     # Route uint8 images
     if img.dtype == np.uint8:
         # Use LUT for everything except min_max (where OpenCV is 3x faster)

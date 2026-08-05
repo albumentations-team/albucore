@@ -6,8 +6,8 @@
 
 Albucore принимает два вида изображений:
 
-- `np.ndarray` в текущих channel-last форматах `HWC`, `NHWC`, `DHWC`, `NDHWC`;
-- `torch.Tensor` в стандартных для PyTorch channel-first форматах `CHW`, `NCHW`, `CDHW`, `NCDHW`.
+- `np.ndarray` в текущих channel-last форматах `HWC`, `NHWC`, `DHWC`;
+- `torch.Tensor` в стандартных для PyTorch channel-first форматах `CHW`, `NCHW`, `CDHW`.
 
 Первая версия работает только на CPU. Публичный router сохраняет контейнер и layout входа: NumPy-вход возвращает `np.ndarray`, Tensor-вход — `torch.Tensor`. Autograd не входит в этот этап; Tensor с `requires_grad=True` завершается понятной ошибкой.
 
@@ -26,8 +26,8 @@ Routing симметричен. Tensor-вход может использова�
 
 ```mermaid
 flowchart LR
-    N["np.ndarray<br/>HWC / NHWC / DHWC / NDHWC"] --> R["Публичный router"]
-    T["CPU torch.Tensor<br/>CHW / NCHW / CDHW / NCDHW"] --> R
+    N["np.ndarray<br/>HWC / NHWC / DHWC"] --> R["Публичный router"]
+    T["CPU torch.Tensor<br/>CHW / NCHW / CDHW"] --> R
     R --> NB["Текущие NumPy / OpenCV / NumKong / StringZilla helpers"]
     R --> TB["Измеренные eager Torch CPU helpers"]
     NB --> NO["np.ndarray<br/>тот же channel-last layout"]
@@ -63,7 +63,6 @@ flowchart LR
 | Один 2D image | `HWC` | `CHW` |
 | Batch 2D images | `NHWC` | `NCHW` |
 | Один volume | `DHWC` | `CDHW` |
-| Five-dimensional array | `NDHWC` | `NCDHW` |
 | Grayscale | явная ось `C=1` | явная ось `C=1` |
 | Поддерживаемые image dtypes | `uint8`, `float32` | `torch.uint8`, `torch.float32` |
 | Результат | `np.ndarray` | `torch.Tensor` |
@@ -78,7 +77,7 @@ Shape вида `(X, Y, H, W)` не сообщает, является ли Tenso
 
 - AlbumentationsX передаёт target kind: `image`, `images` или `volume`;
 - низкоуровневый публичный вызов с неоднозначным 4D Tensor передаёт `layout="NCHW"` или `layout="CDHW"`;
-- rank 3 однозначно означает `CHW`, rank 5 — `NCDHW`;
+- rank 3 однозначно означает `CHW`;
 - wrappers и routers не угадывают layout по размерам осей.
 
 Добавление одного и того же `layout` keyword во все функции создаст шум в API. Сначала нужно сделать внутренний `ArrayLayout`/`ImageKind` descriptor и передавать его через dispatch context. Публичный keyword нужен только в entry points, где 4D Tensor может прийти без контекста AlbumentationsX.
@@ -113,7 +112,7 @@ Shape вида `(X, Y, H, W)` не сообщает, является ли Tenso
 
 - [ ] Разделить типы на `NumpyImage`, `TorchImage` и общий публичный `ImageType`.
 - [ ] Добавить overload’ы: контейнер первого image-аргумента определяет контейнер результата.
-- [ ] Добавить `TensorLayout = Literal["CHW", "NCHW", "CDHW", "NCDHW"]` и внутренний descriptor с `channel_axis`, spatial axes и batch/depth axes.
+- [ ] Добавить `TensorLayout = Literal["CHW", "NCHW", "CDHW"]` и внутренний descriptor с `channel_axis`, spatial axes и batch/depth axes.
 - [ ] Добавить CPU adapter для обеих сторон: Tensor channel-first → NumPy channel-last и NumPy channel-last → Tensor channel-first.
 - [ ] Добавить внутреннее состояние представления в `Compose`: исходный контейнер, текущий контейнер, layout и число выполненных conversions.
 - [ ] Разрешить helper’у объявить доступные реализации: `numpy`, `torch` или обе. Dispatch выбирает backend для связного участка, а не конвертирует данные внутри каждого helper’а независимо.
@@ -203,7 +202,7 @@ Torch предоставляет fused APIs, которые возвращают
 - [ ] border через `torch.nn.functional.pad` или sampling padding mode;
 - [ ] `median_blur` через tiled `unfold`/median только при ограниченном peak memory.
 
-`grid_sample` обрабатывает batched 2D `NCHW` и volumetric `NCDHW` Tensor’ы, но использует нормализованные coordinates, `align_corners` и собственные padding rules ([документация](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html)). `interpolate` поддерживает batched/volumetric resize и несколько режимов interpolation ([документация](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html)). Для замены OpenCV нужны differential tests на coordinate conventions, inverse mapping, borders, rounding, interpolation и uint8 saturation. Текущий CPU-аудит оставляет NumPy-входы на OpenCV, поэтому рабочий Tensor-вариант сначала вызывает этот путь через adapter.
+`grid_sample` предоставляет kernels для 2D и volumetric sampling, но использует нормализованные coordinates, `align_corners` и собственные padding rules ([документация](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html)). `interpolate` поддерживает image и volumetric resize и несколько режимов interpolation ([документация](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html)). Для замены OpenCV нужны differential tests на coordinate conventions, inverse mapping, borders, rounding, interpolation и uint8 saturation. Текущий CPU-аудит оставляет NumPy-входы на OpenCV, поэтому рабочий Tensor-вариант сначала вызывает этот путь через adapter.
 
 Условие завершения этапа 4: каждый публичный router принимает CPU Tensor с зафиксированной семантикой. Helpers без быстрой Torch-реализации используют общий NumPy fallback. Выбранный backend и число conversions доступны benchmark harness’у.
 
@@ -226,7 +225,7 @@ Torch предоставляет fused APIs, которые возвращают
 
 - canonical non-square HWC shapes: `128×160`, `240×320`, `480×640`, `768×1024`;
 - channels `1`, `3`, `9`;
-- соответствующие `CHW/NCHW/CDHW/NCDHW` Tensor shapes;
+- соответствующие `CHW/NCHW/CDHW` Tensor shapes;
 - `uint8` и `float32`;
 - contiguous, transposed/permuted и sliced inputs;
 - scalar, per-channel и full-array operands;
@@ -273,7 +272,7 @@ Torch предоставляет fused APIs, которые возвращают
 1. Скомпилировать цепочку `to_float → normalize → multiply_add → clip` и сравнить её с четырьмя отдельными public calls.
 2. Сравнить текущий `batch_transform` с `vmap` на per-image параметрах и single-volume data.
 3. Проверить `scatter_reduce`/`segment_reduce` на CPU для SLIC/superpixel means из AlbumentationsX: sweep по числу labels и плотности IDs обязателен.
-4. Проверить один affine/grid pipeline на `NCHW` и `NCDHW`, включая построение grid и layout conversion.
+4. Проверить affine/grid pipelines для image batches и single volumes, включая построение grid и layout conversion.
 5. Проверить fused reductions на Tensor input; не повторять CPU NumPy routing без новых данных.
 
 ## Этап 6. Перенести длинный Tensor-путь в AlbumentationsX
@@ -307,7 +306,7 @@ decode NumPy HWC
 
 ## Тестовая матрица
 
-- [ ] Контейнер и layout: `HWC ↔ CHW`, `NHWC ↔ NCHW`, `DHWC ↔ CDHW`, `NDHWC ↔ NCDHW`.
+- [ ] Контейнер и layout: `HWC ↔ CHW`, `NHWC ↔ NCHW`, `DHWC ↔ CDHW`.
 - [ ] Non-square spatial dimensions, чтобы перестановка H/W выявлялась сразу.
 - [ ] Channels `1`, `3`, `4`, `9`.
 - [ ] `uint8`, `float32`; unsupported dtype даёт одинаково понятный `ValueError`.

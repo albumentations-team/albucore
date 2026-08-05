@@ -17,6 +17,7 @@ from albucore.utils import (
     ImageFloat32,
     ImageType,
     ImageUInt8,
+    _validate_image_rank,
     get_num_channels,
     get_opencv_max_channels,
     maybe_process_in_chunks,
@@ -55,6 +56,7 @@ def hflip(img: ImageType) -> ImageType:
     Returns:
         Horizontally flipped image, same shape and dtype.
     """
+    _validate_image_rank(img)
     return hflip_cv2(img)
 
 
@@ -87,6 +89,7 @@ def vflip(img: ImageType) -> ImageType:
     Returns:
         Vertically flipped image, same shape and dtype.
     """
+    _validate_image_rank(img)
     if img.ndim >= 3 and get_num_channels(img) > MAX_OPENCV_WORKING_CHANNELS:
         return vflip_numpy(img)
     return vflip_cv2(img)
@@ -160,6 +163,7 @@ def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
 
     @wraps(func)
     def float32_wrapper(img: ImageType, *args: Any, **kwargs: Any) -> ImageType:
+        _validate_image_rank(img)
         input_dtype = img.dtype
         if input_dtype != np.float32:
             img = to_float(img)
@@ -194,6 +198,7 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
 
     @wraps(func)
     def uint8_wrapper(img: ImageType, *args: Any, **kwargs: Any) -> ImageType:
+        _validate_image_rank(img)
         input_dtype = img.dtype
 
         if input_dtype != np.uint8:
@@ -233,6 +238,8 @@ def median_blur(img: ImageType, ksize: int) -> ImageType:
     Raises:
         ValueError: If ``ksize`` is not odd and at least 3, or if ``img`` is not uint8 or float32.
     """
+    _validate_image_rank(img)
+
     if ksize % 2 != 1 or ksize < 3:
         raise ValueError(f"ksize must be odd and >= 3, got {ksize}")
 

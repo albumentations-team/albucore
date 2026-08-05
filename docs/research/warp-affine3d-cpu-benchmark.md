@@ -1,10 +1,10 @@
 # CPU route decision for `warp_affine3d`
 
-Run date: 2026-08-03. This note records the CPU route selected for one `warp_affine3d` volume. It does not describe a batch API: the router accepts NumPy `DHWC` or CPU Torch `CDHW` only.
+Run date: 2026-08-03. This note records the CPU route selected for one `warp_affine3d` NumPy `DHWC` or CPU Torch `CDHW` volume.
 
 ## Decision
 
-Production uses Torch `affine_grid` followed by 5D `grid_sample` with `align_corners=False`. NumPy input shares storage with Torch through `torch.from_numpy(...).permute(...)` when the array is writable and has no negative stride. Read-only and negative-stride arrays receive one explicit C-contiguous repair copy. CPU `grid_sample` does not accept 5D uint8 input, so uint8 uses one float32 sampling buffer and final saturating round-half-up conversion.
+Production uses Torch `affine_grid` followed by volumetric `grid_sample` with `align_corners=False`. NumPy input shares storage with Torch through `torch.from_numpy(...).permute(...)` when the array is writable and has no negative stride. Read-only and negative-stride arrays receive one explicit C-contiguous repair copy. CPU `grid_sample` does not accept uint8 volumetric input, so uint8 uses one float32 sampling buffer and final saturating round-half-up conversion.
 
 The matrix, grid, sampling, output allocation, dtype repair, and container conversion are part of the measured public path. No size threshold routes to a different production backend.
 

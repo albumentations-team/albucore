@@ -22,6 +22,19 @@ def test_gaussian_blur3d_smooths_the_depth_axis_without_touching_channels() -> N
     np.testing.assert_array_equal(result[..., 1], 0.0)
 
 
+@pytest.mark.parametrize(
+    "volume",
+    [
+        np.zeros((3, 4, 1), dtype=np.uint8),
+        torch.zeros((1, 3, 4), dtype=torch.uint8),
+    ],
+    ids=("numpy_rank_3", "torch_rank_3"),
+)
+def test_gaussian_blur3d_rejects_invalid_rank(volume: np.ndarray | torch.Tensor) -> None:
+    with pytest.raises(ValueError, match="rank-4"):
+        gaussian_blur3d(volume, sigma=0.0)
+
+
 def _numpy_separable_reference(volume: np.ndarray, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray:
     """Independent reflect-101 reference for tiny float32 volumes."""
     result = volume

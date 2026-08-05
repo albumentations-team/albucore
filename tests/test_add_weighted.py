@@ -70,9 +70,6 @@ def test_add_weighted_rejects_mismatched_dtypes(
         (2, 9, 11, 1),
         (2, 9, 11, 3),
         (2, 9, 11, 5),
-        (2, 3, 9, 11, 1),
-        (2, 3, 9, 11, 3),
-        (2, 3, 9, 11, 5),
     ],
 )
 @pytest.mark.parametrize("is_contiguous", [True, False])
@@ -106,8 +103,6 @@ def test_add_weighted_preserves_raw_float32_range(shape: tuple[int, ...], is_con
         ((2, 9, 11, 3), True, True, "opencv"),
         ((2, 9, 11, 3), True, False, "numkong"),
         ((2, 9, 11, 3), False, True, "numkong"),
-        ((2, 3, 9, 11, 3), False, False, "numkong"),
-        ((2, 3, 9, 11, 3), True, True, "opencv"),
         ((9, 11, 1), True, True, "numkong"),
     ],
 )

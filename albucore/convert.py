@@ -13,6 +13,7 @@ from albucore.utils import (
     ImageFloat32,
     ImageType,
     ImageUInt8,
+    _validate_image_rank,
     clip,
     get_max_value,
     get_num_channels,
@@ -69,6 +70,7 @@ def to_float(img: ImageType, max_value: float | None = None) -> ImageFloat32:
     Returns:
         float32 image with same spatial shape, values in [0, 1] for standard integer dtypes.
     """
+    _validate_image_rank(img)
     if img.dtype == np.float32:
         return cast("ImageFloat32", img)
     if img.dtype == np.uint8:
@@ -124,6 +126,7 @@ def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | Non
     Returns:
         Image in ``target_dtype``, same spatial shape, values clipped to dtype range.
     """
+    _validate_image_rank(img)
     if target_dtype == np.float32:
         return img
 

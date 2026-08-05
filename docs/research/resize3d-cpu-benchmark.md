@@ -16,7 +16,7 @@ The remaining NumPy regions use the fastest measured CPU path:
 - an unchanged H or W axis: three OpenCV axis-packing passes;
 - small one-channel all-axis downscale and upscales above OpenCV's encoded channel limit: per-slice OpenCV plus a depth pass.
 
-Nearest-neighbour and NumPy `antialias=True` stay on OpenCV/NumPy paths. PyTorch does not support antialiased 5D trilinear interpolation; the public Tensor call reports that limitation.
+Nearest-neighbour and NumPy `antialias=True` stay on OpenCV/NumPy paths. PyTorch does not support antialiased trilinear interpolation; the public Tensor call reports that limitation.
 
 ## Method
 

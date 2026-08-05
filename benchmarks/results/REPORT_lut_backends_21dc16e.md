@@ -25,9 +25,6 @@ _Median ms, repeats=31, warmup=7, seed=0; Darwin `arm64`, OpenCV 4.13.0, numpy 2
 | DHWC | 48×256×256×3 | 9437184 | 0.8087 | 6.9410 | 2.4556 | SZ full |
 | DHWC | 96×160×160×3 | 7372800 | 0.9176 | 5.7068 | 2.3497 | SZ full |
 | DHWC | 6×32×32×9 | 55296 | 0.0062 | 0.0460 | 0.0158 | SZ full |
-| NDHWC | 2×32×128×128×3 | 3145728 | 0.4044 | 2.2258 | 1.0065 | SZ full |
-| NDHWC | 2×64×128×128×3 | 6291456 | 0.8193 | 4.8344 | 1.9913 | SZ full |
-| NDHWC | 1×128×128×128×1 | 2097152 | 0.2652 | 0.4240 | 0.6650 | SZ full |
 
 #### Per-channel LUT (different `256` table per channel)
 
@@ -51,12 +48,8 @@ _Median ms, repeats=31, warmup=7, seed=0; Darwin `arm64`, OpenCV 4.13.0, numpy 2
 | DHWC | 48×256×256×3 | 9437184 | 7.1605 | 8.6764 | 0.3635 | cv2 flat |
 | DHWC | 96×160×160×3 | 7372800 | 5.9308 | 7.3495 | 0.4510 | cv2 flat |
 | DHWC | 6×32×32×9 | 55296 | 0.0451 | 0.0520 | 0.0165 | cv2 flat |
-| NDHWC | 2×32×128×128×3 | 3145728 | 2.3846 | 2.7906 | 0.2162 | cv2 flat |
-| NDHWC | 2×64×128×128×3 | 6291456 | 4.9196 | 6.1400 | 0.3178 | cv2 flat |
-| NDHWC | 1×128×128×128×1 | 2097152 | 0.4034 | 0.8486 | 0.1390 | cv2 flat |
 
 **Notes:**
 - **SZ full** is only valid when one LUT applies to every byte (scalar `apply_lut` path).
 - **SZ loop** matches the non-contiguous multi-channel `apply_lut` fallback (`sz_lut` per channel).
-- **cv2** shared `(256,)`: contiguous `HWC` / `DHWC` / `NDHWC` work here. Per-channel distinct: direct `(256,1,C)` is **only** valid for `ndim==3`, but contiguous volumes/batches can be reshaped to HWC and use the same one-shot OpenCV path.
 - Regenerate on your CPU; routing should follow benchmarks, not assumptions.

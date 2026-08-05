@@ -17,11 +17,11 @@ The caller's `torch.set_num_threads()` setting remains unchanged.
 
 ## Reference benchmark
 
-Run on 2026-08-02: macOS 26.4 arm64; Torch 2.13.0; NumPy 2.2.6; OpenCV 5.0.0; NumKong 7.7.0. Each cell timed the established public Albucore CPU backend against the complete NumPy → Torch → NumPy CPU path. The benchmark temporarily disables the production Torch route for its baseline. The test used 21 median samples after 5 warmups. It covered non-square HWC images with C=1/3/9, the canonical DHWC and NDHWC grids, and both one and twelve Torch/OpenCV CPU threads.
+Run on 2026-08-02: macOS 26.4 arm64; Torch 2.13.0; NumPy 2.2.6; OpenCV 5.0.0; NumKong 7.7.0. Each cell timed the established public Albucore CPU backend against the complete NumPy → Torch → NumPy CPU path. The benchmark temporarily disables the production Torch route for its baseline. The test used 21 median samples after 5 warmups. It covered non-square HWC images with C=1/3/9, the canonical DHWC grid, and both one and twelve Torch/OpenCV CPU threads.
 
 At one thread, the accepted regions produced these repeatable results:
 
-| Candidate | HWC result | DHWC/NDHWC result |
+| Candidate | HWC result | DHWC result |
 |---|---:|---:|
 | float32 → uint8 | 12/12 Torch wins; 2.50× mean | 11/11 wins; 2.62× mean |
 | float32 scalar multiply-add | 12/12 wins; 1.68× mean | 11/11 wins; 1.82× mean |
@@ -38,7 +38,7 @@ uv sync --extra headless
 uv run python benchmarks/benchmark_torch_cpu.py --full --threads 1
 uv run python benchmarks/benchmark_torch_cpu.py --full --threads 12
 uv run python benchmarks/benchmark_torch_cpu.py \
-  --full --volumes \
+  --full --volume \
   --candidates from_float,multiply_add_scalar,normalize,reduce_sum_global_float32,reduce_sum_per_channel_float32,reduce_sum_global_uint8 \
   --threads 1
 ```

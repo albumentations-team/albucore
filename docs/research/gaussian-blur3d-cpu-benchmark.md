@@ -1,6 +1,6 @@
 # CPU route decision for `gaussian_blur3d`
 
-Run date: 2026-08-05. This note records the selected CPU implementation for one prevalidated NumPy `DHWC` or CPU Torch `CDHW` volume. It does not define a batch (`NDHWC`/`NCDHW`) or target-level mask API.
+Run date: 2026-08-05. This note records the selected CPU implementation for one prevalidated NumPy `DHWC` or CPU Torch `CDHW` volume. It does not define target-level mask behavior.
 
 ## Decision
 

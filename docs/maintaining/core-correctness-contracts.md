@@ -9,7 +9,6 @@ Image-like inputs always have an explicit channel dimension:
 
 - HWC: `(H, W, C)`
 - XHWC: `(X, H, W, C)`
-- NDHWC: `(N, D, H, W, C)`
 
 Grayscale is `(H, W, 1)` or `(..., H, W, 1)`. Implicit-channel grayscale arrays such as `(H, W)` or
 `(D, H, W)` are invalid image inputs.
@@ -40,7 +39,6 @@ Unless a router explicitly changes spatial size:
 
 - HWC remains HWC
 - XHWC remains XHWC
-- NDHWC remains NDHWC
 - `(H, W, 1)` remains `(H, W, 1)`
 
 Public routers must hide OpenCV channel-dropping behavior.

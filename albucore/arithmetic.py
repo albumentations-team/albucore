@@ -18,6 +18,7 @@ from albucore.utils import (
     ImageUInt8,
     SupportedDType,
     ValueType,
+    _validate_image_rank,
     clip,
     convert_value,
     get_num_channels,
@@ -44,6 +45,7 @@ def _is_float32_image(img: ImageType) -> TypeGuard[ImageFloat32]:
 
 
 def _validate_image_dtype(img: ImageType) -> None:
+    _validate_image_rank(img)
     if img.dtype not in (np.uint8, np.float32):
         raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
 

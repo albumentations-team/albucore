@@ -11,7 +11,7 @@ Albucore call that compiles on demand.
 Run from the repository root::
 
     uv run python benchmarks/benchmark_torch_uint8_lut.py --threads 1
-    uv run python benchmarks/benchmark_torch_uint8_lut.py --threads 12 --volumes --compile
+    uv run python benchmarks/benchmark_torch_uint8_lut.py --threads 12 --volume --compile
 
 The NumPy and Albucore rows provide byte-indexed CPU reference paths. Torch
 interprets uint8 tensors as legacy boolean masks when indexing, so eager lookup
@@ -40,15 +40,14 @@ if TYPE_CHECKING:
 
 
 # Compiling every rank/channel shape in one process exhausts the compiler cache on
-# a development laptop. These cover the small-to-large RGB image, volume, and
-# batch-of-volume paths that a fixed-shape training pipeline can precompile.
+# a development laptop. These cover the small-to-large RGB image and single-volume
+# paths that a fixed-shape training pipeline can precompile.
 COMPILED_STATIC_SHAPES = frozenset(
     {
         (240, 320, 3),
         (480, 640, 3),
         (768, 1024, 3),
         (32, 128, 160, 3),
-        (2, 32, 128, 160, 3),
     },
 )
 
@@ -101,7 +100,7 @@ def _numpy_index_per_channel(image: np.ndarray, table: np.ndarray, channels: np.
 
 
 def _layout(shape: tuple[int, ...]) -> str:
-    return {3: "HWC", 4: "DHWC", 5: "NDHWC"}[len(shape)]
+    return {3: "HWC", 4: "DHWC"}[len(shape)]
 
 
 def _compile_for_shape(
@@ -232,7 +231,7 @@ def _format(rows: list[Row]) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quick", action="store_true", help="Use the first two HWC sizes and C=1/3.")
-    parser.add_argument("--volumes", action="store_true", help="Include canonical DHWC and NDHWC shapes.")
+    parser.add_argument("--volume", action="store_true", help="Include canonical DHWC shapes.")
     parser.add_argument("--threads", type=int, default=torch.get_num_threads())
     parser.add_argument("--repeats", type=int, default=21)
     parser.add_argument("--warmup", type=int, default=5)
@@ -254,8 +253,8 @@ def main() -> None:
     hw_sizes = ROUTER_HWC_FULL_HW[:2] if args.quick else ROUTER_HWC_FULL_HW
     channels = (1, 3) if args.quick else (1, 3, 9)
     shapes = [(*hw, channels_count) for hw in hw_sizes for channels_count in channels]
-    if args.volumes:
-        shapes.extend(shape for shape in SCALE_LUT_SHAPES if len(shape) in (4, 5))
+    if args.volume:
+        shapes.extend(shape for shape in SCALE_LUT_SHAPES if len(shape) == 4)
 
     rows: list[Row] = []
     compile_times: list[float] = []

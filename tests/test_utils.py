@@ -1,6 +1,9 @@
+import cv2
+from collections.abc import Callable
+
 import numpy as np
 import pytest
-import cv2
+
 from albucore.decorators import contiguous
 from albucore.functions import float32_io, from_float, to_float, uint8_io
 from albucore.utils import (
@@ -12,22 +15,41 @@ from albucore.utils import (
     get_opencv_dtype_from_numpy,
     get_opencv_max_channels,
     is_grayscale_image,
+    is_multispectral_image,
+    is_rgb_image,
 )
 
 
-@pytest.mark.parametrize("input_img, dtype, expected", [
-    (np.array([[-300, 0], [100, 400]], dtype=np.float32), np.uint8, np.array([[0, 0], [100, 255]], dtype=np.float32)),
-    (np.array([[-0.02, 0], [0.5, 2.2]], dtype=np.float32), np.float32, np.array([[0, 0], [0.5, 1.0]], dtype=np.float32))
-])
+@pytest.mark.parametrize(
+    "input_img, dtype, expected",
+    [
+        (
+            np.array([[-300, 0], [100, 400]], dtype=np.float32),
+            np.uint8,
+            np.array([[0, 0], [100, 255]], dtype=np.float32),
+        ),
+        (
+            np.array([[-0.02, 0], [0.5, 2.2]], dtype=np.float32),
+            np.float32,
+            np.array([[0, 0], [0.5, 1.0]], dtype=np.float32),
+        ),
+    ],
+)
 @pytest.mark.parametrize("inplace", [False, True])
 def test_clip(input_img, dtype, expected, inplace):
     clipped = clip(input_img, dtype=dtype, inplace=inplace)
     np.testing.assert_array_equal(clipped, expected)
     assert clipped.dtype == dtype
 
+
 valid_cv2_types = {
-    cv2.CV_8U, cv2.CV_16U, cv2.CV_32F, cv2.CV_64F, cv2.CV_32S
+    cv2.CV_8U,
+    cv2.CV_16U,
+    cv2.CV_32F,
+    cv2.CV_64F,
+    cv2.CV_32S,
 }
+
 
 @pytest.mark.parametrize("cv_type", NPDTYPE_TO_OPENCV_DTYPE.values())
 def test_valid_cv2_types(cv_type):
@@ -55,11 +77,11 @@ def test_get_opencv_max_channels_matches_matrix_type_encoding():
         ((1.5), 1, 1.5),
         (np.array([1.5]), 3, 1.5),
         (np.array([1.5, 2.5]), 1, 1.5),
-        (np.array([1.5, 2.5, 0.5]), 2, np.array([1.5, 2.5,], dtype=np.float32)),
+        (np.array([1.5, 2.5, 0.5]), 2, np.array([1.5, 2.5], dtype=np.float32)),
         (3, 2, 3),
-        (np.array((1.5)), 2, 1.5),
+        (np.array(1.5), 2, 1.5),
         (np.reciprocal(np.array(0.2, dtype=np.float64)), 2, 5),
-    ]
+    ],
 )
 def test_convert_value(value, num_channels, expected):
     result = convert_value(value, num_channels)
@@ -79,14 +101,15 @@ def process_image(img: np.ndarray) -> np.ndarray:
     # For demonstration, let's just return a non-contiguous view
     return img[::-1, ::-1]
 
+
 @pytest.mark.parametrize(
     "input_array",
     [
         np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),  # C-contiguous array
         np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])[::-1, ::-1],  # Non-contiguous view
         np.arange(100).reshape(10, 10),  # Another C-contiguous array
-        np.ones([3, 100, 100], dtype=np.uint8).transpose(1, 2, 0)  # 3D array with transpose
-    ]
+        np.ones([3, 100, 100], dtype=np.uint8).transpose(1, 2, 0),  # 3D array with transpose
+    ],
 )
 def test_contiguous_decorator(input_array):
     # Check if input is made contiguous
@@ -115,26 +138,34 @@ def test_contiguous_decorator(input_array):
 def dummy_float32_func(img):
     return img * 2
 
+
 @uint8_io
 def dummy_uint8_func(img):
     return np.clip(img + 10, 0, 255).astype(np.uint8)
 
+
 # Test data
-@pytest.fixture(params=[
-    np.uint8, np.float32
-])
+@pytest.fixture(
+    params=[
+        np.uint8,
+        np.float32,
+    ]
+)
 def test_image(request):
     dtype = request.param
     if np.issubdtype(dtype, np.integer):
         return np.random.randint(0, 256, (10, 10, 3), dtype=dtype)
-    else:
-        return np.random.rand(10, 10, 3).astype(dtype)
+    return np.random.rand(10, 10, 3).astype(dtype)
+
 
 # Tests
-@pytest.mark.parametrize("wrapper,func, image", [
-    (float32_io, dummy_float32_func, np.random.randint(0, 256, (10, 10, 3), dtype=np.uint8)),
-    (uint8_io, dummy_uint8_func, np.random.rand(10, 10, 3).astype(np.float32))
-])
+@pytest.mark.parametrize(
+    "wrapper,func, image",
+    [
+        (float32_io, dummy_float32_func, np.random.randint(0, 256, (10, 10, 3), dtype=np.uint8)),
+        (uint8_io, dummy_uint8_func, np.random.rand(10, 10, 3).astype(np.float32)),
+    ],
+)
 def test_io_wrapper(wrapper, func, image):
     input_dtype = image.dtype
     result = func(image)
@@ -150,10 +181,14 @@ def test_io_wrapper(wrapper, func, image):
 
     np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
 
-@pytest.mark.parametrize("wrapper,func,expected_intermediate_dtype", [
-    (float32_io, dummy_float32_func, np.float32),
-    (uint8_io, dummy_uint8_func, np.uint8)
-])
+
+@pytest.mark.parametrize(
+    "wrapper,func,expected_intermediate_dtype",
+    [
+        (float32_io, dummy_float32_func, np.float32),
+        (uint8_io, dummy_uint8_func, np.uint8),
+    ],
+)
 def test_intermediate_dtype(wrapper, func, expected_intermediate_dtype, test_image):
     original_func = func.__wrapped__  # Access the original function
 
@@ -164,10 +199,12 @@ def test_intermediate_dtype(wrapper, func, expected_intermediate_dtype, test_ima
     wrapped_func = wrapper(check_dtype)
     wrapped_func(test_image)  # This will raise an assertion error if the intermediate dtype is incorrect
 
+
 def test_float32_io_preserves_float32(test_image):
     if test_image.dtype == np.float32:
         result = dummy_float32_func(test_image)
         assert result.dtype == np.float32
+
 
 def test_uint8_io_preserves_uint8(test_image):
     if test_image.dtype == np.uint8:
@@ -192,6 +229,7 @@ def test_float32_io_does_not_modify_input(dtype):
 
     np.testing.assert_array_equal(original, original_copy)
 
+
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_uint8_io_does_not_modify_input(dtype):
     @uint8_io
@@ -208,6 +246,7 @@ def test_uint8_io_does_not_modify_input(dtype):
     _ = identity(original)
 
     np.testing.assert_array_equal(original, original_copy)
+
 
 @pytest.mark.parametrize("wrapper", [float32_io, uint8_io])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
@@ -226,6 +265,7 @@ def test_wrapper_preserves_dtype(wrapper, dtype):
 
     assert result.dtype == dtype
 
+
 @pytest.mark.parametrize("wrapper", [float32_io, uint8_io])
 def test_wrapper_intermediate_dtype(wrapper):
     intermediate_dtype = np.float32 if wrapper == float32_io else np.uint8
@@ -239,47 +279,39 @@ def test_wrapper_intermediate_dtype(wrapper):
     _ = check_dtype(original)
 
 
-@pytest.mark.parametrize("shape, expected_channels, description", [
-    # 3D image with channels (H, W, C)
-    ((100, 99, 1), 1, "3D image with 1 channel"),
-    ((100, 99, 3), 3, "3D RGB image"),
-    ((100, 99, 7), 7, "3D multi-channel image"),
-
-    # 4D batch of images or volume (N/D, H, W, C)
-    ((4, 100, 99, 1), 1, "Batch of grayscale images or volume"),
-    ((4, 100, 99, 3), 3, "Batch of RGB images or volume"),
-    ((10, 224, 224, 3), 3, "Batch of RGB images or volume"),
-
-    # Five-dimensional arrays (N, D, H, W, C)
-    ((2, 10, 100, 99, 1), 1, "Five-dimensional array with 1 channel"),
-    ((2, 10, 100, 99, 3), 3, "Five-dimensional array with 3 channels"),
-
-    # Edge cases
-    ((1, 1, 1), 1, "Minimal 3D array"),
-])
+@pytest.mark.parametrize(
+    "shape, expected_channels, description",
+    [
+        # 3D image with channels (H, W, C)
+        ((100, 99, 1), 1, "3D image with 1 channel"),
+        ((100, 99, 3), 3, "3D RGB image"),
+        ((100, 99, 7), 7, "3D multi-channel image"),
+        # 4D batch of images or volume (N/D, H, W, C)
+        ((4, 100, 99, 1), 1, "Batch of grayscale images or volume"),
+        ((4, 100, 99, 3), 3, "Batch of RGB images or volume"),
+        ((10, 224, 224, 3), 3, "Batch of RGB images or volume"),
+        # Edge cases
+        ((1, 1, 1), 1, "Minimal 3D array"),
+    ],
+)
 def test_get_num_channels(shape, expected_channels, description):
     """Test get_num_channels for various array dimensions."""
     image = np.zeros(shape)
     assert get_num_channels(image) == expected_channels, f"Failed for {description} with shape {shape}"
 
 
-
-
-
-@pytest.mark.parametrize("shape, expected_grayscale, description", [
-    # HWC: shape=(100, 200, C)
-    ((100, 200, 3), False, "HWC: RGB image"),
-    ((100, 200, 1), True, "HWC: single channel image"),
-    ((100, 200, 4), False, "HWC: RGBA image"),
-
-    # XHWC: shape=(X, 100, 200, C) where X is batch or depth
-    ((10, 100, 200, 3), False, "XHWC: batch/volume of RGB"),
-    ((10, 100, 200, 1), True, "XHWC: batch/volume of single channel"),
-
-    # NDHWC: shape=(N, D, 100, 200, C)
-    ((5, 10, 100, 200, 3), False, "NDHWC: batch of 3D volumes with RGB"),
-    ((5, 10, 100, 200, 1), True, "NDHWC: batch of 3D volumes with single channel"),
-])
+@pytest.mark.parametrize(
+    "shape, expected_grayscale, description",
+    [
+        # HWC: shape=(100, 200, C)
+        ((100, 200, 3), False, "HWC: RGB image"),
+        ((100, 200, 1), True, "HWC: single channel image"),
+        ((100, 200, 4), False, "HWC: RGBA image"),
+        # XHWC: shape=(X, 100, 200, C) where X is batch or depth
+        ((10, 100, 200, 3), False, "XHWC: batch/volume of RGB"),
+        ((10, 100, 200, 1), True, "XHWC: batch/volume of single channel"),
+    ],
+)
 def test_is_grayscale_image(shape, expected_grayscale, description):
     """Test is_grayscale_image with various shape combinations."""
     image = np.zeros(shape)
@@ -287,17 +319,17 @@ def test_is_grayscale_image(shape, expected_grayscale, description):
     assert result == expected_grayscale, f"Failed for {description} with shape {shape}"
 
 
-@pytest.mark.parametrize("shape", [
-    # Basic HWC cases
-    (100, 200, 1),
-    (100, 200, 3),
-    # XHWC cases (batch or depth)
-    (10, 100, 200, 1),
-    (10, 100, 200, 3),
-    # NDHWC cases
-    (5, 10, 100, 200, 1),
-    (5, 10, 100, 200, 3),
-])
+@pytest.mark.parametrize(
+    "shape",
+    [
+        # Basic HWC cases
+        (100, 200, 1),
+        (100, 200, 3),
+        # XHWC cases (batch or depth)
+        (10, 100, 200, 1),
+        (10, 100, 200, 3),
+    ],
+)
 def test_get_num_channels_and_is_grayscale_consistency(shape):
     """Test that get_num_channels and is_grayscale_image are consistent."""
     image = np.zeros(shape)
@@ -306,17 +338,39 @@ def test_get_num_channels_and_is_grayscale_consistency(shape):
 
     # is_grayscale should be True if and only if num_channels == 1
     assert (num_channels == 1) == is_grayscale, (
-        f"Inconsistency for shape {shape}: "
-        f"num_channels={num_channels}, is_grayscale={is_grayscale}"
+        f"Inconsistency for shape {shape}: num_channels={num_channels}, is_grayscale={is_grayscale}"
     )
 
-@pytest.mark.parametrize("dtype, shape", [
-    (np.uint8, (100, 200, 3)),
-    (np.uint16, (150, 250, 1)),
-    (np.float32, (224, 224, 3)),
-    (np.float64, (64, 128, 4)),
-    (np.int32, (32, 32, 1)),
-])
+
+@pytest.mark.parametrize("helper", [get_num_channels, is_grayscale_image, is_rgb_image, is_multispectral_image])
+def test_channel_helpers_reject_unsupported_rank(helper: Callable[[np.ndarray], int | bool]) -> None:
+    with pytest.raises(ValueError, match="support ranks up to 4"):
+        helper(np.zeros((1, 1, 1, 1, 1, 1)))
+
+
+@pytest.mark.parametrize(
+    ("wrapper", "dtype"),
+    [(float32_io, np.float32), (uint8_io, np.uint8)],
+)
+def test_io_wrappers_reject_unsupported_rank(wrapper: Callable, dtype: type[np.generic]) -> None:
+    @wrapper
+    def identity(image: np.ndarray) -> np.ndarray:
+        return image
+
+    with pytest.raises(ValueError, match="support ranks up to 4"):
+        identity(np.zeros((1, 1, 1, 1, 1, 1), dtype=dtype))
+
+
+@pytest.mark.parametrize(
+    "dtype, shape",
+    [
+        (np.uint8, (100, 200, 3)),
+        (np.uint16, (150, 250, 1)),
+        (np.float32, (224, 224, 3)),
+        (np.float64, (64, 128, 4)),
+        (np.int32, (32, 32, 1)),
+    ],
+)
 def test_get_image_data_single_image(dtype, shape):
     """Test get_image_data with single image."""
     img = np.zeros(shape, dtype=dtype)
@@ -332,11 +386,14 @@ def test_get_image_data_single_image(dtype, shape):
     assert result["width"] == shape[1]
 
 
-@pytest.mark.parametrize("dtype, shape", [
-    (np.uint8, (5, 100, 200, 3)),
-    (np.float32, (10, 256, 256, 1)),
-    (np.uint16, (3, 128, 128, 1)),
-])
+@pytest.mark.parametrize(
+    "dtype, shape",
+    [
+        (np.uint8, (5, 100, 200, 3)),
+        (np.float32, (10, 256, 256, 1)),
+        (np.uint16, (3, 128, 128, 1)),
+    ],
+)
 def test_get_image_data_batch_of_images(dtype, shape):
     """Test get_image_data with batch of images."""
     imgs = np.zeros(shape, dtype=dtype)
@@ -347,14 +404,17 @@ def test_get_image_data_batch_of_images(dtype, shape):
     assert result["dtype"] == dtype
     # For batch of images, should return actual image dimensions
     assert result["height"] == shape[1]  # Actual height
-    assert result["width"] == shape[2]   # Actual width
+    assert result["width"] == shape[2]  # Actual width
 
 
-@pytest.mark.parametrize("dtype, shape", [
-    (np.uint16, (10, 100, 200, 1)),
-    (np.float64, (5, 256, 256, 3)),
-    (np.float32, (20, 64, 64, 1)),
-])
+@pytest.mark.parametrize(
+    "dtype, shape",
+    [
+        (np.uint16, (10, 100, 200, 1)),
+        (np.float64, (5, 256, 256, 3)),
+        (np.float32, (20, 64, 64, 1)),
+    ],
+)
 def test_get_image_data_volume(dtype, shape):
     """Test get_image_data with volume."""
     vol = np.zeros(shape, dtype=dtype)
@@ -365,36 +425,50 @@ def test_get_image_data_volume(dtype, shape):
     assert result["dtype"] == dtype
     # For a volume, return the image dimensions after the depth axis.
     assert result["height"] == shape[1]  # Actual height
-    assert result["width"] == shape[2]   # Actual width
+    assert result["width"] == shape[2]  # Actual width
 
 
-@pytest.mark.parametrize("array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description", [
-    (
-        {
-            "image": {"shape": (100, 200, 3), "dtype": np.uint8},
-            "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
-            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
-        },
-        np.uint8, 100, 200, 3,
-        "All keys present - should use 'image'"
-    ),
-    (
-        {
-            "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
-            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
-        },
-        np.uint16, 150, 250, 3,
-        "No 'image' - should use 'images'"
-    ),
-    (
-        {
-            "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
-        },
-        np.float32, 120, 220, 3,
-        "No 'image' or 'images' - should use 'volume'"
-    ),
-])
-def test_get_image_data_priority_order(array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description):
+@pytest.mark.parametrize(
+    "array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description",
+    [
+        (
+            {
+                "image": {"shape": (100, 200, 3), "dtype": np.uint8},
+                "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
+                "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            },
+            np.uint8,
+            100,
+            200,
+            3,
+            "All keys present - should use 'image'",
+        ),
+        (
+            {
+                "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
+                "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            },
+            np.uint16,
+            150,
+            250,
+            3,
+            "No 'image' - should use 'images'",
+        ),
+        (
+            {
+                "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
+            },
+            np.float32,
+            120,
+            220,
+            3,
+            "No 'image' or 'images' - should use 'volume'",
+        ),
+    ],
+)
+def test_get_image_data_priority_order(
+    array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description
+):
     """Test that get_image_data follows the priority order: image > images > volume."""
     # Create data dictionary from specifications
     data = {key: np.zeros(spec["shape"], dtype=spec["dtype"]) for key, spec in array_specs.items()}
@@ -406,22 +480,28 @@ def test_get_image_data_priority_order(array_specs, expected_dtype, expected_hei
     assert result["num_channels"] == expected_num_channels
 
 
-@pytest.mark.parametrize("invalid_data, error_message", [
-    ({}, "No valid image/volume data found"),
-    ({"mask": np.zeros((100, 100)), "label": 5}, "No valid image/volume data found"),
-    ({"img": np.zeros((100, 100)), "imgs": np.zeros((5, 100, 100))}, "No valid image/volume data found"),
-])
+@pytest.mark.parametrize(
+    "invalid_data, error_message",
+    [
+        ({}, "No valid image/volume data found"),
+        ({"mask": np.zeros((100, 100)), "label": 5}, "No valid image/volume data found"),
+        ({"img": np.zeros((100, 100)), "imgs": np.zeros((5, 100, 100))}, "No valid image/volume data found"),
+    ],
+)
 def test_get_image_data_missing_keys(invalid_data, error_message):
     """Test that get_image_data raises ValueError when no valid keys are present."""
     with pytest.raises(ValueError, match=error_message):
         get_image_data(invalid_data)
 
 
-@pytest.mark.parametrize("additional_keys", [
-    {"mask": np.zeros((100, 200), dtype=np.float32), "label": 1, "metadata": {"source": "test"}},
-    {"segmentation": np.zeros((100, 200)), "class_id": 42},
-    {"annotations": [1, 2, 3], "timestamp": 123456},
-])
+@pytest.mark.parametrize(
+    "additional_keys",
+    [
+        {"mask": np.zeros((100, 200), dtype=np.float32), "label": 1, "metadata": {"source": "test"}},
+        {"segmentation": np.zeros((100, 200)), "class_id": 42},
+        {"annotations": [1, 2, 3], "timestamp": 123456},
+    ],
+)
 def test_get_image_data_with_additional_keys(additional_keys):
     """Test that get_image_data works correctly when additional keys are present."""
     dtype = np.uint8
@@ -435,11 +515,14 @@ def test_get_image_data_with_additional_keys(additional_keys):
     assert result["width"] == 200
 
 
-@pytest.mark.parametrize("key, shape, expected_height_idx, expected_width_idx", [
-    ("image", (100, 200, 3), 0, 1),          # Direct H, W
-    ("images", (5, 100, 200, 3), 1, 2),      # Skip batch
-    ("volume", (10, 100, 200), 1, 2),        # Skip depth
-])
+@pytest.mark.parametrize(
+    "key, shape, expected_height_idx, expected_width_idx",
+    [
+        ("image", (100, 200, 3), 0, 1),  # Direct H, W
+        ("images", (5, 100, 200, 3), 1, 2),  # Skip batch
+        ("volume", (10, 100, 200), 1, 2),  # Skip depth
+    ],
+)
 @pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64, np.int32])
 def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_width_idx, dtype):
     """Parametrized test for get_image_data with different keys, shapes, and dtypes."""
@@ -453,13 +536,18 @@ def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_w
     assert result["width"] == shape[expected_width_idx]
 
 
-@pytest.mark.parametrize("dtype_str, shape, expected_height, expected_width, expected_num_channels", [
-    ('uint8', (100, 100, 1), 100, 100, 1),
-    ('complex64', (50, 75, 1), 50, 75, 1),
-    ('float16', (224, 224, 3), 224, 224, 3),
-    ('int64', (32, 64, 1), 32, 64, 1),
-])
-def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_height, expected_width, expected_num_channels):
+@pytest.mark.parametrize(
+    "dtype_str, shape, expected_height, expected_width, expected_num_channels",
+    [
+        ("uint8", (100, 100, 1), 100, 100, 1),
+        ("complex64", (50, 75, 1), 50, 75, 1),
+        ("float16", (224, 224, 3), 224, 224, 3),
+        ("int64", (32, 64, 1), 32, 64, 1),
+    ],
+)
+def test_get_image_data_preserves_numpy_dtype_object(
+    dtype_str, shape, expected_height, expected_width, expected_num_channels
+):
     """Test that get_image_data returns the actual numpy dtype object."""
     img = np.zeros(shape, dtype=np.dtype(dtype_str))
     data = {"image": img}
@@ -470,6 +558,7 @@ def test_get_image_data_preserves_numpy_dtype_object(dtype_str, shape, expected_
     assert result["height"] == expected_height
     assert result["width"] == expected_width
     assert result["num_channels"] == expected_num_channels
+
 
 def test_get_image_data_returns_correct_keys():
     """Test that get_image_data returns a dictionary with exactly the expected keys."""
@@ -486,12 +575,17 @@ def test_get_image_data_returns_correct_keys():
     assert isinstance(result["num_channels"], (int, np.integer))
 
 
-@pytest.mark.parametrize("key, shape, expected_height, expected_width, expected_num_channels, description", [
-    ("image", (100, 200, 3), 100, 200, 3, "Single image: shape[0] and shape[1] are H, W"),
-    ("images", (5, 100, 200, 3), 100, 200, 3, "Batch of images: skip batch dimension to get H, W"),
-    ("volume", (10, 100, 200, 1), 100, 200, 1, "Volume: skip depth dimension to get H, W"),
-])
-def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, expected_width, expected_num_channels, description):
+@pytest.mark.parametrize(
+    "key, shape, expected_height, expected_width, expected_num_channels, description",
+    [
+        ("image", (100, 200, 3), 100, 200, 3, "Single image: shape[0] and shape[1] are H, W"),
+        ("images", (5, 100, 200, 3), 100, 200, 3, "Batch of images: skip batch dimension to get H, W"),
+        ("volume", (10, 100, 200, 1), 100, 200, 1, "Volume: skip depth dimension to get H, W"),
+    ],
+)
+def test_get_image_data_shape_extraction_behavior(
+    key, shape, expected_height, expected_width, expected_num_channels, description
+):
     """Test documenting the correct behavior of shape extraction.
 
     The implementation should correctly identify image dimensions by skipping
@@ -499,4 +593,8 @@ def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, e
     """
     arr = np.zeros(shape)
     result = get_image_data({key: arr})
-    assert (result["height"], result["width"], result["num_channels"]) == (expected_height, expected_width, expected_num_channels)
+    assert (result["height"], result["width"], result["num_channels"]) == (
+        expected_height,
+        expected_width,
+        expected_num_channels,
+    )

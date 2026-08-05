@@ -541,14 +541,20 @@ def _validate_resize3d_interpolation(interpolation: int, antialias: bool) -> Non
 
 
 def _validate_resize3d_numpy(volume: np.ndarray) -> None:
-    """Validate the NumPy dtype required by the resize kernels."""
+    """Validate one NumPy DHWC volume for the resize kernels."""
+    if volume.ndim != 4:
+        msg = f"resize3d expects one rank-4 NumPy DHWC volume, got rank {volume.ndim}."
+        raise ValueError(msg)
     if volume.dtype not in (np.dtype(np.uint8), np.dtype(np.float32)):
         msg = f"Unsupported dtype {volume.dtype}. Albucore resize3d supports only uint8 and float32."
         raise ValueError(msg)
 
 
 def _validate_resize3d_torch(volume: torch.Tensor) -> None:
-    """Validate the Torch dtype required by the resize kernels."""
+    """Validate one Torch CDHW volume for the resize kernels."""
+    if volume.ndim != 4:
+        msg = f"resize3d expects one rank-4 Torch CDHW volume, got rank {volume.ndim}."
+        raise ValueError(msg)
     if volume.dtype not in (torch.uint8, torch.float32):
         msg = f"Unsupported dtype {volume.dtype}. Albucore resize3d supports only torch.uint8 and torch.float32."
         raise ValueError(msg)
@@ -828,7 +834,7 @@ def resize3d(
         size: Prevalidated output ``(depth, height, width)``.
         interpolation: ``cv2.INTER_LINEAR`` or ``cv2.INTER_NEAREST``.
         antialias: For NumPy linear interpolation, use ``INTER_AREA`` on shrinking axes. Torch does not support
-            antialiased 5D trilinear interpolation and raises ``NotImplementedError`` when this is true.
+            antialiased trilinear interpolation and raises ``NotImplementedError`` when this is true.
 
     Returns:
         Resized volume in the same container and layout as ``volume``. An identity resize returns ``volume`` itself.
@@ -850,7 +856,7 @@ def resize3d(
         _validate_resize3d_torch(volume)
         if antialias:
             msg = (
-                "Torch does not support antialias=True for 5D trilinear interpolation. "
+                "Torch does not support antialias=True for trilinear interpolation. "
                 "See https://github.com/pytorch/pytorch/issues/191896."
             )
             raise NotImplementedError(msg)

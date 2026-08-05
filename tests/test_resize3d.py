@@ -292,6 +292,19 @@ def test_resize3d_rejects_unsupported_numpy_dtype(dtype: type[np.float64 | np.in
         resize3d(np.zeros((5, 7, 9, 1), dtype=dtype), (4, 6, 8))
 
 
+@pytest.mark.parametrize(
+    "volume",
+    [
+        np.zeros((3, 4, 1), dtype=np.uint8),
+        torch.zeros((1, 3, 4), dtype=torch.uint8),
+    ],
+    ids=("numpy_rank_3", "torch_rank_3"),
+)
+def test_resize3d_rejects_invalid_rank(volume: np.ndarray | torch.Tensor) -> None:
+    with pytest.raises(ValueError, match="rank-4"):
+        resize3d(volume, (3, 4, 5))
+
+
 def test_resize3d_rejects_unsupported_interpolation_and_nearest_antialias() -> None:
     """Only modes with a documented cross-container contract are public."""
     volume = _numpy_volume(np.uint8, channels=1)
@@ -303,7 +316,7 @@ def test_resize3d_rejects_unsupported_interpolation_and_nearest_antialias() -> N
 
 
 def test_resize3d_rejects_torch_antialiasing() -> None:
-    """The Tensor kernel surfaces the upstream 5D antialiasing gap."""
+    """The Tensor kernel surfaces the upstream trilinear-antialiasing gap."""
     volume = torch.rand((1, 5, 7, 9))
     with pytest.raises(NotImplementedError, match="pytorch/issues/191896"):
         resize3d(volume, (volume.shape[1], volume.shape[2], volume.shape[3]), antialias=True)

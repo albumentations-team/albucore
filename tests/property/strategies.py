@@ -44,20 +44,3 @@ def xhwc_images(draw: st.DrawFn) -> np.ndarray:
         ),
     )
     return np.ascontiguousarray(arr)
-
-
-@st.composite
-def ndhwc_images(draw: st.DrawFn) -> np.ndarray:
-    n_dim = draw(st.sampled_from((1, 2)))
-    d_dim = draw(st.sampled_from((2, 3)))
-    height, width = draw(st.sampled_from(NON_SQUARE_HW))
-    channels = draw(st.sampled_from((1, 3)))
-    shape = (n_dim, d_dim, height, width, channels)
-    arr = draw(
-        hnp.arrays(
-            dtype=np.dtype("float32"),
-            shape=shape,
-            elements=st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False, width=32),
-        ),
-    )
-    return np.ascontiguousarray(arr)

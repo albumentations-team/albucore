@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import albucore as ac
-import albucore.elementwise as elementwise
+from albucore import elementwise
 
 Unary = Callable[..., np.ndarray]
 
@@ -100,7 +100,7 @@ def test_inplace_returns_new_array_for_read_only_input(operation: Unary) -> None
 @pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
 @pytest.mark.parametrize(
     "shape",
-    [(5, 7), (5, 7, 1), (5, 7, 3), (5, 7, 5), (2, 5, 7, 1), (3, 5, 7, 5), (2, 3, 5, 7, 9)],
+    [(5, 7), (5, 7, 1), (5, 7, 3), (5, 7, 5), (2, 5, 7, 1), (3, 5, 7, 5)],
 )
 def test_elementwise_operations_preserve_all_supported_ranks(operation: Unary, shape: tuple[int, ...]) -> None:
     array = np.linspace(0.1, 4.0, int(np.prod(shape)), dtype=np.float32).reshape(shape)
@@ -115,8 +115,8 @@ def test_elementwise_operations_preserve_all_supported_ranks(operation: Unary, s
     ("operation", "reference"),
     [(ac.exp, np.exp), (ac.log, np.log), (ac.sqrt, np.sqrt)],
 )
-@pytest.mark.parametrize("shape", [(4, 32, 40, 3), (2, 4, 32, 40, 9)])
-def test_elementwise_operations_match_numpy_on_large_batch_volume_layouts(
+@pytest.mark.parametrize("shape", [(4, 32, 40, 3)])
+def test_elementwise_operations_match_numpy_on_large_rank4_layouts(
     operation: Unary,
     reference: Unary,
     shape: tuple[int, ...],
@@ -128,6 +128,14 @@ def test_elementwise_operations_match_numpy_on_large_batch_volume_layouts(
     assert result.shape == shape
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, reference(array), rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
+def test_elementwise_operations_reject_unsupported_rank(operation: Unary) -> None:
+    array = np.ones((1, 1, 1, 1, 1, 1), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="support ranks up to 4"):
+        operation(array)
 
 
 @pytest.mark.parametrize(
@@ -167,7 +175,7 @@ def test_log_strided_routing_boundaries(
 
 
 @pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
-@pytest.mark.parametrize("shape", [(0,), (0, 7), (0, 5, 7, 3), (2, 0, 5, 7, 1)])
+@pytest.mark.parametrize("shape", [(0,), (0, 7), (0, 5, 7, 3)])
 @pytest.mark.parametrize("inplace", [False, True])
 def test_elementwise_operations_support_empty_arrays(
     operation: Unary,

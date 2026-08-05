@@ -113,7 +113,7 @@ Benchmark documentation and policy:
   `(H, W)`, at Albucore boundaries.
 - Supported public dtypes remain `uint8` and `float32`.
 - Routing is benchmark-driven. Do not keep or change a route based on convention.
-- Compare routes on realistic HWC, DHWC, and NDHWC shapes where the operation
+- Compare routes on realistic HWC and DHWC shapes where the operation
   supports them.
 - Benchmark non-square images. Do not rely only on square test cases.
 - Keep raw OpenCV probes separate from Albucore wrapper benchmarks so it is clear
@@ -345,7 +345,7 @@ Required dimensions:
 - HWC: `128x160`, `240x320`, `480x640`, `768x1024`
 - Channels: `1`, `3`, `4`, `5`, `9`
 - Dtypes: `uint8`, `float32`
-- Layouts where supported: HWC, DHWC, NDHWC
+- Layouts where supported: HWC, DHWC
 - Contiguity: contiguous and representative non-contiguous inputs
 
 Required operation variants:
@@ -376,7 +376,7 @@ Use this checklist to review current code paths after benchmark data exists.
 - Recalibrate `opencv_shared_uint8_lut_faster_hwc` with OpenCV 5 and latest
   StringZilla.
 - Compare `cv2.LUT`, `sz.lookup`, NumPy advanced indexing, and any shared-LUT
-  helpers for HWC, DHWC, and NDHWC.
+  helpers for HWC and DHWC.
 - Keep channel-dimension restoration if `cv2.LUT` still returns `(H, W)` for
   single-channel HWC input.
 - Check whether per-channel LUT splitting thresholds changed.

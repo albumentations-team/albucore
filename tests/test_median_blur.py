@@ -131,3 +131,10 @@ def test_median_blur_rejects_unsupported_dtype(dtype: type[np.generic]) -> None:
 
     with pytest.raises(ValueError, match="Albucore supports only uint8 and float32"):
         median_blur(image, 3)
+
+
+def test_median_blur_rejects_unsupported_rank() -> None:
+    image = np.zeros((1, 1, 1, 1, 1, 1), dtype=np.uint8)
+
+    with pytest.raises(ValueError, match="support ranks up to 4"):
+        median_blur(image, 3)

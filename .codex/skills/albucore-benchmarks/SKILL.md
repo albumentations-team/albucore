@@ -54,15 +54,6 @@ contiguous and channel-last-strided inputs. Test the equivalent homogeneous 4×4
 timing route. Run `uv run python benchmarks/benchmark_warp_affine3d.py --quick --threads 1` and `uv run python
 benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1`. A manual grid, coverage sampler, tiled route, or
 native extension remains a diagnostic candidate until it has exact correctness parity and a sustained full-path win.
-`NDHWC` and `NCDHW` do not belong in this benchmark because the router has no batch contract.
-
-NDHWC five-dimensional arrays:
-
-- `2x32x128x160x1`
-- `2x32x128x160x3`
-- `2x64x128x160x3`
-- `4x16x128x160x3`
-
 Channel choices: 1 for grayscale, 3 for RGB / 3-channel, and 9 for hyperspectral paths that exceed `MAX_OPENCV_WORKING_CHANNELS=4`.
 
 ## Compare Current Tree vs PyPI Release

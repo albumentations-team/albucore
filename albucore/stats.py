@@ -1,4 +1,4 @@
-"""Benchmark-driven mean / std / mean_std for albucore array layouts (HWC, NHWC, NDHWC, …)."""
+"""Benchmark-driven mean / std / mean_std for Albucore channel-last array layouts."""
 
 from typing import Literal, TypeGuard, cast
 
@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import DTypeLike
 
 from albucore.torch_backend import reduce_sum_torch
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8, _validate_image_rank
 
 DEFAULT_EPS = 1e-4
 
@@ -160,6 +160,7 @@ def reduce_sum(
         The accumulator dtype follows the input: unsigned → uint64, float → float64,
         signed int / bool → int64.
     """
+    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     if axes is None:
         if _is_uint8_image(arr):
@@ -370,6 +371,7 @@ def mean_std(
     Returns:
         ``(mean, std + eps)`` — scalars for global reduction, arrays for per-channel.
     """
+    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     if axes is None:
         return _mean_std_global(arr, keepdims=keepdims, eps=eps)
@@ -407,6 +409,7 @@ def mean(
     Returns:
         Scalar or array of float64 means (cast to ``dtype`` if provided).
     """
+    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     m = _mean_global(arr, keepdims=keepdims) if axes is None else _mean_per_channel(arr, axes, keepdims=keepdims)
     if dtype is not None:
@@ -445,6 +448,7 @@ def std(
     Returns:
         Scalar or array of float64 stds + eps (cast to ``dtype`` if provided).
     """
+    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     s = (
         _std_global(arr, keepdims=keepdims, eps=eps)

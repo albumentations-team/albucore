@@ -473,9 +473,9 @@ def main() -> None:
         help="Comma-separated candidate names. The default times every candidate.",
     )
     parser.add_argument(
-        "--volumes",
+        "--volume",
         action="store_true",
-        help="Also time generic candidates on the canonical DHWC and NDHWC shape grid.",
+        help="Also time generic candidates on the canonical DHWC shape grid.",
     )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -516,7 +516,7 @@ def main() -> None:
                                 compare_existing_routes=args.disable_public_torch_route,
                             ),
                         )
-    if args.volumes:
+    if args.volume:
         generic_candidate_names = {
             "wrap_numpy_tensor_numpy",
             "add_scalar",
@@ -536,7 +536,7 @@ def main() -> None:
             "apply_uint8_lut",
         }
         volume_candidates = tuple(c for c in active_candidates if c.name in generic_candidate_names)
-        volume_shapes = tuple(shape for shape in SCALE_LUT_SHAPES if len(shape) in (4, 5))
+        volume_shapes = tuple(shape for shape in SCALE_LUT_SHAPES if len(shape) == 4)
         for shape in volume_shapes:
             for dtype in BOTH:
                 array = _make_array(rng, shape, dtype)

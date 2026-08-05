@@ -9,7 +9,7 @@ import numpy as np
 import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8, _validate_image_rank
 
 
 @preserve_channel_dim
@@ -76,6 +76,7 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
+    _validate_image_rank(img)
     img_view = memoryview(cast("Any", img))
     lut_view = memoryview(cast("Any", lut))
     if inplace:
@@ -119,7 +120,7 @@ def _apply_shared_uint8_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool) -> 
 
     HWC contiguous: OpenCV for large multi-channel (``opencv_shared_uint8_lut_faster_hwc``),
     StringZilla for the rest.
-    Non-HWC (DHWC, NDHWC): ``sz_lut(inplace=False)`` (which uses ``sz.translate(inplace=False)``,
+    Four-dimensional channel-last input: ``sz_lut(inplace=False)`` (which uses ``sz.translate(inplace=False)``,
     a single allocate+write pass) is faster than inplace for large buffers ≳500 KB.
     Source: ``benchmarks/benchmark_scale_vs_lut.py``.
     """
@@ -193,6 +194,7 @@ def apply_uint8_lut(
         TypeError: If ``img`` or ``lut`` is not uint8.
         ValueError: If ``lut`` has an unsupported shape.
     """
+    _validate_image_rank(img)
     if img.dtype != np.uint8 or lut.dtype != np.uint8:
         msg = "apply_uint8_lut expects uint8 image and uint8 LUT"
         raise TypeError(msg)

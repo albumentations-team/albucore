@@ -30,8 +30,8 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | Large Markdown tables: `add_weighted`, global mean/std, per-channel stats — matches methodology in [`docs/numkong-performance.md`](../docs/numkong-performance.md). |
 | [`benchmark_multiply_add_numkong.py`](benchmark_multiply_add_numkong.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
-| [`benchmark_elementwise.py`](benchmark_elementwise.py) | Public `exp`/`log`/`sqrt` vs NumPy/OpenCV: canonical non-square HWC C=1/3/9, DHWC/NDHWC, tiny Python `math`, strided channel/size calibration, safe in-place, and NumKong `minmax` as a `log` guard. |
-| [`benchmark_torch_cpu.py`](benchmark_torch_cpu.py) | Complete CPU NumPy→Torch→NumPy candidates, including zero-copy wrappers, public Albucore routers, Torch/OpenCV thread counts, semantic checks, HWC, and optional canonical DHWC/NDHWC matrices. It measures the configured production router by default; `--disable-public-torch-route` measures the prior backend baseline. |
+| [`benchmark_elementwise.py`](benchmark_elementwise.py) | Public `exp`/`log`/`sqrt` vs NumPy/OpenCV: canonical non-square HWC C=1/3/9 and DHWC, tiny Python `math`, strided channel/size calibration, safe in-place, and NumKong `minmax` as a `log` guard. |
+| [`benchmark_torch_cpu.py`](benchmark_torch_cpu.py) | Complete CPU NumPy→Torch→NumPy candidates, including zero-copy wrappers, public Albucore routers, Torch/OpenCV thread counts, semantic checks, HWC, and an optional DHWC matrix. It measures the configured production router by default; `--disable-public-torch-route` measures the prior backend baseline. |
 | [`benchmark_torch_uint8_lut.py`](benchmark_torch_uint8_lut.py) | Shared and per-channel uint8 LUTs: Albucore and NumPy byte indexing versus Torch eager’s int32/int64 index casts and separately warmed `torch.compile`. |
 | [`benchmark_resize3d.py`](benchmark_resize3d.py) | Full CPU `resize3d` paths for NumPy `DHWC`: pure NumPy, OpenCV packing, and NumPy→Torch→NumPy. Use `--shape D,H,W,C` to isolate a canonical cell. |
 | [`benchmark_resize3d_tensor.py`](benchmark_resize3d_tensor.py) | CPU Tensor→Tensor `resize3d`: native Torch, zero-copy Tensor→NumPy→Tensor bridge, and the public router across contiguous and channel-last-strided `CDHW` inputs. |
@@ -48,9 +48,9 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_sum_mean_std_ravel.py`](benchmark_sum_mean_std_ravel.py) | Prints Markdown tables: NumPy vs NumKong sum/mean/std on `(H,W,C)`. |
 | [`benchmark_add_constant_uint8_channels.py`](benchmark_add_constant_uint8_channels.py) | uint8 scalar add: OpenCV vs LUT vs NumKong vs NumPy vs `add_constant` wrapper (C=5..9, several spatial sizes). |
 | [`benchmark_grayscale_paths.py`](benchmark_grayscale_paths.py) | Grayscale / routing sanity: uint8 per-channel multiply LUT vs OpenCV; float→uint8 NumPy vs cv2 (and cv2 (H,W,1) quirk). |
-| [`benchmark_scale_vs_lut.py`](benchmark_scale_vs_lut.py) | **`nk.scale` vs `sz_lut` (full-buffer) vs `cv2.LUT`** on uint8 — affine multiply-by-constant across the canonical HWC / DHWC / NDHWC shape grid; `median ± MAD` columns. |
+| [`benchmark_scale_vs_lut.py`](benchmark_scale_vs_lut.py) | **`nk.scale` vs `sz_lut` (full-buffer) vs `cv2.LUT`** on uint8 — affine multiply-by-constant across the canonical HWC / DHWC shape grid; `median ± MAD` columns. |
 | [`benchmark_median_blur.py`](benchmark_median_blur.py) | Public `median_blur` router across canonical non-square HWC sizes, 1/3/9 channels, uint8/float32, and kernels 3/5/7. See the [`0.2.6` comparison report](results/REPORT_median_blur_0.2.6_vs_current.md). |
-| [`benchmark_sz_lut_vs_cv2_lut.py`](benchmark_sz_lut_vs_cv2_lut.py) | `StringZilla` `translate` / `sz_lut` vs `cv2.LUT` on uint8: shared `(256,)` and per-channel `(256,1,C)` LUTs; shapes `HWC`, `DHWC`, `NDHWC`. LUTs are **non-trivial** (fixed-seed `permutation(256)`). |
+| [`benchmark_sz_lut_vs_cv2_lut.py`](benchmark_sz_lut_vs_cv2_lut.py) | `StringZilla` `translate` / `sz_lut` vs `cv2.LUT` on uint8: shared `(256,)` and per-channel `(256,1,C)` LUTs; HWC and DHWC shapes. LUTs are **non-trivial** (fixed-seed `permutation(256)`). |
 | [`benchmark_cv2_lut_vs_sz_lut_minimal.py`](benchmark_cv2_lut_vs_sz_lut_minimal.py) | Tiny standalone repro (no `albucore`): shared **permutation** LUT, markdown table — for upstream issues. |
 | [`issue_lut_uint8_standalone.py`](issue_lut_uint8_standalone.py) | **Self-contained** `cv2.LUT` vs StringZilla `translate`: shared + per-channel, **`LUT` new vs `dst`**, SZ copy vs reuse buffer. Copy into GitHub issues. |
 | [`benchmark_lut_shared_routing.py`](benchmark_lut_shared_routing.py) | Grid sweep: when OpenCV beats StringZilla for **shared** HWC LUT vs `opencv_shared_uint8_lut_faster_hwc` (used by `apply_uint8_lut`). LUT: **permutation(256)**. |
@@ -99,7 +99,7 @@ The **router** JSON is the regression guard vs an older wheel; it does **not** s
 
 Extra write-ups and archived tables: **[`docs/research/`](../docs/research/)** (not regenerated by the scripts above).
 
-For `warp_affine3d`, benchmark only a single `DHWC` or `CDHW` volume per call. The router does not support `NDHWC` or `NCDHW`. Start with:
+For `warp_affine3d`, benchmark one `DHWC` or `CDHW` volume per call. Start with:
 
 ```bash
 uv run python benchmarks/benchmark_warp_affine3d.py --quick --threads 1
