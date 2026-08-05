@@ -10,7 +10,7 @@ Albucore is a library of optimized atomic functions designed for efficient image
 
 ## Overview
 
-Image processing operations can be implemented in several ways, with performance depending on dtype, size, layout, and channel count. Albucore routes each operation to a benchmark-selected NumPy, OpenCV, NumKong, or StringZilla implementation.
+Image processing operations can be implemented in several ways, with performance depending on dtype, size, layout, and channel count. Albucore routes each operation to a benchmark-selected NumPy, OpenCV, NumKong, StringZilla, or eligible CPU PyTorch implementation.
 
 Most image-processing routers support `uint8` and `float32`. The elementwise `exp`, `log`, and `sqrt` routers are `float32`-only; conversion helpers also support additional integer dtypes.
 
@@ -81,7 +81,6 @@ Albucore expects images to follow specific shape conventions, with the channel d
 - **Grayscale image**: `(H, W, 1)` - Height, Width, 1 channel
 - **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
 - **3D volume**: `(D, H, W, C)` - Depth, Height, Width, Channels
-- **Batch of volumes**: `(N, D, H, W, C)` - Number of volumes, Depth, Height, Width, Channels
 
 ### Important Notes:
 
@@ -107,8 +106,6 @@ batch_gray = np.random.randint(0, 256, (10, 100, 100, 1), dtype=np.uint8)
 # 3D volume with 20 slices
 volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
 
-# Batch of 5 RGB volumes, each with 20 slices
-batch_volumes = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
 ```
 
 ## Functions
@@ -144,7 +141,7 @@ contract requires clipping.
 | `log` | `(array, *, inplace=False)` | NumPy-compatible natural logarithm; float32 only | NumPy for special values and small/unsupported layouts; guarded OpenCV path for eligible large arrays |
 | `sqrt` | `(array, *, inplace=False)` | NumPy-compatible square root; float32 only | NumPy wins across the benchmark grid |
 
-These functions accept float32 arrays of any rank and preserve the exact input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
+These functions accept float32 arrays up to rank 4 and preserve the exact input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
 
 ### Normalization
 
@@ -182,11 +179,13 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 | `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked above OpenCV's 128-channel limit |
 | `vflip` | `(img)` | Mirror top-bottom | `cv2.flip(img, 0)` for ≤4 channels; NumPy slice for >4 channels |
 | `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked `cv2.medianBlur`; float32 ksize 3/5 → native OpenCV; float32 ksize ≥ 7 → uint8 conversion fallback |
+| `gaussian_blur3d` | `(volume, sigma, kernel_size=0)` | Blur one volume along depth, height, and width | One NumPy `DHWC` or CPU Torch `CDHW` volume; three float32 grouped Torch passes with `BORDER_REFLECT_101`; uint8 restores once after filtering |
+| `separable_filter3d` | `(volume, kernels)` | Apply three D/H/W kernels to one volume | One NumPy `DHWC` or CPU Torch `CDHW` volume; grouped Torch filtering with the same padding and dtype rules as `gaussian_blur3d` |
 | `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix | One NumPy `DHWC` or CPU Torch `CDHW` volume; native Torch `affine_grid` + `grid_sample`; uint8 uses one float32 sampling buffer |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` and `warp_affine3d` expect prevalidated NumPy `DHWC` volumes or Torch `CDHW` tensors. `warp_affine3d` accepts exactly one volume per call; it does not accept `NDHWC` or `NCDHW` batch layouts.
+The package also star-exports multi-channel wrappers for `copy_make_border`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect exactly one prevalidated NumPy `DHWC` volume or Torch `CDHW` tensor per call.
 
 ### Type conversion
 
@@ -211,10 +210,9 @@ Arithmetic, normalization, statistics, conversion, and elementwise routers opera
 
 - Single images: `(H, W, C)`
 - Batches: `(N, H, W, C)`
-- Volumes: `(D, H, W, C)`
-- Batch of volumes: `(N, D, H, W, C)`
+- Single volumes: `(D, H, W, C)`
 
-Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to batches and volumes while restoring the original layout.
+Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to documented array ranks while restoring the original layout.
 
 See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@contiguous`, `@clipped`, `@batch_transform`).
 
@@ -222,14 +220,15 @@ See [docs/decorators.md](docs/decorators.md) for internal decorator documentatio
 
 Albucore uses a combination of techniques to achieve high performance:
 
-1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, or StringZilla.
+1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch when the documented contract permits it.
 2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
 3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
 4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+5. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 
-See [docs/performance-optimization.md](docs/performance-optimization.md) for detailed performance guidelines and best practices.
+See [docs/performance-optimization.md](docs/performance-optimization.md) for the general workflow and [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) for eager CPU Torch routes.
 
 ## Documentation
 
@@ -238,10 +237,11 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for det
 - [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
 - [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
-- [docs/numkong-performance.md](docs/numkong-performance.md) - NumKong vs OpenCV/NumPy/LUT baselines (benchmark tables; sum/mean/std)
+- [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) - Eager CPU PyTorch routing and benchmark guidance
+- [docs/torch-tensor-migration-plan.md](docs/torch-tensor-migration-plan.md) - Future CPU Tensor contract and integration gates
+- [docs/numkong-performance.md](docs/numkong-performance.md) - Current NumKong routes and benchmark decisions
 - [docs/public-api.md](docs/public-api.md) - Star-exported routers vs `albucore.functions` shims
 - [benchmarks/README.md](benchmarks/README.md) - Python micro-benchmarks (`uv run python benchmarks/…`)
-- [docs/research/](docs/research/) - Research notes (extra benchmark writeups; see [`benchmarks/README.md`](benchmarks/README.md) for scripts)
 
 ## License
 

@@ -97,32 +97,6 @@ def test_uint8_arithmetic_remains_saturating(
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize("dtype", [np.int16, np.float64])
-@pytest.mark.parametrize(
-    "operation",
-    [
-        lambda img: add(img, 0),
-        lambda img: add_constant(img, 1),
-        lambda img: add_vector(img, np.array([1])),
-        lambda img: add_array(img, np.ones_like(img)),
-        lambda img: multiply(img, 1),
-        lambda img: multiply_by_constant(img, 1),
-        lambda img: multiply_by_vector(img, np.array([1])),
-        lambda img: multiply_by_array(img, np.ones_like(img)),
-        lambda img: multiply_add(img, 1, 0),
-        lambda img: power(img, 1),
-    ],
-)
-def test_arithmetic_rejects_unsupported_image_dtypes(
-    operation: Callable[[np.ndarray], np.ndarray],
-    dtype: type[np.generic],
-) -> None:
-    img = np.ones((2, 3, 1), dtype=dtype)
-
-    with pytest.raises(ValueError, match="Albucore supports only uint8 and float32"):
-        operation(img)
-
-
 def test_clipped_decorator_remains_an_explicit_float32_range_constraint() -> None:
     @clipped
     def copy_image(img: np.ndarray) -> np.ndarray:

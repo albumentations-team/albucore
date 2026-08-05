@@ -4,6 +4,14 @@
 
 Albucore expects images to follow specific shape conventions where **the channel dimension is always present**, even for grayscale images.
 
+## Validation boundary
+
+Albucore is the low-level execution layer. AlbumentationsX and other callers validate the container, rank, layout,
+explicit channel dimension, dtype, device, contiguity, autograd state, and operation control data before entering an
+Albucore router. Routers therefore assume their documented preconditions and do not repeat metadata validation on
+the hot path. The `np.ndarray`/`torch.Tensor` dispatch that selects a backend is implementation routing, not a second
+validation pass.
+
 ## Shape Formats
 
 ### Single Images and Volumes
@@ -17,8 +25,6 @@ Albucore expects images to follow specific shape conventions where **the channel
 
 - **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
 - **Batch of grayscale images**: `(N, H, W, 1)`
-- **Batch of volumes**: `(N, D, H, W, C)` - Number of volumes, Depth, Height, Width, Channels
-- **Batch of grayscale volumes**: `(N, D, H, W, 1)`
 
 ## Accessing Dimensions
 
@@ -81,9 +87,6 @@ result = albucore.multiply(batch, 1.5)
 volume = np.random.randint(0, 256, (20, 256, 256, 1), dtype=np.uint8)
 result = albucore.multiply(volume, 1.5)
 
-# Batch of 5 RGB volumes, each with 20 slices
-batch_volumes = np.random.randint(0, 256, (5, 20, 256, 256, 3), dtype=np.uint8)
-result = albucore.multiply(batch_volumes, 1.5)
 ```
 
 ## Why This Convention?

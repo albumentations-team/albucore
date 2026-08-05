@@ -57,7 +57,7 @@ def test_apply_uint8_lut_inplace_shared() -> None:
     np.testing.assert_array_equal(out, expected)
 
 
-# --- DHWC / NDHWC ---
+# --- DHWC ---
 
 
 @pytest.mark.parametrize(
@@ -80,23 +80,7 @@ def test_apply_uint8_lut_shared_volume_matches_numpy(shape: tuple[int, ...], see
 @pytest.mark.parametrize(
     "shape",
     [
-        (2, 3, 8, 10, 3),
-        (2, 2, 5, 6, 1),
-    ],
-)
-def test_apply_uint8_lut_shared_batch_volume_matches_numpy(shape: tuple[int, ...]) -> None:
-    rng = np.random.default_rng(7)
-    img = rng.integers(0, 256, size=shape, dtype=np.uint8)
-    lut = rng.integers(0, 256, size=(256,), dtype=np.uint8)
-    out = apply_uint8_lut(img, lut, inplace=False)
-    np.testing.assert_array_equal(out, _ref_shared(img, lut))
-
-
-@pytest.mark.parametrize(
-    "shape",
-    [
         (5, 10, 11, 3),
-        (2, 3, 4, 5, 4),
     ],
 )
 def test_apply_uint8_lut_per_channel_volume_matches_numpy(shape: tuple[int, ...]) -> None:
@@ -160,41 +144,6 @@ def test_apply_uint8_lut_shared_large_and_small_hwc_match_numpy(shape: tuple[int
 # --- Errors ---
 
 
-@pytest.mark.parametrize(
-    ("img_dtype", "lut_dtype"),
-    [
-        (np.float32, np.uint8),
-        (np.uint8, np.float32),
-    ],
-)
-def test_apply_uint8_lut_type_error(img_dtype: np.dtype, lut_dtype: np.dtype) -> None:
-    img = np.zeros((4, 4, 3), dtype=img_dtype)
-    lut = np.zeros(256, dtype=lut_dtype)
-    with pytest.raises(TypeError, match="apply_uint8_lut expects uint8"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-def test_apply_uint8_lut_wrong_1d_length() -> None:
-    img = np.zeros((2, 2, 1), dtype=np.uint8)
-    lut = np.zeros(255, dtype=np.uint8)
-    with pytest.raises(ValueError, match="1D LUT must have length 256"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-def test_apply_uint8_lut_rejects_2d_per_channel_luts() -> None:
-    img = np.zeros((2, 2, 3), dtype=np.uint8)
-    lut = np.zeros((3, 256), dtype=np.uint8)
-    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(256, 1, C\)"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-def test_apply_uint8_lut_ndim_too_high_lut() -> None:
-    img = np.zeros((2, 2, 1), dtype=np.uint8)
-    lut = np.zeros((1, 256, 1), dtype=np.uint8)
-    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(256, 1, C\)"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
 # --- Heuristic contract ---
 
 
@@ -211,7 +160,6 @@ def test_apply_uint8_lut_ndim_too_high_lut() -> None:
         ((512, 512, 9), True),
         ((640, 640, 2), True),
         ((4, 8, 9, 3), False),
-        ((2, 2, 4, 5, 3), False),
     ],
 )
 def test_opencv_shared_heuristic_examples(shape: tuple[int, ...], expect: bool) -> None:
@@ -268,7 +216,7 @@ def _ref_multiply_uint8(img: np.ndarray, factor: float) -> np.ndarray:
     return clip(np.multiply(img.astype(np.float32, copy=False), float(factor)), np.uint8, inplace=False)
 
 
-@pytest.mark.parametrize("shape", [(3, 16, 16, 3), (2, 2, 8, 8, 1)])
+@pytest.mark.parametrize("shape", [(3, 16, 16, 3)])
 @pytest.mark.parametrize("factor", [0.5, 2.0, 1.25])
 def test_multiply_scalar_volume_matches_float_reference(shape: tuple[int, ...], factor: float) -> None:
     rng = np.random.default_rng(22)
@@ -277,7 +225,7 @@ def test_multiply_scalar_volume_matches_float_reference(shape: tuple[int, ...], 
     np.testing.assert_array_equal(got, _ref_multiply_uint8(img, factor))
 
 
-@pytest.mark.parametrize("shape", [(2, 4, 5, 3), (2, 2, 3, 4, 3)])
+@pytest.mark.parametrize("shape", [(2, 4, 5, 3)])
 def test_multiply_vector_volume_matches_float_reference(shape: tuple[int, ...]) -> None:
     rng = np.random.default_rng(23)
     img = rng.integers(0, 256, size=shape, dtype=np.uint8)
@@ -292,7 +240,7 @@ def _ref_multiply_uint8_vector(img: np.ndarray, vec: np.ndarray) -> np.ndarray:
     return clip(np.multiply(img.astype(np.float32, copy=False), f), np.uint8, inplace=False)
 
 
-@pytest.mark.parametrize("shape", [(2, 5, 6, 3), (1, 2, 4, 4, 1)])
+@pytest.mark.parametrize("shape", [(2, 5, 6, 3)])
 def test_multiply_add_scalar_volume_matches_float_reference(shape: tuple[int, ...]) -> None:
     rng = np.random.default_rng(24)
     img = rng.integers(0, 256, size=shape, dtype=np.uint8)

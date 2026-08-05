@@ -110,9 +110,6 @@ def apply_spatial_transform(self, img: np.ndarray, ...) -> np.ndarray:
 - `"channel"`: For transforms that modify channel dimension
 - `"full"`: No reshaping, process the array as-is
 
-**Additional parameter**:
-- `keep_depth_dim=True`: For 3D volumes `(N,D,H,W,C)`, preserves depth dimension during processing
-
 ## Usage Patterns
 
 ### Single-Channel Image Handling

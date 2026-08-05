@@ -43,9 +43,6 @@ def to_float_opencv(img: ImageType, max_value: float | None = None) -> ImageFloa
 
 @preserve_channel_dim
 def to_float_lut(img: ImageUInt8, max_value: float | None = None) -> ImageFloat32:
-    if img.dtype != np.uint8:
-        raise ValueError("LUT method is only applicable for uint8 images")
-
     if max_value is None:
         max_value = MAX_VALUES_BY_DTYPE[img.dtype]
     lut = (np.arange(256, dtype=np.float32) / max_value).astype(np.float32)

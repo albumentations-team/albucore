@@ -3,13 +3,19 @@
 Albucore public routers are low-level image kernels. Their contracts are intentionally small and
 strict.
 
+## Caller-validated preconditions
+
+The caller validates container type, rank, layout, explicit channel dimension, dtype, device,
+contiguity, autograd state, and operation-specific control data before entering Albucore. The
+router keeps only backend dispatch and kernel work; it does not repeat those checks. Direct calls
+with invalid metadata are outside the low-level contract and are not part of the correctness matrix.
+
 ## Image Layout
 
 Image-like inputs always have an explicit channel dimension:
 
 - HWC: `(H, W, C)`
 - XHWC: `(X, H, W, C)`
-- NDHWC: `(N, D, H, W, C)`
 
 Grayscale is `(H, W, 1)` or `(..., H, W, 1)`. Implicit-channel grayscale arrays such as `(H, W)` or
 `(D, H, W)` are invalid image inputs.
@@ -29,8 +35,8 @@ Public image operations support:
 - `uint8`
 - `float32`
 
-Other dtypes are invalid for public image kernels unless a function explicitly documents a different
-array contract. Full image outputs must not silently widen to `float64`.
+Other dtypes are invalid for the validated public image contract unless a function explicitly documents
+a different array contract. Full image outputs must not silently widen to `float64`.
 
 Stats and reduction helpers document their accumulator dtypes separately.
 
@@ -40,7 +46,6 @@ Unless a router explicitly changes spatial size:
 
 - HWC remains HWC
 - XHWC remains XHWC
-- NDHWC remains NDHWC
 - `(H, W, 1)` remains `(H, W, 1)`
 
 Public routers must hide OpenCV channel-dropping behavior.

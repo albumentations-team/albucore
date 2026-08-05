@@ -230,12 +230,8 @@ def median_blur(img: ImageType, ksize: int) -> ImageType:
         Median-filtered image with the same shape and dtype. The result is C-contiguous and does not share storage
         with the input.
 
-    Raises:
-        ValueError: If ``ksize`` is not odd and at least 3, or if ``img`` is not uint8 or float32.
+    The caller validates the image dtype and kernel size before entering this low-level router.
     """
-    if ksize % 2 != 1 or ksize < 3:
-        raise ValueError(f"ksize must be odd and >= 3, got {ksize}")
-
     if img.dtype == np.uint8:
         return _median_blur_uint8(cast("ImageUInt8", img), ksize)
     if img.dtype == np.float32 and ksize in (3, 5):
@@ -244,7 +240,8 @@ def median_blur(img: ImageType, ksize: int) -> ImageType:
         quantized = cast("ImageUInt8", from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8)))
         return to_float(_median_blur_uint8(quantized, ksize))
 
-    raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
+    uint8_img = cast("ImageUInt8", from_float(cast("ImageFloat32", img), np.dtype(np.uint8)))
+    return to_float(_median_blur_uint8(uint8_img, ksize))
 
 
 def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:

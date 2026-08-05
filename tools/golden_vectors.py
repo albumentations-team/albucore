@@ -123,11 +123,6 @@ def _case_stats_uint8_per_channel() -> ArrayOutputs:
     }
 
 
-def _case_batch_normalize_float32() -> ArrayOutputs:
-    img = float32_image((2, 3, 8, 9, 1))
-    return {"result": ac.normalize_per_image(img, "min_max")}
-
-
 GOLDEN_CASES: tuple[GoldenCase, ...] = (
     GoldenCase("add_uint8_vector_hwc", _case_add_uint8_vector),
     GoldenCase("multiply_float32_scalar_hwc", _case_multiply_float32_scalar),
@@ -140,7 +135,6 @@ GOLDEN_CASES: tuple[GoldenCase, ...] = (
     GoldenCase("flips_float32_hwc", _case_flips_float32),
     GoldenCase("resize_nearest_uint8_hwc1", _case_resize_nearest_uint8),
     GoldenCase("stats_uint8_per_channel_hwc", _case_stats_uint8_per_channel, rtol=1e-12, atol=1e-12),
-    GoldenCase("batch_normalize_float32_ndhwc", _case_batch_normalize_float32, rtol=1e-6, atol=1e-6),
 )
 
 

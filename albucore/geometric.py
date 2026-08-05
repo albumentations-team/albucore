@@ -525,33 +525,8 @@ def resize(
     return cast("ImageType", cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation))
 
 
-_RESIZE3D_INTERPOLATIONS = frozenset((cv2.INTER_LINEAR, cv2.INTER_NEAREST))
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
 _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
-
-
-def _validate_resize3d_interpolation(interpolation: int, antialias: bool) -> None:
-    """Reject modes that do not have one shared NumPy/Torch 3D contract."""
-    if interpolation not in _RESIZE3D_INTERPOLATIONS:
-        msg = f"resize3d supports only cv2.INTER_LINEAR and cv2.INTER_NEAREST; got interpolation={interpolation}."
-        raise ValueError(msg)
-    if antialias and interpolation == cv2.INTER_NEAREST:
-        msg = "antialias=True requires cv2.INTER_LINEAR."
-        raise ValueError(msg)
-
-
-def _validate_resize3d_numpy(volume: np.ndarray) -> None:
-    """Validate the NumPy dtype required by the resize kernels."""
-    if volume.dtype not in (np.dtype(np.uint8), np.dtype(np.float32)):
-        msg = f"Unsupported dtype {volume.dtype}. Albucore resize3d supports only uint8 and float32."
-        raise ValueError(msg)
-
-
-def _validate_resize3d_torch(volume: torch.Tensor) -> None:
-    """Validate the Torch dtype required by the resize kernels."""
-    if volume.dtype not in (torch.uint8, torch.float32):
-        msg = f"Unsupported dtype {volume.dtype}. Albucore resize3d supports only torch.uint8 and torch.float32."
-        raise ValueError(msg)
 
 
 def _resize3d_axis_packing(
@@ -808,7 +783,7 @@ def resize3d(
 
 
 def resize3d(
-    volume: object,
+    volume: np.ndarray | torch.Tensor,
     size: tuple[int, int, int],
     interpolation: int = cv2.INTER_LINEAR,
     antialias: bool = False,
@@ -827,38 +802,22 @@ def resize3d(
         volume: Prevalidated NumPy ``DHWC`` array or Torch ``CDHW`` tensor. Only uint8 and float32 are supported.
         size: Prevalidated output ``(depth, height, width)``.
         interpolation: ``cv2.INTER_LINEAR`` or ``cv2.INTER_NEAREST``.
-        antialias: For NumPy linear interpolation, use ``INTER_AREA`` on shrinking axes. Torch does not support
-            antialiased 5D trilinear interpolation and raises ``NotImplementedError`` when this is true.
+        antialias: For NumPy linear interpolation, use ``INTER_AREA`` on shrinking axes. The caller must pass
+            ``False`` for the Torch contract because Torch does not support antialiased trilinear interpolation.
 
     Returns:
         Resized volume in the same container and layout as ``volume``. An identity resize returns ``volume`` itself.
 
-    Raises:
-        ValueError: If the dtype or interpolation contract is invalid.
-        NotImplementedError: If a Torch input requests antialiasing.
-        TypeError: If ``volume`` is neither ``np.ndarray`` nor ``torch.Tensor``.
+    The caller validates the container, layout, dtype, output size, interpolation,
+    device, autograd state, and antialias contract before entering Albucore.
     """
-    _validate_resize3d_interpolation(interpolation, antialias)
-
     if isinstance(volume, np.ndarray):
-        _validate_resize3d_numpy(volume)
         if volume.shape[:3] == size:
             return volume
         return _resize3d_numpy(volume, size, interpolation, antialias)
 
-    if isinstance(volume, torch.Tensor):
-        _validate_resize3d_torch(volume)
-        if antialias:
-            msg = (
-                "Torch does not support antialias=True for 5D trilinear interpolation. "
-                "See https://github.com/pytorch/pytorch/issues/191896."
-            )
-            raise NotImplementedError(msg)
-        if tuple(volume.shape[1:]) == size:
-            return volume
-        if _should_resize3d_torch_use_numpy_route(volume, size, interpolation):
-            return _resize3d_torch_via_numpy(volume, size, interpolation)
-        return _resize3d_torch_cpu(volume, size, interpolation)
-
-    msg = f"resize3d supports np.ndarray and torch.Tensor, got {type(volume).__name__}."
-    raise TypeError(msg)
+    if tuple(volume.shape[1:]) == size:
+        return volume
+    if _should_resize3d_torch_use_numpy_route(volume, size, interpolation):
+        return _resize3d_torch_via_numpy(volume, size, interpolation)
+    return _resize3d_torch_cpu(volume, size, interpolation)

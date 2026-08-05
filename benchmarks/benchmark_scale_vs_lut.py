@@ -12,14 +12,13 @@ Implementations compared
   output frombuffer'd back.  Matches production ``multiply_by_constant_numkong``.
 - **sz full**   — single ``sz.translate`` over the ravelled buffer with a precomputed LUT.
   Matches production ``sz_lut_full_buffer`` / ``apply_uint8_lut`` (shared-LUT path).
-- **cv2.LUT**   — ``cv2.LUT(img, lut)`` on the contiguous HWC/DHWC/NDHWC array.
+- **cv2.LUT**   — ``cv2.LUT(img, lut)`` on the contiguous HWC/DHWC array.
   OpenCV accepts arbitrary-ndim uint8 arrays for a 1-D shared table.
 
 Shapes (channel-last, Albucore convention)
 ------------------------------------------
 HWC  (H, W, C)         — 2-D spatial images
 DHWC (D, H, W, C)      — 3-D volumes (e.g. nnU-Net patches)
-NDHWC (N, D, H, W, C)  — batch of volumes
 
 Run::
 
@@ -36,7 +35,6 @@ import cv2
 import numkong as nk
 import numpy as np
 import stringzilla as sz
-
 from shape_grids import SCALE_LUT_SHAPES
 from timing import bench_wall_ms
 
@@ -92,13 +90,9 @@ def impl_cv2_lut(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
 # DHWC (D, H, W, C):
 #   3-D medical patches (nnU-Net style).  Non-square in-plane sizes; depth 16–128.
 #   1-ch (CT/MRI single modality) and 3-ch (multi-contrast / RGB video).
-#
-# NDHWC (N, D, H, W, C):
-#   Small batches of volumes as seen in a training DataLoader.
-#
 _SHAPES = SCALE_LUT_SHAPES
 
-_LAYOUT = {3: "HWC", 4: "DHWC", 5: "NDHWC"}
+_LAYOUT = {3: "HWC", 4: "DHWC"}
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────

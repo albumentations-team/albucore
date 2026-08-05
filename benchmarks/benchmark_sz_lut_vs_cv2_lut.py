@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""
-``sz_lut`` (StringZilla ``translate``) vs ``cv2.LUT`` on uint8 data — shared and per-channel LUTs.
+"""``sz_lut`` (StringZilla ``translate``) vs ``cv2.LUT`` on uint8 data — shared and per-channel LUTs.
 
 Layouts (channel last, Albucore convention):
 
 - ``(H, W, C)``
 - ``(D, H, W, C)``
-- ``(N, D, H, W, C)``
 
 **Shared LUT** (length 256): one table for every byte.
 
@@ -18,7 +16,7 @@ Layouts (channel last, Albucore convention):
 
 - **SZ per-ch:** loop ``sz_lut`` per channel with ``lut_1d[c]``.
 - **cv2 loop:** ``C`` times ``cv2.LUT(img[..., c], lut_1d[c])``.
-- **cv2 flat:** ``(256, 1, C)`` one-shot on ``(H, W, C)``; for ``DHWC`` / ``NDHWC``, flatten
+- **cv2 flat:** ``(256, 1, C)`` one-shot on ``(H, W, C)``; for ``DHWC``, flatten
   the leading dimensions to a synthetic HWC view first.
 
 Non-uint8 / non-standard cases are not timed; production still routes those through OpenCV.
@@ -39,10 +37,10 @@ import platform
 import cv2
 import numpy as np
 import stringzilla as sz
-
-from albucore.lut import sz_lut
 from shape_grids import SZ_LUT_BENCHMARK_SHAPES
 from timing import median_ms
+
+from albucore.lut import sz_lut
 
 # Reproducible non-trivial uint8 LUTs (not ``arange`` identity).
 _LUT_PERM_SEED = 42
@@ -101,7 +99,7 @@ def cv2_lut_per_channel_distinct(
 ) -> np.ndarray:
     """OpenCV accepts ``(256, 1, C)`` only for **2-D** multi-channel images ``(H, W, C)``.
 
-    For ``(D, H, W, C)`` / ``(N, D, H, W, C)``, ``lut.cpp`` rejects multi-column LUTs; mirror
+    For ``(D, H, W, C)``, ``lut.cpp`` rejects multi-column LUTs; mirror
     production by applying ``cv2.LUT`` per channel on ``img[..., c]`` with a length-256 table.
     """
     a = np.ascontiguousarray(img, dtype=np.uint8)
@@ -164,7 +162,7 @@ def main() -> None:
             tag = "SZ loop"
         else:
             tag = "cv2"
-        layout = {3: "HWC", 4: "DHWC", 5: "NDHWC"}.get(len(sh), "?")
+        layout = {3: "HWC", 4: "DHWC"}.get(len(sh), "?")
         shape_str = "×".join(str(x) for x in sh)
         print(
             f"| {layout} | {shape_str} | {npx} | {t_sz1:.4f} | {t_szc:.4f} | {t_cv2:.4f} | {tag} |",
@@ -198,7 +196,7 @@ def main() -> None:
             tag = "cv2 loop"
         else:
             tag = "cv2 flat"
-        layout = {3: "HWC", 4: "DHWC", 5: "NDHWC"}.get(len(sh), "?")
+        layout = {3: "HWC", 4: "DHWC"}.get(len(sh), "?")
         shape_str = "×".join(str(x) for x in sh)
         print(f"| {layout} | {shape_str} | {npx} | {t_szc:.4f} | {t_cv2:.4f} | {t_cv2_flat:.4f} | {tag} |")
 
@@ -207,7 +205,7 @@ def main() -> None:
         "**Notes:**\n"
         "- **SZ full** is only valid when one LUT applies to every byte (scalar `apply_lut` path).\n"
         "- **SZ loop** matches the non-contiguous multi-channel `apply_lut` fallback (`sz_lut` per channel).\n"
-        "- **cv2** shared `(256,)`: contiguous `HWC` / `DHWC` / `NDHWC` work here. "
+        "- **cv2** shared `(256,)`: contiguous `HWC` / `DHWC` work here. "
         "Per-channel distinct: direct `(256,1,C)` is **only** valid for `ndim==3`, but contiguous "
         "volumes/batches can be reshaped to HWC and use the same one-shot OpenCV path.\n"
         "- Regenerate on your CPU; routing should follow benchmarks, not assumptions.\n",

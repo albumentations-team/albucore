@@ -277,33 +277,3 @@ def test_resize3d_torch_noncontiguous_and_identity_contract() -> None:
     assert result.shape == (5, 4, 6, 8)
     identity_size = (volume.shape[1], volume.shape[2], volume.shape[3])
     assert resize3d(volume, identity_size) is volume
-
-
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        np.float64,
-        np.int16,
-    ],
-)
-def test_resize3d_rejects_unsupported_numpy_dtype(dtype: type[np.float64 | np.int16]) -> None:
-    """The kernel rejects unsupported NumPy dtypes after AlbumentationsX validates shape metadata."""
-    with pytest.raises(ValueError, match="only uint8 and float32"):
-        resize3d(np.zeros((5, 7, 9, 1), dtype=dtype), (4, 6, 8))
-
-
-def test_resize3d_rejects_unsupported_interpolation_and_nearest_antialias() -> None:
-    """Only modes with a documented cross-container contract are public."""
-    volume = _numpy_volume(np.uint8, channels=1)
-
-    with pytest.raises(ValueError, match=r"INTER_LINEAR and cv2\.INTER_NEAREST"):
-        resize3d(volume, (4, 6, 8), interpolation=cv2.INTER_CUBIC)
-    with pytest.raises(ValueError, match="antialias=True requires"):
-        resize3d(volume, (4, 6, 8), interpolation=cv2.INTER_NEAREST, antialias=True)
-
-
-def test_resize3d_rejects_torch_antialiasing() -> None:
-    """The Tensor kernel surfaces the upstream 5D antialiasing gap."""
-    volume = torch.rand((1, 5, 7, 9))
-    with pytest.raises(NotImplementedError, match="pytorch/issues/191896"):
-        resize3d(volume, (volume.shape[1], volume.shape[2], volume.shape[3]), antialias=True)

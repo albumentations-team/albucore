@@ -117,17 +117,3 @@ def test_median_blur_does_not_mutate_input(
 
     np.testing.assert_array_equal(image, before)
     assert not np.shares_memory(result, image)
-
-
-@pytest.mark.parametrize("kernel_size", [1, 2, 4])
-def test_median_blur_rejects_invalid_kernel(kernel_size: int) -> None:
-    with pytest.raises(ValueError, match="ksize must be odd and >= 3"):
-        median_blur(_make_image(3, np.uint8), kernel_size)
-
-
-@pytest.mark.parametrize("dtype", [np.uint16, np.int16, np.float16, np.float64])
-def test_median_blur_rejects_unsupported_dtype(dtype: type[np.generic]) -> None:
-    image = np.zeros((9, 11, 3), dtype=dtype)
-
-    with pytest.raises(ValueError, match="Albucore supports only uint8 and float32"):
-        median_blur(image, 3)
