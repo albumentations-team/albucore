@@ -15,7 +15,6 @@ from albucore.utils import (
     ImageType,
     ImageUInt8,
     NormalizationType,
-    _validate_image_rank,
     get_num_channels,
 )
 
@@ -225,9 +224,6 @@ def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: f
 
 def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
     """Apply per-channel LUTs to an image."""
-    if luts.shape != (256, 1, num_channels):
-        msg = f"Expected per-channel LUTs shaped (256, 1, {num_channels}), got {luts.shape}"
-        raise ValueError(msg)
     return _apply_float_lut(img, luts)
 
 
@@ -362,7 +358,6 @@ def normalize_per_image(img: ImageType, normalization: NormalizationType) -> Ima
     Returns:
         float32 image, same spatial shape as ``img``.
     """
-    _validate_image_rank(img)
     # Route uint8 images
     if img.dtype == np.uint8:
         # Use LUT for everything except min_max (where OpenCV is 3x faster)

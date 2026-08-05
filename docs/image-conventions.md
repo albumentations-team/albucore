@@ -4,6 +4,14 @@
 
 Albucore expects images to follow specific shape conventions where **the channel dimension is always present**, even for grayscale images.
 
+## Validation boundary
+
+Albucore is the low-level execution layer. AlbumentationsX and other callers validate the container, rank, layout,
+explicit channel dimension, dtype, device, contiguity, autograd state, and operation control data before entering an
+Albucore router. Routers therefore assume their documented preconditions and do not repeat metadata validation on
+the hot path. The `np.ndarray`/`torch.Tensor` dispatch that selects a backend is implementation routing, not a second
+validation pass.
+
 ## Shape Formats
 
 ### Single Images and Volumes

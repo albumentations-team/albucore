@@ -1,364 +1,364 @@
-# План eager CPU-поддержки `torch.Tensor` в Albucore
+# Eager CPU `torch.Tensor` support plan for Albucore
 
-Дата плана: 2026-08-02.
+Plan date: 2026-08-02.
 
-## Результат миграции
+## Migration outcome
 
-Albucore принимает два вида изображений:
+Albucore accepts two image containers:
 
-- `np.ndarray` в текущих channel-last форматах `HWC`, `NHWC`, `DHWC`;
-- `torch.Tensor` в стандартных для PyTorch channel-first форматах `CHW`, `NCHW`, `CDHW`.
+- `np.ndarray` in the existing channel-last layouts `HWC`, `NHWC`, and `DHWC`;
+- `torch.Tensor` in the standard PyTorch channel-first layouts `CHW`, `NCHW`, and `CDHW`.
 
-Первая версия работает только на CPU. Публичный router сохраняет контейнер и layout входа: NumPy-вход возвращает `np.ndarray`, Tensor-вход — `torch.Tensor`. Autograd не входит в этот этап; Tensor с `requires_grad=True` завершается понятной ошибкой.
+The first release is CPU-only. A public router preserves the input container and layout: a NumPy input returns `np.ndarray`, and a Tensor input returns `torch.Tensor`. Autograd is outside this stage; `requires_grad=True` is rejected by the upstream caller.
 
-Рабочий baseline для Tensor-входа уже известен: `Tensor CHW → NumPy HWC → текущий Compose → Tensor CHW`. Для image batch’ей и single-volume data используются соответствующие пары layouts. Этот путь позволяет сразу принять CPU Tensor в `Compose` и переиспользовать весь текущий код.
+The working Tensor baseline is `Tensor CHW → NumPy HWC → existing Compose → Tensor CHW`. Image batches and single volumes use the corresponding layout pairs. This path allows CPU Tensor input immediately while reusing the current implementation.
 
-Затем отдельные helpers и последовательности helpers получают Torch-реализации. Compose переключает представление только на границе NumPy- и Torch-участка и по возможности объединяет соседние операции одного backend’а. Torch-участок принимается, когда полный benchmark с conversions показывает время не хуже baseline. Существующие NumPy, OpenCV, NumKong и StringZilla реализации остаются доступными как fallback.
+Individual helpers and helper sequences can later receive Torch implementations. Compose should change representation only at a NumPy/Torch boundary and should group adjacent operations that use the same backend. A Torch segment is accepted only when a full benchmark, including conversions, is no slower than the baseline. Existing NumPy, OpenCV, NumKong, and StringZilla implementations remain available as fallbacks.
 
-Routing симметричен. Tensor-вход может использовать текущий NumPy helper, а NumPy-вход — Torch helper. Контейнер пользователя определяет только публичный вход и выход; внутренний backend выбирается по полному времени участка с учётом axis permutations, contiguity и container conversions.
+Routing is symmetric. A Tensor input may use the existing NumPy helper, and a NumPy input may use a Torch helper. The user-facing container determines only the public input and output; the internal backend is selected from full-segment timings that include axis permutations, contiguity, and container conversions.
 
-Границы первой версии:
+First-release boundaries:
 
-- CPU Tensor с `requires_grad=False`;
-- NumPy fallback разрешён и считается корректным основным маршрутом;
-- `torch.compile`, `vmap`, CUDA, MPS, GPU routing и autograd откладываются;
-- Torch-код проектируется так, чтобы последующий GPU-этап не потребовал снова переписывать layouts и signatures.
+- CPU Tensor with `requires_grad=False`;
+- NumPy fallback is allowed and is the correctness baseline;
+- `torch.compile`, `vmap`, CUDA, MPS, GPU routing, and autograd are deferred;
+- Torch code must keep future GPU work from requiring another layout or signature rewrite.
 
 ```mermaid
 flowchart LR
-    N["np.ndarray<br/>HWC / NHWC / DHWC"] --> R["Публичный router"]
+    N["np.ndarray<br/>HWC / NHWC / DHWC"] --> R["Public router"]
     T["CPU torch.Tensor<br/>CHW / NCHW / CDHW"] --> R
-    R --> NB["Текущие NumPy / OpenCV / NumKong / StringZilla helpers"]
-    R --> TB["Измеренные eager Torch CPU helpers"]
-    NB --> NO["np.ndarray<br/>тот же channel-last layout"]
-    TB --> TO["torch.Tensor<br/>тот же channel-first layout"]
+    R --> NB["Existing NumPy / OpenCV / NumKong / StringZilla helpers"]
+    R --> TB["Benchmarked eager Torch CPU helpers"]
+    NB --> NO["np.ndarray<br/>same channel-last layout"]
+    TB --> TO["torch.Tensor<br/>same channel-first layout"]
 ```
 
-## Что уже есть в рабочем дереве
+## Already present in the working tree
 
-На момент составления плана в незакоммиченном рабочем дереве уже находятся:
+At the time this plan was written, the uncommitted tree already contained:
 
-- `torch>=2.13.0` в `pyproject.toml` и обновлённый `uv.lock`;
-- production `albucore/torch_backend.py` с eager import;
-- CPU-тесты и benchmark’и для NumPy-массивов, которые временно оборачиваются через `torch.from_numpy`;
-- [аудит Torch CPU backend](research/torch-cpu-backend-audit.md).
+- `torch>=2.13.0` in `pyproject.toml` and an updated `uv.lock`;
+- production `albucore/torch_backend.py` with eager import;
+- CPU tests and benchmarks for NumPy arrays temporarily wrapped with `torch.from_numpy`;
+- the [Torch CPU backend audit](research/torch-cpu-backend-audit.md).
 
-Аудит подтвердил четыре больших CPU-региона для NumPy-входов: `from_float` из float32 в uint8, scalar `multiply_add`, многоканальный float32 `normalize` и несколько вариантов `reduce_sum`. Эти production routes оборачивают NumPy storage без перестановки осей и сохраняют внутренний Tensor в channel-last shape. Они независимы от public `resize3d`, который принимает `CDHW`; аудит пока не покрывает общий Tensor input для Compose и длинные цепочки AlbumentationsX.
+The audit identified four major CPU regions for NumPy inputs: float32-to-uint8 `from_float`, scalar `multiply_add`, multi-channel float32 `normalize`, and several `reduce_sum` variants. These production routes wrap NumPy storage without moving axes and keep the internal Tensor channel-last. They are independent of public `resize3d`, which accepts `CDHW`; the audit does not yet cover general Tensor input to Compose or long AlbumentationsX chains.
 
-Текущие wrappers остаются NumPy-специфичными:
+Current wrappers remain NumPy-specific:
 
-- `contiguous` использует `array.flags` и `np.require`;
-- `preserve_channel_dim` использует `np.expand_dims`;
-- `clipped` использует `np.clip` и `np.shares_memory`;
-- `float32_io` и `uint8_io` вызывают NumPy-ориентированные `to_float` и `from_float`;
-- `batch_transform` использует channel-last reshape и `np.moveaxis`;
-- публичные `ImageType`, `ImageUInt8`, `ImageFloat32` и `ValueType` описывают только NumPy.
+- `contiguous` uses `array.flags` and `np.require`;
+- `preserve_channel_dim` uses `np.expand_dims`;
+- `clipped` uses `np.clip` and `np.shares_memory`;
+- `float32_io` and `uint8_io` call NumPy-oriented `to_float` and `from_float`;
+- `batch_transform` uses channel-last reshape and `np.moveaxis`;
+- public `ImageType`, `ImageUInt8`, `ImageFloat32`, and `ValueType` describe only NumPy.
 
-## Контракт массива и Tensor
+## Array and Tensor contract
 
-Контракт нужно зафиксировать до переноса kernels. Иначе одна функция начнёт считать каналом первую ось, другая — последнюю, а 4D данные будут неоднозначны.
+The contract must be fixed before kernels are ported. Otherwise one function may treat the first axis as channels while another treats the last axis as channels, making four-dimensional data ambiguous.
 
-| Свойство | `np.ndarray` | `torch.Tensor` |
+| Property | `np.ndarray` | `torch.Tensor` |
 |---|---|---|
-| Один 2D image | `HWC` | `CHW` |
-| Batch 2D images | `NHWC` | `NCHW` |
-| Один volume | `DHWC` | `CDHW` |
-| Grayscale | явная ось `C=1` | явная ось `C=1` |
-| Поддерживаемые image dtypes | `uint8`, `float32` | `torch.uint8`, `torch.float32` |
-| Результат | `np.ndarray` | `torch.Tensor` |
-| Выполнение | CPU | CPU |
-| Autograd | неприменим | вне первого этапа; требуется `requires_grad=False` |
+| One 2D image | `HWC` | `CHW` |
+| Batch of 2D images | `NHWC` | `NCHW` |
+| One volume | `DHWC` | `CDHW` |
+| Grayscale | explicit `C=1` axis | explicit `C=1` axis |
+| Supported image dtypes | `uint8`, `float32` | `torch.uint8`, `torch.float32` |
+| Result | `np.ndarray` | `torch.Tensor` |
+| Execution | CPU | CPU |
+| Autograd | not applicable | outside the first stage; requires `requires_grad=False` |
 
-### Неоднозначность 4D Tensor
+### Ambiguous four-dimensional Tensor
 
-Shape вида `(X, Y, H, W)` не сообщает, является ли Tensor batch’ем `NCHW` или volume `CDHW`. Проверка «похож ли размер оси на число каналов» даст ошибки на multispectral images, небольших image batch’ах и single-volume data.
+A shape such as `(X, Y, H, W)` does not say whether the Tensor is an `NCHW` batch or a `CDHW` volume. Guessing from an axis that happens to resemble a channel count fails for multispectral images, small batches, and single volumes.
 
-План использует явный контекст:
+The plan uses explicit context:
 
-- AlbumentationsX передаёт target kind: `image`, `images` или `volume`;
-- низкоуровневый публичный вызов с неоднозначным 4D Tensor передаёт `layout="NCHW"` или `layout="CDHW"`;
-- rank 3 однозначно означает `CHW`;
-- wrappers и routers не угадывают layout по размерам осей.
+- AlbumentationsX passes the target kind: `image`, `images`, or `volume`;
+- a low-level public call with an ambiguous four-dimensional Tensor passes `layout="NCHW"` or `layout="CDHW"`;
+- rank three unambiguously means `CHW`;
+- wrappers and routers never infer layout from axis sizes.
 
-Добавление одного и того же `layout` keyword во все функции создаст шум в API. Сначала нужно сделать внутренний `ArrayLayout`/`ImageKind` descriptor и передавать его через dispatch context. Публичный keyword нужен только в entry points, где 4D Tensor может прийти без контекста AlbumentationsX.
+Adding the same `layout` keyword to every function would add API noise. First introduce an internal `ArrayLayout`/`ImageKind` descriptor and pass it through dispatch context. A public keyword is needed only at entry points where a four-dimensional Tensor can arrive without AlbumentationsX context.
 
-### Дополнительные правила
+### Additional rules
 
-1. Python scalars принимаются обоими backend’ами.
-2. Tensor с `requires_grad=True` отклоняется на входе `Compose`: NumPy fallback не может сохранить вычислительный граф.
-3. Полноразмерные operands конвертируются вместе с image на границе backend-участка. Маленькие scalar и per-channel параметры можно материализовать непосредственно в нужном контейнере.
-4. Tensor → NumPy → Tensor является разрешённым CPU fallback. Переход выполняется через единый adapter, виден в benchmark и считается в профиле conversions.
-5. Compose не должен переобувать данные перед каждым helper’ом. После перехода в NumPy данные остаются NumPy до первого доказанно выгодного Torch-участка; соседние Torch helpers также выполняются без промежуточного NumPy.
-6. `inplace=True` остаётся явным запросом вызывающего кода. Adapter не обещает сохранить aliasing между исходным Tensor и результатом после NumPy pipeline.
-7. Публичный Tensor router возвращает Tensor. Для суммы uint8 начальный контракт использует `torch.int64`; NumPy-путь сохраняет текущий `np.uint64`. Разницу нужно закрепить в документации и overflow-тестах.
-8. Adapter переставляет axes между channel-first Tensor и channel-last NumPy. `movedim`/`transpose` часто создаёт view, но последующий helper или требование contiguous output может материализовать копию; полный benchmark обязан считать её.
-9. NumPy router имеет право выбрать Torch helper. После выполнения adapter возвращает `np.ndarray` в исходном channel-last layout. Такой route включается только там, где полный `NumPy → Tensor channel-first → Torch helper → NumPy` путь не медленнее текущего NumPy/OpenCV/NumKong/StringZilla пути.
+1. Python scalars are accepted by both backends.
+2. `requires_grad=True` is rejected at the Compose boundary because the NumPy fallback cannot preserve the computation graph.
+3. Full-size operands cross the backend boundary together with the image. Small scalar and per-channel parameters may be materialized directly in the target container.
+4. Tensor → NumPy → Tensor is an allowed CPU fallback. One adapter performs the transition; benchmarks count it as a conversion.
+5. Compose must not switch representation before every helper. After a NumPy transition, data stays NumPy until a Torch segment is demonstrably beneficial; adjacent Torch helpers also run without an intermediate NumPy conversion.
+6. `inplace=True` remains an explicit caller request. The adapter does not promise aliasing between the original Tensor and the result after a NumPy pipeline.
+7. The public Tensor router returns a Tensor. The initial uint8 sum contract uses `torch.int64`; the NumPy path keeps its current `np.uint64`. Document and test the difference.
+8. The adapter moves axes between channel-first Tensor and channel-last NumPy. `movedim`/`transpose` often creates a view, but a later helper or contiguous-output requirement may materialize a copy; full benchmarks must count it.
+9. A NumPy router may choose a Torch helper. The adapter then returns an `np.ndarray` in the original channel-last layout, but only when the complete `NumPy → channel-first Tensor → Torch helper → NumPy` path is no slower than the current NumPy/OpenCV/NumKong/StringZilla path.
 
-## Этап 1. Сделать Torch обязательной зависимостью
+## Stage 1. Make Torch a required dependency
 
-- [x] Зафиксировать `torch>=2.13.0` по используемым API и lock wheel metadata для Python 3.10–3.14.
-- [x] Сделать Torch обязательной install-зависимостью в `pyproject.toml` и обновить `uv.lock` в том же PR.
-- [x] Выполнить `uv lock --check` и проверить release-команду с `uv export --frozen`.
-- [ ] Проверить чистую установку wheel и sdist на Linux x86-64/aarch64, Windows amd64 и macOS arm64 для всех заявленных Python.
-- [ ] Решить судьбу macOS x86-64: в текущем lock для Torch 2.13.0 нет такого wheel. Либо добавить поддерживаемый источник, либо скорректировать platform support Albucore.
-- [ ] Измерить install footprint. В текущем lock сам Torch wheel занимает примерно 111 MB на macOS arm64, 122 MB на Windows amd64, 427 MB на Linux aarch64 и 527 MB на Linux x86-64; Linux также подтягивает CUDA/Triton зависимости.
-- [x] Torch импортируется eagerly как обязательная dependency. Контекст задачи — обучение моделей, где Torch уже загружен; import-time оптимизация не является release goal.
-- [ ] Добавить проверку лицензий и third-party notices для новой обязательной зависимости.
-- [x] Обновить installation docs: Torch ставится вместе с Albucore, а Tensor API остаётся CPU-only.
+- [x] Pin `torch>=2.13.0` to the APIs used and lock wheel metadata for Python 3.10–3.14.
+- [x] Make Torch an install dependency in `pyproject.toml` and update `uv.lock` in the same PR.
+- [x] Run `uv lock --check` and verify the release command with `uv export --frozen`.
+- [ ] Verify clean wheel and sdist installation on Linux x86-64/aarch64, Windows amd64, and macOS arm64 for every supported Python.
+- [ ] Decide how to handle macOS x86-64: Torch 2.13.0 has no wheel in the current lock. Add a supported source or adjust Albucore platform support.
+- [ ] Measure install footprint. The current lock lists Torch wheels of approximately 111 MB on macOS arm64, 122 MB on Windows amd64, 427 MB on Linux aarch64, and 527 MB on Linux x86-64; Linux also pulls CUDA/Triton dependencies.
+- [x] Import Torch eagerly as a required dependency. The target workload is model training, where Torch is already loaded; import-time optimization is not a release goal.
+- [ ] Add license and third-party notice checks for the new required dependency.
+- [x] Update installation docs: Torch installs with Albucore, while the Tensor API remains CPU-only.
 
-Условие завершения: опубликованный артефакт устанавливается на заявленной матрице платформ, lock воспроизводим, а eager Torch import документирован как стоимость обязательной dependency.
+Completion condition: the published artifact installs on the supported platform matrix, the lock is reproducible, and eager Torch import is documented as a required cost.
 
-## Этап 2. Ввести backend-neutral типы и dispatch
+## Stage 2. Add backend-neutral types and dispatch
 
-- [ ] Разделить типы на `NumpyImage`, `TorchImage` и общий публичный `ImageType`.
-- [ ] Добавить overload’ы: контейнер первого image-аргумента определяет контейнер результата.
-- [ ] Добавить `TensorLayout = Literal["CHW", "NCHW", "CDHW"]` и внутренний descriptor с `channel_axis`, spatial axes и batch/depth axes.
-- [ ] Добавить CPU adapter для обеих сторон: Tensor channel-first → NumPy channel-last и NumPy channel-last → Tensor channel-first.
-- [ ] Добавить внутреннее состояние представления в `Compose`: исходный контейнер, текущий контейнер, layout и число выполненных conversions.
-- [ ] Разрешить helper’у объявить доступные реализации: `numpy`, `torch` или обе. Dispatch выбирает backend для связного участка, а не конвертирует данные внутри каждого helper’а независимо.
-- [ ] Нормализовать dtype tokens: `np.dtype`, NumPy scalar type и `torch.dtype` должны сравниваться через один внутренний enum.
-- [ ] Расширить `MAX_VALUES_BY_DTYPE`, validation, `get_num_channels`, `is_grayscale_image`, `is_rgb_image`, `is_multispectral_image` и `get_image_data`.
-- [ ] Добавить helpers для `reshape`, `movedim`, `unsqueeze`, `clip`, allocation, contiguity и dtype conversion с dispatch по контейнеру.
-- [ ] Не экспортировать backend-specific kernels через package `__all__`. Публичными остаются routers и общие типы; классификацию обновить в [public API doc](public-api.md).
-- [ ] Проверить mypy/pyright-подобные сценарии для NumPy и Torch вызывающего кода. Runtime-аннотации должны сохранять container-preserving overload’ы.
+- [ ] Split types into `NumpyImage`, `TorchImage`, and a shared public `ImageType`.
+- [ ] Add overloads where the first image argument determines the result container.
+- [ ] Add `TensorLayout = Literal["CHW", "NCHW", "CDHW"]` and an internal descriptor with channel, spatial, batch, and depth axes.
+- [ ] Add CPU adapters in both directions: channel-first Tensor → channel-last NumPy and channel-last NumPy → channel-first Tensor.
+- [ ] Add representation state to Compose: original container, current container, layout, and conversion count.
+- [ ] Let each helper declare whether it supports NumPy, Torch, or both. Dispatch should choose a connected backend segment instead of converting independently inside every helper.
+- [ ] Normalize dtype tokens so `np.dtype`, NumPy scalar types, and `torch.dtype` compare through one internal enum.
+- [ ] Extend `MAX_VALUES_BY_DTYPE`, validation, `get_num_channels`, `is_grayscale_image`, `is_rgb_image`, `is_multispectral_image`, and `get_image_data`.
+- [ ] Add container-dispatched helpers for reshape, `movedim`, `unsqueeze`, clip, allocation, contiguity, and dtype conversion.
+- [ ] Keep backend-specific kernels out of package `__all__`. Public exports remain routers and shared types; update the classification in [the public API documentation](public-api.md).
+- [ ] Check mypy/pyright-like NumPy and Torch call sites. Runtime annotations must preserve container-preserving overloads.
 
-Условие завершения: типы отражают container-preserving public return, channel axis берётся из явного layout context, conversions сосредоточены в одном adapter’е, а backend-specific имена остаются внутренними или доступны только по документированному submodule import.
+Completion condition: types describe container-preserving public returns, the channel axis comes from explicit layout context, conversions are centralized in one adapter, and backend-specific names remain internal or are exposed only through documented submodule imports.
 
-## Этап 3. Перевести wrappers
+## Stage 3. Port wrappers
 
 ### `contiguous`
 
-- [ ] Для NumPy сохранить проверку C-contiguous и `np.require`.
-- [ ] Для Tensor использовать `tensor.is_contiguous()` и `tensor.contiguous()`.
-- [ ] Не путать logical `NCHW` с Torch memory format `channels_last`: `channels_last` — специальный stride layout для Tensor формы `NCHW`, а публичный NumPy layout `NHWC` обозначает порядок осей.
-- [ ] Считать копии входа и выхода в benchmark, поскольку `.contiguous()` может материализовать весь Tensor.
+- [ ] Preserve NumPy C-contiguous handling with `np.require`.
+- [ ] Use `tensor.is_contiguous()` and `tensor.contiguous()` for Tensor input.
+- [ ] Do not confuse logical `NCHW` with Torch's `channels_last` memory format. `channels_last` is a Tensor stride layout for `NCHW`; NumPy `NHWC` denotes axis order.
+- [ ] Count input and output copies in benchmarks because `.contiguous()` can materialize the full Tensor.
 
 ### `preserve_channel_dim`
 
-- [ ] Сохранить NumPy/OpenCV восстановление `HWC` после `(H, W)`.
-- [ ] Tensor path обычно не теряет channel axis; wrapper валидирует, что результат сохранил `C=1` на правильной оси.
-- [ ] Для разрешённых shape-changing kernels использовать `unsqueeze(channel_axis)` вместо фиксированного `axis=-1`.
+- [ ] Preserve NumPy/OpenCV restoration of `HWC` after `(H, W)`.
+- [ ] Tensor paths normally retain the channel axis; the wrapper must ensure that `C=1` remains on the correct axis.
+- [ ] Use `unsqueeze(channel_axis)` rather than a fixed `axis=-1` for allowed shape-changing kernels.
 
 ### `clipped`, `float32_io`, `uint8_io`
 
-- [ ] Добавить `torch.clamp`/`clamp_` и Torch dtype conversions.
-- [ ] Воспроизвести текущие scale, round и saturation semantics побитово для uint8 там, где это возможно.
-- [ ] Сохранить публичный Tensor container и layout после конвертации туда и обратно.
-- [ ] Если нативного Torch kernel ещё нет или он медленнее, использовать общий CPU adapter и текущий NumPy wrapper.
+- [ ] Add `torch.clamp`/`clamp_` and Torch dtype conversions.
+- [ ] Reproduce scale, rounding, and saturation semantics for uint8 where possible.
+- [ ] Preserve the public Tensor container and layout after conversion in either direction.
+- [ ] When no native Torch kernel exists or it is slower, use the common CPU adapter and existing NumPy wrapper.
 
 ### `batch_transform`
 
-- [ ] Разделить NumPy channel-last и Tensor channel-first reshape tables.
-- [ ] Передавать `image`/`images`/`volume` context, чтобы различать `NCHW` и `CDHW`.
-- [ ] Сохранить текущую семантику общих и независимых transform parameters для batch/volume.
-- [ ] Оставить `maybe_process_in_chunks` NumPy/OpenCV-specific helper’ом. Он не должен притворяться Tensor-compatible API.
+- [ ] Separate NumPy channel-last and Tensor channel-first reshape tables.
+- [ ] Pass `image`/`images`/`volume` context so `NCHW` and `CDHW` are unambiguous.
+- [ ] Preserve shared and independent transform-parameter semantics for batches and volumes.
+- [ ] Keep `maybe_process_in_chunks` NumPy/OpenCV-specific; it must not pretend to be a Tensor-compatible API.
 
-Условие завершения: каждый wrapper имеет table-driven tests для обоих контейнеров, всех четырёх layouts, `C=1/3/9`, contiguous и strided inputs. Отдельный test считает backend boundaries и не допускает повторной конвертации между соседними NumPy helpers.
+Completion condition: every wrapper has table-driven tests for both containers, all four supported layouts, `C=1/3/9`, and contiguous and strided inputs. A separate test counts backend boundaries and prevents repeated conversion between adjacent NumPy helpers.
 
-## Этап 4. Добавлять Torch kernels поверх рабочего NumPy fallback
+## Stage 4. Add Torch kernels over the working NumPy fallback
 
-Сначала каждый публичный Tensor router получает корректный путь через общий NumPy adapter. Затем helpers переносятся на Torch группами. Нативный Torch kernel включается только после сравнения с fallback для того же Tensor-входа.
+First give every public Tensor router a correct path through the shared NumPy adapter. Then port helper groups to Torch. Enable a native Torch kernel only after comparing it with the fallback for the same Tensor input.
 
-### 4.1. Конвертация, арифметика и элементные функции
+### 4.1. Conversion, arithmetic, and elementwise functions
 
 - [ ] `to_float`, `from_float`;
-- [ ] `add`, `multiply`, `multiply_add`, `add_weighted`, `power` и scalar/vector/array variants;
+- [ ] `add`, `multiply`, `multiply_add`, `add_weighted`, `power`, and scalar/vector/array variants;
 - [ ] `normalize`;
 - [ ] `exp`, `log`, `sqrt`;
-- [ ] `clip` и saturation helpers.
+- [ ] `clip` and saturation helpers.
 
-Per-channel parameters для NumPy broadcast по последней оси. Для Tensor они reshape’ятся по `channel_axis` из layout descriptor. Код не должен предполагать `C == shape[-1]` для Tensor.
+NumPy per-channel parameters broadcast along the last axis. Tensor parameters reshape along `channel_axis` from the layout descriptor. Code must not assume `C == shape[-1]` for Tensor input.
 
-### 4.2. Статистики и adaptive normalization
+### 4.2. Statistics and adaptive normalization
 
 - [ ] `reduce_sum`, `mean`, `std`, `mean_std`;
-- [ ] `normalize_per_image` для global и per-channel режимов;
-- [ ] `torch.std_mean`/`torch.var_mean` как fused candidates;
-- [ ] `torch.aminmax` для min-max normalization.
+- [ ] `normalize_per_image` for global and per-channel modes;
+- [ ] `torch.std_mean`/`torch.var_mean` as fused candidates;
+- [ ] `torch.aminmax` for min-max normalization.
 
-Torch предоставляет fused APIs, которые возвращают обе статистики за один вызов: [`std_mean`](https://docs.pytorch.org/docs/stable/generated/torch.std_mean.html), [`var_mean`](https://docs.pytorch.org/docs/stable/generated/torch.var_mean.html) и [`aminmax`](https://docs.pytorch.org/docs/stable/generated/torch.aminmax.html). NumKong и OpenCV уже имеют конкурирующие fused routes, а текущий CPU-аудит не показал устойчивой победы Torch для `mean/std/mean_std`. Поэтому эти APIs сначала используются для нативного Tensor-пути; NumPy routing меняется после отдельного benchmark.
+Torch provides fused APIs that return both statistics in one call: [`std_mean`](https://docs.pytorch.org/docs/stable/generated/torch.std_mean.html), [`var_mean`](https://docs.pytorch.org/docs/stable/generated/torch.var_mean.html), and [`aminmax`](https://docs.pytorch.org/docs/stable/generated/torch.aminmax.html). NumKong and OpenCV already have competing fused routes, and the CPU audit found no durable Torch win for `mean/std/mean_std`. Use these APIs first for native Tensor paths; change NumPy routing only after a separate benchmark.
 
-### 4.3. Flip, linear algebra и distances
+### 4.3. Flip, linear algebra, and distances
 
-- [ ] `hflip`/`vflip` через `torch.flip` по spatial axis из descriptor;
-- [ ] `matmul` через `torch.matmul`;
-- [ ] `pairwise_distances_squared` через формулу без лишнего `sqrt`;
-- [ ] проверить eager Torch CPU вариант для длинных matrix chains.
+- [ ] `hflip`/`vflip` through `torch.flip` on spatial axes from the descriptor;
+- [ ] `matmul` through `torch.matmul`;
+- [ ] `pairwise_distances_squared` using a formula without an unnecessary `sqrt`;
+- [ ] benchmark eager Torch CPU for long matrix chains.
 
-Текущий аудит оставляет NumPy/NumKong routes для NumPy-входов: HWC flip и `torch.cdist(...).square()` не дали устойчивого CPU-выигрыша.
+The current audit keeps NumPy/NumKong routes for NumPy input: HWC flip and `torch.cdist(...).square()` showed no durable CPU win.
 
 ### 4.4. LUT
 
-- [ ] Проверить shared и per-channel LUT на CPU.
-- [ ] Включить стоимость преобразования uint8 pixels в допустимый index dtype.
-- [ ] Ограничить peak memory: full-size int64 index buffer может быть значительно больше исходного uint8 image.
+- [ ] Benchmark shared and per-channel LUT on CPU.
+- [ ] Include the cost of converting uint8 pixels to a valid index dtype.
+- [ ] Limit peak memory: a full-size int64 index buffer can be much larger than the original uint8 image.
 
-Текущий CPU-аудит оставляет LUT у OpenCV/StringZilla. Eager Torch требует полноразмерный index buffer, поэтому первая версия использует NumPy fallback. Повторное исследование LUT остаётся в отложенном backlog.
+The current CPU audit keeps LUT with OpenCV/StringZilla. Eager Torch requires a full-size index buffer, so the first version uses the NumPy fallback. Revisit LUT in a later backlog item.
 
-### 4.5. Геометрия и local-window operations
+### 4.5. Geometry and local-window operations
 
-- [ ] `resize` через `torch.nn.functional.interpolate`;
-- [ ] `remap`, affine и perspective warp через `grid_sample` и подготовку grid;
-- [ ] border через `torch.nn.functional.pad` или sampling padding mode;
-- [ ] `median_blur` через tiled `unfold`/median только при ограниченном peak memory.
+- [ ] `resize` through `torch.nn.functional.interpolate`;
+- [ ] `remap`, affine, and perspective warp through `grid_sample` and grid preparation;
+- [ ] borders through `torch.nn.functional.pad` or sampling padding modes;
+- [ ] tiled `unfold`/median for `median_blur` only when peak memory remains bounded.
 
-`grid_sample` предоставляет kernels для 2D и volumetric sampling, но использует нормализованные coordinates, `align_corners` и собственные padding rules ([документация](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html)). `interpolate` поддерживает image и volumetric resize и несколько режимов interpolation ([документация](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html)). Для замены OpenCV нужны differential tests на coordinate conventions, inverse mapping, borders, rounding, interpolation и uint8 saturation. Текущий CPU-аудит оставляет NumPy-входы на OpenCV, поэтому рабочий Tensor-вариант сначала вызывает этот путь через adapter.
+`grid_sample` provides 2D and volumetric sampling kernels but uses normalized coordinates, `align_corners`, and its own padding rules ([documentation](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html)). `interpolate` supports image and volumetric resize with several interpolation modes ([documentation](https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html)). Replacing OpenCV requires differential tests for coordinate conventions, inverse mapping, borders, interpolation, rounding, and uint8 saturation. The current CPU audit keeps NumPy input on OpenCV, so the working Tensor implementation should initially call that path through the adapter.
 
-Условие завершения этапа 4: каждый публичный router принимает CPU Tensor с зафиксированной семантикой. Helpers без быстрой Torch-реализации используют общий NumPy fallback. Выбранный backend и число conversions доступны benchmark harness’у.
+Completion condition for Stage 4: every public router accepts CPU Tensor with fixed semantics. Helpers without a fast Torch implementation use the shared NumPy fallback. The benchmark harness exposes the selected backend and conversion count.
 
-## Этап 5. Заменять NumPy routes только по benchmark
+## Stage 5. Replace NumPy routes only from benchmark evidence
 
-Нужно измерять три разных вопроса:
+Measure three separate questions:
 
-1. Может ли полный `np.ndarray → Torch CPU → np.ndarray` путь заменить текущий NumPy/OpenCV/NumKong/StringZilla router?
-2. Насколько direct Torch helper или Torch-участок быстрее рабочего `Tensor → NumPy helpers → Tensor` fallback?
-3. Выигрывает ли гибридный Tensor pipeline после учёта layout conversions и contiguity?
+1. Can the complete `np.ndarray → Torch CPU → np.ndarray` path replace the current NumPy/OpenCV/NumKong/StringZilla router?
+2. How much faster is a direct Torch helper or Torch segment than the working `Tensor → NumPy helpers → Tensor` fallback?
+3. Does a hybrid Tensor pipeline win after layout conversions and contiguity costs?
 
-Перед оптимизацией фиксируются два baseline:
+Before optimization, record two baselines:
 
-- NumPy baseline: текущий NumPy `Compose` без Torch conversions;
-- Tensor baseline: одна конвертация channel-first Tensor в channel-last NumPy на входе `Compose`, полностью текущий NumPy pipeline и одна обратная конвертация на выходе.
+- NumPy baseline: current NumPy Compose without Torch conversions;
+- Tensor baseline: one channel-first Tensor → channel-last NumPy conversion before Compose, the existing NumPy pipeline, and one reverse conversion afterward.
 
-Гибридный Tensor path не принимается, если он медленнее Tensor baseline. NumPy path не принимается, если он медленнее текущего NumPy baseline.
+Reject a hybrid Tensor path if it is slower than the Tensor baseline. Reject a NumPy path if it is slower than the current NumPy baseline.
 
-### Матрица
+### Matrix
 
 - canonical non-square HWC shapes: `128×160`, `240×320`, `480×640`, `768×1024`;
 - channels `1`, `3`, `9`;
-- соответствующие `CHW/NCHW/CDHW` Tensor shapes;
-- `uint8` и `float32`;
-- contiguous, transposed/permuted и sliced inputs;
-- scalar, per-channel и full-array operands;
-- CPU с одним thread и с фиксированным многопоточным режимом;
+- corresponding `CHW/NCHW/CDHW` Tensor shapes;
+- `uint8` and `float32`;
+- contiguous, transposed/permuted, and sliced inputs;
+- scalar, per-channel, and full-array operands;
+- one-thread CPU and a fixed multithreaded mode;
 - eager Torch CPU execution;
-- allocating и безопасный in-place режимы.
+- allocating and safe in-place modes.
 
-### Метод
+### Method
 
-- [ ] Сначала сравнить correctness: values/tolerance, shape, dtype, range, container, layout и aliasing.
-- [ ] На CPU контролировать Torch, OpenCV и BLAS threads.
-- [ ] Измерять peak memory и число full-array temporaries.
-- [ ] Считать переходы `Tensor ↔ NumPy`, axis permutations и вызовы `.contiguous()`.
-- [ ] Повторять полный run минимум три раза на каждой reference machine.
-- [ ] Сохранять rejected candidates и регионы, где они проиграли.
+- [ ] Compare correctness first: values/tolerance, shape, dtype, range, container, layout, and aliasing.
+- [ ] Control Torch, OpenCV, and BLAS thread counts on CPU.
+- [ ] Measure peak memory and the number of full-array temporaries.
+- [ ] Count Tensor ↔ NumPy transitions, axis permutations, and `.contiguous()` calls.
+- [ ] Repeat the full run at least three times on each reference machine.
+- [ ] Keep rejected candidates and the regions where they lost.
 
-### Правило принятия
+### Acceptance rule
 
-- Устойчивая победа: Torch быстрее NumPy fallback минимум на 5% в связном регионе shapes/layouts и не создаёт материальных regressions рядом с route boundary.
-- Одинаковая скорость: разница медиан укладывается в 3% в трёх независимых runs. Замена принимается, если Torch также удаляет conversion или full-array copy.
-- Шумный tie без упрощения оставляет текущий backend.
-- Для Tensor-входа сравнивается весь Compose или связный backend-участок. Более быстрый отдельный kernel отклоняется, если дополнительные conversions делают участок медленнее.
-- NumPy-вход сохраняет текущий route, пока полный `NumPy → channel-first Torch → NumPy` путь не докажет отсутствие regression.
-- Любое замедление сверяется с [performance policy](maintaining/performance-policy.md): hot-path cell больше 15% и median router family больше 10% требуют отклонения или отдельного обоснованного route.
+- Stable win: Torch is at least 5% faster than the NumPy fallback over a connected region of shapes/layouts and causes no material regression near the route boundary.
+- Same speed: median difference fits within 3% across three independent runs. Accept the replacement when Torch also removes a conversion or full-array copy.
+- A noisy tie without simplification keeps the current backend.
+- For Tensor input, compare the complete Compose or connected backend segment. Reject a faster isolated kernel when its conversions make the segment slower.
+- Keep the current NumPy route until the complete `NumPy → channel-first Torch → NumPy` path proves no regression.
+- Check every slowdown against [the performance policy](maintaining/performance-policy.md): a hot-path cell above 15% or a router-family median above 10% requires rejection or a separately justified route.
 
-Условие завершения: routing table ссылается на сохранённый benchmark report, включая accepted и rejected candidates.
+Completion condition: the routing table links to a saved benchmark report with accepted and rejected candidates.
 
-## Отложенный backlog возможностей Torch
+## Deferred Torch capability backlog
 
-Этот раздел сохраняет результаты проверки возможностей Torch из исходной задачи. Ни один пункт таблицы не входит автоматически в первую версию. Сначала нужно выпустить eager CPU Tensor path с NumPy fallback и без regression. Текущий CPU-аудит не нашёл одной eager-операции, которая универсально заменяет NumPy, OpenCV и NumKong.
+This section records Torch capabilities from the original investigation. No item automatically enters the first release. First ship an eager CPU Tensor path with NumPy fallback and no regression. The current CPU audit found no single eager operation that universally replaces NumPy, OpenCV, and NumKong.
 
-| Возможность | Что она даёт | Кандидат в Albucore/AlbumentationsX | Статус |
+| Capability | Benefit | Albucore/AlbumentationsX candidate | Status |
 |---|---|---|---|
-| `torch.compile` + TorchInductor | Компиляция нескольких Python/Torch операций, fusion pointwise kernels и удаление промежуточных materializations | длинные color/normalize/noise/matrix chains | После первой eager CPU release |
-| `torch.func.vmap` | Превращает per-sample функцию в batched функцию без ручного объединения batch/depth с channels | замена части `batch_transform`, независимые параметры на image | После первой eager CPU release |
-| `scatter_reduce` | Grouped `sum/prod/mean/amin/amax` по индексам в одном API | superpixels, component/class statistics, scatter updates | Benchmark CPU; API помечен beta и требует index Tensor ([документация](https://docs.pytorch.org/docs/stable/generated/torch.Tensor.scatter_reduce_.html)) |
-| `segment_reduce` | `sum/mean/min/max/prod` по segments, заданным lengths/offsets | отсортированные regions, run-length и grouped reductions | Проверить против `np.bincount`, `ufunc.at`, `reduceat` и сортировки ([документация](https://docs.pytorch.org/docs/2.13/generated/torch.segment_reduce.html)) |
-| `grid_sample` + `affine_grid` | Batched 2D/3D sampling в Torch | единый Tensor path для remap/affine/volume warp | Capability overlap с OpenCV; требуется semantic parity |
-| `std_mean`, `var_mean`, `aminmax` | Два результата одним fused API call | stats и per-image normalization | Упрощает Tensor code; CPU routing пока не менять |
-| `conv2d/conv3d`, pooling, `unfold` | Batched local-window kernels и композиция фильтров внутри Torch | blur, morphology, local statistics | OpenCV покрывает многие операции; `unfold` может резко увеличить память |
+| `torch.compile` + TorchInductor | Compile Python/Torch chains, fuse pointwise kernels, and remove intermediate materialization | long color/normalize/noise/matrix chains | After first eager CPU release |
+| `torch.func.vmap` | Turn a per-sample function into a batched function without manually merging batch/depth with channels | part of `batch_transform`, independent image parameters | After first eager CPU release |
+| `scatter_reduce` | Grouped `sum/prod/mean/amin/amax` through one API | superpixels, component/class statistics, scatter updates | Benchmark CPU; beta API requiring an index Tensor ([documentation](https://docs.pytorch.org/docs/stable/generated/torch.Tensor.scatter_reduce_.html)) |
+| `segment_reduce` | `sum/mean/min/max/prod` over segments specified by lengths/offsets | sorted regions, run-length, and grouped reductions | Compare with `np.bincount`, `ufunc.at`, `reduceat`, and sorting ([documentation](https://docs.pytorch.org/docs/2.13/generated/torch.segment_reduce.html)) |
+| `grid_sample` + `affine_grid` | Batched 2D/3D sampling in Torch | one Tensor path for remap/affine/volume warp | Capability overlap with OpenCV; semantic parity required |
+| `std_mean`, `var_mean`, `aminmax` | Return two statistics from one fused API call | stats and per-image normalization | Simplifies Tensor code; do not change CPU routing yet |
+| `conv2d/conv3d`, pooling, `unfold` | Batched local-window kernels and filter composition inside Torch | blur, morphology, local statistics | OpenCV already covers many operations; `unfold` may sharply increase memory |
 
-### Эксперименты после первой eager CPU release
+### Experiments after the first eager CPU release
 
-1. Скомпилировать цепочку `to_float → normalize → multiply_add → clip` и сравнить её с четырьмя отдельными public calls.
-2. Сравнить текущий `batch_transform` с `vmap` на per-image параметрах и single-volume data.
-3. Проверить `scatter_reduce`/`segment_reduce` на CPU для SLIC/superpixel means из AlbumentationsX: sweep по числу labels и плотности IDs обязателен.
-4. Проверить affine/grid pipelines для image batches и single volumes, включая построение grid и layout conversion.
-5. Проверить fused reductions на Tensor input; не повторять CPU NumPy routing без новых данных.
+1. Compile `to_float → normalize → multiply_add → clip` and compare it with four separate public calls.
+2. Compare current `batch_transform` with `vmap` for per-image parameters and single-volume data.
+3. Benchmark `scatter_reduce`/`segment_reduce` on CPU for SLIC/superpixel means from AlbumentationsX, sweeping label count and ID density.
+4. Benchmark affine/grid pipelines for image batches and single volumes, including grid construction and layout conversion.
+5. Benchmark fused reductions on Tensor input; do not change CPU NumPy routing without new evidence.
 
-## Этап 6. Перенести длинный Tensor-путь в AlbumentationsX
+## Stage 6. Move the long Tensor path into AlbumentationsX
 
-AlbumentationsX уже объявляет `torch>=2.13.0` в base dependencies. Его `ImageType` по-прежнему описывает NumPy, а `ToTensorV2`/`ToTensor3D` стоят в конце pipeline и меняют channel-last на channel-first.
+AlbumentationsX already declares `torch>=2.13.0` in base dependencies. Its `ImageType` still describes NumPy, while `ToTensorV2`/`ToTensor3D` sit at the end of the pipeline and change channel-last to channel-first.
 
-- [ ] Выпустить Albucore с Tensor contract и затем обновить pin в AlbumentationsX.
-- [ ] Расширить AlbumentationsX `ImageType`/`VolumeType` и dispatch targets для Tensor.
-- [ ] Разрешить CPU Tensor на входе `Compose` и отклонять `requires_grad=True` в первой версии.
-- [ ] Использовать target name для layout context: `image → CHW`, `images → NCHW`, `volume → CDHW`.
-- [ ] Реализовать baseline: один Tensor → NumPy transition перед текущим pipeline и один NumPy → Tensor transition после него.
-- [ ] Добавить lazy representation state. Compose хранит данные в текущем backend до тех пор, пока следующему связному участку действительно не понадобится другой backend.
-- [ ] Сделать `ToTensorV2`/`ToTensor3D` compatibility boundary: NumPy-вход конвертируется и переставляет axes; Tensor-вход с правильным layout возвращается без лишней конвертации.
-- [ ] Переносить dense random fields, noise и masks на `torch.Generator` только вместе с использующим их Torch-участком и только после CPU benchmark. Scalar sampling может оставаться Python-side, если сохраняются seed isolation и replay.
-- [ ] Один раз materialize transform parameters на границе backend-участка и переиспользовать их для image/mask и связанных targets.
-- [ ] На первом этапе разрешить bbox/keypoint metadata оставаться NumPy/Python, если image и dense masks уже Tensor. Geometry parameters должны оставаться общими для всех targets.
-- [ ] Сравнить полный NumPy fallback с гибридным pipeline. Перестановка axes часто является view, но следующий helper может вызвать `.contiguous()` и полную копию.
-- [ ] Проверить `Compose`, replay, serialization, deterministic seeds, multiprocessing DataLoader и worker initialization.
-- [x] Оставить Torch в base dependencies AlbumentationsX с тем же version constraint.
+- [ ] Release Albucore with the Tensor contract and update the AlbumentationsX pin.
+- [ ] Extend AlbumentationsX `ImageType`/`VolumeType` and dispatch targets for Tensor.
+- [ ] Allow CPU Tensor at Compose input and reject `requires_grad=True` in the first version.
+- [ ] Use target names for layout context: `image → CHW`, `images → NCHW`, `volume → CDHW`.
+- [ ] Implement the baseline: one Tensor → NumPy transition before the current pipeline and one NumPy → Tensor transition afterward.
+- [ ] Add lazy representation state. Compose keeps data in the current backend until the next connected segment actually needs another backend.
+- [ ] Make `ToTensorV2`/`ToTensor3D` a compatibility boundary: convert and move axes for NumPy input; return a Tensor with the correct layout without extra conversion.
+- [ ] Move dense random fields, noise, and masks to `torch.Generator` only together with the Torch segment that consumes them and only after a CPU benchmark. Scalar sampling may stay Python-side when seed isolation and replay are preserved.
+- [ ] Materialize transform parameters once at a backend boundary and reuse them for images, masks, and related targets.
+- [ ] Initially allow bbox/keypoint metadata to remain NumPy/Python when images and dense masks are Tensor. Geometry parameters must remain shared across targets.
+- [ ] Compare complete NumPy fallback with the hybrid pipeline. Axis permutations are often views, but the next helper may call `.contiguous()` and make a full copy.
+- [ ] Check Compose, replay, serialization, deterministic seeds, multiprocessing DataLoader, and worker initialization.
+- [x] Keep Torch in AlbumentationsX base dependencies with the same version constraint.
 
-Целевой data flow:
+Target data flow:
 
 ```text
 decode NumPy HWC
-  → при необходимости Torch CHW/NCHW
-  → связные NumPy fallback и Torch CPU участки с минимальным числом переходов
-  → результат в контейнере, с которым пользователь вызвал Compose
+  → if needed, Torch CHW/NCHW
+  → connected NumPy fallback and Torch CPU segments with minimal transitions
+  → result in the container used to call Compose
 ```
 
-Условие завершения: end-to-end benchmark показывает время Compose, число `Tensor ↔ NumPy` transitions, contiguity copies и peak memory. Гибридный Tensor path не медленнее baseline, который выполняет весь текущий Compose в NumPy.
+Completion condition: end-to-end benchmarks show Compose time, Tensor ↔ NumPy transitions, contiguity copies, and peak memory. The hybrid Tensor path is no slower than the baseline that runs the whole current Compose in NumPy.
 
-## Тестовая матрица
+## Test matrix
 
-- [ ] Контейнер и layout: `HWC ↔ CHW`, `NHWC ↔ NCHW`, `DHWC ↔ CDHW`.
-- [ ] Non-square spatial dimensions, чтобы перестановка H/W выявлялась сразу.
+- [ ] Container and layout: `HWC ↔ CHW`, `NHWC ↔ NCHW`, `DHWC ↔ CDHW`.
+- [ ] Non-square spatial dimensions so an H/W swap is detected immediately.
 - [ ] Channels `1`, `3`, `4`, `9`.
-- [ ] `uint8`, `float32`; unsupported dtype даёт одинаково понятный `ValueError`.
-- [ ] CPU contiguous/non-contiguous Tensor, views и explicit `inplace`.
-- [ ] Scalar, NumPy/Torch per-channel vector и full-image operands.
-- [ ] `requires_grad=False` работает; `requires_grad=True` завершается документированной ошибкой на входе Compose.
-- [ ] Exact uint8 parity; float32 tolerance фиксируется по каждой operation family.
-- [ ] Empty/degenerate inputs, single-channel preservation и high-channel paths.
-- [ ] 4D ambiguity: вызов без target/layout context должен завершаться понятной ошибкой, а не выбирать ось эвристикой.
-- [ ] Полный NumPy fallback имеет ровно две backend boundaries для Tensor-входа: перед и после pipeline. На каждой границе конвертируются все dense targets, которым это требуется.
-- [ ] Гибридный pipeline не конвертирует данные между соседними helpers одного backend’а.
+- [ ] `uint8`, `float32`; unsupported dtypes are rejected by the upstream caller.
+- [ ] CPU contiguous/non-contiguous Tensor, views, and explicit `inplace`.
+- [ ] Scalar, NumPy/Torch per-channel vectors, and full-image operands.
+- [ ] `requires_grad=False` works; `requires_grad=True` is rejected at the Compose boundary with a documented error.
+- [ ] Exact uint8 parity; float32 tolerance is fixed per operation family.
+- [ ] Empty/degenerate inputs, single-channel preservation, and high-channel paths.
+- [ ] Four-dimensional ambiguity: a call without target/layout context is rejected rather than choosing an axis heuristically.
+- [ ] The full NumPy fallback has exactly two backend boundaries for Tensor input: before and after the pipeline. Convert every dense target that needs conversion at each boundary.
+- [ ] A hybrid pipeline does not convert data between adjacent helpers using the same backend.
 
-## Риски и решения
+## Risks and mitigations
 
-| Риск | Решение |
+| Risk | Mitigation |
 |---|---|
-| Рост install size и Linux CUDA dependencies | Измерить wheel/environment size, обновить docs, получить явное release approval |
-| Eager Torch import увеличивает startup | Torch является обязательной dependency; training process уже загружает Torch, а документация фиксирует эту стоимость |
-| `NCHW` и `CDHW` одинаково 4D | Явный target/layout context; никаких shape heuristics |
-| Повторные NHWC↔NCHW conversions съедают выигрыш | Channel-first на всём Tensor-участке; считать `.contiguous()` copies |
-| Torch и OpenCV расходятся в geometry semantics | Differential golden tests для coordinates, interpolation и borders |
-| NumPy fallback не сохраняет autograd | Первая версия явно принимает только `requires_grad=False` |
-| Helpers чередуют backend и создают conversion ping-pong | Compose группирует связные backend-участки и считает transitions |
-| Torch kernel быстрее отдельно, но медленнее с conversions | Решение принимается по полному участку или Compose, а не по kernel-only timing |
-| NumPy fallback становится невидимым и перестаёт измеряться | Единый adapter и benchmark counters для backend boundaries |
+| Install size and Linux CUDA dependencies grow | Measure wheel/environment size, update docs, and obtain explicit release approval |
+| Eager Torch import increases startup | Torch is required; training processes already load it, and the docs record the cost |
+| `NCHW` and `CDHW` are both four-dimensional | Use explicit target/layout context; never use shape heuristics |
+| Repeated NHWC↔NCHW conversions erase the gain | Keep channel-first for the whole Tensor segment and count `.contiguous()` copies |
+| Torch and OpenCV geometry semantics diverge | Differential golden tests for coordinates, interpolation, and borders |
+| NumPy fallback cannot preserve autograd | The first version accepts only `requires_grad=False` |
+| Helpers alternate backends and create conversion ping-pong | Compose groups connected backend segments and counts transitions |
+| A Torch kernel is faster alone but slower with conversions | Decide from the complete segment or Compose, not kernel-only timing |
+| NumPy fallback stops being visible or measurable | Use one adapter and benchmark counters for backend boundaries |
 
-## Порядок PR
+## PR order
 
-1. Контракт layouts, types, dependency/install matrix и benchmark harness.
-2. CPU Tensor adapter и полный Compose fallback через текущий NumPy pipeline.
-3. Backend-neutral helpers, wrappers и lazy representation state.
-4. Flip, matrix и distance Tensor paths.
-5. Конвертация, арифметика, elementwise и stats Torch CPU paths.
-6. Geometry и LUT experiments с отдельными decisions по каждому router.
-7. Benchmark-driven включение Torch-участков для Tensor-входа и затем для NumPy-входа.
-8. Зафиксировать отдельный backlog для `torch.compile`, `vmap`, MPS/CUDA и других следующих этапов; не включать их в release gate.
+1. Layout contract, types, dependency/install matrix, and benchmark harness.
+2. CPU Tensor adapter and complete Compose fallback through the current NumPy pipeline.
+3. Backend-neutral helpers, wrappers, and lazy representation state.
+4. Flip, matrix, and distance Tensor paths.
+5. Conversion, arithmetic, elementwise, and stats Torch CPU paths.
+6. Geometry and LUT experiments with a separate decision for each router.
+7. Benchmark-driven enablement of Torch segments for Tensor input and then NumPy input.
+8. Keep a separate backlog for `torch.compile`, `vmap`, MPS/CUDA, and later stages; do not include them in the release gate.
 
-Каждый PR обновляет тесты, benchmark evidence и [public API classification](public-api.md). Backend-specific helpers не добавляются в package `__all__` без отдельного публичного решения.
+Every PR updates tests, benchmark evidence, and [the public API classification](public-api.md). Do not add backend-specific helpers to package `__all__` without a separate public API decision.
 
 ## Definition of done
 
-- Torch является обязательной, воспроизводимо locked зависимостью на всей заявленной platform/Python matrix.
-- Первая версия явно ограничена CPU Tensor с `requires_grad=False`.
-- Все заявленные Albucore wrappers принимают NumPy channel-last и Tensor channel-first inputs.
-- Public routers сохраняют container и layout.
-- 4D Tensor никогда не интерпретируется как `NCHW` или `CDHW` по эвристике.
-- Полный Tensor fallback переиспользует текущий NumPy pipeline и имеет backend boundaries только на входе и выходе Compose.
-- Гибридный path группирует соседние helpers одного backend’а и не создаёт conversion ping-pong.
-- NumPy routing меняется только по сохранённым full-path benchmarks.
-- NumPy-вход может маршрутизироваться в eager Torch CPU helper, если полный путь с conversions не медленнее текущего backend’а.
-- NumPy Compose не медленнее текущего NumPy baseline.
-- Tensor Compose не медленнее baseline `Tensor → текущий NumPy Compose → Tensor`.
-- Accepted и rejected Torch candidates перечислены вместе с shapes, dtypes, threads, версиями, conversions и памятью.
-- Архитектура оставляет путь к будущим compiled/GPU kernels, но `torch.compile`, `vmap`, MPS и CUDA не входят в текущий release gate.
-- Correctness, replay и end-to-end eager CPU performance gates проходят на CI/reference machines.
+- Torch is a required, reproducibly locked dependency across the supported platform/Python matrix.
+- The first version is explicitly limited to CPU Tensor with `requires_grad=False`.
+- All declared Albucore wrappers accept NumPy channel-last and Tensor channel-first inputs.
+- Public routers preserve container and layout.
+- A four-dimensional Tensor is never interpreted as `NCHW` or `CDHW` by heuristic.
+- The complete Tensor fallback reuses the existing NumPy pipeline and has backend boundaries only at Compose input and output.
+- The hybrid path groups adjacent helpers from one backend and avoids conversion ping-pong.
+- NumPy routing changes only from saved full-path benchmarks.
+- NumPy input may use an eager Torch CPU helper only when the complete conversion-inclusive path is no slower than the current backend.
+- NumPy Compose is no slower than the current NumPy baseline.
+- Tensor Compose is no slower than `Tensor → existing NumPy Compose → Tensor`.
+- Accepted and rejected Torch candidates are listed with shapes, dtypes, threads, versions, conversions, and memory.
+- The architecture leaves a path to future compiled/GPU kernels, but `torch.compile`, `vmap`, MPS, and CUDA are outside the current release gate.
+- Correctness, replay, and end-to-end eager CPU performance gates pass on CI/reference machines.

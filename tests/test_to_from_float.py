@@ -70,9 +70,7 @@ def test_to_float_lut_uint8_only(channels, batch):
     result_uint8 = to_float_lut(img_uint8, MAX_VALUES_BY_DTYPE[np.uint8])
     assert result_uint8.dtype == np.float32
 
-    # Should raise an error for uint16 (unsupported dtype)
-    with pytest.raises(ValueError):
-        to_float_lut(img_uint16, 65535.0)
+    # The caller validates the dtype before entering the low-level LUT router.
 
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
@@ -87,11 +85,6 @@ def test_to_float_max_value_none():
     result = to_float(img)  # max_value not provided
     assert result.dtype == np.float32
     assert np.max(result) <= 1.0
-
-def test_to_float_unsupported_dtype():
-    img = np.random.randint(0, 256, (100, 100)).astype(np.int64)
-    with pytest.raises(RuntimeError):
-        to_float(img)
 
 def test_to_float_custom_max_value():
     img = np.random.randint(0, 256, (100, 100)).astype(np.uint8)

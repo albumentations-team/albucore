@@ -39,11 +39,6 @@ def _translation(x: float = 0.0, y: float = 0.0, z: float = 0.0) -> np.ndarray:
     ],
     ids=("numpy_rank_3", "torch_rank_3"),
 )
-def test_warp_affine3d_rejects_invalid_rank(volume: np.ndarray | torch.Tensor) -> None:
-    with pytest.raises(ValueError, match="rank-4"):
-        warp_affine3d(volume, np.eye(4, dtype=np.float32), (3, 4, 5))
-
-
 def _numpy_trilinear_constant_reference(
     volume: np.ndarray,
     matrix: np.ndarray,

@@ -77,17 +77,6 @@ def test_channel_roundtrip(input_shape: tuple, _, has_batch: bool, has_depth: bo
     np.testing.assert_array_equal(data, restored)
 
 
-def test_empty_arrays():
-    """Test that empty arrays raise appropriate errors."""
-    empty_array = np.array([])
-
-    with pytest.raises(ValueError):
-        reshape_for_spatial(empty_array)
-
-    with pytest.raises(ValueError):
-        reshape_for_channel(empty_array)
-
-
 @pytest.mark.parametrize("transform_type", ["spatial", "channel"])
 def test_non_contiguous_input(transform_type: str):
     """Test that non-contiguous arrays are handled correctly."""
@@ -104,9 +93,3 @@ def test_non_contiguous_input(transform_type: str):
 
     expected_shape = (32, 32, 15) if transform_type == "spatial" else (160, 32, 3)
     assert reshaped.shape == expected_shape
-
-
-@pytest.mark.parametrize("reshape_func", [reshape_for_spatial, reshape_for_channel])
-def test_reshape_rejects_unsupported_rank(reshape_func):
-    with pytest.raises(ValueError, match="Unsupported number of dimensions: 6"):
-        reshape_func(np.zeros((1, 1, 1, 1, 1, 1)))

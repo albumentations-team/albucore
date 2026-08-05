@@ -9,13 +9,6 @@ from albucore.functions import (
 )
 
 
-def test_normalize_per_image_rejects_unsupported_rank() -> None:
-    image = np.zeros((1, 1, 1, 1, 1, 1), dtype=np.float32)
-
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        normalize_per_image(image, "image")
-
-
 @pytest.mark.parametrize(
     "img, normalization, expected",
     [

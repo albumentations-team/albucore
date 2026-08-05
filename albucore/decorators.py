@@ -61,14 +61,8 @@ ShapeType = Literal[
 
 
 def get_shape_type(shape: tuple[int, ...]) -> ShapeType:
-    """Determine the shape type based on number of dimensions."""
-    ndim = len(shape)
-
-    if ndim == 3:
-        return "HWC"
-    if ndim == 4:
-        return "XHWC"  # Could be NHWC or DHWC, but they're treated the same
-    raise ValueError(f"Unsupported number of dimensions: {ndim}")
+    """Select the prevalidated HWC/XHWC reshape table by rank."""
+    return ("HWC", "XHWC")[len(shape) - 3]
 
 
 def reshape_for_channel(data: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]]:

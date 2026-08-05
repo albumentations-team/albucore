@@ -91,11 +91,6 @@ def test_convert_value(value, num_channels, expected):
         assert result == expected
 
 
-def test_convert_value_rejects_channel_vector_with_fewer_values_than_channels() -> None:
-    with pytest.raises(ValueError, match=r"Expected a scalar or at least 3 values, got 2"):
-        convert_value(np.array([1.5, 2.5], dtype=np.float32), num_channels=3)
-
-
 @contiguous
 def process_image(img: np.ndarray) -> np.ndarray:
     # For demonstration, let's just return a non-contiguous view
@@ -340,25 +335,6 @@ def test_get_num_channels_and_is_grayscale_consistency(shape):
     assert (num_channels == 1) == is_grayscale, (
         f"Inconsistency for shape {shape}: num_channels={num_channels}, is_grayscale={is_grayscale}"
     )
-
-
-@pytest.mark.parametrize("helper", [get_num_channels, is_grayscale_image, is_rgb_image, is_multispectral_image])
-def test_channel_helpers_reject_unsupported_rank(helper: Callable[[np.ndarray], int | bool]) -> None:
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        helper(np.zeros((1, 1, 1, 1, 1, 1)))
-
-
-@pytest.mark.parametrize(
-    ("wrapper", "dtype"),
-    [(float32_io, np.float32), (uint8_io, np.uint8)],
-)
-def test_io_wrappers_reject_unsupported_rank(wrapper: Callable, dtype: type[np.generic]) -> None:
-    @wrapper
-    def identity(image: np.ndarray) -> np.ndarray:
-        return image
-
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        identity(np.zeros((1, 1, 1, 1, 1, 1), dtype=dtype))
 
 
 @pytest.mark.parametrize(

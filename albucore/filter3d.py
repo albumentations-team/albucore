@@ -141,13 +141,6 @@ def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Te
     return volume.to(torch.float32)
 
 
-def _validate_single_volume_rank(volume: np.ndarray | torch.Tensor) -> None:
-    if volume.ndim != 4:
-        layout = "DHWC" if isinstance(volume, np.ndarray) else "CDHW"
-        msg = f"separable_filter3d expects one rank-4 {layout} volume, got rank {volume.ndim}."
-        raise ValueError(msg)
-
-
 @overload
 def separable_filter3d(volume: np.ndarray, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray: ...
 
@@ -173,7 +166,6 @@ def separable_filter3d(
     Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Target-level masks
     are intentionally outside this single-volume primitive.
     """
-    _validate_single_volume_rank(volume)
     kernels = _float32_kernel(kernels[0]), _float32_kernel(kernels[1]), _float32_kernel(kernels[2])
     if all(_is_identity_kernel(kernel) for kernel in kernels):
         return _identity_result(volume)

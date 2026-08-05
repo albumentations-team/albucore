@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING, cast
 import cv2
 import numpy as np
 
-from albucore.utils import _validate_image_rank
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -31,12 +29,6 @@ _EXP_OPENCV_STRIDED_MIN_ELEMENTS = 65_536
 _LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS = 8_192
 _LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS = 65_536
 _FLOAT32_TINY = np.finfo(np.float32).tiny
-
-
-def _validate_float32(array: np.ndarray) -> None:
-    _validate_image_rank(array)
-    if array.dtype != np.float32:
-        raise ValueError(f"Elementwise operation supports only float32 arrays, got {array.dtype}.")
 
 
 def _can_mutate(array: np.ndarray, inplace: bool) -> bool:
@@ -75,21 +67,17 @@ def exp(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     benchmark-derived thresholds.
 
     Args:
-        array: Float32 array with at most four dimensions. Image-like inputs use channel-last shapes.
+        array: Prevalidated float32 channel-last array.
         inplace: Reuse ``array`` only when it owns a writable buffer. Views and
             read-only arrays are never mutated and produce a new array instead.
 
     Returns:
         The elementwise exponential with the same shape and float32 dtype.
 
-    Raises:
-        ValueError: If ``array`` is not float32 or has more than four dimensions.
-
     Notes:
         OpenCV finite results are float32-close to NumPy but are not guaranteed
         bit-exact. Tests use ``rtol=1e-5`` and ``atol=1e-7``.
     """
-    _validate_float32(array)
     mutate = _can_mutate(array, inplace)
     min_elements = _OPENCV_CONTIGUOUS_MIN_ELEMENTS if array.flags["C_CONTIGUOUS"] else _EXP_OPENCV_STRIDED_MIN_ELEMENTS
     if array.size >= min_elements and (not mutate or array.flags["C_CONTIGUOUS"]):
@@ -126,22 +114,18 @@ def log(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     behavior for negative values, zero, subnormals, NaN, and infinity.
 
     Args:
-        array: Float32 array with at most four dimensions. Image-like inputs use channel-last shapes.
+        array: Prevalidated float32 channel-last array.
         inplace: Reuse ``array`` only when it owns a writable buffer. Views and
             read-only arrays are never mutated and produce a new array instead.
 
     Returns:
         The elementwise natural logarithm with the same shape and float32 dtype.
 
-    Raises:
-        ValueError: If ``array`` is not float32 or has more than four dimensions.
-
     Notes:
         Eligible finite results are float32-close to NumPy but are not guaranteed
         bit-exact. Tests use ``rtol=1e-5`` and ``atol=1e-7``. Special values follow
         NumPy exactly because they bypass OpenCV.
     """
-    _validate_float32(array)
     mutate = _can_mutate(array, inplace)
     contiguous_candidate = array.flags["C_CONTIGUOUS"] and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS
     single_channel = array.ndim == 2 or (array.ndim >= 3 and array.shape[-1] == 1)
@@ -182,15 +166,12 @@ def sqrt(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32:
     buffer.
 
     Args:
-        array: Float32 array with at most four dimensions. Image-like inputs use channel-last shapes.
+        array: Prevalidated float32 channel-last array.
         inplace: Reuse ``array`` only when it owns a writable buffer. Views and
             read-only arrays are never mutated and produce a new array instead.
 
     Returns:
         The elementwise square root with the same shape and float32 dtype.
 
-    Raises:
-        ValueError: If ``array`` is not float32 or has more than four dimensions.
     """
-    _validate_float32(array)
     return sqrt_numpy(array, inplace=_can_mutate(array, inplace))

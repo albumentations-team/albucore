@@ -9,7 +9,7 @@ import numpy as np
 import stringzilla as sz
 
 from albucore.decorators import contiguous, preserve_channel_dim
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8, _validate_image_rank
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8
 
 
 @preserve_channel_dim
@@ -20,9 +20,6 @@ def _cv2_lut_uint8(img: ImageUInt8, lut: ImageUInt8) -> ImageUInt8:
 
 def _cv2_lut_channel_last(img: ImageUInt8, lut: np.ndarray) -> np.ndarray:
     num_channels = img.shape[-1]
-    if lut.shape != (256, 1, num_channels):
-        msg = f"Expected OpenCV LUT shaped (256, 1, {num_channels}), got {lut.shape}"
-        raise ValueError(msg)
     if img.ndim == 3:
         return cast("np.ndarray", cv2.LUT(img, lut))
 
@@ -46,10 +43,6 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
         return cast("ImageFloat32", cv2.LUT(img, lut))
 
     num_channels = img.shape[-1]
-    if lut.shape != (256, 1, num_channels):
-        msg = f"Expected float LUT shaped (256, 1, C) with C={num_channels}, got {lut.shape}"
-        raise ValueError(msg)
-
     if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
         return cast("ImageFloat32", _cv2_lut_channel_last(img, lut))
 
@@ -76,7 +69,6 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
-    _validate_image_rank(img)
     img_view = memoryview(cast("Any", img))
     lut_view = memoryview(cast("Any", lut))
     if inplace:
@@ -142,10 +134,6 @@ def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bo
     """``luts`` shaped ``(256, 1, C)`` uint8. Vector ``apply_lut`` ignores ``inplace`` (always new array)."""
     del inplace  # API symmetry with ``apply_uint8_lut``; matches historical ``apply_lut`` behaviour.
     num_channels = img.shape[-1]
-    if luts.shape != (256, 1, num_channels):
-        msg = f"Expected luts shaped (256, 1, C) with C={num_channels}, got {luts.shape}"
-        raise ValueError(msg)
-
     if num_channels == 1:
         return _apply_shared_uint8_lut(img, luts[:, 0, 0], inplace=False)
 
@@ -190,20 +178,10 @@ def apply_uint8_lut(
     Returns:
         uint8 image with pixel values remapped through the LUT.
 
-    Raises:
-        TypeError: If ``img`` or ``lut`` is not uint8.
-        ValueError: If ``lut`` has an unsupported shape.
+    The caller validates the uint8 image and LUT shapes before entering this low-level router.
     """
-    _validate_image_rank(img)
-    if img.dtype != np.uint8 or lut.dtype != np.uint8:
-        msg = "apply_uint8_lut expects uint8 image and uint8 LUT"
-        raise TypeError(msg)
     if lut.ndim == 1:
-        if lut.shape != (256,):
-            msg = f"1D LUT must have length 256, got {lut.shape}"
-            raise ValueError(msg)
         return _apply_shared_uint8_lut(img, lut, inplace)
     if lut.ndim == 3 and lut.shape[0] == 256 and lut.shape[1] == 1:
         return _apply_per_channel_uint8_luts(img, lut, inplace)
-    msg = f"LUT must be (256,) or (256, 1, C), got shape {lut.shape}"
-    raise ValueError(msg)
+    return _apply_per_channel_uint8_luts(img, lut, inplace)

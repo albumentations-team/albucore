@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import DTypeLike
 
 from albucore.torch_backend import reduce_sum_torch
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8, _validate_image_rank
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8
 
 DEFAULT_EPS = 1e-4
 
@@ -160,7 +160,6 @@ def reduce_sum(
         The accumulator dtype follows the input: unsigned → uint64, float → float64,
         signed int / bool → int64.
     """
-    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     if axes is None:
         if _is_uint8_image(arr):
@@ -219,7 +218,9 @@ def _mean_std_global(
         mean_value = np.mean(arr, dtype=np.float64, keepdims=keepdims)
         std_value = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
         return mean_value, std_value
-    raise ValueError(f"Unsupported dtype {arr.dtype} for mean_std; use uint8 or float32.")
+    mean_value = np.mean(arr, dtype=np.float64, keepdims=keepdims)
+    std_value = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
+    return mean_value, std_value
 
 
 def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.ndarray:
@@ -231,7 +232,7 @@ def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.
         return m
     if _is_float32_image(arr):
         return np.mean(arr, dtype=np.float64, keepdims=keepdims)
-    raise ValueError(f"Unsupported dtype {arr.dtype} for mean; use uint8 or float32.")
+    return np.mean(arr, dtype=np.float64, keepdims=keepdims)
 
 
 def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | float | np.ndarray:
@@ -246,7 +247,10 @@ def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | 
         if keepdims:
             return np.asarray(std_value + eps, dtype=np.float64)
         return float(std_value) + eps
-    raise ValueError(f"Unsupported dtype {arr.dtype} for std; use uint8 or float32.")
+    std_value = np.std(arr, dtype=np.float64, keepdims=keepdims)
+    if keepdims:
+        return np.asarray(std_value + eps, dtype=np.float64)
+    return float(std_value) + eps
 
 
 def _mean_std_per_channel(
@@ -371,7 +375,6 @@ def mean_std(
     Returns:
         ``(mean, std + eps)`` — scalars for global reduction, arrays for per-channel.
     """
-    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     if axes is None:
         return _mean_std_global(arr, keepdims=keepdims, eps=eps)
@@ -409,7 +412,6 @@ def mean(
     Returns:
         Scalar or array of float64 means (cast to ``dtype`` if provided).
     """
-    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     m = _mean_global(arr, keepdims=keepdims) if axes is None else _mean_per_channel(arr, axes, keepdims=keepdims)
     if dtype is not None:
@@ -448,7 +450,6 @@ def std(
     Returns:
         Scalar or array of float64 stds + eps (cast to ``dtype`` if provided).
     """
-    _validate_image_rank(arr)
     axes = _resolve_axes(arr, axis)
     s = (
         _std_global(arr, keepdims=keepdims, eps=eps)

@@ -44,9 +44,23 @@ rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses th
 layouts. AlbumentationsX checks CPU, strided layout, eager (`requires_grad=False`) execution, and all control data
 before the call. Each volume router accepts exactly one volume.
 
+### 1a. Precondition Boundary - Do Not Revalidate in Albucore
+
+Albucore routers receive prevalidated inputs from the caller. The upstream transform layer owns validation of:
+
+- container type, rank, layout, and explicit channel dimension;
+- dtype, device, contiguity, and autograd state;
+- spatial sizes, control-data shapes, interpolation, border, and fill contracts.
+
+Do not add duplicate runtime checks for these preconditions inside Albucore routers. Keep only the dispatch needed to
+select the NumPy or Torch implementation and the normalization/conversion required by the selected kernel. A caller
+contract violation is outside the low-level router contract; tests and benchmarks must use valid inputs. Document the
+precondition boundary in public-router docstrings.
+
 ### 2. Supported Dtypes - uint8 and float32 Only
 
-No float64 in public paths. Raise `ValueError` for unsupported dtypes.
+No float64 in the validated public path. Callers reject unsupported dtypes before dispatch; runtime kernels may rely
+on the documented `uint8`/`float32` contract.
 
 ### 3. Backend Routing - Benchmark-Driven Only
 

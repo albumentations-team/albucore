@@ -34,7 +34,7 @@ Every Tensor route states its logical layout independently of NumPy conventions.
 
 - Preserve the caller's container and declared layout.
 - Do not silently move a Tensor, call `.detach()`, make it contiguous, or change a dtype to rescue an unsupported input unless the public contract explicitly documents that fallback. The caller-owned adapter or public contract decides those actions.
-- "Same dtype as input" applies only to the listed supported dtypes. When a primitive deliberately has a fallback dtype, state its working and output dtype and test it, including any identity fast path. For example, `gaussian_blur3d` converts an unexpected float64 volume to float32 and returns float32.
+- "Same dtype as input" applies only to the listed supported dtypes. Callers reject other dtypes before dispatch. When a primitive deliberately has a documented fallback dtype, state its working and output dtype and test it, including any identity fast path.
 - Run the primitive under `torch.no_grad()` or `torch.inference_mode()`; neither builds an autograd graph inside Albucore. Choose `inference_mode` only when the returned Tensor will not later be used in a graph. It removes more bookkeeping, but an inference Tensor cannot be saved by a downstream trainable module. Use `no_grad` when the public contract permits the result to feed later training. [PyTorch grad-mode guide](https://docs.pytorch.org/docs/stable/notes/autograd.html)
 - Keep the conversion bridge visible in the benchmark. NumPy input may choose a Torch kernel and Tensor input may choose NumPy/OpenCV only when the complete route wins and its numerical tolerance is documented.
 

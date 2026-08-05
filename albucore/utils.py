@@ -8,7 +8,6 @@ from numpy import float32, uint8
 from numpy.typing import NDArray
 
 NUM_RGB_CHANNELS = 3
-FOUR = 4
 TWO = 2
 
 MAX_OPENCV_WORKING_CHANNELS = 4
@@ -138,11 +137,6 @@ def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Co
     return wrapped_function
 
 
-def _validate_image_rank(image: ImageType) -> None:
-    if image.ndim > FOUR:
-        raise ValueError(f"Albucore image routers support ranks up to 4, got rank {image.ndim}")
-
-
 def get_num_channels(image: ImageType) -> int:
     """Get the number of channels in an image array.
 
@@ -181,10 +175,9 @@ def get_num_channels(image: ImageType) -> int:
 
     Note:
         Since we always expect a channel-last channel dimension (including grayscale
-        arrays with shape[..., 1]), this function returns shape[-1] after validating
-        the public 3D/4D layout contract.
+        arrays with shape[..., 1]), this function returns shape[-1]. The caller owns
+        validation of the public layout contract before entering Albucore.
     """
-    _validate_image_rank(image)
     return int(image.shape[-1])
 
 
@@ -226,7 +219,6 @@ def is_grayscale_image(image: ImageType) -> bool:
         is_rgb_image: For checking if an image has exactly 3 channels (RGB).
         is_multispectral_image: For checking if an image has channels other than 1 or 3.
     """
-    _validate_image_rank(image)
     return bool(image.shape[-1] == 1)
 
 
@@ -244,16 +236,14 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
 
 
 def is_rgb_image(image: ImageType) -> bool:
-    _validate_image_rank(image)
     return bool(image.shape[-1] == NUM_RGB_CHANNELS)
 
 
 def is_multispectral_image(image: ImageType) -> bool:
-    _validate_image_rank(image)
     return image.shape[-1] not in {1, 3}
 
 
-def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.ndarray:
+def convert_value(value: object, num_channels: int) -> float | np.ndarray:
     """Convert a value to a float or numpy array based on its shape and number of channels.
 
     Args:
@@ -264,38 +254,26 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
         float: If value is a scalar or 1D array that should be converted to scalar
         np.ndarray: If value is a multi-dimensional array or channel vector
 
-    Raises:
-        TypeError: If value is of unsupported type
-        ValueError: If a channel vector has fewer values than the target image has channels
+    The caller validates value type and channel-vector length before entering the router.
     """
     # Handle scalar types
-    if isinstance(value, (float, int, np.float32, np.float64)):
-        return float(value) if isinstance(value, (float, int)) else value.item()
+    if isinstance(value, (float, int)):
+        return float(value)
+    if isinstance(value, (np.float32, np.float64)):
+        return value.item()
 
     # Handle numpy arrays
     if isinstance(value, np.ndarray):
-        # Return scalars and 0-dim arrays as float
         if value.ndim == 0:
-            return float(value.item())
+            result: float | np.ndarray = float(value.item())
+        elif value.ndim > 1:
+            result = value
+        else:
+            num_values = len(value)
+            result = float(value[0]) if num_values == 1 or num_channels == 1 else value[:num_channels]
+        return result
 
-        # Return multi-dimensional arrays as-is
-        if value.ndim > 1:
-            return value
-
-        # Handle 1D arrays
-        num_values = len(value)
-        if num_values == 1:
-            return float(value[0])
-
-        if num_values < num_channels:
-            raise ValueError(f"Expected a scalar or at least {num_channels} values, got {num_values}")
-
-        if num_channels == 1:
-            return float(value[0])
-
-        return value[:num_channels]
-
-    raise TypeError(f"Unsupported value type: {type(value)}")
+    return cast("float | np.ndarray", value)
 
 
 ValueType = np.ndarray | float | int
@@ -360,7 +338,6 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
 
 
 __all__ = [
-    "FOUR",
     "MAX_OPENCV_WORKING_CHANNELS",
     "MAX_VALUES_BY_DTYPE",
     "NPDTYPE_TO_OPENCV_DTYPE",

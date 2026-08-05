@@ -46,15 +46,6 @@ def test_sqrt_preserves_singleton_channel_shape_and_float32_dtype() -> None:
     np.testing.assert_allclose(result, np.sqrt(array), rtol=1e-6, atol=0.0)
 
 
-@pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
-@pytest.mark.parametrize("dtype", [np.uint8, np.float64])
-def test_elementwise_operations_reject_non_float32(dtype: np.dtype, operation: Unary) -> None:
-    array = np.ones((5, 7, 3), dtype=dtype)
-
-    with pytest.raises(ValueError, match="supports only float32"):
-        operation(array)
-
-
 @pytest.mark.parametrize(
     ("operation", "reference"),
     [(ac.exp, np.exp), (ac.log, np.log), (ac.sqrt, np.sqrt)],
@@ -128,14 +119,6 @@ def test_elementwise_operations_match_numpy_on_large_rank4_layouts(
     assert result.shape == shape
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, reference(array), rtol=1e-5, atol=1e-7)
-
-
-@pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
-def test_elementwise_operations_reject_unsupported_rank(operation: Unary) -> None:
-    array = np.ones((1, 1, 1, 1, 1, 1), dtype=np.float32)
-
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        operation(array)
 
 
 @pytest.mark.parametrize(

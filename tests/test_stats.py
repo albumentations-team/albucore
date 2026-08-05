@@ -9,14 +9,6 @@ import albucore.stats as stats_mod
 from albucore.stats import DEFAULT_EPS, mean, mean_std, reduce_sum, std
 
 
-@pytest.mark.parametrize("function", [reduce_sum, mean, mean_std, std])
-def test_statistics_routers_reject_unsupported_rank(function: Callable[..., object]) -> None:
-    arr = np.zeros((1, 1, 1, 1, 1, 1), dtype=np.float32)
-
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        function(arr)
-
-
 def _rng(
     shape: tuple[int, ...],
     axis: int | tuple[int, ...],
@@ -369,17 +361,6 @@ def test_std_custom_eps_matches_numpy(shape: tuple[int, ...], dtype: type) -> No
     assert np.isclose(float(std(arr, eps=eps)), float(ref), rtol=1e-4, atol=1e-4)
     _, s = mean_std(arr, eps=eps)
     assert np.isclose(float(s), float(ref), rtol=1e-4, atol=1e-4)
-
-
-@pytest.mark.parametrize("dtype", [np.int32, np.float64, np.bool_, np.complex64])
-def test_unsupported_dtype_raises_mean_std(dtype: type) -> None:
-    arr = np.ones((2, 2, 1), dtype=dtype)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        mean(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        std(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        mean_std(arr)
 
 
 @pytest.mark.parametrize(

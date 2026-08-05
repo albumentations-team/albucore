@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import cv2
 import numpy as np
 import pytest
@@ -144,50 +142,6 @@ def test_apply_uint8_lut_shared_large_and_small_hwc_match_numpy(shape: tuple[int
 
 
 # --- Errors ---
-
-
-@pytest.mark.parametrize(
-    ("img_dtype", "lut_dtype"),
-    [
-        (np.float32, np.uint8),
-        (np.uint8, np.float32),
-    ],
-)
-def test_apply_uint8_lut_type_error(img_dtype: np.dtype, lut_dtype: np.dtype) -> None:
-    img = np.zeros((4, 4, 3), dtype=img_dtype)
-    lut = np.zeros(256, dtype=lut_dtype)
-    with pytest.raises(TypeError, match="apply_uint8_lut expects uint8"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-def test_apply_uint8_lut_wrong_1d_length() -> None:
-    img = np.zeros((2, 2, 1), dtype=np.uint8)
-    lut = np.zeros(255, dtype=np.uint8)
-    with pytest.raises(ValueError, match="1D LUT must have length 256"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-def test_apply_uint8_lut_rejects_2d_per_channel_luts() -> None:
-    img = np.zeros((2, 2, 3), dtype=np.uint8)
-    lut = np.zeros((3, 256), dtype=np.uint8)
-    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(256, 1, C\)"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-def test_apply_uint8_lut_ndim_too_high_lut() -> None:
-    img = np.zeros((2, 2, 1), dtype=np.uint8)
-    lut = np.zeros((1, 256, 1), dtype=np.uint8)
-    with pytest.raises(ValueError, match=r"LUT must be \(256,\) or \(256, 1, C\)"):
-        apply_uint8_lut(img, lut, inplace=False)
-
-
-@pytest.mark.parametrize("function", [apply_uint8_lut, sz_lut])
-def test_lut_routers_reject_unsupported_rank(function: Callable[..., np.ndarray]) -> None:
-    img = np.zeros((1, 1, 1, 1, 1, 1), dtype=np.uint8)
-    lut = np.arange(256, dtype=np.uint8)
-
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        function(img, lut, inplace=False)
 
 
 # --- Heuristic contract ---

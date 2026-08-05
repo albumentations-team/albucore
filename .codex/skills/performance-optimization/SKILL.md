@@ -37,6 +37,11 @@ Before adding an atom:
 - define dtype, shape, channel, contiguity, aliasing, and error contracts;
 - benchmark all viable backends before exposing a route.
 
+Albucore routers are called after the upstream validation boundary. The caller owns container type, rank/layout,
+dtype, device, contiguity, autograd, and operation-control validation. Do not duplicate those checks in the runtime
+router; retain only backend dispatch and kernel-required normalization. Invalid direct calls are outside the low-level
+contract and must not add hot-path branches.
+
 ## Required Handoff
 
 Report:

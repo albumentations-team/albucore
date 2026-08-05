@@ -157,13 +157,6 @@ def test_normalize(dtype, shape) -> None:
     np.testing.assert_allclose(normalized_images[0], normalized_images[1], atol=4, rtol=1e-5)
 
 
-def test_normalize_rejects_unsupported_rank() -> None:
-    image = np.zeros((1, 1, 1, 1, 1, 1), dtype=np.float32)
-
-    with pytest.raises(ValueError, match="support ranks up to 4"):
-        normalize(image, mean=0.0, denominator=1.0)
-
-
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_normalize_with_1d_arrays(dtype):
     """Test normalize function with 1D array mean and denominator for single channel images."""
@@ -206,17 +199,6 @@ def test_normalize_with_1d_arrays(dtype):
     assert result_3ch.shape == img_3ch.shape
     assert result_3ch.dtype == np.float32
     np.testing.assert_allclose(result_3ch, expected_3ch, rtol=1e-5)
-
-
-@pytest.mark.parametrize("short_parameter", ["mean", "denominator"])
-def test_normalize_rejects_channel_parameter_with_fewer_values_than_channels(short_parameter: str) -> None:
-    img = np.zeros((5, 7, 3), dtype=np.uint8)
-    short_value = np.array([0.1, 0.2], dtype=np.float32)
-    mean = short_value if short_parameter == "mean" else np.ones(3, dtype=np.float32)
-    denominator = short_value if short_parameter == "denominator" else np.ones(3, dtype=np.float32)
-
-    with pytest.raises(ValueError, match="Expected a scalar or at least 3 values, got 2"):
-        normalize(img, mean, denominator)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])

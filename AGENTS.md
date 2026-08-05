@@ -58,6 +58,13 @@ Keep these skills aligned with `AGENTS.md` and the docs above when conventions c
 
 ## Development Principles
 
+### 0. Caller-validated router boundary
+
+Albucore receives prevalidated inputs from AlbumentationsX or another upstream caller. Container type, rank, layout,
+explicit channel dimension, dtype, device, contiguity, autograd state, and operation-specific control data are checked
+before dispatch. Do not duplicate those checks in Albucore routers; keep only backend dispatch and kernel-required
+normalization. Invalid direct calls are outside the low-level contract.
+
 ### 1. Image Shape Convention
 
 **This is the most important rule:**
@@ -104,7 +111,8 @@ def operation(img: ImageType, value: ValueType, inplace: bool = False) -> ImageT
     if img.dtype == np.float32:
         return operation_numpy(img, value)  # Or opencv — whichever is faster
 
-    raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
+    # The caller guarantees uint8 or float32 before entering the router.
+    return operation_numpy(img, value)
 ```
 
 ### 5. Use Decorators
