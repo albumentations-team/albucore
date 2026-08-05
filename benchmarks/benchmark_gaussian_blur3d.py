@@ -80,7 +80,7 @@ def _torch_bridge(volume: np.ndarray, kernels: Kernels) -> np.ndarray:
     """Direct complete NumPy-to-Torch selected route."""
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     result = _separable_filter3d_torch_cpu(tensor, kernels)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return result.permute(1, 2, 3, 0).numpy()
 
 
 def _numpy_axis(volume: np.ndarray, kernel: np.ndarray, axis: int) -> np.ndarray:
@@ -124,7 +124,7 @@ def _opencv_hw_torch_depth(volume: np.ndarray, kernels: Kernels) -> np.ndarray:
     result = _separable_filter3d_torch_cpu(tensor, (kernels[0], identity, identity))
     if volume.dtype == np.uint8:
         result = _restore_uint8(result)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return result.permute(1, 2, 3, 0).numpy()
 
 
 def _reflect101_indices(size: int, radius: int) -> torch.Tensor:

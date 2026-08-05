@@ -662,7 +662,7 @@ def _resize3d_numpy_torch_cpu(volume: np.ndarray, size: tuple[int, int, int]) ->
     """Use the measured full NumPy DHWC → Torch CDHW → NumPy route for selected CPU regions."""
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     result = _resize3d_torch_cpu(tensor, size, cv2.INTER_LINEAR)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return cast("np.ndarray", result.permute(1, 2, 3, 0).numpy())
 
 
 def _can_resize3d_joint_hw(volume: np.ndarray, size: tuple[int, int, int], antialias: bool) -> bool:

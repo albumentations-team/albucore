@@ -122,7 +122,7 @@ def _separable_filter3d_numpy(volume: np.ndarray, kernels: tuple[np.ndarray, np.
         volume = np.array(volume, copy=True, order="C")
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     result = _separable_filter3d_torch_cpu(tensor, kernels)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return cast("np.ndarray", result.permute(1, 2, 3, 0).numpy())
 
 
 @overload
@@ -191,6 +191,4 @@ def gaussian_blur3d(
         _gaussian_kernel_1d(sigmas[1], kernel_sizes[1]),
         _gaussian_kernel_1d(sigmas[2], kernel_sizes[2]),
     )
-    if isinstance(volume, np.ndarray):
-        return separable_filter3d(volume, kernels)
     return separable_filter3d(volume, kernels)

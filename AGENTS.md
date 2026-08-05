@@ -35,7 +35,10 @@ Please familiarize yourself with these key documents:
 
 4. **[Public API](docs/public-api.md)** - Public routers, star exports, and `albucore.functions` compatibility shims
 
-5. **[NumKong Performance](docs/numkong-performance.md)** - NumKong vs OpenCV/NumPy/LUT benchmark tables and methodology
+5. **[PyTorch Optimization](docs/torch-performance-optimization.md)** - Eager CPU Torch contracts, full-path benchmarks,
+   Tensor/NumPy bridge costs, profiling, allocation, layout, and threading decisions
+
+6. **[NumKong Performance](docs/numkong-performance.md)** - NumKong vs OpenCV/NumPy/LUT benchmark tables and methodology
 
 ## Repo-Local Codex Skills
 
@@ -46,6 +49,9 @@ Repo-specific Codex skills live in `.codex/skills/`:
 - `performance-optimization` - Apply for every runtime implementation, review, profile, or optimization. It loads
   `docs/performance-optimization.md` completely and runs the delete-first, vectorization, grouped-reduction, LUT, RNG,
   backend, extraction, and safe in-place audit.
+- `torch-performance-optimization` - Apply for every eager CPU-only Torch runtime implementation, review, profile,
+  routing, layout, allocation, threading, or benchmark decision. It loads `docs/torch-performance-optimization.md` and adds
+  Torch-specific contract, profiler, bridge, and full-path benchmark checks.
 - `albucore-public-api` - Apply when changing exports, documenting API status, or deciding what belongs in package `__all__`.
 
 Keep these skills aligned with `AGENTS.md` and the docs above when conventions change.

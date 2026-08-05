@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import overload
+from typing import cast, overload
 
 import cv2
 import numpy as np
@@ -147,7 +147,7 @@ def _warp_affine3d_numpy(
         volume = np.array(volume, copy=True, order="C")
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     result = _warp_affine3d_torch_cpu(tensor, inverse_matrix, size, interpolation, border_mode, border_values)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return cast("np.ndarray", result.permute(1, 2, 3, 0).numpy())
 
 
 @overload
