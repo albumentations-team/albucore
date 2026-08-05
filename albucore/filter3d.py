@@ -53,6 +53,11 @@ def _is_identity_kernel(kernel: np.ndarray) -> bool:
     return kernel.shape == (1,) and bool(kernel[0] == np.float32(1.0))
 
 
+def _float32_kernel(kernel: np.ndarray) -> np.ndarray:
+    """Keep the float32 kernel contract without copying an already compatible kernel."""
+    return kernel if kernel.dtype == np.float32 else kernel.astype(np.float32)
+
+
 def _reflect101_indices(size: int, radius: int) -> torch.Tensor:
     """Generate universal OpenCV ``BORDER_REFLECT_101`` indices for one spatial axis."""
     if size == 1:
@@ -153,14 +158,15 @@ def separable_filter3d(
     NumPy uses channel-last ``(D, H, W, C)`` layout; Torch uses channel-first ``(C, D, H, W)``.
     The three prevalidated odd-length kernels are applied in ``(depth, height, width)`` order with
     OpenCV-compatible ``BORDER_REFLECT_101`` padding. The router runs in float32 and restores uint8
-    once after all three passes. It preserves container, layout, and channels. Supported ``uint8``
-    and ``float32`` input preserve their dtype; unexpected ``float64`` input is converted to and
-    returned as ``float32``. Three exact one-element identity kernels return a supported input
-    ``volume`` itself.
+    once after all three passes. Kernels are converted once to float32. It preserves container,
+    layout, and channels. Supported ``uint8`` and ``float32`` input preserve their dtype;
+    unexpected ``float64`` input is converted to and returned as ``float32``. Three exact
+    one-element identity kernels return a supported input ``volume`` itself.
 
     Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Batches,
     ``volumes``, and ``masks3d`` are intentionally outside this single-volume primitive.
     """
+    kernels = _float32_kernel(kernels[0]), _float32_kernel(kernels[1]), _float32_kernel(kernels[2])
     if all(_is_identity_kernel(kernel) for kernel in kernels):
         return _identity_result(volume)
     if isinstance(volume, np.ndarray):

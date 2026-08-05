@@ -126,6 +126,27 @@ def test_separable_filter3d_identity_converts_float64_to_float32(container: str)
         np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), numpy_volume.astype(np.float32))
 
 
+@pytest.mark.parametrize("container", ["numpy", "torch"])
+def test_separable_filter3d_converts_float64_kernels_to_float32(container: str) -> None:
+    """Direct custom NumPy kernels cannot mismatch the float32 Torch working volume."""
+    numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3), dtype=np.float32)
+    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
+    kernel = np.array((1.0, 2.0, 1.0)) / 4.0
+    kernels = kernel, kernel, kernel
+    expected = separable_filter3d(numpy_volume, tuple(item.astype(np.float32) for item in kernels))
+
+    result = separable_filter3d(volume, kernels)
+
+    if container == "numpy":
+        assert isinstance(result, np.ndarray)
+        assert result.dtype == np.float32
+        np.testing.assert_array_equal(result, expected)
+    else:
+        assert isinstance(result, torch.Tensor)
+        assert result.dtype == torch.float32
+        np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), expected)
+
+
 def test_separable_filter3d_restores_uint8_once_after_all_passes() -> None:
     """The uint8 path clips only the final float32 result and keeps all input channels."""
     volume = np.full((3, 5, 7, 5), 255, dtype=np.uint8)
@@ -136,3 +157,18 @@ def test_separable_filter3d_restores_uint8_once_after_all_passes() -> None:
 
     assert result.dtype == np.uint8
     np.testing.assert_array_equal(result, 255)
+
+
+def test_separable_filter3d_does_not_clip_uint8_between_passes() -> None:
+    """A value above 255 between passes is restored only after the final pass."""
+    volume = np.full((3, 5, 7, 1), 200, dtype=np.uint8)
+    kernels = (
+        np.array((2.0,), dtype=np.float32),
+        np.array((0.5,), dtype=np.float32),
+        np.ones(1, dtype=np.float32),
+    )
+
+    result = separable_filter3d(volume, kernels)
+
+    assert result.dtype == np.uint8
+    np.testing.assert_array_equal(result, 200)
