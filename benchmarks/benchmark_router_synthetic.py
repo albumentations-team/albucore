@@ -53,8 +53,9 @@ from shape_grids import (
 )
 from timing import WallTimingMs, bench_wall_ms
 
-# When ``albucore.functions`` has no ``__all__`` (e.g. albucore 0.0.40), use this so compare
-# runs time the same router names. Keep in sync with ``albucore/functions.py`` ``__all__``.
+# When ``albucore.functions`` has no ``__all__`` in a previous release, use this
+# so comparison runs time the same router names. Keep in sync with
+# ``albucore/functions.py`` ``__all__``.
 _FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
     "add",
     "add_array",
@@ -680,7 +681,7 @@ def main() -> None:
         "--benchmark-label",
         type=str,
         default="",
-        help="Stored in JSON meta (e.g. tag 0.0.41 worktree vs main branch)",
+        help="Stored in JSON metadata (for example, current tree vs previous release)",
     )
     args = p.parse_args()
 

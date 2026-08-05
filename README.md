@@ -238,10 +238,10 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for the
 - [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
 - [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) - Eager CPU PyTorch routing and benchmark guidance
-- [docs/numkong-performance.md](docs/numkong-performance.md) - NumKong vs OpenCV/NumPy/LUT baselines (benchmark tables; sum/mean/std)
+- [docs/torch-tensor-migration-plan.md](docs/torch-tensor-migration-plan.md) - Future CPU Tensor contract and integration gates
+- [docs/numkong-performance.md](docs/numkong-performance.md) - Current NumKong routes and benchmark decisions
 - [docs/public-api.md](docs/public-api.md) - Star-exported routers vs `albucore.functions` shims
 - [benchmarks/README.md](benchmarks/README.md) - Python micro-benchmarks (`uv run python benchmarks/…`)
-- [docs/research/](docs/research/) - Research notes (extra benchmark writeups; see [`benchmarks/README.md`](benchmarks/README.md) for scripts)
 
 ## License
 

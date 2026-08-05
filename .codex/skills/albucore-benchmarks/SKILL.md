@@ -45,7 +45,7 @@ DHWC volumes:
 - `96x128x160x1` - deep single-channel slab.
 - `48x240x320x3` - large in-plane, multi-channel.
 
-For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; retain the routing decision in `docs/research/resize3d-cpu-benchmark.md`.
+For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; record any resulting routing decision in `docs/numkong-performance.md` or a focused report under `benchmarks/results/`.
 
 For `warp_affine3d`, benchmark only one volume per call: NumPy `DHWC` or CPU Tensor `CDHW`. The full matrix uses
 uint8/float32, `C=1/3/5/9`, canonical output sizes including a unit output axis, nearest/trilinear interpolation,
@@ -56,22 +56,28 @@ benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1`. A manual grid
 native extension remains a diagnostic candidate until it has exact correctness parity and a sustained full-path win.
 Channel choices: 1 for grayscale, 3 for RGB / 3-channel, and 9 for hyperspectral paths that exceed `MAX_OPENCV_WORKING_CHANNELS=4`.
 
-## Compare Current Tree vs PyPI Release
+## Compare the current tree with a previous release
 
 ```bash
-uv run python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/router-main.json
+uv run python benchmarks/benchmark_router_synthetic.py \
+  --output-json benchmarks/results/router-current.json
 
-uv run --no-project --with albucore==0.0.40 --with opencv-python-headless \
-  --with simsimd --with stringzilla --with numpy \
-  python benchmarks/benchmark_router_synthetic.py --output-json benchmarks/results/router-0.0.40.json
+uv run --no-project --with albucore==<previous-version> --with opencv-python-headless \
+  --with numkong --with stringzilla --with numpy \
+  python benchmarks/benchmark_router_synthetic.py \
+  --output-json benchmarks/results/router-previous.json
 
-uv run python benchmarks/compare_router_json.py benchmarks/results/router-main.json \
-  benchmarks/results/router-0.0.40.json benchmarks/results/REPORT_router_compare.md
+uv run python benchmarks/compare_router_json.py \
+  benchmarks/results/router-current.json \
+  benchmarks/results/router-previous.json \
+  benchmarks/results/REPORT_router_current_vs_previous.md
 ```
 
-Use `--quick` for smaller shape/channel grids while iterating.
+Replace `<previous-version>` with the release that answers the current question. Use `--quick` for smaller
+shape/channel grids while iterating, and do not accumulate version-specific baselines in the repository.
 
 ## Docs
 
-- NumKong tables and methodology: `docs/numkong-performance.md`
-- Research notes: `docs/research/`
+- Current NumKong route decisions: `docs/numkong-performance.md`
+- Generated benchmark evidence: `benchmarks/results/`
+- General performance policy: `docs/performance-optimization.md`
