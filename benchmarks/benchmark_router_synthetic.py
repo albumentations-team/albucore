@@ -9,9 +9,9 @@ Layouts:
 
 The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
-Optional ``--with-geometric`` also times ``copy_make_border``, ``resize``, ``resize3d``,
-``warp_affine``, ``warp_affine3d``, ``warp_perspective``, ``remap`` (they live in ``albucore.geometric``, not
-``functions.__all__``).
+Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``resize``, ``resize3d``,
+``separable_filter3d``, ``warp_affine``, ``warp_affine3d``, ``warp_perspective``, ``remap`` (they live in
+``albucore.geometric``, not ``functions.__all__``).
 
 Run::
 
@@ -229,6 +229,23 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def gblur3(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        volume = np.repeat(img[np.newaxis, ...], 5, axis=0)
+
+        def thunk() -> None:
+            alb.gaussian_blur3d(volume, sigma=(0.75, 1.25, 1.75))
+
+        return thunk
+
+    def sep3(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        volume = np.repeat(img[np.newaxis, ...], 5, axis=0)
+        kernels = tuple(np.array((1.0, 2.0, 1.0), dtype=np.float32) / 4.0 for _ in range(3))
+
+        def thunk() -> None:
+            alb.separable_filter3d(volume, kernels)
+
+        return thunk
+
     def waff(alb: Any, img: np.ndarray) -> Callable[[], object]:
         h, w = img.shape[-3], img.shape[-2]
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
@@ -273,8 +290,10 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
     return [
         ("copy_make_border", cmb),
+        ("gaussian_blur3d", gblur3),
         ("resize", rsz),
         ("resize3d", rsz3),
+        ("separable_filter3d", sep3),
         ("warp_affine", waff),
         ("warp_affine3d", waff3),
         ("warp_perspective", wper),
