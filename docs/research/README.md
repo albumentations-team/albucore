@@ -11,3 +11,4 @@ Runnable, maintained scripts live under **[`benchmarks/`](../../benchmarks/READM
 | [`torch-cpu-backend-audit.md`](torch-cpu-backend-audit.md) | CPU Torch candidates, accepted NumPy→Torch→NumPy routes, benchmark matrix, and rejected paths. |
 | [`resize3d-cpu-benchmark.md`](resize3d-cpu-benchmark.md) | Full CPU routes for `resize3d`: NumPy, OpenCV packing, and Torch CPU. |
 | [`warp-affine3d-cpu-benchmark.md`](warp-affine3d-cpu-benchmark.md) | CPU route decision for single-volume `warp_affine3d`: native Torch grid sampling and rejected diagnostic candidates. |
+| [`gaussian-blur3d-cpu-benchmark.md`](gaussian-blur3d-cpu-benchmark.md) | CPU route decision for `gaussian_blur3d`: grouped Torch filtering, the reflect-padding fallback, and rejected NumPy/OpenCV candidates. |
