@@ -60,7 +60,7 @@ AlbumentationsX владеет transform policy:
 
 ## Границы первой версии
 
-`warp_affine3d` работает с одним volume за вызов. Layouts `NDHWC`/`NCDHW` не входят в план: targets `volumes` и `masks3d` удалены из AlbumentationsX.
+`warp_affine3d` работает с одним volume за вызов. Batched layouts `NDHWC`/`NCDHW` не входят в план; AlbumentationsX предоставляет только single-volume target path.
 
 В V1 не входят:
 

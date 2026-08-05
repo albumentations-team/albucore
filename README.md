@@ -81,7 +81,7 @@ Albucore expects images to follow specific shape conventions, with the channel d
 - **Grayscale image**: `(H, W, 1)` - Height, Width, 1 channel
 - **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
 - **3D volume**: `(D, H, W, C)` - Depth, Height, Width, Channels
-- **Batch of volumes**: `(N, D, H, W, C)` - Number of volumes, Depth, Height, Width, Channels
+- **Five-dimensional array**: `(N, D, H, W, C)` - Leading dimension, Depth, Height, Width, Channels
 
 ### Important Notes:
 
@@ -107,8 +107,8 @@ batch_gray = np.random.randint(0, 256, (10, 100, 100, 1), dtype=np.uint8)
 # 3D volume with 20 slices
 volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
 
-# Batch of 5 RGB volumes, each with 20 slices
-batch_volumes = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
+# Five-dimensional RGB array with a leading dimension and 20 depth slices
+rank5 = np.random.randint(0, 256, (5, 20, 100, 100, 3), dtype=np.uint8)
 ```
 
 ## Functions
@@ -213,10 +213,10 @@ Arithmetic, normalization, statistics, conversion, and elementwise routers opera
 
 - Single images: `(H, W, C)`
 - Batches: `(N, H, W, C)`
-- Volumes: `(D, H, W, C)`
-- Batch of volumes: `(N, D, H, W, C)`
+- Single volumes: `(D, H, W, C)`
+- Five-dimensional arrays: `(N, D, H, W, C)`
 
-Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to batches and volumes while restoring the original layout.
+Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to documented array ranks while restoring the original layout.
 
 See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@contiguous`, `@clipped`, `@batch_transform`).
 

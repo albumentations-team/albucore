@@ -56,7 +56,7 @@ benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1`. A manual grid
 native extension remains a diagnostic candidate until it has exact correctness parity and a sustained full-path win.
 `NDHWC` and `NCDHW` do not belong in this benchmark because the router has no batch contract.
 
-NDHWC batch of volumes:
+NDHWC five-dimensional arrays:
 
 - `2x32x128x160x1`
 - `2x32x128x160x3`

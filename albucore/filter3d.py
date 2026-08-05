@@ -163,8 +163,8 @@ def separable_filter3d(
     unexpected ``float64`` input is converted to and returned as ``float32``. Three exact
     one-element identity kernels return a supported input ``volume`` itself.
 
-    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Batches,
-    ``volumes``, and ``masks3d`` are intentionally outside this single-volume primitive.
+    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Batched layouts
+    and target-level masks are intentionally outside this single-volume primitive.
     """
     kernels = _float32_kernel(kernels[0]), _float32_kernel(kernels[1]), _float32_kernel(kernels[2])
     if all(_is_identity_kernel(kernel) for kernel in kernels):

@@ -19,7 +19,7 @@ Shapes (channel-last, Albucore convention)
 ------------------------------------------
 HWC  (H, W, C)         — 2-D spatial images
 DHWC (D, H, W, C)      — 3-D volumes (e.g. nnU-Net patches)
-NDHWC (N, D, H, W, C)  — batch of volumes
+NDHWC (N, D, H, W, C)  — five-dimensional arrays
 
 Run::
 

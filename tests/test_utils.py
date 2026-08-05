@@ -250,9 +250,9 @@ def test_wrapper_intermediate_dtype(wrapper):
     ((4, 100, 99, 3), 3, "Batch of RGB images or volume"),
     ((10, 224, 224, 3), 3, "Batch of RGB images or volume"),
 
-    # 5D batch of volumes (N, D, H, W, C)
-    ((2, 10, 100, 99, 1), 1, "Batch of volumes with 1 channel"),
-    ((2, 10, 100, 99, 3), 3, "Batch of volumes with 3 channels"),
+    # Five-dimensional arrays (N, D, H, W, C)
+    ((2, 10, 100, 99, 1), 1, "Five-dimensional array with 1 channel"),
+    ((2, 10, 100, 99, 3), 3, "Five-dimensional array with 3 channels"),
 
     # Edge cases
     ((1, 1, 1), 1, "Minimal 3D array"),
@@ -363,30 +363,9 @@ def test_get_image_data_volume(dtype, shape):
 
     assert isinstance(result, dict)
     assert result["dtype"] == dtype
-    # For volumes, should return actual image dimensions (skip depth)
+    # For a volume, return the image dimensions after the depth axis.
     assert result["height"] == shape[1]  # Actual height
     assert result["width"] == shape[2]   # Actual width
-
-
-@pytest.mark.parametrize("dtype, shape", [
-    (np.float32, (4, 10, 100, 200, 3)),
-    (np.uint8, (2, 5, 128, 128, 1)),
-    (np.float64, (3, 8, 64, 64, 1)),
-])
-def test_get_image_data_batch_of_volumes(dtype, shape):
-    """Test get_image_data with batch of volumes."""
-    vols = np.zeros(shape, dtype=dtype)
-    data = {"volumes": vols}
-    result = get_image_data(data)
-
-    assert isinstance(result, dict)
-    assert result["dtype"] == dtype
-    # For batch of volumes, should return actual image dimensions (skip batch and depth)
-    assert result["height"] == shape[2]  # Actual height
-    assert result["width"] == shape[3]   # Actual width
-
-
-
 
 
 @pytest.mark.parametrize("array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description", [
@@ -395,7 +374,6 @@ def test_get_image_data_batch_of_volumes(dtype, shape):
             "image": {"shape": (100, 200, 3), "dtype": np.uint8},
             "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
             "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
-            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
         np.uint8, 100, 200, 3,
         "All keys present - should use 'image'"
@@ -404,7 +382,6 @@ def test_get_image_data_batch_of_volumes(dtype, shape):
         {
             "images": {"shape": (5, 150, 250, 3), "dtype": np.uint16},
             "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
-            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
         np.uint16, 150, 250, 3,
         "No 'image' - should use 'images'"
@@ -412,21 +389,13 @@ def test_get_image_data_batch_of_volumes(dtype, shape):
     (
         {
             "volume": {"shape": (10, 120, 220, 3), "dtype": np.float32},
-            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
         },
         np.float32, 120, 220, 3,
         "No 'image' or 'images' - should use 'volume'"
     ),
-    (
-        {
-            "volumes": {"shape": (4, 10, 130, 230, 3), "dtype": np.float64}
-        },
-        np.float64, 130, 230, 3,
-        "Only 'volumes' - should use it"
-    ),
 ])
 def test_get_image_data_priority_order(array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description):
-    """Test that get_image_data follows the priority order: image > images > volume > volumes."""
+    """Test that get_image_data follows the priority order: image > images > volume."""
     # Create data dictionary from specifications
     data = {key: np.zeros(spec["shape"], dtype=spec["dtype"]) for key, spec in array_specs.items()}
 
@@ -470,7 +439,6 @@ def test_get_image_data_with_additional_keys(additional_keys):
     ("image", (100, 200, 3), 0, 1),          # Direct H, W
     ("images", (5, 100, 200, 3), 1, 2),      # Skip batch
     ("volume", (10, 100, 200), 1, 2),        # Skip depth
-    ("volumes", (2, 10, 100, 200, 3), 2, 3)  # Skip batch and depth
 ])
 @pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64, np.int32])
 def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_width_idx, dtype):
@@ -522,7 +490,6 @@ def test_get_image_data_returns_correct_keys():
     ("image", (100, 200, 3), 100, 200, 3, "Single image: shape[0] and shape[1] are H, W"),
     ("images", (5, 100, 200, 3), 100, 200, 3, "Batch of images: skip batch dimension to get H, W"),
     ("volume", (10, 100, 200, 1), 100, 200, 1, "Volume: skip depth dimension to get H, W"),
-    ("volumes", (2, 10, 100, 200, 3), 100, 200, 3, "Batch of volumes: skip batch and depth dimensions to get H, W"),
 ])
 def test_get_image_data_shape_extraction_behavior(key, shape, expected_height, expected_width, expected_num_channels, description):
     """Test documenting the correct behavior of shape extraction.

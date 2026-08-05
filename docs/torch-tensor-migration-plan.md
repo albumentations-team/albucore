@@ -11,7 +11,7 @@ Albucore принимает два вида изображений:
 
 Первая версия работает только на CPU. Публичный router сохраняет контейнер и layout входа: NumPy-вход возвращает `np.ndarray`, Tensor-вход — `torch.Tensor`. Autograd не входит в этот этап; Tensor с `requires_grad=True` завершается понятной ошибкой.
 
-Рабочий baseline для Tensor-входа уже известен: `Tensor CHW → NumPy HWC → текущий Compose → Tensor CHW`. Для batch’ей и volumes используются соответствующие пары layouts. Этот путь позволяет сразу принять CPU Tensor в `Compose` и переиспользовать весь текущий код.
+Рабочий baseline для Tensor-входа уже известен: `Tensor CHW → NumPy HWC → текущий Compose → Tensor CHW`. Для image batch’ей и single-volume data используются соответствующие пары layouts. Этот путь позволяет сразу принять CPU Tensor в `Compose` и переиспользовать весь текущий код.
 
 Затем отдельные helpers и последовательности helpers получают Torch-реализации. Compose переключает представление только на границе NumPy- и Torch-участка и по возможности объединяет соседние операции одного backend’а. Torch-участок принимается, когда полный benchmark с conversions показывает время не хуже baseline. Существующие NumPy, OpenCV, NumKong и StringZilla реализации остаются доступными как fallback.
 
@@ -63,7 +63,7 @@ flowchart LR
 | Один 2D image | `HWC` | `CHW` |
 | Batch 2D images | `NHWC` | `NCHW` |
 | Один volume | `DHWC` | `CDHW` |
-| Batch volumes | `NDHWC` | `NCDHW` |
+| Five-dimensional array | `NDHWC` | `NCDHW` |
 | Grayscale | явная ось `C=1` | явная ось `C=1` |
 | Поддерживаемые image dtypes | `uint8`, `float32` | `torch.uint8`, `torch.float32` |
 | Результат | `np.ndarray` | `torch.Tensor` |
@@ -72,11 +72,11 @@ flowchart LR
 
 ### Неоднозначность 4D Tensor
 
-Shape вида `(X, Y, H, W)` не сообщает, является ли Tensor batch’ем `NCHW` или volume `CDHW`. Проверка «похож ли размер оси на число каналов» даст ошибки на multispectral images, небольших batch’ах и volumes.
+Shape вида `(X, Y, H, W)` не сообщает, является ли Tensor batch’ем `NCHW` или volume `CDHW`. Проверка «похож ли размер оси на число каналов» даст ошибки на multispectral images, небольших image batch’ах и single-volume data.
 
 План использует явный контекст:
 
-- AlbumentationsX передаёт target kind: `image`, `images`, `volume` или `volumes`;
+- AlbumentationsX передаёт target kind: `image`, `images` или `volume`;
 - низкоуровневый публичный вызов с неоднозначным 4D Tensor передаёт `layout="NCHW"` или `layout="CDHW"`;
 - rank 3 однозначно означает `CHW`, rank 5 — `NCDHW`;
 - wrappers и routers не угадывают layout по размерам осей.
@@ -150,7 +150,7 @@ Shape вида `(X, Y, H, W)` не сообщает, является ли Tenso
 ### `batch_transform`
 
 - [ ] Разделить NumPy channel-last и Tensor channel-first reshape tables.
-- [ ] Передавать `image/images/volume/volumes` context, чтобы различать `NCHW` и `CDHW`.
+- [ ] Передавать `image`/`images`/`volume` context, чтобы различать `NCHW` и `CDHW`.
 - [ ] Сохранить текущую семантику общих и независимых transform parameters для batch/volume.
 - [ ] Оставить `maybe_process_in_chunks` NumPy/OpenCV-specific helper’ом. Он не должен притворяться Tensor-compatible API.
 
@@ -271,7 +271,7 @@ Torch предоставляет fused APIs, которые возвращают
 ### Эксперименты после первой eager CPU release
 
 1. Скомпилировать цепочку `to_float → normalize → multiply_add → clip` и сравнить её с четырьмя отдельными public calls.
-2. Сравнить текущий `batch_transform` с `vmap` на per-image параметрах и volumes.
+2. Сравнить текущий `batch_transform` с `vmap` на per-image параметрах и single-volume data.
 3. Проверить `scatter_reduce`/`segment_reduce` на CPU для SLIC/superpixel means из AlbumentationsX: sweep по числу labels и плотности IDs обязателен.
 4. Проверить один affine/grid pipeline на `NCHW` и `NCDHW`, включая построение grid и layout conversion.
 5. Проверить fused reductions на Tensor input; не повторять CPU NumPy routing без новых данных.
@@ -283,7 +283,7 @@ AlbumentationsX уже объявляет `torch>=2.13.0` в base dependencies. 
 - [ ] Выпустить Albucore с Tensor contract и затем обновить pin в AlbumentationsX.
 - [ ] Расширить AlbumentationsX `ImageType`/`VolumeType` и dispatch targets для Tensor.
 - [ ] Разрешить CPU Tensor на входе `Compose` и отклонять `requires_grad=True` в первой версии.
-- [ ] Использовать target name для layout context: `image → CHW`, `images → NCHW`, `volume → CDHW`, `volumes → NCDHW`.
+- [ ] Использовать target name для layout context: `image → CHW`, `images → NCHW`, `volume → CDHW`.
 - [ ] Реализовать baseline: один Tensor → NumPy transition перед текущим pipeline и один NumPy → Tensor transition после него.
 - [ ] Добавить lazy representation state. Compose хранит данные в текущем backend до тех пор, пока следующему связному участку действительно не понадобится другой backend.
 - [ ] Сделать `ToTensorV2`/`ToTensor3D` compatibility boundary: NumPy-вход конвертируется и переставляет axes; Tensor-вход с правильным layout возвращается без лишней конвертации.

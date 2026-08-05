@@ -91,7 +91,7 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 ### 8. Tests
 
 - Test uint8 and float32 only.
-- Test single images, batches, volumes, and batch-of-volumes where the router supports them.
+- Test single images, image batches, single volumes, and supported five-dimensional arrays where the router supports them.
 - Cover 1-channel and >4-channel edge cases.
 
 ### 9. Dependency Lock Consistency

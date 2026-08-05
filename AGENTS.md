@@ -119,7 +119,7 @@ Albucore provides several useful decorators:
 ### 6. Testing
 
 - Write tests for uint8 and float32 only
-- Test single images, batches, volumes, and batch of volumes
+- Test single images, image batches, single volumes, and supported five-dimensional arrays
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
 
@@ -241,7 +241,7 @@ When implementing a new function, consider:
 4. Is the operation a LUT, reduction, fused arithmetic kernel, or existing Albucore atom?
 5. Which NumPy, OpenCV, NumKong, StringZilla, LUT, Python, or random-generation candidates apply?
 6. Does OpenCV support the channel count, rank, layout, and aliasing mode?
-7. Should this support batches and volumes?
+7. Which documented array ranks, including a single volume, should this support?
 8. What should the output dtype and mutation contract be?
 9. Is an in-place option safe and measurably faster?
 
