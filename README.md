@@ -10,7 +10,7 @@ Albucore is a library of optimized atomic functions designed for efficient image
 
 ## Overview
 
-Image processing operations can be implemented in several ways, with performance depending on dtype, size, layout, and channel count. Albucore routes each operation to a benchmark-selected NumPy, OpenCV, NumKong, or StringZilla implementation.
+Image processing operations can be implemented in several ways, with performance depending on dtype, size, layout, and channel count. Albucore routes each operation to a benchmark-selected NumPy, OpenCV, NumKong, StringZilla, or eligible CPU PyTorch implementation.
 
 Most image-processing routers support `uint8` and `float32`. The elementwise `exp`, `log`, and `sqrt` routers are `float32`-only; conversion helpers also support additional integer dtypes.
 
@@ -182,11 +182,13 @@ These functions accept float32 arrays of any rank and preserve the exact input s
 | `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked above OpenCV's 128-channel limit |
 | `vflip` | `(img)` | Mirror top-bottom | `cv2.flip(img, 0)` for ≤4 channels; NumPy slice for >4 channels |
 | `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked `cv2.medianBlur`; float32 ksize 3/5 → native OpenCV; float32 ksize ≥ 7 → uint8 conversion fallback |
+| `gaussian_blur3d` | `(volume, sigma, kernel_size=0)` | Blur one volume along depth, height, and width | One NumPy `DHWC` or CPU Torch `CDHW` volume; three float32 grouped Torch passes with `BORDER_REFLECT_101`; uint8 restores once after filtering |
+| `separable_filter3d` | `(volume, kernels)` | Apply three D/H/W kernels to one volume | One NumPy `DHWC` or CPU Torch `CDHW` volume; grouped Torch filtering with the same padding and dtype rules as `gaussian_blur3d` |
 | `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix | One NumPy `DHWC` or CPU Torch `CDHW` volume; native Torch `affine_grid` + `grid_sample`; uint8 uses one float32 sampling buffer |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `remap`, `resize`, `resize3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `resize3d` and `warp_affine3d` expect prevalidated NumPy `DHWC` volumes or Torch `CDHW` tensors. `warp_affine3d` accepts exactly one volume per call; it does not accept `NDHWC` or `NCDHW` batch layouts.
+The package also star-exports multi-channel wrappers for `copy_make_border`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect prevalidated NumPy `DHWC` volumes or Torch `CDHW` tensors. The two filters and `warp_affine3d` accept exactly one volume per call; they do not accept `NDHWC` or `NCDHW` batch layouts.
 
 ### Type conversion
 
@@ -222,14 +224,15 @@ See [docs/decorators.md](docs/decorators.md) for internal decorator documentatio
 
 Albucore uses a combination of techniques to achieve high performance:
 
-1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, or StringZilla.
+1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch when the documented contract permits it.
 2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
 3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
 4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+5. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 
-See [docs/performance-optimization.md](docs/performance-optimization.md) for detailed performance guidelines and best practices.
+See [docs/performance-optimization.md](docs/performance-optimization.md) for the general workflow and [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) for eager CPU Torch routes.
 
 ## Documentation
 
@@ -238,6 +241,7 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for det
 - [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
 - [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
+- [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) - Eager CPU PyTorch routing and benchmark guidance
 - [docs/numkong-performance.md](docs/numkong-performance.md) - NumKong vs OpenCV/NumPy/LUT baselines (benchmark tables; sum/mean/std)
 - [docs/public-api.md](docs/public-api.md) - Star-exported routers vs `albucore.functions` shims
 - [benchmarks/README.md](benchmarks/README.md) - Python micro-benchmarks (`uv run python benchmarks/…`)

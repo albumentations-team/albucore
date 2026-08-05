@@ -10,7 +10,7 @@ The call receives a prevalidated input and parameters from AlbumentationsX. It d
 
 ## Evidence
 
-The full run used macOS arm64, Albucore 0.2.10, Torch 2.13.0, NumPy 2.2.6, OpenCV 5.0.0, one CPU thread, 11 timed repetitions, and three warmups. The matrix covered nine non-batched canonical `DHWC` shapes, uint8 and float32, and `C=1/3/5/9` where applicable. Every candidate preserved shape and dtype. Float32 candidates were checked against the selected route with `rtol=3e-5`, `atol=3e-5`; uint8 candidates differed by at most one value.
+The full run used macOS arm64, Albucore 0.2.11 (commit `32de93a`), Torch 2.13.0, NumPy 2.2.6, OpenCV 5.0.0, one CPU thread, 11 timed repetitions, and three warmups. The matrix covered nine non-batched canonical `DHWC` shapes, uint8 and float32, and `C=1/3/5/9` where applicable. Every candidate preserved shape and dtype. Float32 candidates were checked against the selected route with `rtol=3e-5`, `atol=3e-5`; uint8 candidates differed by at most one value.
 
 On `48×240×320×3`, the direct NumPy-to-Torch route took 31.711 ms for float32 and 32.204 ms for uint8. The all-NumPy three-pass route took 163.439 ms and 180.667 ms. On a `64×128×160×3` float32 Tensor, Torch reflect padding took 10.999 ms and universal index padding took 16.885 ms. The production path stays with Torch reflect padding and uses the index map only for axes that Torch cannot reflect-pad.
 

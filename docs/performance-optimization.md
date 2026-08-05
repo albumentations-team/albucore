@@ -8,6 +8,8 @@ This file is canonical at `albucore/docs/performance-optimization.md`. Albumenta
 copy under `.codex/skills/performance-optimization/references/` so its performance skill can load the guide without a
 sibling Albucore checkout.
 
+For eager CPU PyTorch candidates, also follow Albucore's `docs/torch-performance-optimization.md` workflow.
+
 ## Run the optimization pass in this order
 
 ### 1. Delete work first
@@ -128,6 +130,7 @@ For each atomic operation, benchmark viable implementations end to end:
 - OpenCV;
 - NumKong;
 - StringZilla;
+- CPU PyTorch for documented Tensor or volume contracts;
 - a LUT route;
 - a small Python or `math` implementation when the data is scalar or tiny.
 
@@ -142,6 +145,17 @@ globally fastest:
 - NumPy wins other float32 and high-channel paths;
 - OpenCV wins many dense image operations but has channel and layout constraints;
 - StringZilla is competitive for selected uint8 translation paths.
+- CPU PyTorch is competitive for selected eager 3D volume operations when the complete interop route wins.
+
+### 6a. Escalate missing backend capabilities
+
+When a viable optimization requires an operation that PyTorch, NumKong, OpenCV, or NumPy does not provide, first open
+a Feature Request in the relevant upstream project. Link the request from the Albucore issue, benchmark note, or pull
+request so the dependency is explicit.
+
+When we can implement the operation and the upstream contribution rules allow it, open a linked upstream pull request.
+Until the operation is available, benchmark the portable alternatives and document the capability gap. Do not add a
+private substitute solely to avoid upstream coordination.
 
 ### 7. Compare random-generation paths
 
@@ -280,7 +294,8 @@ Every performance task should report:
 - grouped integer-label reductions reviewed, including `bincount`;
 - LUT applicability and candidates;
 - random-generation candidates;
-- NumPy, OpenCV, NumKong, StringZilla, and Python candidates that apply;
+- NumPy, OpenCV, NumKong, StringZilla, CPU PyTorch, and Python candidates that apply;
+- any missing upstream primitive, its Feature Request, and a linked implementation pull request when we can provide one;
 - reusable atoms moved or proposed for Albucore;
 - safe in-place opportunities;
 - correctness evidence;

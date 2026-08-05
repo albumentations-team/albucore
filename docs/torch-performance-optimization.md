@@ -48,6 +48,16 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
 - For interpolation and sampling, differential-test coordinate conventions, border rules, `align_corners`, rounding, and uint8 restoration. A faster result with shifted samples is not a candidate.
 - Use Torch CPU thread counts as an explicit benchmark dimension. `OMP_NUM_THREADS` controls OpenMP regions, and `MKL_NUM_THREADS` overrides it for MKL. Do not bake one machine's thread count into a router. [PyTorch threading variables](https://docs.pytorch.org/docs/stable/threading_environment_variables.html)
 
+## Escalate missing backend capabilities
+
+When a viable optimization needs an operation that PyTorch, NumKong, OpenCV, or NumPy does not provide, open a Feature
+Request in the relevant upstream project before adding a private substitute. Link that request from the Albucore issue,
+benchmark note, or pull request so readers can see the dependency.
+
+When we can implement the operation and the upstream contribution rules allow it, open a linked upstream pull request.
+Until the operation is available, benchmark the portable alternatives and state the capability gap. See the general
+[performance optimization workflow](performance-optimization.md) for the project-wide policy.
+
 ## Profile before adding a specialized route
 
 Use a short profiler capture to find dominant operators and allocations before writing a threshold or alternative backend. `torch.profiler.profile` can record CPU/CUDA activity, shapes, and Tensor allocation/deallocation; shape and stack collection perturb timing, so profile first and benchmark separately. [PyTorch profiler docs](https://docs.pytorch.org/docs/stable/profiler.html)
