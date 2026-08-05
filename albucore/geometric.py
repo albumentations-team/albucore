@@ -17,6 +17,7 @@ import torch.nn.functional as torch_f
 
 from albucore.affine3d import warp_affine3d
 from albucore.decorators import preserve_channel_dim
+from albucore.filter3d import gaussian_blur3d, separable_filter3d
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ImageType,
@@ -33,9 +34,11 @@ _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 
 __all__ = [
     "copy_make_border",
+    "gaussian_blur3d",
     "remap",
     "resize",
     "resize3d",
+    "separable_filter3d",
     "warp_affine",
     "warp_affine3d",
     "warp_perspective",

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Torch Optimization"
+  short_description: "Benchmark-driven Torch kernel optimization"
+  default_prompt: "Use $torch-performance-optimization to profile and optimize an Albucore Torch path."

@@ -85,7 +85,7 @@ def _native_torch_bridge(
         cv2.BORDER_CONSTANT,
         _normalize_border_value(fill, volume.shape[-1]),
     )
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return result.permute(1, 2, 3, 0).numpy()
 
 
 CANDIDATES: tuple[Candidate, ...] = (
