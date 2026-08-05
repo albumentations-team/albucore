@@ -1,4 +1,6 @@
 # ruff: noqa: S101
+from collections.abc import Callable
+
 import cv2
 import numpy as np
 import pytest
@@ -19,7 +21,7 @@ def _rng(
     return np.random.default_rng(seed)
 
 
-@pytest.mark.parametrize("shape", [(8, 9, 1), (4, 8, 9, 3), (2, 4, 8, 9, 1)])
+@pytest.mark.parametrize("shape", [(8, 9, 1), (4, 8, 9, 3)])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_mean_std_global_matches_numpy_float64_reference(shape: tuple[int, ...], dtype: type) -> None:
     rng = np.random.default_rng(42)
@@ -118,7 +120,6 @@ def test_std_per_channel_matches_numpy(shape: tuple[int, ...], dtype: type) -> N
         (5, 6, 9),  # C=9, 3D
         (2, 8, 9, 3),  # NHWC: must fall back to NumPy (ndim>3)
         (2, 8, 9, 9),  # NHWC C=9
-        (2, 3, 4, 5, 3),  # NDHWC: ndim=5
     ],
 )
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
@@ -185,7 +186,6 @@ def test_mean_and_std_delegation() -> None:
         ((2, 8, 9, 3), -1, False),
         ((2, 8, 9, 3), (1, 2), False),
         ((2, 8, 9, 3), (1, 2), True),
-        ((2, 3, 4, 5, 3), -2, False),
     ],
 )
 def test_mean_std_explicit_axis_matches_numpy(
@@ -279,7 +279,7 @@ def test_reduce_sum_explicit_axis_matches_numpy(
     np.testing.assert_array_equal(out, ref)
 
 
-@pytest.mark.parametrize("shape", [(5, 6, 3), (2, 4, 8, 9, 1)])
+@pytest.mark.parametrize("shape", [(5, 6, 3)])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_axis_none_equals_string_global(shape: tuple[int, ...], dtype: type) -> None:
     rng = np.random.default_rng(404)
@@ -361,17 +361,6 @@ def test_std_custom_eps_matches_numpy(shape: tuple[int, ...], dtype: type) -> No
     assert np.isclose(float(std(arr, eps=eps)), float(ref), rtol=1e-4, atol=1e-4)
     _, s = mean_std(arr, eps=eps)
     assert np.isclose(float(s), float(ref), rtol=1e-4, atol=1e-4)
-
-
-@pytest.mark.parametrize("dtype", [np.int32, np.float64, np.bool_, np.complex64])
-def test_unsupported_dtype_raises_mean_std(dtype: type) -> None:
-    arr = np.ones((2, 2, 1), dtype=dtype)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        mean(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        std(arr)
-    with pytest.raises(ValueError, match="Unsupported dtype"):
-        mean_std(arr)
 
 
 @pytest.mark.parametrize(

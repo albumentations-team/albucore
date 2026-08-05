@@ -4,7 +4,7 @@
 LUT is a fixed-seed **permutation** of ``0..255`` (non-identity). Use this file as a **copy-paste
 repro** for upstream issues; it has no ``albucore`` import.
 
-The full shape sweep (HWC / DHWC / NDHWC, per-channel LUTs, SZ full-buffer vs loop) lives in
+The full shape sweep (HWC / DHWC, per-channel LUTs, SZ full-buffer vs loop) lives in
 ``benchmark_sz_lut_vs_cv2_lut.py``.
 
 Run from anywhere with ``numpy``, ``opencv-python[-headless]``, ``stringzilla`` installed::
@@ -19,7 +19,6 @@ import time
 import cv2
 import numpy as np
 import stringzilla as sz
-
 from shape_grids import MINIMAL_SHARED_LUT_SHAPES
 
 

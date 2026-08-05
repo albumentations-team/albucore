@@ -43,11 +43,6 @@ def _is_float32_image(img: ImageType) -> TypeGuard[ImageFloat32]:
     return img.dtype == np.float32
 
 
-def _validate_image_dtype(img: ImageType) -> None:
-    if img.dtype not in (np.uint8, np.float32):
-        raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
-
-
 def create_lut_array(
     dtype: SupportedDType,
     value: float | np.ndarray,
@@ -195,7 +190,6 @@ def multiply_numpy(img: ImageType, value: float | np.ndarray) -> ImageFloat32:
 
 
 def multiply_by_constant(img: ImageType, value: float, inplace: bool = False) -> ImageType:
-    _validate_image_dtype(img)
     if _is_uint8_image(img):
         return multiply_lut(img, value, inplace)
     # float32: match 0.0.40 (`multiply_numpy`); OpenCV / NumKong scalar paths regressed on router grid
@@ -203,7 +197,6 @@ def multiply_by_constant(img: ImageType, value: float, inplace: bool = False) ->
 
 
 def multiply_by_vector(img: ImageType, value: np.ndarray, inplace: bool = False) -> ImageType:
-    _validate_image_dtype(img)
     if _is_uint8_image(img):
         # LUT beats OpenCV float-multiply + clip for per-channel uint8 (see benchmarks/benchmark_grayscale_paths.py).
         return multiply_lut(img, value, inplace)
@@ -211,7 +204,6 @@ def multiply_by_vector(img: ImageType, value: np.ndarray, inplace: bool = False)
 
 
 def multiply_by_array(img: ImageType, value: np.ndarray) -> ImageType:
-    _validate_image_dtype(img)
     if _is_float32_image(img):
         return multiply_numpy(img, value)
     return clip(multiply_opencv(img, value), img.dtype)
@@ -286,7 +278,6 @@ def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -
 
 
 def add_constant(img: ImageType, value: float, inplace: bool = False) -> ImageType:
-    _validate_image_dtype(img)
     if _is_float32_image(img):
         return add_numpy(img, value)
     # uint8 (all C): OpenCV + ``prepare_value_opencv`` broadcast. NumKong ``add_constant_numkong``
@@ -296,7 +287,6 @@ def add_constant(img: ImageType, value: float, inplace: bool = False) -> ImageTy
 
 
 def add_vector(img: ImageType, value: np.ndarray, inplace: bool = False) -> ImageType:
-    _validate_image_dtype(img)
     if _is_uint8_image(img):
         return add_lut(img, value, inplace)
     return add_numpy(img, value)
@@ -310,7 +300,6 @@ def add_array(img: ImageType, value: np.ndarray) -> ImageType:
     There is no ``inplace`` flag: an in-place OpenCV path was slower than the NumKong out-of-place
     path for same-shape uint8 in benchmarks; use ``numpy.copyto`` yourself if you must reuse a buffer.
     """
-    _validate_image_dtype(img)
     if _is_float32_image(img):
         # Benchmarks: NumPy broadcast add beats NumKong and OpenCV scalar/tensor prep on float32.
         return add_numpy(img, value)
@@ -347,7 +336,6 @@ def add(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
 
     if isinstance(value, (float, int)):
         if value == 0:
-            _validate_image_dtype(img)
             return img
 
         if img.dtype == np.uint8:
@@ -512,7 +500,6 @@ def power(img: ImageType, exponent: ValueType, inplace: bool = False) -> ImageTy
         Pixel-wise power with the same shape and dtype as ``img``. Uint8 results saturate to
         [0, 255]; float32 results preserve the raw numeric range.
     """
-    _validate_image_dtype(img)
     num_channels = get_num_channels(img)
     exponent = convert_value(exponent, num_channels)
     if _is_uint8_image(img):
@@ -588,17 +575,8 @@ def add_weighted(img1: ImageType, weight1: float, img2: ImageType, weight2: floa
         Blended image with the same shape and dtype as the inputs. Float32 results are not clipped to the image
         range; uint8 results retain the backend's saturating arithmetic semantics.
 
-    Raises:
-        ValueError: If input shapes or dtypes differ, or either dtype is not uint8 or float32.
+    The caller validates matching shapes and dtypes before entering this low-level router.
     """
-    if img1.shape != img2.shape:
-        raise ValueError(f"The input images must have the same shape. Got {img1.shape} and {img2.shape}.")
-
-    if img1.dtype != img2.dtype:
-        raise ValueError(f"The input images must have the same dtype. Got {img1.dtype} and {img2.dtype}.")
-
-    _validate_image_dtype(img1)
-
     if (
         _is_float32_image(img1)
         and get_num_channels(img1) > 1
@@ -745,7 +723,6 @@ def multiply_add(img: ImageType, factor: ValueType, value: ValueType, inplace: b
         ``img * factor + value`` with the same shape and dtype as ``img``. Uint8 results saturate
         to [0, 255]; float32 results preserve the raw numeric range.
     """
-    _validate_image_dtype(img)
     num_channels = get_num_channels(img)
     factor = convert_value(factor, num_channels)
     value = convert_value(value, num_channels)

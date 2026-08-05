@@ -20,7 +20,6 @@ ROUTER_BATCH_STATS_FULL_HW: tuple[tuple[int, int], ...] = ((128, 160), (240, 320
 
 TARGETED_HWC_HW: tuple[tuple[int, int], ...] = ((240, 320), (480, 640), (768, 1024))
 TARGETED_BATCH_NHWC: tuple[int, int, int] = (4, 240, 320)
-TARGETED_VOLUME_NDHWC_PREFIX_AND_HW: tuple[int, int, int, int] = (2, 4, 64, 80)
 
 STATS_HWC_SHAPES: tuple[tuple[int, int, int], ...] = (
     (240, 320, 3),
@@ -67,10 +66,6 @@ SCALE_LUT_SHAPES: tuple[tuple[int, ...], ...] = (
     (64, 128, 160, 3),
     (96, 128, 160, 1),
     (48, 240, 320, 3),
-    (2, 32, 128, 160, 1),
-    (2, 32, 128, 160, 3),
-    (2, 64, 128, 160, 3),
-    (4, 16, 128, 160, 3),
 )
 
 MINIMAL_SHARED_LUT_SHAPES: tuple[tuple[int, ...], ...] = (
@@ -81,7 +76,6 @@ MINIMAL_SHARED_LUT_SHAPES: tuple[tuple[int, ...], ...] = (
     (1024, 1024, 3),
     (64, 128, 128, 3),
     (128, 128, 128, 1),
-    (2, 64, 128, 128, 3),
 )
 
 MINMAX_GLOBAL_HWC_SHAPES: tuple[tuple[int, int, int], ...] = (
@@ -161,7 +155,4 @@ SZ_LUT_BENCHMARK_SHAPES: tuple[tuple[int, ...], ...] = (
     (48, 256, 256, 3),
     (96, 160, 160, 3),
     (6, 32, 32, 9),
-    (2, 32, 128, 128, 3),
-    (2, 64, 128, 128, 3),
-    (1, 128, 128, 128, 1),
 )

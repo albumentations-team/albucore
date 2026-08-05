@@ -12,7 +12,7 @@ from benchmarks.shape_grids import (
 )
 
 DTypeName: TypeAlias = Literal["uint8", "float32", "float64", "other numeric fallback"]
-LayoutName: TypeAlias = Literal["HWC", "XHWC", "NDHWC", "DHWC", "CDHW", "2D", "points"]
+LayoutName: TypeAlias = Literal["HWC", "XHWC", "DHWC", "CDHW", "2D", "points"]
 ChannelSpec: TypeAlias = Literal["1", "3", "4", ">4"]
 ValueKind: TypeAlias = Literal[
     "alpha",
@@ -60,7 +60,6 @@ DTYPE_OTHER_NUMERIC_FALLBACK: Final[DTypeName] = "other numeric fallback"
 
 LAYOUT_HWC: Final[LayoutName] = "HWC"
 LAYOUT_XHWC: Final[LayoutName] = "XHWC"
-LAYOUT_NDHWC: Final[LayoutName] = "NDHWC"
 LAYOUT_DHWC: Final[LayoutName] = "DHWC"
 LAYOUT_CDHW: Final[LayoutName] = "CDHW"
 LAYOUT_2D: Final[LayoutName] = "2D"
@@ -117,7 +116,6 @@ ALL_DTYPE_NAMES: Final[tuple[DTypeName, ...]] = (
 ALL_LAYOUT_NAMES: Final[tuple[LayoutName, ...]] = (
     LAYOUT_HWC,
     LAYOUT_XHWC,
-    LAYOUT_NDHWC,
     LAYOUT_DHWC,
     LAYOUT_CDHW,
     LAYOUT_2D,
@@ -163,7 +161,7 @@ ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
     VALUE_TARGET_DTYPE,
 )
 
-HWC_XHWC_NDHWC: Final[tuple[LayoutName, ...]] = (LAYOUT_HWC, LAYOUT_XHWC, LAYOUT_NDHWC)
+HWC_XHWC: Final[tuple[LayoutName, ...]] = (LAYOUT_HWC, LAYOUT_XHWC)
 IMAGE_DTYPES: Final[tuple[DTypeName, ...]] = (DTYPE_UINT8, DTYPE_FLOAT32)
 IMAGE_CHANNELS: Final[tuple[ChannelSpec, ...]] = (CHANNEL_1, CHANNEL_3, CHANNEL_4, CHANNEL_GT4)
 SCALAR_VECTOR_ARRAY: Final[tuple[ValueKind, ...]] = (

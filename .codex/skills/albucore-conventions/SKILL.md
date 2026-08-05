@@ -25,7 +25,6 @@ grayscale = (H, W, 1)
 rgb = (H, W, 3)
 batch = (N, H, W, C)
 volume = (D, H, W, C)
-batch_volumes = (N, D, H, W, C)
 
 # Wrong - never use implicit channels
 gray = (H, W)
@@ -43,11 +42,25 @@ height = image.shape[-3]
 An API that explicitly accepts a `torch.Tensor` defines its layout independently; never infer a Tensor layout from its
 rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses the same prevalidated single-volume
 layouts. AlbumentationsX checks CPU, strided layout, eager (`requires_grad=False`) execution, and all control data
-before the call. It does not accept `NDHWC` or `NCDHW` batch layouts.
+before the call. Each volume router accepts exactly one volume.
+
+### 1a. Precondition Boundary - Do Not Revalidate in Albucore
+
+Albucore routers receive prevalidated inputs from the caller. The upstream transform layer owns validation of:
+
+- container type, rank, layout, and explicit channel dimension;
+- dtype, device, contiguity, and autograd state;
+- spatial sizes, control-data shapes, interpolation, border, and fill contracts.
+
+Do not add duplicate runtime checks for these preconditions inside Albucore routers. Keep only the dispatch needed to
+select the NumPy or Torch implementation and the normalization/conversion required by the selected kernel. A caller
+contract violation is outside the low-level router contract; tests and benchmarks must use valid inputs. Document the
+precondition boundary in public-router docstrings.
 
 ### 2. Supported Dtypes - uint8 and float32 Only
 
-No float64 in public paths. Raise `ValueError` for unsupported dtypes.
+No float64 in the validated public path. Callers reject unsupported dtypes before dispatch; runtime kernels may rely
+on the documented `uint8`/`float32` contract.
 
 ### 3. Backend Routing - Benchmark-Driven Only
 
@@ -91,7 +104,7 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 ### 8. Tests
 
 - Test uint8 and float32 only.
-- Test single images, batches, volumes, and batch-of-volumes where the router supports them.
+- Test single images, image batches, and single volumes where the router supports them.
 - Cover 1-channel and >4-channel edge cases.
 
 ### 9. Dependency Lock Consistency

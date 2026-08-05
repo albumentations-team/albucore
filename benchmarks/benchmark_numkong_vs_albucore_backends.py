@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Compare NumKong-backed paths against **other albucore backends** (OpenCV, NumPy, LUT),
+"""Compare NumKong-backed paths against **other albucore backends** (OpenCV, NumPy, LUT),
 not raw NumPy in isolation — same spirit as production routing (pick the fastest known path).
 
 Requires OpenCV (e.g. ``uv sync --extra headless``).
@@ -15,6 +14,8 @@ import argparse
 import cv2
 import numkong as nk
 import numpy as np
+from shape_grids import TARGETED_BATCH_NHWC, TARGETED_HWC_HW
+from timing import median_ms
 
 from albucore.functions import (
     add_weighted_lut,
@@ -23,8 +24,6 @@ from albucore.functions import (
     add_weighted_opencv,
 )
 from albucore.stats import mean_std
-from shape_grids import TARGETED_BATCH_NHWC, TARGETED_HWC_HW, TARGETED_VOLUME_NDHWC_PREFIX_AND_HW
-from timing import median_ms
 
 
 def per_channel_axes(ndim: int) -> tuple[int, ...]:
@@ -186,7 +185,9 @@ def main() -> None:
     print()
     print(cv_global_note)
     print()
-    print("NumPy: `float(img.mean())`. NumKong: `moments` on contiguous ravel, `mean = s/n`. OpenCV (C=1): `meanStdDev`, read scalar mean.")
+    print(
+        "NumPy: `float(img.mean())`. NumKong: `moments` on contiguous ravel, `mean = s/n`. OpenCV (C=1): `meanStdDev`, read scalar mean."
+    )
     print()
     print("| H×W | C | pixels | NumPy | NumKong | OpenCV | fastest |")
     print("|-----|---|--------|------:|--------:|-------:|--------|")
@@ -258,7 +259,9 @@ def main() -> None:
     print()
     print(cv_global_note)
     print()
-    print("NumPy: `float(img.mean())`. NumKong: `moments` on contiguous ravel. OpenCV (C=1): `meanStdDev` on float32 image.")
+    print(
+        "NumPy: `float(img.mean())`. NumKong: `moments` on contiguous ravel. OpenCV (C=1): `meanStdDev` on float32 image."
+    )
     print()
     print("| H×W | C | pixels | NumPy | NumKong | OpenCV | fastest |")
     print("|-----|---|--------|------:|--------:|-------:|--------|")
@@ -458,13 +461,13 @@ def main() -> None:
     row_batch_global_mean_f32()
     row_batch_global_std_f32()
 
-    # --- per-channel: (H,W,C), (N,H,W,C), (N,D,H,W,C) ---
-    print("## Per-channel mean + std — `(H,W,C)`, `(N,H,W,C)`, `(N,D,H,W,C)`")
+    # --- per-channel: (H,W,C), (N,H,W,C) ---
+    print("## Per-channel mean + std — `(H,W,C)`, `(N,H,W,C)`")
     print()
     print(
         "Reduce over **all axes except channel** (`shape[-1]`). "
         "**NP mean** / **NP std**: separate full reductions over those axes. **NP both**: `mean` then `std` in one timed block. "
-        "**albucore**: `mean_std(img, \"per_channel\", eps=…)` (3D: OpenCV + NumPy routing in `stats`; higher rank → NumPy axis-reduce). "
+        '**albucore**: `mean_std(img, "per_channel", eps=…)` (3D: OpenCV + NumPy routing in `stats`; higher rank → NumPy axis-reduce). '
         "**NK**: one NumKong `moments` per channel (no batched per-channel API in this bench).",
     )
     print()
@@ -503,13 +506,6 @@ def main() -> None:
         row_pc("uint8", f"{nb}×{hb}×{wb}×{c}", u8)
         f32 = rng.random((nb, hb, wb, c), dtype=np.float32)
         row_pc("float32", f"{nb}×{hb}×{wb}×{c}", f32)
-
-    n5, d5, h5, w5 = TARGETED_VOLUME_NDHWC_PREFIX_AND_HW
-    for c in channels:
-        u8 = rng.integers(0, 256, size=(n5, d5, h5, w5, c), dtype=np.uint8)
-        row_pc("uint8", f"{n5}×{d5}×{h5}×{w5}×{c}", u8)
-        f32 = rng.random((n5, d5, h5, w5, c), dtype=np.float32)
-        row_pc("float32", f"{n5}×{d5}×{h5}×{w5}×{c}", f32)
 
 
 if __name__ == "__main__":

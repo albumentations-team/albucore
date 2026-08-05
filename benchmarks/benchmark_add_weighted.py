@@ -8,7 +8,7 @@ Run from the repository root:
 The issue #130 matrix uses contiguous and strided float32 HWC arrays in
 ``[0, 255]``, weights 0.5 / 0.5, spatial sizes 256 / 512 / 1024, and 1 / 3 / 5
 channels. The default run also includes Albucore's canonical non-square sizes
-and 9-channel inputs. Pass ``--grid rank`` to compare rank-4/5 inputs and
+and 9-channel inputs. Pass ``--grid rank`` to compare rank-3/4 inputs and
 asymmetric input layouts without running the larger HWC grids.
 """
 
@@ -23,11 +23,11 @@ from importlib.metadata import version
 
 import cv2
 import numpy as np
+from timing import WallTimingMs
 
 from albucore import add_weighted
 from albucore.arithmetic import add_weighted_numpy, add_weighted_opencv
 from albucore.weighted import add_weighted_numkong
-from timing import WallTimingMs
 
 
 def format_timing(timing: WallTimingMs) -> str:
@@ -98,7 +98,7 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--grid", choices=("all", "issue", "canonical", "rank"), default="all")
-    parser.add_argument("--ranks", type=int, choices=(3, 4, 5), nargs="+")
+    parser.add_argument("--ranks", type=int, choices=(3, 4), nargs="+")
     parser.add_argument("--channels", type=int, nargs="+", default=(1, 3, 5, 9))
     parser.add_argument(
         "--layouts",
@@ -107,7 +107,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    ranks = args.ranks or ((4, 5) if args.grid == "rank" else (3,))
+    ranks = args.ranks or ((3, 4) if args.grid == "rank" else (3,))
     layouts = args.layouts or (
         ("contiguous", "strided", "contiguous-strided", "strided-contiguous")
         if args.grid == "rank"
@@ -147,7 +147,7 @@ def main() -> None:
 
     for layout_index, layout in enumerate(layouts):
         for rank in ranks:
-            prefix = {3: (), 4: (4,), 5: (2, 4)}[rank]
+            prefix = {3: (), 4: (4,)}[rank]
             for height, width in sizes:
                 for channels in args.channels:
                     shape = (*prefix, height, width, channels)

@@ -58,6 +58,13 @@ Keep these skills aligned with `AGENTS.md` and the docs above when conventions c
 
 ## Development Principles
 
+### 0. Caller-validated router boundary
+
+Albucore receives prevalidated inputs from AlbumentationsX or another upstream caller. Container type, rank, layout,
+explicit channel dimension, dtype, device, contiguity, autograd state, and operation-specific control data are checked
+before dispatch. Do not duplicate those checks in Albucore routers; keep only backend dispatch and kernel-required
+normalization. Invalid direct calls are outside the low-level contract.
+
 ### 1. Image Shape Convention
 
 **This is the most important rule:**
@@ -104,7 +111,8 @@ def operation(img: ImageType, value: ValueType, inplace: bool = False) -> ImageT
     if img.dtype == np.float32:
         return operation_numpy(img, value)  # Or opencv — whichever is faster
 
-    raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
+    # The caller guarantees uint8 or float32 before entering the router.
+    return operation_numpy(img, value)
 ```
 
 ### 5. Use Decorators
@@ -119,7 +127,7 @@ Albucore provides several useful decorators:
 ### 6. Testing
 
 - Write tests for uint8 and float32 only
-- Test single images, batches, volumes, and batch of volumes
+- Test single images, image batches, and single volumes
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
 
@@ -241,7 +249,7 @@ When implementing a new function, consider:
 4. Is the operation a LUT, reduction, fused arithmetic kernel, or existing Albucore atom?
 5. Which NumPy, OpenCV, NumKong, StringZilla, LUT, Python, or random-generation candidates apply?
 6. Does OpenCV support the channel count, rank, layout, and aliasing mode?
-7. Should this support batches and volumes?
+7. Which documented array ranks, including a single volume, should this support?
 8. What should the output dtype and mutation contract be?
 9. Is an in-place option safe and measurably faster?
 

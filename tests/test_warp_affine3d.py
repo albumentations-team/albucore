@@ -31,6 +31,14 @@ def _translation(x: float = 0.0, y: float = 0.0, z: float = 0.0) -> np.ndarray:
     )
 
 
+@pytest.mark.parametrize(
+    "volume",
+    [
+        np.zeros((3, 4, 1), dtype=np.uint8),
+        torch.zeros((1, 3, 4), dtype=torch.uint8),
+    ],
+    ids=("numpy_rank_3", "torch_rank_3"),
+)
 def _numpy_trilinear_constant_reference(
     volume: np.ndarray,
     matrix: np.ndarray,

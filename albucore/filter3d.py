@@ -70,7 +70,7 @@ def _reflect101_indices(size: int, radius: int) -> torch.Tensor:
 
 
 def _pad_reflect101(volume: torch.Tensor, axis: int, radius: int) -> torch.Tensor:
-    """Pad one ``NCDHW`` axis with Torch reflect mode or its singleton/large-radius equivalent."""
+    """Pad one spatial axis of the internal batched Tensor."""
     if radius == 0:
         return volume
 
@@ -87,7 +87,7 @@ def _pad_reflect101(volume: torch.Tensor, axis: int, radius: int) -> torch.Tenso
 
 
 def _apply_axis_filter(volume: torch.Tensor, kernel: np.ndarray, axis: int) -> torch.Tensor:
-    """Apply one same-shape grouped 1D correlation along one NCDHW spatial axis."""
+    """Apply one same-shape grouped 1D correlation along an internal spatial axis."""
     radius = kernel.size // 2
     padded = _pad_reflect101(volume, axis, radius)
     if axis == 2:
@@ -163,8 +163,8 @@ def separable_filter3d(
     unexpected ``float64`` input is converted to and returned as ``float32``. Three exact
     one-element identity kernels return a supported input ``volume`` itself.
 
-    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Batches,
-    ``volumes``, and ``masks3d`` are intentionally outside this single-volume primitive.
+    Callers own rank, layout, CPU-device, strided-layout, and autograd validation. Target-level masks
+    are intentionally outside this single-volume primitive.
     """
     kernels = _float32_kernel(kernels[0]), _float32_kernel(kernels[1]), _float32_kernel(kernels[2])
     if all(_is_identity_kernel(kernel) for kernel in kernels):

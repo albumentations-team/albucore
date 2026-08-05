@@ -46,7 +46,6 @@ Public image kernels support `uint8` and `float32` images with explicit channel 
 
 - HWC
 - XHWC
-- NDHWC
 
 Grayscale images use `(H, W, 1)` or `(..., H, W, 1)`. Implicit-channel grayscale inputs are invalid.
 

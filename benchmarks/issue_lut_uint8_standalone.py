@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ruff: noqa: T201, EXE001, RUF001, C901, PLR0912, PLR0915
+# ruff: noqa: T201, RUF001, PLR0915
 """Standalone **uint8 → uint8 LUT** benchmark: **OpenCV `cv2.LUT`** vs **StringZilla `translate`**.
 
 Mirrors the routing logic used in Albucore's ``apply_uint8_lut``:
@@ -7,11 +7,11 @@ Mirrors the routing logic used in Albucore's ``apply_uint8_lut``:
   Shared LUT ``(256,)``
   ├── HWC contiguous, large (hw >= 640² or 512²×C≥6):  cv2.LUT on full array  [production uses cv2]
   ├── HWC contiguous, small / C=1:                      sz.translate on flat ravel  [production uses SZ]
-  └── DHWC / NDHWC any size:                            sz.translate on flat ravel  [production ALWAYS SZ]
+  └── DHWC any size:                                    sz.translate on flat ravel  [production ALWAYS SZ]
 
   Per-channel LUT ``(C,256)``
   ├── HWC contiguous, C>1:   cv2.LUT(img, (256,1,C))  [production uses cv2 one-shot]
-  └── DHWC / NDHWC any C:   SZ loop per channel        [production uses SZ loop]
+  └── DHWC any C:           SZ loop per channel        [production uses SZ loop]
 
 For each path we benchmark both the **current production behaviour** and the
 **best alternative** to show the gap.
@@ -56,28 +56,23 @@ HWC_SHAPES: list[tuple[int, ...]] = [
     (1024, 1024, 9),
 ]
 
-# DHWC / NDHWC: 3D medical / scientific volumes, video sequences
+# DHWC: 3D medical / scientific volumes, video sequences
 # D = slices/frames, HW = spatial, C = channels
 VOLUME_SHAPES: list[tuple[int, ...]] = [
     # Volumes: medical segmentation patches (typical nnU-Net / monai patch sizes)
-    (32, 128, 128, 1),   # grayscale CT patch
-    (32, 128, 128, 3),   # multi-modal
+    (32, 128, 128, 1),  # grayscale CT patch
+    (32, 128, 128, 3),  # multi-modal
     (64, 128, 128, 1),
     (64, 128, 128, 3),
-    (64, 128, 128, 9),   # hyperspectral / many modalities
+    (64, 128, 128, 9),  # hyperspectral / many modalities
     (128, 128, 128, 1),  # isotropic cube
     (48, 256, 256, 3),
     (96, 160, 160, 3),
-    (64, 256, 256, 9),   # large hyperspectral volume
-    # Batched volumes: NDHWC (N=batch, D=depth, H, W, C)
-    (2, 32, 128, 128, 1),
-    (2, 32, 128, 128, 3),
-    (2, 64, 128, 128, 3),
-    (2, 64, 128, 128, 9),
+    (64, 256, 256, 9),  # large hyperspectral volume
     # Video-like: many frames, typical robotics / autonomous driving
-    (30, 640, 640, 3),   # 30 frames 640×640 RGB
+    (30, 640, 640, 3),  # 30 frames 640×640 RGB
     (8, 1024, 1024, 3),  # 8 frames 1MP RGB
-    (16, 256, 256, 9),   # 16 frames, 9-channel lidar/radar fusion
+    (16, 256, 256, 9),  # 16 frames, 9-channel lidar/radar fusion
 ]
 
 
@@ -132,7 +127,7 @@ def median_ms(fn: object, repeats: int, warmup: int) -> float:
 
 
 def layout_name(ndim: int) -> str:
-    return {3: "HWC", 4: "DHWC", 5: "NDHWC"}.get(ndim, "?")
+    return {3: "HWC", 4: "DHWC"}.get(ndim, "?")
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +161,7 @@ def bench_hwc_shared(img: np.ndarray, lut: np.ndarray, repeats: int, warmup: int
 
 
 # ---------------------------------------------------------------------------
-# Section 2: Shared LUT on DHWC / NDHWC
+# Section 2: Shared LUT on DHWC
 # Production ALWAYS uses SZ (flat ravel). cv2 is shown as baseline only.
 # ---------------------------------------------------------------------------
 def bench_volume_shared(img: np.ndarray, lut: np.ndarray, repeats: int, warmup: int) -> dict[str, float]:
@@ -226,6 +221,7 @@ def bench_hwc_per_channel(
         results["cv2 new (C=1)"] = median_ms(cv2_one_shot_new, repeats, warmup)
         results["cv2→dst (C=1)"] = median_ms(cv2_one_shot_dst, repeats, warmup)
     else:
+
         def cv2_one_shot_new() -> None:
             cv2.LUT(img, lut_cv2)
 
@@ -246,7 +242,7 @@ def bench_hwc_per_channel(
 
 
 # ---------------------------------------------------------------------------
-# Section 4: Per-channel LUT on DHWC / NDHWC
+# Section 4: Per-channel LUT on DHWC
 # Production uses SZ loop per channel. cv2 cannot do (256,1,C) on ndim>3.
 # ---------------------------------------------------------------------------
 def bench_volume_per_channel(
@@ -284,7 +280,6 @@ def bench_volume_per_channel(
         results["cv2 flat 2D (C=1)"] = median_ms(cv2_single_channel_flat, repeats, warmup)
 
     return results
-
 
 
 def main() -> None:
@@ -331,9 +326,9 @@ def main() -> None:
             f"{times['SZ ravel+reuse']:.4f} | {prod} | {best_label} |",
         )
 
-    # ------------------------------------------------------------------ DHWC/NDHWC shared
+    # ------------------------------------------------------------------ DHWC shared
     print()
-    print("## Section 2 — Shared LUT `(256,)` on `DHWC` / `NDHWC`")
+    print("## Section 2 — Shared LUT `(256,)` on `DHWC`")
     print()
     print("Production **always** uses SZ flat ravel. `cv2` columns are for comparison only.")
     print()
@@ -373,11 +368,13 @@ def main() -> None:
         best_t = min(cv2_new_t, cv2_dst_t, sz_t)
         best_label = "SZ" if best_t == sz_t else ("cv2→dst" if best_t == cv2_dst_t else "cv2 new")
         shape_str = "×".join(str(x) for x in sh)
-        print(f"| HWC | {shape_str} | {c} | {img.size} | {cv2_new_t:.4f} | {cv2_dst_t:.4f} | {sz_t:.4f} | {best_label} |")
+        print(
+            f"| HWC | {shape_str} | {c} | {img.size} | {cv2_new_t:.4f} | {cv2_dst_t:.4f} | {sz_t:.4f} | {best_label} |"
+        )
 
-    # ------------------------------------------------------------------ DHWC/NDHWC per-channel
+    # ------------------------------------------------------------------ DHWC per-channel
     print()
-    print("## Section 4 — Per-channel LUT `(C,256)` on `DHWC` / `NDHWC`")
+    print("## Section 4 — Per-channel LUT `(C,256)` on `DHWC`")
     print()
     print("Production uses **SZ loop per channel** (cv2 `(256,1,C)` rejected for ndim>3).")
     print()

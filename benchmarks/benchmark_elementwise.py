@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Benchmark the public ``exp``/``log``/``sqrt`` routers and candidate backends.
 
-The standard matrix uses the canonical non-square HWC, DHWC, and NDHWC shapes.
+The standard matrix uses the canonical non-square HWC and DHWC shapes.
 Additional sweeps cover tiny dispatch, Python ``math`` loops, strided inputs,
 safe in-place calls, and NumKong ``minmax`` as an OpenCV-log correctness guard.
 
@@ -51,16 +51,9 @@ DHWC_SHAPES: tuple[tuple[int, int, int, int], ...] = (
     (96, 128, 160, 1),
     (48, 240, 320, 3),
 )
-NDHWC_SHAPES: tuple[tuple[int, int, int, int, int], ...] = (
-    (2, 32, 128, 160, 1),
-    (2, 32, 128, 160, 3),
-    (2, 64, 128, 160, 3),
-    (4, 16, 128, 160, 3),
-)
 STANDARD_SHAPES: tuple[tuple[str, tuple[int, ...]], ...] = (
     *(("HWC", shape) for shape in HWC_SHAPES),
     *(("DHWC", shape) for shape in DHWC_SHAPES),
-    *(("NDHWC", shape) for shape in NDHWC_SHAPES),
 )
 TINY_SIZES: tuple[int, ...] = (1, 4, 16, 64, 256, 1_024, 4_096, 16_384, 65_536)
 STRIDED_LOG_CHANNELS: tuple[int, ...] = tuple(range(1, 13))
@@ -242,12 +235,7 @@ def _benchmark_log_strided_sizes(repeats: int, warmup: int) -> list[str]:
 
 def _log_numkong_guard(array: np.ndarray, *, inplace: bool = False) -> np.ndarray:
     minimum, _, maximum, _ = nk.minmax(array)
-    safe = (
-        minimum >= FLOAT32_TINY
-        and np.isfinite(minimum)
-        and np.isfinite(maximum)
-        and not np.isnan(array).any()
-    )
+    safe = minimum >= FLOAT32_TINY and np.isfinite(minimum) and np.isfinite(maximum) and not np.isnan(array).any()
     if not safe:
         return np.log(array, out=array if inplace else None)
     result = cv2.log(array, dst=array if inplace else None)
@@ -302,7 +290,7 @@ def _report(repeats: int, warmup: int) -> str:
         "",
         f"Versions: NumPy `{np.__version__}`, OpenCV `{cv2.__version__}`, NumKong `{getattr(nk, '__version__', 'unknown')}`. NumKong direct elementwise matches found: `{numkong_elementwise or 'none'}`.",
         "",
-        "Each table reports median ± median absolute deviation. The standard matrix uses the canonical non-square HWC grid with C=1/3/9 plus DHWC and NDHWC layouts. Allocating tables time the complete callable. In-place tables reset one owned writable buffer outside the timer, then time only the public or backend call.",
+        "Each table reports median ± median absolute deviation. The standard matrix uses the canonical non-square HWC grid with C=1/3/9 plus DHWC layouts. Allocating tables time the complete callable. In-place tables reset one owned writable buffer outside the timer, then time only the public or backend call.",
         "",
         "## Standard allocating matrix",
         "",

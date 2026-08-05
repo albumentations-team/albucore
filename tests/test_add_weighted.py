@@ -35,32 +35,6 @@ def test_add_weighted_preserves_float32_values_outside_image_range(weight1: floa
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize("dtype", [np.int16, np.float64])
-def test_add_weighted_rejects_unsupported_dtypes(dtype: type[np.generic]):
-    img1 = np.ones((2, 3, 1), dtype=dtype)
-    img2 = np.ones_like(img1)
-
-    with pytest.raises(ValueError, match="Albucore supports only uint8 and float32"):
-        add_weighted(img1, 0.5, img2, 0.5)
-
-
-@pytest.mark.parametrize("num_channels", [1, 3])
-@pytest.mark.parametrize(
-    ("dtype1", "dtype2"),
-    [(np.uint8, np.float32), (np.float32, np.uint8)],
-)
-def test_add_weighted_rejects_mismatched_dtypes(
-    num_channels: int,
-    dtype1: type[np.generic],
-    dtype2: type[np.generic],
-):
-    img1 = np.ones((2, 3, num_channels), dtype=dtype1)
-    img2 = np.ones((2, 3, num_channels), dtype=dtype2)
-
-    with pytest.raises(ValueError, match="same dtype"):
-        add_weighted(img1, 0.5, img2, 0.5)
-
-
 @pytest.mark.parametrize(
     "shape",
     [
@@ -70,9 +44,6 @@ def test_add_weighted_rejects_mismatched_dtypes(
         (2, 9, 11, 1),
         (2, 9, 11, 3),
         (2, 9, 11, 5),
-        (2, 3, 9, 11, 1),
-        (2, 3, 9, 11, 3),
-        (2, 3, 9, 11, 5),
     ],
 )
 @pytest.mark.parametrize("is_contiguous", [True, False])
@@ -106,8 +77,6 @@ def test_add_weighted_preserves_raw_float32_range(shape: tuple[int, ...], is_con
         ((2, 9, 11, 3), True, True, "opencv"),
         ((2, 9, 11, 3), True, False, "numkong"),
         ((2, 9, 11, 3), False, True, "numkong"),
-        ((2, 3, 9, 11, 3), False, False, "numkong"),
-        ((2, 3, 9, 11, 3), True, True, "opencv"),
         ((9, 11, 1), True, True, "numkong"),
     ],
 )

@@ -39,7 +39,7 @@ def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: fl
     """Apply mean-std normalization using OpenCV or NumPy based on dimensionality."""
     img_f = img.astype(np.float32, copy=False)
     if img_f.ndim > 3 or (img_f.ndim == 3 and img_f.shape[-1] > MAX_OPENCV_WORKING_CHANNELS):
-        # Use NumPy operations for 4D/5D and 3D images with >4 channels.
+        # Use NumPy operations for 4D arrays and 3D images with >4 channels.
         mean_arr = np.asarray(mean, dtype=np.float32)
         std_arr = np.asarray(std, dtype=np.float32)
         normalized_img = cast("ImageFloat32", (img_f - mean_arr) / std_arr)
@@ -76,7 +76,7 @@ def _normalize_min_max_per_channel_opencv(img: ImageType) -> ImageFloat32:
         img_min = np.full_like(img, img_min)
         img_max = np.full_like(img, img_max)
 
-    # Use NumPy operations for 4D/5D (faster), OpenCV for 3D
+    # Use NumPy operations for 4D arrays (faster), OpenCV for 3D
     if img.ndim > 3:
         normalized_img = cast("ImageFloat32", (img - img_min) / (img_max - img_min + eps))
     else:
@@ -224,9 +224,6 @@ def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: f
 
 def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
     """Apply per-channel LUTs to an image."""
-    if luts.shape != (256, 1, num_channels):
-        msg = f"Expected per-channel LUTs shaped (256, 1, {num_channels}), got {luts.shape}"
-        raise ValueError(msg)
     return _apply_float_lut(img, luts)
 
 
@@ -354,7 +351,7 @@ def normalize_per_image(img: ImageType, normalization: NormalizationType) -> Ima
     Alternative: ``normalize`` for fixed per-channel ImageNet-style constants.
 
     Args:
-        img: uint8 or float32 image, shape ``(H, W, C)``, ``(N, H, W, C)``, or ``(N, D, H, W, C)``.
+        img: uint8 or float32 image, shape ``(H, W, C)`` or ``(X, H, W, C)``.
         normalization: One of ``"image"``, ``"image_per_channel"``, ``"min_max"``,
             ``"min_max_per_channel"``.
 

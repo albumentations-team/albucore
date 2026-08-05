@@ -8,7 +8,6 @@ from numpy import float32, uint8
 from numpy.typing import NDArray
 
 NUM_RGB_CHANNELS = 3
-FOUR = 4
 TWO = 2
 
 MAX_OPENCV_WORKING_CHANNELS = 4
@@ -148,8 +147,7 @@ def get_num_channels(image: ImageType) -> int:
         image: Input image array. Expected shapes:
             - HWC: (height, width, channels) - multi-channel image
             - NHWC: (batch, height, width, channels) - batch of multi-channel images
-            - DHWC: (depth, height, width, channels) - 3D multi-channel volume
-            - NDHWC: (batch, depth, height, width, channels) - batch of 3D multi-channel volumes
+            - XHWC: (leading, height, width, channels) - image batch or single volume
 
     Returns:
         int: Number of channels (the size of the last dimension).
@@ -175,19 +173,10 @@ def get_num_channels(image: ImageType) -> int:
         >>> get_num_channels(img)
         3
 
-        >>> # 3D grayscale volume
-        >>> img = np.zeros((5, 100, 200, 1))
-        >>> get_num_channels(img)
-        1
-
-        >>> # Batch of 3D volumes with RGB
-        >>> img = np.zeros((5, 10, 100, 200, 3))
-        >>> get_num_channels(img)
-        3
-
     Note:
-        Since we always expect the channel dimension to be present (even for grayscale
-        images which have shape[..., 1]), this function simply returns shape[-1].
+        Since we always expect a channel-last channel dimension (including grayscale
+        arrays with shape[..., 1]), this function returns shape[-1]. The caller owns
+        validation of the public layout contract before entering Albucore.
     """
     return int(image.shape[-1])
 
@@ -254,7 +243,7 @@ def is_multispectral_image(image: ImageType) -> bool:
     return image.shape[-1] not in {1, 3}
 
 
-def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.ndarray:
+def convert_value(value: object, num_channels: int) -> float | np.ndarray:
     """Convert a value to a float or numpy array based on its shape and number of channels.
 
     Args:
@@ -265,38 +254,26 @@ def convert_value(value: np.ndarray | float, num_channels: int) -> float | np.nd
         float: If value is a scalar or 1D array that should be converted to scalar
         np.ndarray: If value is a multi-dimensional array or channel vector
 
-    Raises:
-        TypeError: If value is of unsupported type
-        ValueError: If a channel vector has fewer values than the target image has channels
+    The caller validates value type and channel-vector length before entering the router.
     """
     # Handle scalar types
-    if isinstance(value, (float, int, np.float32, np.float64)):
-        return float(value) if isinstance(value, (float, int)) else value.item()
+    if isinstance(value, (float, int)):
+        return float(value)
+    if isinstance(value, (np.float32, np.float64)):
+        return value.item()
 
     # Handle numpy arrays
     if isinstance(value, np.ndarray):
-        # Return scalars and 0-dim arrays as float
         if value.ndim == 0:
-            return float(value.item())
+            result: float | np.ndarray = float(value.item())
+        elif value.ndim > 1:
+            result = value
+        else:
+            num_values = len(value)
+            result = float(value[0]) if num_values == 1 or num_channels == 1 else value[:num_channels]
+        return result
 
-        # Return multi-dimensional arrays as-is
-        if value.ndim > 1:
-            return value
-
-        # Handle 1D arrays
-        num_values = len(value)
-        if num_values == 1:
-            return float(value[0])
-
-        if num_values < num_channels:
-            raise ValueError(f"Expected a scalar or at least {num_channels} values, got {num_values}")
-
-        if num_channels == 1:
-            return float(value[0])
-
-        return value[:num_channels]
-
-    raise TypeError(f"Unsupported value type: {type(value)}")
+    return cast("float | np.ndarray", value)
 
 
 ValueType = np.ndarray | float | int
@@ -316,14 +293,13 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
     """Extract image metadata (dtype, height, width, num_channels) from a dictionary.
 
     This function checks for image data under specific keys in priority order:
-    'image' > 'images' > 'volume' > 'volumes'
+    'image' > 'images' > 'volume'
 
-    The function correctly extracts height and width by accounting for batch
-    and depth dimensions based on the key type:
+    The function correctly extracts height and width by accounting for the leading
+    dimension based on the key type:
     - 'image': Direct H, W from shape[0], shape[1]
     - 'images': Skip batch dimension (shape[1], shape[2])
     - 'volume': Skip depth dimension (shape[1], shape[2])
-    - 'volumes': Skip batch and depth dimensions (shape[2], shape[3])
 
     Args:
         data: Dictionary potentially containing image/volume arrays under specific keys.
@@ -332,7 +308,7 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
         dict: Dictionary with 'dtype', 'height', 'width', and 'num_channels' keys.
 
     Raises:
-        ValueError: If no valid image/volume data keys are found in the dictionary.
+        ValueError: If no valid image or single-volume data key is found in the dictionary.
     """
     if "image" in data:
         shape = data["image"].shape
@@ -358,19 +334,10 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "width": shape[2],
             "num_channels": shape[-1],
         }
-    if "volumes" in data:
-        shape = data["volumes"].shape
-        return {
-            "dtype": data["volumes"].dtype,
-            "height": shape[2],
-            "width": shape[3],
-            "num_channels": shape[-1],
-        }
     raise ValueError("No valid image/volume data found in data dict")
 
 
 __all__ = [
-    "FOUR",
     "MAX_OPENCV_WORKING_CHANNELS",
     "MAX_VALUES_BY_DTYPE",
     "NPDTYPE_TO_OPENCV_DTYPE",

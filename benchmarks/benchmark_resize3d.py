@@ -177,7 +177,7 @@ def resize3d_opencv_per_slice(
 
 
 def resize3d_torch_round_trip(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
-    """Complete NumPy DHWC → Torch NCDHW → NumPy DHWC route."""
+    """Complete NumPy DHWC → native Torch interpolation → NumPy DHWC route."""
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2).unsqueeze(0)
     with torch.inference_mode():
         if volume.dtype == np.uint8:
@@ -194,9 +194,7 @@ CANDIDATES: tuple[Candidate, ...] = (
     Candidate(
         "opencv_two_stage",
         lambda volume, size: (
-            None
-            if resize3d_opencv_two_stage(volume, size) is None
-            else lambda: resize3d_opencv_two_stage(volume, size)  # type: ignore[return-value]
+            None if resize3d_opencv_two_stage(volume, size) is None else lambda: resize3d_opencv_two_stage(volume, size)  # type: ignore[return-value]
         ),
     ),
     Candidate("opencv_per_slice", lambda volume, size: lambda: resize3d_opencv_per_slice(volume, size)),

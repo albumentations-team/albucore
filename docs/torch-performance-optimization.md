@@ -34,7 +34,7 @@ Every Tensor route states its logical layout independently of NumPy conventions.
 
 - Preserve the caller's container and declared layout.
 - Do not silently move a Tensor, call `.detach()`, make it contiguous, or change a dtype to rescue an unsupported input unless the public contract explicitly documents that fallback. The caller-owned adapter or public contract decides those actions.
-- "Same dtype as input" applies only to the listed supported dtypes. When a primitive deliberately has a fallback dtype, state its working and output dtype and test it, including any identity fast path. For example, `gaussian_blur3d` converts an unexpected float64 volume to float32 and returns float32.
+- "Same dtype as input" applies only to the listed supported dtypes. Callers reject other dtypes before dispatch. When a primitive deliberately has a documented fallback dtype, state its working and output dtype and test it, including any identity fast path.
 - Run the primitive under `torch.no_grad()` or `torch.inference_mode()`; neither builds an autograd graph inside Albucore. Choose `inference_mode` only when the returned Tensor will not later be used in a graph. It removes more bookkeeping, but an inference Tensor cannot be saved by a downstream trainable module. Use `no_grad` when the public contract permits the result to feed later training. [PyTorch grad-mode guide](https://docs.pytorch.org/docs/stable/notes/autograd.html)
 - Keep the conversion bridge visible in the benchmark. NumPy input may choose a Torch kernel and Tensor input may choose NumPy/OpenCV only when the complete route wins and its numerical tolerance is documented.
 
@@ -47,6 +47,16 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
 - For reductions, preserve accumulator dtype and overflow semantics before comparing `torch.sum`, NumPy, and NumKong.
 - For interpolation and sampling, differential-test coordinate conventions, border rules, `align_corners`, rounding, and uint8 restoration. A faster result with shifted samples is not a candidate.
 - Use Torch CPU thread counts as an explicit benchmark dimension. `OMP_NUM_THREADS` controls OpenMP regions, and `MKL_NUM_THREADS` overrides it for MKL. Do not bake one machine's thread count into a router. [PyTorch threading variables](https://docs.pytorch.org/docs/stable/threading_environment_variables.html)
+
+## Escalate missing backend capabilities
+
+When a viable optimization needs an operation that PyTorch, NumKong, OpenCV, or NumPy does not provide, open a Feature
+Request in the relevant upstream project before adding a private substitute. Link that request from the Albucore issue,
+benchmark note, or pull request so readers can see the dependency.
+
+When we can implement the operation and the upstream contribution rules allow it, open a linked upstream pull request.
+Until the operation is available, benchmark the portable alternatives and state the capability gap. See the general
+[performance optimization workflow](performance-optimization.md) for the project-wide policy.
 
 ## Profile before adding a specialized route
 
@@ -61,10 +71,6 @@ Check the following before adding branches:
 5. Does the result keep the current precision, borders, rounding, and ownership contract?
 
 Keep a branch only when a sustained region wins on the public benchmark. Record both winning and rejected candidates with the shapes where they lose.
-
-## Treat memory format as a measured CPU candidate
-
-`channels_last_3d` is a stride layout for 5D `NCDHW` Tensors; it does not change the public logical axes. It can help supported convolution implementations, but a conversion can cost more than it saves for a one-off Albucore primitive. Compare a route that preserves the format through adjacent operators against the same complete route in contiguous format. [PyTorch memory-format docs](https://docs.pytorch.org/docs/stable/tensor_attributes.html)
 
 `torch.compile`, autograd through an Albucore primitive, GPU, MPS, CUDA graphs, mixed precision, and distributed execution are out of scope. Do not add them to a public route, a benchmark candidate, or a routing threshold. A future task that expands the contract must define device transfer, synchronization, compilation latency, dynamic-shape, graph, and correctness behavior before measuring them.
 

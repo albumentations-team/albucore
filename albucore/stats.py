@@ -1,4 +1,4 @@
-"""Benchmark-driven mean / std / mean_std for albucore array layouts (HWC, NHWC, NDHWC, …)."""
+"""Benchmark-driven mean / std / mean_std for Albucore channel-last array layouts."""
 
 from typing import Literal, TypeGuard, cast
 
@@ -218,7 +218,9 @@ def _mean_std_global(
         mean_value = np.mean(arr, dtype=np.float64, keepdims=keepdims)
         std_value = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
         return mean_value, std_value
-    raise ValueError(f"Unsupported dtype {arr.dtype} for mean_std; use uint8 or float32.")
+    mean_value = np.mean(arr, dtype=np.float64, keepdims=keepdims)
+    std_value = np.std(arr, dtype=np.float64, keepdims=keepdims) + eps
+    return mean_value, std_value
 
 
 def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.ndarray:
@@ -230,7 +232,7 @@ def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.
         return m
     if _is_float32_image(arr):
         return np.mean(arr, dtype=np.float64, keepdims=keepdims)
-    raise ValueError(f"Unsupported dtype {arr.dtype} for mean; use uint8 or float32.")
+    return np.mean(arr, dtype=np.float64, keepdims=keepdims)
 
 
 def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | float | np.ndarray:
@@ -245,7 +247,10 @@ def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | 
         if keepdims:
             return np.asarray(std_value + eps, dtype=np.float64)
         return float(std_value) + eps
-    raise ValueError(f"Unsupported dtype {arr.dtype} for std; use uint8 or float32.")
+    std_value = np.std(arr, dtype=np.float64, keepdims=keepdims)
+    if keepdims:
+        return np.asarray(std_value + eps, dtype=np.float64)
+    return float(std_value) + eps
 
 
 def _mean_std_per_channel(
