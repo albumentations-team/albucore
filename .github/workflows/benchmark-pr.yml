@@ -31,7 +31,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv and Python
-        uses: albumentations-team/ci-foundation/actions/setup-python-uv@6b9045dbea58026a1e8f96b0392c411934a27199
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           python-version: "3.12"
           uv-version: "0.12.0"
@@ -44,7 +44,7 @@ jobs:
         run: uv sync --frozen --extra headless --extra torch --group dev
 
       - name: Verify CPU-only Torch
-        uses: albumentations-team/ci-foundation/actions/torch-cpu@6b9045dbea58026a1e8f96b0392c411934a27199
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: verify
 

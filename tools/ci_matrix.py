@@ -28,8 +28,11 @@ VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candid
 VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
 LEGAL_ARTIFACT_VERIFY_COMMAND = "python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz"
 PYTORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
-CI_FOUNDATION_SHA = "6b9045dbea58026a1e8f96b0392c411934a27199"
+CI_FOUNDATION_SHA = "93efc801c2f22e08e40000dec2541fd1cafa5f59"
 CI_FOUNDATION_SETUP_ACTION = "albumentations-team/ci-foundation/actions/setup-python-uv@" + CI_FOUNDATION_SHA
+CI_FOUNDATION_UNCACHED_SETUP_ACTION = (
+    "albumentations-team/ci-foundation/actions/setup-python-uv-uncached@" + CI_FOUNDATION_SHA
+)
 CI_FOUNDATION_TORCH_ACTION = "albumentations-team/ci-foundation/actions/torch-cpu@" + CI_FOUNDATION_SHA
 CI_FOUNDATION_ANTIGRAVITY_WORKFLOW = (
     "albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@" + CI_FOUNDATION_SHA
@@ -128,7 +131,6 @@ def _check_shared_foundation_setup(errors: list[str]) -> None:
         CI_WORKFLOW,
         BENCHMARK_PR_WORKFLOW,
         LEGAL_INTEGRITY_WORKFLOW,
-        RELEASE_CANDIDATE_WORKFLOW,
         PUBLISH_WORKFLOW,
         SECURITY_WORKFLOW,
     ):
@@ -138,6 +140,12 @@ def _check_shared_foundation_setup(errors: list[str]) -> None:
             errors,
             workflow,
             {"shared Python and uv setup": CI_FOUNDATION_SETUP_ACTION},
+        )
+    if RELEASE_CANDIDATE_WORKFLOW.exists():
+        _check_file_fragments(
+            errors,
+            RELEASE_CANDIDATE_WORKFLOW,
+            {"uncached release-candidate Python and uv setup": CI_FOUNDATION_UNCACHED_SETUP_ACTION},
         )
 
 
@@ -275,6 +283,7 @@ def _check_release_workflows(errors: list[str]) -> None:
         {
             "manual release candidate trigger": "workflow_dispatch:",
             "exact commit input": "commit_sha:",
+            "uncached bootstrap": CI_FOUNDATION_UNCACHED_SETUP_ACTION,
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
