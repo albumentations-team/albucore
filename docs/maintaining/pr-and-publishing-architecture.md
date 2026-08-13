@@ -26,7 +26,7 @@ Required on every PR:
 - golden vector verification
 - property tests, at least on one Linux Python version
 
-Every workflow bootstraps Python and uv through the immutable `ci-foundation` action at commit `2468af6e982545e2fd1d5ba4249f1b44154149fe`. Jobs that exercise Torch install or verify the CPU-only runtime through its `torch-cpu` action. The project keeps `torch` optional for package resolution and maps that extra to the PyTorch CPU index in `pyproject.toml`; users still choose the CPU, CUDA, or MPS build that their application needs.
+Every workflow bootstraps Python and uv through the immutable `ci-foundation` action at commit `6b9045dbea58026a1e8f96b0392c411934a27199`. Jobs that exercise Torch install or verify the CPU-only runtime through its `torch-cpu` action. The project keeps `torch` optional for package resolution and maps that extra to the PyTorch CPU index in `pyproject.toml`; users still choose the CPU, CUDA, or MPS build that their application needs.
 
 This workflow should not publish artifacts to PyPI or create releases.
 
@@ -68,7 +68,7 @@ Trigger:
 - non-draft pull requests from branches in `albumentations-team/albucore`
 - fork pull requests skip the workflow because they cannot use the repository's federated cloud identity
 
-The local workflow only owns the event trigger, same-repository guard, concurrency key, Vertex configuration, and the permissions required to publish a review. It calls the immutable `ci-foundation` reusable workflow at commit `2468af6e982545e2fd1d5ba4249f1b44154149fe`. The local `.github/ci-foundation/antigravity.toml` selects all changed paths, and `.github/ci-foundation/antigravity-review.md` contains Albucore-specific review instructions.
+The local workflow only owns the event trigger, same-repository guard, concurrency key, Vertex configuration, and the permissions required to publish a review. It calls the immutable `ci-foundation` reusable workflow at commit `6b9045dbea58026a1e8f96b0392c411934a27199`. The local `.github/ci-foundation/antigravity.toml` selects all changed paths, and `.github/ci-foundation/antigravity-review.md` contains Albucore-specific review instructions.
 
 The shared workflow owns the review mechanics:
 
@@ -90,7 +90,7 @@ The workflow authenticates to Vertex AI through GitHub OIDC. Configure these rep
 The Workload Identity provider condition must match repository ID `799690272`, owner ID `57894582`,
 event `pull_request_target`, base branch `main`, caller workflow ref
 `albumentations-team/albucore/.github/workflows/antigravity-pr-checks.yml@refs/heads/main`, and reusable
-workflow ref `albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@2468af6e982545e2fd1d5ba4249f1b44154149fe`.
+workflow ref `albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@6b9045dbea58026a1e8f96b0392c411934a27199`.
 
 `GEMINI_MODEL` and `GEMINI_CLI_VERSION` are optional repository variables. If
 `GEMINI_CLI_VERSION` is unset, the workflow uses `0.51.0`.

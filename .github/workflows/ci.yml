@@ -28,9 +28,10 @@ jobs:
           persist-credentials: false
 
       - name: Install Python and uv
-        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           python-version: "3.11"
+          uv-version: "0.12.0"
           cache-dependency-glob: tools/classify_ci_changes.py
           cache-suffix: albucore-change-scope
           cache-enabled: "false"
@@ -64,9 +65,10 @@ jobs:
           persist-credentials: false
 
       - name: Install uv and Python ${{ matrix.python-version }}
-        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           python-version: ${{ matrix.python-version }}
+          uv-version: "0.12.0"
           cache-dependency-glob: |
             requirements-dev.txt
             pyproject.toml
@@ -74,7 +76,7 @@ jobs:
           cache-suffix: albucore-ci-torch-cpu
 
       - name: Install CPU-only Torch
-        uses: albumentations-team/ci-foundation/actions/torch-cpu@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           mode: install
           requirement: "torch>=2.13.0"
@@ -141,16 +143,17 @@ jobs:
           persist-credentials: false
 
       - name: Install uv and Python
-        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           python-version: "3.10"
+          uv-version: "0.12.0"
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
           cache-suffix: albucore-macos-arm64-torch-cpu
 
       - name: Install CPU-only Torch
-        uses: albumentations-team/ci-foundation/actions/torch-cpu@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           mode: install
           requirement: "torch>=2.13.0"
@@ -180,16 +183,17 @@ jobs:
           persist-credentials: false
 
       - name: Install uv and Python
-        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           python-version: "3.10"
+          uv-version: "0.12.0"
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
           cache-suffix: albucore-declared-ranges-torch-cpu
 
       - name: Install CPU-only Torch
-        uses: albumentations-team/ci-foundation/actions/torch-cpu@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@6b9045dbea58026a1e8f96b0392c411934a27199
         with:
           mode: install
           requirement: "torch>=2.13.0"

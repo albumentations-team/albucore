@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "antigravity-pr-checks.yml"
 POLICY = REPO_ROOT / ".github" / "ci-foundation" / "antigravity.toml"
 INSTRUCTIONS = REPO_ROOT / ".github" / "ci-foundation" / "antigravity-review.md"
-FOUNDATION_SHA = "2468af6e982545e2fd1d5ba4249f1b44154149fe"
+FOUNDATION_SHA = "6b9045dbea58026a1e8f96b0392c411934a27199"
 
 
 def test_antigravity_caller_uses_the_trusted_shared_workflow() -> None:
