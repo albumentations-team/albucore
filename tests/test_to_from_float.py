@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 import numpy as np
 
+import albucore.convert as convert
 from albucore.functions import from_float, from_float_numpy, from_float_opencv, to_float_numpy, to_float_opencv, to_float_lut, to_float, MAX_VALUES_BY_DTYPE
 import cv2
 
@@ -114,6 +115,33 @@ def test_from_float_numpy_vs_opencv(dtype, channels, batch):
     assert numpy_result.dtype == dtype
     assert opencv_result.dtype == dtype
     assert result.dtype == dtype
+
+
+@pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
+@pytest.mark.parametrize("max_value", [128.0, 255.0])
+def test_from_float_uint8_uses_numkong_fallback(monkeypatch, layout, max_value):
+    source = np.array(
+        [[[-np.inf], [-0.5 / 255], [0.5 / 255], [1.5 / 255], [1.2], [np.inf], [np.nan]]],
+        dtype=np.float32,
+    )
+    source = np.broadcast_to(source, (2, 7, 3)).copy()
+    expanded = np.repeat(source, 2, axis=1)
+    image = {
+        "contiguous": source,
+        "fortran": np.asfortranarray(source),
+        "strided": expanded[:, ::2],
+    }[layout]
+    with np.errstate(invalid="ignore"):
+        expected = from_float_numpy(image, np.uint8, max_value)
+
+    def fail_opencv(*args, **kwargs):
+        raise AssertionError("float32-to-uint8 fallback must not use OpenCV")
+
+    monkeypatch.setattr(convert, "from_float_opencv", fail_opencv)
+    result = from_float(image, np.uint8, max_value)
+
+    np.testing.assert_array_equal(result, expected)
+    assert result.dtype == np.uint8
 
 @pytest.mark.parametrize("dtype", [np.uint8])  # float32 roundtrip is lossy (quantizes to 0/1)
 @pytest.mark.parametrize("channels", CHANNELS)

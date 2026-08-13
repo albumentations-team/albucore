@@ -201,7 +201,7 @@ The package also star-exports multi-channel wrappers for `copy_make_border`, `ga
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
 | `to_float` | `(img, max_value=None)` | Convert to float32 in [0, 1] | float32 → no-op; uint8 → `cv2.LUT` (256-entry float32 table); others → NumPy divide |
-| `from_float` | `(img, target_dtype, max_value=None)` | Scale float32 → integer dtype (round + clip) | float32 → NumPy `rint(img * max_value)` then clip; non-float32 → generic NumPy path |
+| `from_float` | `(img, target_dtype, max_value=None)` | Scale float32 → integer dtype (round + clip) | float32→uint8 → existing routed fast path with a NumKong buffer-first fallback; non-float32 → generic NumPy path |
 
 ### Decorators (re-exported)
 

@@ -3,6 +3,7 @@
 from typing import Any, cast
 
 import cv2
+import numkong as nk
 import numpy as np
 
 from albucore.decorators import preserve_channel_dim
@@ -79,6 +80,17 @@ def from_float_numpy(img: ImageFloat32, target_dtype: np.dtype, max_value: float
     return clip(np.rint(img * max_value), target_dtype, inplace=True)
 
 
+def _from_float_uint8_numkong(img: ImageFloat32, max_value: float) -> ImageUInt8:
+    """Scale, round, and saturate float32 input with one float32 work buffer."""
+    rounded = np.empty_like(img)
+    np.multiply(img, max_value, out=rounded)
+    np.rint(rounded, out=rounded)
+    result = np.empty(img.shape, dtype=np.uint8)
+    # NumKong's runtime API exposes ``astype`` starting with 7.8.0; its type stubs lag that release.
+    cast("Any", nk).astype(rounded, "uint8", out=result)
+    return result
+
+
 @preserve_channel_dim
 def from_float_opencv(img: ImageFloat32, target_dtype: np.dtype, max_value: float | None = None) -> ImageType:
     if max_value is None:
@@ -106,9 +118,9 @@ def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | Non
     Routing:
     - **target == float32**: no-op (returned as-is).
     - **large float32 → uint8**: a zero-copy CPU Torch input wrapper, then Torch scale/round/clip/cast.
-    - **float32 input, C ≤ 4**: NumPy ``rint(img * max_value)`` then clip — fastest on benchmarks
-      (``benchmarks/benchmark_grayscale_paths.py``).
-    - **float32 input, C > 4**: same NumPy path (``cv2.multiply`` broadcast is slower here).
+    - **remaining float32 → uint8**: NumPy scale and round in one reusable float32 buffer, then NumKong's
+      saturating buffer-first cast. This removes the separate full-array clip and output cast.
+    - **other target dtypes**: NumPy ``rint(img * max_value)`` then clip.
     - **non-float32 input**: ``from_float_numpy`` (generic path).
 
     Alternative: ``from_float_numpy``, ``from_float_opencv`` for explicit backends.
@@ -130,6 +142,7 @@ def from_float(img: ImageFloat32, target_dtype: np.dtype, max_value: float | Non
             torch_result = from_float_uint8_torch(img, resolved_max)
             if torch_result is not None:
                 return torch_result
+            return _from_float_uint8_numkong(img, resolved_max)
         return from_float_opencv(img, target_dtype, max_value)
 
     return from_float_numpy(img, target_dtype, max_value)
