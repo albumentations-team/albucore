@@ -315,6 +315,29 @@ def test_is_grayscale_image(shape, expected_grayscale, description):
 
 
 @pytest.mark.parametrize(
+    ("shape", "expected_rgb", "expected_multispectral"),
+    [
+        ((100, 200, 1), False, False),
+        ((100, 200, 3), True, False),
+        ((100, 200, 4), False, True),
+        ((100, 200, 5), False, True),
+        ((10, 100, 200, 1), False, False),
+        ((10, 100, 200, 3), True, False),
+        ((10, 100, 200, 4), False, True),
+        ((10, 100, 200, 5), False, True),
+    ],
+)
+def test_image_channel_predicates(
+    shape: tuple[int, ...], expected_rgb: bool, expected_multispectral: bool
+) -> None:
+    """Test RGB and multispectral channel predicates for HWC and XHWC arrays."""
+    image = np.zeros(shape, dtype=np.uint8)
+
+    assert is_rgb_image(image) is expected_rgb
+    assert is_multispectral_image(image) is expected_multispectral
+
+
+@pytest.mark.parametrize(
     "shape",
     [
         # Basic HWC cases
