@@ -2,6 +2,10 @@
 
 Use this guide when a change adds, reviews, profiles, or routes an Albucore Torch kernel. Its purpose is to find durable speedups without changing the public array contract or reporting a microbenchmark that disappears behind conversion, allocation, or dispatch cost.
 
+PyTorch is installed through the `torch` extra and is required in every environment that imports Albucore or exercises these routes.
+This repository pins the development and CI profile to PyTorch's CPU index, so `uv sync --extra torch` does not
+resolve Linux CUDA wheels.
+
 The current Albucore scope is eager CPU execution without autograd through the primitive or `torch.compile`. NumPy inputs use Albucore channel-last layouts and Tensor inputs declare their own channel-first layout. AlbumentationsX validates CPU placement, layout, strides, autograd state, and parameter ranges before caller-prevalidated 3D primitives run. Do not repeat those checks in their hot paths.
 
 ## Start with the whole operation

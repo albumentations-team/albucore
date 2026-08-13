@@ -40,7 +40,7 @@ jobs:
             uv.lock
 
       - name: Install PR tree
-        run: uv sync --frozen --extra headless --group dev
+        run: uv sync --frozen --extra headless --extra torch --group dev
 
       - name: Run PR quick router benchmark
         run: |
@@ -60,7 +60,7 @@ jobs:
 
       - name: Install base tree
         working-directory: ../albucore-base
-        run: uv sync --frozen --extra headless --group dev
+        run: uv sync --frozen --extra headless --extra torch --group dev
 
       - name: Run base quick router benchmark
         working-directory: ../albucore-base

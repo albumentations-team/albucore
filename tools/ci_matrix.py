@@ -51,6 +51,25 @@ def _workflow_job(text: str, job_name: str) -> str:
     return match.group(0) if match is not None else ""
 
 
+def _check_torch_cpu_source(pyproject: dict[str, Any], errors: list[str]) -> None:
+    uv_config = pyproject.get("tool", {}).get("uv", {})
+    sources = uv_config.get("sources", {}) if isinstance(uv_config, dict) else {}
+    if not isinstance(sources, dict) or sources.get("torch") != {"index": "pytorch-cpu"}:
+        errors.append("pyproject.toml must pin torch to the pytorch-cpu index")
+
+    indexes = uv_config.get("index", []) if isinstance(uv_config, dict) else []
+    if not isinstance(indexes, list) or not any(
+        index
+        == {
+            "name": "pytorch-cpu",
+            "url": "https://download.pytorch.org/whl/cpu",
+            "explicit": True,
+        }
+        for index in indexes
+    ):
+        errors.append("pyproject.toml must define the explicit pytorch-cpu index")
+
+
 def _check_pyproject(errors: list[str]) -> set[str]:
     pyproject = _load_pyproject()
     project = pyproject.get("project", {})
@@ -75,8 +94,23 @@ def _check_pyproject(errors: list[str]) -> set[str]:
     optional_dependencies = project.get("optional-dependencies", {})
     if not isinstance(optional_dependencies, dict) or "headless" not in optional_dependencies:
         errors.append("pyproject.toml must define project.optional-dependencies.headless")
+    elif "torch" not in optional_dependencies:
+        errors.append("pyproject.toml must define project.optional-dependencies.torch")
+
+    dependencies = project.get("dependencies", [])
+    if not isinstance(dependencies, list) or not all(isinstance(item, str) for item in dependencies):
+        errors.append("project.dependencies must be a list of strings")
+    elif any(re.match(r"^torch(?:[<>=!~;\[ ]|$)", item, flags=re.IGNORECASE) for item in dependencies):
+        errors.append("project.dependencies must not require torch; use the torch extra")
+
+    _check_torch_cpu_source(pyproject, errors)
 
     return versions
+
+
+def _check_ci_torch_backend(errors: list[str], text: str) -> None:
+    if text.count("--torch-backend cpu") != 3:
+        errors.append("CI workflow must install Torch from the CPU backend")
 
 
 def _check_ci(errors: list[str], versions: set[str]) -> None:
@@ -114,6 +148,7 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not install test dependencies for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
+    _check_ci_torch_backend(errors, text)
 
 
 def _check_support_policy(errors: list[str], versions: set[str]) -> None:
@@ -189,7 +224,8 @@ def _check_release_workflows(errors: list[str]) -> None:
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
-            "release validation headless extra": "uv sync --frozen --extra headless --group dev",
+            "release validation Torch profile": "uv sync --frozen --extra headless --extra torch --group dev",
+            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
             "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
             "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
@@ -225,6 +261,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "trusted publishing": "pypa/gh-action-pypi-publish",
             "release event publish job": "Publish from GitHub Release",
             "GitHub Release only after PyPI": "Create or update GitHub Release",
+            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
         },
     )
     if PUBLISH_WORKFLOW.exists() and PUBLISH_WORKFLOW.read_text().count(LEGAL_ARTIFACT_VERIFY_COMMAND) == 1:

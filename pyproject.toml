@@ -41,7 +41,6 @@ dependencies = [
   "numpy>=1.24.4",
   "numkong>=7.4.5",
   "stringzilla>=3.10.4",
-  "torch>=2.13.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +48,15 @@ contrib = ["opencv-contrib-python>=5.0.0.93"]
 contrib-headless = ["opencv-contrib-python-headless>=5.0.0.93"]
 gui = ["opencv-python>=5.0.0.93"]
 headless = ["opencv-python-headless>=5.0.0.93"]
+torch = ["torch>=2.13.0"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["albucore"]
@@ -181,8 +189,8 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.155.2",
-    "pytest>=9.0.3",
-    "pytest-randomly>=4.0.1",
-    "tomli>=2.0.1; python_version < '3.11'",
+    "hypothesis>=6.165.5",
+    "pytest>=9.1.1",
+    "pytest-randomly>=4.1.0",
+    "tomli>=2.4.1; python_version < '3.11'",
 ]
