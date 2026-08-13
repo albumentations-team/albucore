@@ -15,6 +15,7 @@ of one machine's timings.
 | Per-channel `mean`, `std`, `mean_std` | `nk.moments` where measured | `mean` keeps its OpenCV/NumKong/NumPy split. `std` and `mean_std` use OpenCV for 3D float32 RGB/RGBA-like inputs and NumKong for uint8, single-channel, high-channel, and supported batch/volume cases. |
 | `multiply_add` | `nk.scale` | Scalar float32 operands use NumKong in the measured region; large eligible arrays may use the Torch CPU route. Vector and full-array operands use NumPy. |
 | `add_array` | `add_array_numkong` (`nk.blend`) | Same-shape, same-dtype uint8 arrays. Float32 uses NumPy; other uint8 layouts use OpenCV. |
+| `from_float` (`float32` → `uint8`) | `nk.astype(..., out=...)` | The fallback uses one NumKong scale-and-round work buffer followed by NumKong's saturating, round-to-even cast; it beat the prior NumPy `rint`+clip route across the HWC/XHWC contiguous and strided matrix. |
 
 The public routers preserve their documented dtype, layout, and aliasing
 contracts. A dispatch branch is implementation routing; it is not a second
@@ -46,7 +47,11 @@ uv run python benchmarks/benchmark_multiply_add_numkong.py
 uv run python benchmarks/benchmark_stats.py
 uv run python benchmarks/benchmark_elementwise.py
 uv run python benchmarks/benchmark_minmax_ravel.py
+uv run python benchmarks/benchmark_numkong_astype.py
 ```
+
+The [NumKong buffer-first cast report](../benchmarks/results/benchmark_numkong_astype.md) records the accepted
+`from_float` fallback across HWC/XHWC contiguous and strided inputs.
 
 For a new route, record the benchmark date, hardware, dependency versions,
 shapes, channels, dtypes, strides, thread settings, warmups, repetitions,
