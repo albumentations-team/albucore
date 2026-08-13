@@ -196,6 +196,13 @@ def _check_release_workflows(errors: list[str]) -> None:
             "PR benchmark artifacts": "pr-router-benchmark-results",
         },
     )
+    if BENCHMARK_PR_WORKFLOW.exists():
+        benchmark_text = BENCHMARK_PR_WORKFLOW.read_text()
+        base_benchmark_command = (
+            'PYTHONPATH="$PWD" uv run --project "$GITHUB_WORKSPACE" python benchmarks/benchmark_router_synthetic.py'
+        )
+        if base_benchmark_command not in benchmark_text:
+            errors.append("PR benchmark workflow must run the base source tree in the PR CPU environment")
     _check_file_fragments(
         errors,
         LEGAL_INTEGRITY_WORKFLOW,

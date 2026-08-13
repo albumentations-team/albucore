@@ -114,6 +114,25 @@ def test_ci_matrix_requires_the_pytorch_cpu_index(monkeypatch) -> None:
     assert "pyproject.toml must pin torch to the pytorch-cpu index" in errors
 
 
+def test_ci_matrix_requires_shared_cpu_environment_for_base_benchmark(monkeypatch) -> None:
+    benchmark_text = ci_matrix.BENCHMARK_PR_WORKFLOW.read_text().replace(
+        'PYTHONPATH="$PWD" uv run --project "$GITHUB_WORKSPACE" python benchmarks/benchmark_router_synthetic.py',
+        "uv run python benchmarks/benchmark_router_synthetic.py",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.BENCHMARK_PR_WORKFLOW:
+            return benchmark_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "PR benchmark workflow must run the base source tree in the PR CPU environment" in errors
+
+
 def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None:
     missing_workflow = ci_matrix.REPO_ROOT / ".github" / "workflows" / "__missing__.yml"
 
