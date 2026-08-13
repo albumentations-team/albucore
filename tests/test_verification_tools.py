@@ -374,6 +374,25 @@ def test_ci_matrix_requires_shared_antigravity_workflow(monkeypatch) -> None:
     assert ".github/workflows/antigravity-pr-checks.yml is missing shared trusted review workflow" in errors
 
 
+def test_ci_matrix_rejects_a_caller_supplied_release_candidate_ref(monkeypatch) -> None:
+    workflow_text = ci_matrix.RELEASE_CANDIDATE_WORKFLOW.read_text().replace(
+        "ref: main",
+        "ref: ${{ inputs.commit_sha }}",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.RELEASE_CANDIDATE_WORKFLOW:
+            return workflow_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/release-candidate.yml must not contain caller-supplied candidate ref" in errors
+
+
 def test_benchmark_regression_check_blocks_release(tmp_path, monkeypatch) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"

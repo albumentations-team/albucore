@@ -6,9 +6,6 @@ on:
       version:
         description: Version to validate, matching pyproject.toml
         required: true
-      commit_sha:
-        description: Exact commit SHA to validate
-        required: true
 
 permissions:
   actions: read
@@ -25,10 +22,10 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout candidate commit
+      - name: Checkout main for the release candidate
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.commit_sha }}
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -41,8 +38,8 @@ jobs:
       - name: Resolve and verify release metadata
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
-          REQUESTED_COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
+          REQUESTED_COMMIT_SHA="$(git rev-parse HEAD)"
           python tools/validate_release_candidate.py metadata \
             --version "${REQUESTED_VERSION}" \
             --commit-sha "${REQUESTED_COMMIT_SHA}" \

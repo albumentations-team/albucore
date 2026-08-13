@@ -282,7 +282,8 @@ def _check_release_workflows(errors: list[str]) -> None:
         RELEASE_CANDIDATE_WORKFLOW,
         {
             "manual release candidate trigger": "workflow_dispatch:",
-            "exact commit input": "commit_sha:",
+            "main checkout": "ref: main",
+            "checked out candidate SHA": 'REQUESTED_COMMIT_SHA="$(git rev-parse HEAD)"',
             "uncached bootstrap": CI_FOUNDATION_UNCACHED_SETUP_ACTION,
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
@@ -299,6 +300,7 @@ def _check_release_workflows(errors: list[str]) -> None:
         errors,
         RELEASE_CANDIDATE_WORKFLOW,
         {
+            "caller-supplied candidate ref": "inputs.commit_sha",
             "release benchmark runner": "benchmarks/benchmark_router_synthetic.py",
             "release benchmark regression checker": "tools/check_benchmark_regressions.py",
             "accepted benchmark regression input": "accepted_regressions:",

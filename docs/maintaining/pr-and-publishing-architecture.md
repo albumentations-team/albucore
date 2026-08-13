@@ -102,13 +102,11 @@ Purpose: validate the exact release commit before anything public is published.
 Trigger:
 
 - manual `workflow_dispatch`
-- inputs:
-  - `version`
-  - `commit_sha`
+- input: `version`
 
 Required checks:
 
-- checkout exactly `commit_sha`
+- checkout the current `main` commit; no caller-supplied ref is executed
 - verify `pyproject.toml` version equals the requested version
 - verify `uv.lock` version equals the requested version
 - verify the commit is reachable from `main`
