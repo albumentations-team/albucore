@@ -27,6 +27,7 @@ SUPPORT_POLICY = REPO_ROOT / "docs" / "maintaining" / "support-policy.md"
 VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candidate.py"
 VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
 LEGAL_ARTIFACT_VERIFY_COMMAND = "python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz"
+PYTORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -62,7 +63,7 @@ def _check_torch_cpu_source(pyproject: dict[str, Any], errors: list[str]) -> Non
         index
         == {
             "name": "pytorch-cpu",
-            "url": "https://download.pytorch.org/whl/cpu",
+            "url": PYTORCH_CPU_INDEX,
             "explicit": True,
         }
         for index in indexes
@@ -194,6 +195,14 @@ def _check_torch_runtime_exports(errors: list[str], path: Path) -> None:
     export_commands = re.findall(r"(?m)^\s*run:\s*(uv export[^\n]+)", path.read_text())
     if any("--extra torch" not in command and "--all-extras" not in command for command in export_commands):
         errors.append(f"{path.relative_to(REPO_ROOT)} must include the torch extra in every uv export")
+
+
+def _check_torch_pip_audits(errors: list[str], path: Path) -> None:
+    if not path.exists():
+        return
+    audit_commands = re.findall(r"(?m)^\s*run:\s*(uv tool run --from pip-audit pip-audit[^\n]+)", path.read_text())
+    if not audit_commands or any(f"--extra-index-url {PYTORCH_CPU_INDEX}" not in command for command in audit_commands):
+        errors.append(f"{path.relative_to(REPO_ROOT)} must pass the PyTorch CPU index to every pip-audit command")
 
 
 def _check_release_workflows(errors: list[str]) -> None:
@@ -348,6 +357,7 @@ def _check_security_workflow(errors: list[str]) -> None:
         errors.append("Security workflow runtime audit must omit the editable project from exported requirements")
     if "uv export --frozen --no-emit-project" not in text:
         errors.append("Security workflow dev audit must omit the editable project from exported requirements")
+    _check_torch_pip_audits(errors, SECURITY_WORKFLOW)
 
 
 def _check_cla_status_workflow(errors: list[str]) -> None:

@@ -149,6 +149,26 @@ def test_ci_matrix_requires_torch_in_audit_and_sbom_exports(monkeypatch) -> None
     assert ".github/workflows/security.yml must include the torch extra in every uv export" in errors
 
 
+def test_ci_matrix_requires_pytorch_cpu_index_for_dependency_audits(monkeypatch) -> None:
+    security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(
+        " --extra-index-url https://download.pytorch.org/whl/cpu",
+        "",
+        1,
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.SECURITY_WORKFLOW:
+            return security_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/security.yml must pass the PyTorch CPU index to every pip-audit command" in errors
+
+
 def test_ci_matrix_requires_cpu_torch_backend_per_job(monkeypatch) -> None:
     ci_text = ci_matrix.CI_WORKFLOW.read_text().replace("--torch-backend cpu", "", 1)
     original_read_text = Path.read_text
