@@ -110,7 +110,7 @@ jobs:
         run: uv lock --check
 
       - name: Export locked runtime dependencies
-        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file dist/runtime-requirements.txt
+        run: uv export --frozen --no-dev --no-emit-project --extra torch --format requirements-txt --output-file dist/runtime-requirements.txt
 
       - name: Generate CycloneDX SBOM
         run: |

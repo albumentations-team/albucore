@@ -28,21 +28,22 @@ install Albucore with an OpenCV extra. For a Linux CPU-only headless application
 
 ```bash
 pip install "torch>=2.13.0" --index-url https://download.pytorch.org/whl/cpu
-pip install "albucore[headless]"
+pip install "albucore[headless,torch]"
 ```
 
 **CUDA or macOS (MPS):** Select and install the matching PyTorch build with the
 [PyTorch installation selector](https://pytorch.org/get-started/locally/), then install Albucore:
 
 ```bash
-pip install "albucore[headless]"
+pip install "albucore[headless,torch]"
 ```
 
 `pip install albucore` installs only the base dependency set. Use it when a transitive consumer only resolves
 Albucore, such as during a documentation build. The current public import graph requires both OpenCV and PyTorch.
 
-The published `torch` extra expresses the runtime requirement but cannot select a CPU, CUDA, or MPS wheel through
-standard package metadata. Use PyTorch's platform-specific installation command before installing Albucore.
+The `torch` extra declares Albucore's PyTorch runtime requirement but cannot select a CPU, CUDA, or MPS wheel through
+standard package metadata. Use PyTorch's platform-specific installation command before installing Albucore. The examples
+use the `headless` OpenCV extra; replace it with `gui`, `contrib`, or `contrib-headless` if needed.
 
 AlbumentationsX passes prevalidated CPU, strided Torch tensors with `requires_grad=False` to
 `resize3d` and `warp_affine3d`; the low-level routers do not repeat those checks or move/detach Tensor data.
@@ -50,17 +51,17 @@ AlbumentationsX passes prevalidated CPU, strided Torch tensors with `requires_gr
 **With OpenCV GUI support** (for local development with cv2.imshow):
 
 ```bash
-pip install "albucore[gui]"
+pip install "albucore[gui,torch]"
 ```
 
 **With OpenCV contrib modules:**
 
 ```bash
-pip install "albucore[contrib]"              # GUI version
-pip install "albucore[contrib-headless]"     # Headless version
+pip install "albucore[contrib,torch]"              # GUI version
+pip install "albucore[contrib-headless,torch]"     # Headless version
 ```
 
-**Note:** If you already have `opencv-python` or `opencv-contrib-python` installed, use `pip install albucore` to avoid OpenCV package conflicts. Albucore detects and uses the existing OpenCV installation.
+**Note:** If you already have `opencv-python` or `opencv-contrib-python` installed, use `pip install "albucore[torch]"` after installing the platform-specific PyTorch build. This does not add another OpenCV package; Albucore uses the existing installation.
 
 ## Usage
 

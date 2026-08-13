@@ -109,8 +109,11 @@ def _check_pyproject(errors: list[str]) -> set[str]:
 
 
 def _check_ci_torch_backend(errors: list[str], text: str) -> None:
-    if text.count("--torch-backend cpu") != 3:
-        errors.append("CI workflow must install Torch from the CPU backend")
+    errors.extend(
+        f"CI {job_name} job must install Torch from the CPU backend"
+        for job_name in ("test", "macos-arm64-matmul", "declared-dependency-ranges")
+        if "--torch-backend cpu" not in _workflow_job(text, job_name)
+    )
 
 
 def _check_ci(errors: list[str], versions: set[str]) -> None:
@@ -185,7 +188,17 @@ def _check_file_absent_fragments(errors: list[str], path: Path, forbidden_fragme
     )
 
 
+def _check_torch_runtime_exports(errors: list[str], path: Path) -> None:
+    if not path.exists():
+        return
+    export_commands = re.findall(r"(?m)^\s*run:\s*(uv export[^\n]+)", path.read_text())
+    if any("--extra torch" not in command and "--all-extras" not in command for command in export_commands):
+        errors.append(f"{path.relative_to(REPO_ROOT)} must include the torch extra in every uv export")
+
+
 def _check_release_workflows(errors: list[str]) -> None:
+    for workflow in (SECURITY_WORKFLOW, RELEASE_CANDIDATE_WORKFLOW, PUBLISH_WORKFLOW):
+        _check_torch_runtime_exports(errors, workflow)
     _check_file_fragments(
         errors,
         BENCHMARK_PR_WORKFLOW,

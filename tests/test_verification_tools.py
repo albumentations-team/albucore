@@ -133,6 +133,38 @@ def test_ci_matrix_requires_shared_cpu_environment_for_base_benchmark(monkeypatc
     assert "PR benchmark workflow must run the base source tree in the PR CPU environment" in errors
 
 
+def test_ci_matrix_requires_torch_in_audit_and_sbom_exports(monkeypatch) -> None:
+    security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(" --extra torch", "", 1)
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.SECURITY_WORKFLOW:
+            return security_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/security.yml must include the torch extra in every uv export" in errors
+
+
+def test_ci_matrix_requires_cpu_torch_backend_per_job(monkeypatch) -> None:
+    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace("--torch-backend cpu", "", 1)
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI test job must install Torch from the CPU backend" in errors
+
+
 def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None:
     missing_workflow = ci_matrix.REPO_ROOT / ".github" / "workflows" / "__missing__.yml"
 

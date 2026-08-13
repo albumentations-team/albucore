@@ -15,7 +15,9 @@ except Exception:  # noqa: BLE001
 # requires both.
 try:
     import cv2  # noqa: F401
-except ImportError as e:
+except ModuleNotFoundError as e:
+    if e.name != "cv2":
+        raise
     msg = (
         "Albucore requires OpenCV but it's not installed.\n\n"
         "Install one of the following:\n"
@@ -33,14 +35,17 @@ except ImportError as e:
 
 try:
     import torch  # noqa: F401
-except ImportError as e:
+except ModuleNotFoundError as e:
+    if e.name != "torch":
+        raise
     msg = (
         "Albucore requires PyTorch when it is imported.\n\n"
         "Install the PyTorch build for your platform first. For Linux CPU-only:\n"
         '  pip install "torch>=2.13.0" --index-url https://download.pytorch.org/whl/cpu\n\n'
-        "Then install Albucore's Torch runtime profile:\n"
-        "  pip install albucore[torch]\n\n"
-        "Use PyTorch's platform-specific command for CUDA or MPS."
+        "Then install Albucore with an OpenCV extra and Torch profile:\n"
+        '  pip install "albucore[headless,torch]"\n\n'
+        "Use PyTorch's platform-specific command for CUDA or MPS, and replace "
+        "headless with gui, contrib, or contrib-headless if needed."
     )
     raise ImportError(msg) from e
 
