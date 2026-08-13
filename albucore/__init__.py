@@ -10,10 +10,14 @@ except Exception:  # noqa: BLE001
     __author__ = "Vladimir Iglovikov"
     __maintainer__ = "Vladimir Iglovikov"
 
-# Check for OpenCV at import time
+# OpenCV and Torch are installation extras so transitive, non-importing
+# consumers do not resolve them. Albucore's current public import graph still
+# requires both.
 try:
     import cv2  # noqa: F401
-except ImportError as e:
+except ModuleNotFoundError as e:
+    if e.name != "cv2":
+        raise
     msg = (
         "Albucore requires OpenCV but it's not installed.\n\n"
         "Install one of the following:\n"
@@ -26,6 +30,22 @@ except ImportError as e:
         "  pip install albucore[gui]                 # Installs opencv-python\n"
         "  pip install albucore[contrib]             # Installs opencv-contrib-python\n"
         "  pip install albucore[contrib-headless]    # Installs opencv-contrib-python-headless"
+    )
+    raise ImportError(msg) from e
+
+try:
+    import torch  # noqa: F401
+except ModuleNotFoundError as e:
+    if e.name != "torch":
+        raise
+    msg = (
+        "Albucore requires PyTorch when it is imported.\n\n"
+        "Install the PyTorch build for your platform first. For Linux CPU-only:\n"
+        '  pip install "torch>=2.13.0" --index-url https://download.pytorch.org/whl/cpu\n\n'
+        "Then install Albucore with an OpenCV extra and Torch profile:\n"
+        '  pip install "albucore[headless,torch]"\n\n'
+        "Use PyTorch's platform-specific command for CUDA or MPS, and replace "
+        "headless with gui, contrib, or contrib-headless if needed."
     )
     raise ImportError(msg) from e
 

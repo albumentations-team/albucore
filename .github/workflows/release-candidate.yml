@@ -73,7 +73,7 @@ jobs:
         run: python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz
 
       - name: Install release validation dependencies
-        run: uv sync --frozen --extra headless --group dev
+        run: uv sync --frozen --extra headless --extra torch --group dev
 
       - name: Check public router contracts
         run: uv run python tools/check_router_contracts.py
@@ -101,6 +101,7 @@ jobs:
             printf '%s\n' "${HEADLESS_RUNTIME_DEPENDENCIES}" > "$VENV_DIR/headless-runtime-requirements.txt"
             python -m pip install -r "$VENV_DIR/headless-runtime-requirements.txt"
           fi
+          uv pip install --torch-backend cpu "torch>=2.13.0"
           python -m pip install dist/*.whl
           cd /tmp
           python -c 'import albucore, numpy as np; img = np.zeros((64, 64, 3), dtype=np.uint8); print("albucore smoke test passed, version:", albucore.__version__)'
@@ -109,7 +110,7 @@ jobs:
         run: uv lock --check
 
       - name: Export locked runtime dependencies
-        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file dist/runtime-requirements.txt
+        run: uv export --frozen --no-dev --no-emit-project --extra torch --format requirements-txt --output-file dist/runtime-requirements.txt
 
       - name: Generate CycloneDX SBOM
         run: |

@@ -27,6 +27,7 @@ SUPPORT_POLICY = REPO_ROOT / "docs" / "maintaining" / "support-policy.md"
 VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candidate.py"
 VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
 LEGAL_ARTIFACT_VERIFY_COMMAND = "python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz"
+PYTORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -49,6 +50,25 @@ def _workflow_job(text: str, job_name: str) -> str:
         text,
     )
     return match.group(0) if match is not None else ""
+
+
+def _check_torch_cpu_source(pyproject: dict[str, Any], errors: list[str]) -> None:
+    uv_config = pyproject.get("tool", {}).get("uv", {})
+    sources = uv_config.get("sources", {}) if isinstance(uv_config, dict) else {}
+    if not isinstance(sources, dict) or sources.get("torch") != {"index": "pytorch-cpu"}:
+        errors.append("pyproject.toml must pin torch to the pytorch-cpu index")
+
+    indexes = uv_config.get("index", []) if isinstance(uv_config, dict) else []
+    if not isinstance(indexes, list) or not any(
+        index
+        == {
+            "name": "pytorch-cpu",
+            "url": PYTORCH_CPU_INDEX,
+            "explicit": True,
+        }
+        for index in indexes
+    ):
+        errors.append("pyproject.toml must define the explicit pytorch-cpu index")
 
 
 def _check_pyproject(errors: list[str]) -> set[str]:
@@ -75,8 +95,26 @@ def _check_pyproject(errors: list[str]) -> set[str]:
     optional_dependencies = project.get("optional-dependencies", {})
     if not isinstance(optional_dependencies, dict) or "headless" not in optional_dependencies:
         errors.append("pyproject.toml must define project.optional-dependencies.headless")
+    elif "torch" not in optional_dependencies:
+        errors.append("pyproject.toml must define project.optional-dependencies.torch")
+
+    dependencies = project.get("dependencies", [])
+    if not isinstance(dependencies, list) or not all(isinstance(item, str) for item in dependencies):
+        errors.append("project.dependencies must be a list of strings")
+    elif any(re.match(r"^torch(?:[<>=!~;\[ ]|$)", item, flags=re.IGNORECASE) for item in dependencies):
+        errors.append("project.dependencies must not require torch; use the torch extra")
+
+    _check_torch_cpu_source(pyproject, errors)
 
     return versions
+
+
+def _check_ci_torch_backend(errors: list[str], text: str) -> None:
+    errors.extend(
+        f"CI {job_name} job must install Torch from the CPU backend"
+        for job_name in ("test", "macos-arm64-matmul", "declared-dependency-ranges")
+        if "--torch-backend cpu" not in _workflow_job(text, job_name)
+    )
 
 
 def _check_ci(errors: list[str], versions: set[str]) -> None:
@@ -114,6 +152,7 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not install test dependencies for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
+    _check_ci_torch_backend(errors, text)
 
 
 def _check_support_policy(errors: list[str], versions: set[str]) -> None:
@@ -150,7 +189,25 @@ def _check_file_absent_fragments(errors: list[str], path: Path, forbidden_fragme
     )
 
 
+def _check_torch_runtime_exports(errors: list[str], path: Path) -> None:
+    if not path.exists():
+        return
+    export_commands = re.findall(r"(?m)^\s*run:\s*(uv export[^\n]+)", path.read_text())
+    if any("--extra torch" not in command and "--all-extras" not in command for command in export_commands):
+        errors.append(f"{path.relative_to(REPO_ROOT)} must include the torch extra in every uv export")
+
+
+def _check_torch_pip_audits(errors: list[str], path: Path) -> None:
+    if not path.exists():
+        return
+    audit_commands = re.findall(r"(?m)^\s*run:\s*(uv tool run --from pip-audit pip-audit[^\n]+)", path.read_text())
+    if not audit_commands or any(f"--extra-index-url {PYTORCH_CPU_INDEX}" not in command for command in audit_commands):
+        errors.append(f"{path.relative_to(REPO_ROOT)} must pass the PyTorch CPU index to every pip-audit command")
+
+
 def _check_release_workflows(errors: list[str]) -> None:
+    for workflow in (SECURITY_WORKFLOW, RELEASE_CANDIDATE_WORKFLOW, PUBLISH_WORKFLOW):
+        _check_torch_runtime_exports(errors, workflow)
     _check_file_fragments(
         errors,
         BENCHMARK_PR_WORKFLOW,
@@ -161,6 +218,13 @@ def _check_release_workflows(errors: list[str]) -> None:
             "PR benchmark artifacts": "pr-router-benchmark-results",
         },
     )
+    if BENCHMARK_PR_WORKFLOW.exists():
+        benchmark_text = BENCHMARK_PR_WORKFLOW.read_text()
+        base_benchmark_command = (
+            'PYTHONPATH="$PWD" uv run --project "$GITHUB_WORKSPACE" python benchmarks/benchmark_router_synthetic.py'
+        )
+        if base_benchmark_command not in benchmark_text:
+            errors.append("PR benchmark workflow must run the base source tree in the PR CPU environment")
     _check_file_fragments(
         errors,
         LEGAL_INTEGRITY_WORKFLOW,
@@ -189,7 +253,8 @@ def _check_release_workflows(errors: list[str]) -> None:
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
-            "release validation headless extra": "uv sync --frozen --extra headless --group dev",
+            "release validation Torch profile": "uv sync --frozen --extra headless --extra torch --group dev",
+            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
             "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
             "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
@@ -225,6 +290,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "trusted publishing": "pypa/gh-action-pypi-publish",
             "release event publish job": "Publish from GitHub Release",
             "GitHub Release only after PyPI": "Create or update GitHub Release",
+            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
         },
     )
     if PUBLISH_WORKFLOW.exists() and PUBLISH_WORKFLOW.read_text().count(LEGAL_ARTIFACT_VERIFY_COMMAND) == 1:
@@ -291,6 +357,7 @@ def _check_security_workflow(errors: list[str]) -> None:
         errors.append("Security workflow runtime audit must omit the editable project from exported requirements")
     if "uv export --frozen --no-emit-project" not in text:
         errors.append("Security workflow dev audit must omit the editable project from exported requirements")
+    _check_torch_pip_audits(errors, SECURITY_WORKFLOW)
 
 
 def _check_cla_status_workflow(errors: list[str]) -> None:
