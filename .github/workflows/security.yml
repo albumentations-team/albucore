@@ -33,10 +33,10 @@ jobs:
           enable-cache: true
 
       - name: Export locked runtime dependencies
-        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file runtime-requirements.txt
+        run: uv export --frozen --no-dev --no-emit-project --extra torch --format requirements-txt --output-file runtime-requirements.txt
 
       - name: Run pip-audit on runtime dependencies
-        run: uv tool run --from pip-audit pip-audit -r runtime-requirements.txt
+        run: uv tool run --from pip-audit pip-audit --extra-index-url https://download.pytorch.org/whl/cpu -r runtime-requirements.txt
 
       - name: Upload runtime dependency export
         if: always()
@@ -64,10 +64,10 @@ jobs:
           enable-cache: true
 
       - name: Export locked all dependencies
-        run: uv export --frozen --no-emit-project --format requirements-txt --output-file all-requirements.txt
+        run: uv export --frozen --no-emit-project --extra torch --format requirements-txt --output-file all-requirements.txt
 
       - name: Run pip-audit on all dependencies
-        run: uv tool run --from pip-audit pip-audit -r all-requirements.txt
+        run: uv tool run --from pip-audit pip-audit --extra-index-url https://download.pytorch.org/whl/cpu -r all-requirements.txt
 
       - name: Upload all dependency export
         if: always()

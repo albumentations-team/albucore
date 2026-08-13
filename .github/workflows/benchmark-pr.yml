@@ -40,7 +40,7 @@ jobs:
             uv.lock
 
       - name: Install PR tree
-        run: uv sync --frozen --extra headless --group dev
+        run: uv sync --frozen --extra headless --extra torch --group dev
 
       - name: Run PR quick router benchmark
         run: |
@@ -58,14 +58,10 @@ jobs:
           git fetch origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" --depth=1
           git worktree add ../albucore-base "origin/${GITHUB_BASE_REF}"
 
-      - name: Install base tree
-        working-directory: ../albucore-base
-        run: uv sync --frozen --extra headless --group dev
-
       - name: Run base quick router benchmark
         working-directory: ../albucore-base
         run: |
-          uv run python benchmarks/benchmark_router_synthetic.py \
+          PYTHONPATH="$PWD" uv run --project "$GITHUB_WORKSPACE" python benchmarks/benchmark_router_synthetic.py \
             --quick \
             --with-geometric \
             --repeats 7 \

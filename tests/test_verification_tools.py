@@ -60,6 +60,131 @@ def test_ci_matrix_check_passes() -> None:
     assert ci_matrix.check() == []
 
 
+def test_ci_matrix_requires_torch_to_be_an_optional_dependency(monkeypatch) -> None:
+    pyproject_text = ci_matrix.PYPROJECT.read_text().replace('torch = ["torch>=2.13.0"]\n', "")
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.PYPROJECT:
+            return pyproject_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "pyproject.toml must define project.optional-dependencies.torch" in errors
+
+
+def test_ci_matrix_rejects_torch_as_a_base_dependency(monkeypatch) -> None:
+    pyproject_text = ci_matrix.PYPROJECT.read_text().replace(
+        '  "stringzilla>=3.10.4",\n',
+        '  "stringzilla>=3.10.4",\n  "torch>=2.13.0",\n',
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.PYPROJECT:
+            return pyproject_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "project.dependencies must not require torch; use the torch extra" in errors
+
+
+def test_ci_matrix_requires_the_pytorch_cpu_index(monkeypatch) -> None:
+    pyproject_text = ci_matrix.PYPROJECT.read_text().replace(
+        'torch = { index = "pytorch-cpu" }',
+        'torch = { index = "pypi" }',
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.PYPROJECT:
+            return pyproject_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "pyproject.toml must pin torch to the pytorch-cpu index" in errors
+
+
+def test_ci_matrix_requires_shared_cpu_environment_for_base_benchmark(monkeypatch) -> None:
+    benchmark_text = ci_matrix.BENCHMARK_PR_WORKFLOW.read_text().replace(
+        'PYTHONPATH="$PWD" uv run --project "$GITHUB_WORKSPACE" python benchmarks/benchmark_router_synthetic.py',
+        "uv run python benchmarks/benchmark_router_synthetic.py",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.BENCHMARK_PR_WORKFLOW:
+            return benchmark_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "PR benchmark workflow must run the base source tree in the PR CPU environment" in errors
+
+
+def test_ci_matrix_requires_torch_in_audit_and_sbom_exports(monkeypatch) -> None:
+    security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(" --extra torch", "", 1)
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.SECURITY_WORKFLOW:
+            return security_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/security.yml must include the torch extra in every uv export" in errors
+
+
+def test_ci_matrix_requires_pytorch_cpu_index_for_dependency_audits(monkeypatch) -> None:
+    security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(
+        " --extra-index-url https://download.pytorch.org/whl/cpu",
+        "",
+        1,
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.SECURITY_WORKFLOW:
+            return security_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/security.yml must pass the PyTorch CPU index to every pip-audit command" in errors
+
+
+def test_ci_matrix_requires_cpu_torch_backend_per_job(monkeypatch) -> None:
+    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace("--torch-backend cpu", "", 1)
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI test job must install Torch from the CPU backend" in errors
+
+
 def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None:
     missing_workflow = ci_matrix.REPO_ROOT / ".github" / "workflows" / "__missing__.yml"
 
@@ -122,8 +247,9 @@ def test_ci_matrix_accepts_equivalent_macos_dependency_formatting(monkeypatch) -
         ci_matrix.CI_WORKFLOW.read_text()
         .replace("runs-on: macos-latest", "runs-on: 'macos-latest'")
         .replace(
-            'run: uv pip install -e ".[headless]" "numpy==2.2.6" -r requirements-dev.txt',
-            "run: uv pip install -e '.[headless]' 'numpy==2.2.6' --requirement=requirements-dev.txt",
+            'run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
+            "run: uv pip install --torch-backend cpu -e '.[headless,torch]' "
+            "'numpy==2.2.6' --requirement=requirements-dev.txt",
         )
     )
     original_read_text = Path.read_text
@@ -140,8 +266,8 @@ def test_ci_matrix_accepts_equivalent_macos_dependency_formatting(monkeypatch) -
 
 def test_ci_matrix_requires_dev_dependencies_in_macos_job(monkeypatch) -> None:
     ci_text = ci_matrix.CI_WORKFLOW.read_text().replace(
-        'run: uv pip install -e ".[headless]" "numpy==2.2.6" -r requirements-dev.txt',
-        'run: uv pip install -e ".[headless]" "numpy==2.2.6"',
+        'run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
+        'run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6"',
     )
     original_read_text = Path.read_text
 
