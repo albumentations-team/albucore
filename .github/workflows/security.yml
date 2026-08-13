@@ -23,14 +23,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
         with:
           python-version: "3.12"
-          activate-environment: true
-          enable-cache: true
+          cache-dependency-glob: uv.lock
+          cache-suffix: albucore-runtime-audit
+          cache-enabled: "false"
 
       - name: Export locked runtime dependencies
         run: uv export --frozen --no-dev --no-emit-project --extra torch --format requirements-txt --output-file runtime-requirements.txt
@@ -40,7 +43,7 @@ jobs:
 
       - name: Upload runtime dependency export
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: runtime-requirements
           path: runtime-requirements.txt
@@ -54,14 +57,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
         with:
           python-version: "3.12"
-          activate-environment: true
-          enable-cache: true
+          cache-dependency-glob: uv.lock
+          cache-suffix: albucore-dev-audit
+          cache-enabled: "false"
 
       - name: Export locked all dependencies
         run: uv export --frozen --no-emit-project --extra torch --format requirements-txt --output-file all-requirements.txt
@@ -71,7 +77,7 @@ jobs:
 
       - name: Upload all dependency export
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: all-requirements
           path: all-requirements.txt
@@ -84,21 +90,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
         with:
           python-version: "3.12"
-          activate-environment: true
-          enable-cache: true
+          cache-dependency-glob: uv.lock
+          cache-suffix: albucore-workflow-audit
+          cache-enabled: "false"
 
       - name: Run zizmor
         run: uv tool run --from zizmor zizmor .github/workflows --format sarif > zizmor.sarif
 
       - name: Upload zizmor SARIF
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zizmor-sarif
           path: zizmor.sarif
@@ -115,12 +124,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
       - name: Run Scorecard
-        uses: ossf/scorecard-action@v2.4.2
+        uses: ossf/scorecard-action@05b42c624433fc40578a4040d5cf5e36ddca8cde # v2.4.2
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
@@ -128,7 +137,7 @@ jobs:
 
       - name: Upload Scorecard SARIF
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scorecard-sarif
           path: scorecard-results.sarif

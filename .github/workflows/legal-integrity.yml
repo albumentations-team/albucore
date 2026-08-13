@@ -15,14 +15,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
         with:
-          enable-cache: true
           python-version: "3.11"
-          activate-environment: true
+          cache-dependency-glob: pyproject.toml
+          cache-suffix: albucore-legal-integrity
+          cache-enabled: "false"
 
       - name: Verify source-tree legal integrity
         run: python tools/verify_legal_integrity.py

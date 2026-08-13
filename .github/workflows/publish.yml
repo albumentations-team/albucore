@@ -17,8 +17,7 @@ on:
 
 permissions:
   actions: read
-  contents: write
-  id-token: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -30,16 +29,21 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
 
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download release candidate artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-candidate-artifacts
           path: dist
@@ -75,7 +79,7 @@ jobs:
             --version "${REQUESTED_VERSION}"
 
       - name: Publish distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: pypi-dist
           attestations: true
@@ -88,7 +92,7 @@ jobs:
             --version "${REQUESTED_VERSION}"
 
       - name: Create or update GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # zizmor: ignore[superfluous-actions] supports create-or-update release semantics; v2
         with:
           tag_name: ${{ inputs.version }}
           target_commitish: ${{ inputs.commit_sha }}
@@ -109,20 +113,26 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
 
     steps:
       - name: Checkout release tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
         with:
-          enable-cache: true
           python-version: "3.11"
-          activate-environment: true
+          cache-dependency-glob: uv.lock
+          cache-suffix: albucore-release-publish
+          cache-enabled: "false"
 
       - name: Resolve release metadata from published release
         env:
@@ -162,6 +172,11 @@ jobs:
       - name: Install release validation dependencies
         run: uv sync --frozen --extra headless --extra torch --group dev
 
+      - name: Verify CPU-only Torch
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        with:
+          mode: verify
+
       - name: Check public router contracts
         run: uv run python tools/check_router_contracts.py
 
@@ -177,21 +192,32 @@ jobs:
       - name: Check distribution metadata
         run: uv tool run --from twine twine check dist/*
 
-      - name: Smoke test built wheel
+      - name: Create wheel smoke environment
+        id: wheel_smoke
         run: |
-          VENV_DIR="$(mktemp -d /tmp/albucore-release-venv.XXXXXX)"
-          trap 'rm -rf "$VENV_DIR"' EXIT
+          VENV_DIR="${RUNNER_TEMP}/albucore-release-venv"
           python -m venv "$VENV_DIR"
-          . "$VENV_DIR/bin/activate"
-          python -m pip install --upgrade pip
+          echo "python=${VENV_DIR}/bin/python" >> "${GITHUB_OUTPUT}"
+
+      - name: Install CPU-only Torch for wheel smoke test
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        with:
+          mode: install
+          python: ${{ steps.wheel_smoke.outputs.python }}
+          requirement: "torch>=2.13.0"
+
+      - name: Smoke test built wheel
+        env:
+          WHEEL_SMOKE_PYTHON: ${{ steps.wheel_smoke.outputs.python }}
+        run: |
+          "$WHEEL_SMOKE_PYTHON" -m pip install --upgrade pip
           if [ -n "${HEADLESS_RUNTIME_DEPENDENCIES:-}" ]; then
-            printf '%s\n' "${HEADLESS_RUNTIME_DEPENDENCIES}" > "$VENV_DIR/headless-runtime-requirements.txt"
-            python -m pip install -r "$VENV_DIR/headless-runtime-requirements.txt"
+            printf '%s\n' "${HEADLESS_RUNTIME_DEPENDENCIES}" > "${RUNNER_TEMP}/headless-runtime-requirements.txt"
+            "$WHEEL_SMOKE_PYTHON" -m pip install -r "${RUNNER_TEMP}/headless-runtime-requirements.txt"
           fi
-          uv pip install --torch-backend cpu "torch>=2.13.0"
-          python -m pip install dist/*.whl
+          "$WHEEL_SMOKE_PYTHON" -m pip install dist/*.whl
           cd /tmp
-          python -c 'import albucore, numpy as np; img = np.zeros((64, 64, 3), dtype=np.uint8); print("albucore smoke test passed, version:", albucore.__version__)'
+          "$WHEEL_SMOKE_PYTHON" -c 'import albucore, numpy as np; img = np.zeros((64, 64, 3), dtype=np.uint8); print("albucore smoke test passed, version:", albucore.__version__)'
 
       - name: Verify uv.lock is up-to-date
         run: uv lock --check
@@ -252,7 +278,7 @@ jobs:
             --version "${PACKAGE_VERSION}"
 
       - name: Publish distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: pypi-dist
           attestations: true
@@ -263,7 +289,7 @@ jobs:
             --version "${PACKAGE_VERSION}"
 
       - name: Attach artifacts to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # zizmor: ignore[superfluous-actions] supports release-asset attachment semantics; v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: |

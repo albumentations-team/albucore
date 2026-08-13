@@ -25,22 +25,27 @@ jobs:
 
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@2468af6e982545e2fd1d5ba4249f1b44154149fe
         with:
           python-version: "3.12"
-          activate-environment: true
-          enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
+          cache-suffix: albucore-pr-benchmark-torch-cpu
 
       - name: Install PR tree
         run: uv sync --frozen --extra headless --extra torch --group dev
+
+      - name: Verify CPU-only Torch
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@2468af6e982545e2fd1d5ba4249f1b44154149fe
+        with:
+          mode: verify
 
       - name: Run PR quick router benchmark
         run: |
@@ -98,7 +103,7 @@ jobs:
 
       - name: Upload benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pr-router-benchmark-results
           path: |
