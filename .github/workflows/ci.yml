@@ -173,9 +173,9 @@ jobs:
           uv pip install -e ".[torch]" --no-deps
           uv pip install --torch-backend cpu \
             "numpy>=1.24.4" \
-            "numkong>=7.4.5" \
-            "stringzilla>=3.10.4" \
-            "opencv-python-headless>=4.13.0.90" \
+            "numkong>=7.8.0" \
+            "stringzilla>=5.1.2" \
+            "opencv-python-headless>=5.0.0.93" \
             "torch>=2.13.0" \
             hypothesis \
             pytest \
