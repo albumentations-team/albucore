@@ -1,0 +1,54 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - MAINTAINERS.md
+      - README.md
+      - SECURITY.md
+      - docs/**
+  pull_request:
+    branches: [main, master]
+    paths-ignore:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - MAINTAINERS.md
+      - README.md
+      - SECURITY.md
+      - docs/**
+  schedule:
+    - cron: "0 4 * * 2"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, python]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        with:
+          build-mode: none
+          languages: ${{ matrix.language }}
+
+      - name: Analyze code
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        with:
+          category: /language:${{ matrix.language }}

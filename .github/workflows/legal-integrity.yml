@@ -17,9 +17,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Classify change scope
+        if: github.event_name == 'pull_request'
+        id: classify
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python tools/classify_ci_changes.py
+          --repo .
+          "${BASE_REVISION}"
+          "${HEAD_REVISION}"
+          >> "${GITHUB_OUTPUT}"
+
       - name: Install uv and Python
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            steps.classify.outputs.docs_only != 'true' ||
+            steps.classify.outputs.run_package_metadata_checks == 'true'
+          }}
         uses: albumentations-team/ci-foundation/actions/setup-python-uv@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           python-version: "3.11"
@@ -32,16 +52,38 @@ jobs:
         run: python tools/verify_legal_integrity.py
 
       - name: Test legal-integrity verifier
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            steps.classify.outputs.docs_only != 'true'
+          }}
         run: uv run --no-project --with pytest pytest --noconftest -q tests/test_legal_integrity.py
 
       - name: Build wheel and source distribution
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            steps.classify.outputs.docs_only != 'true' ||
+            steps.classify.outputs.run_package_metadata_checks == 'true'
+          }}
         run: uv build --out-dir "${RUNNER_TEMP}/albucore-legal-dist"
 
       - name: Verify distribution license and CLA exclusion
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            steps.classify.outputs.docs_only != 'true'
+          }}
         run: >-
           python tools/verify_legal_integrity.py --artifacts
           "${RUNNER_TEMP}"/albucore-legal-dist/*.whl
           "${RUNNER_TEMP}"/albucore-legal-dist/*.tar.gz
 
       - name: Check distribution metadata
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            steps.classify.outputs.docs_only != 'true' ||
+            steps.classify.outputs.run_package_metadata_checks == 'true'
+          }}
         run: uv tool run --from twine twine check "${RUNNER_TEMP}"/albucore-legal-dist/*

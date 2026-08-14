@@ -86,7 +86,39 @@ def _classify(repo: Path, base: str, head: str) -> dict[str, str]:
 def test_version_only_change_skips_tests(tmp_path: Path) -> None:
     base, head = _version_change(tmp_path)
 
-    assert _classify(tmp_path, base, head) == {"run_tests": "false"}
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "false",
+        "docs_only": "false",
+        "run_package_metadata_checks": "false",
+    }
+
+
+def test_readme_only_change_skips_tests(tmp_path: Path) -> None:
+    base, _ = _version_change(tmp_path)
+    _write_metadata(tmp_path, "0.2.4")
+    (tmp_path / "README.md").write_text("# Updated documentation\n")
+    head = _commit(tmp_path, "update readme")
+
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "false",
+        "docs_only": "true",
+        "run_package_metadata_checks": "true",
+    }
+
+
+def test_non_readme_documentation_change_skips_package_metadata_checks(tmp_path: Path) -> None:
+    base, _ = _version_change(tmp_path)
+    _write_metadata(tmp_path, "0.2.4")
+    documentation = tmp_path / "docs" / "guide.md"
+    documentation.parent.mkdir()
+    documentation.write_text("# Guide\n")
+    head = _commit(tmp_path, "add guide")
+
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "false",
+        "docs_only": "true",
+        "run_package_metadata_checks": "false",
+    }
 
 
 def test_dependency_constraint_change_runs_tests(tmp_path: Path) -> None:
@@ -94,7 +126,11 @@ def test_dependency_constraint_change_runs_tests(tmp_path: Path) -> None:
     _write_metadata(tmp_path, "0.2.5", numpy_requirement="numpy>=2.0")
     head = _commit(tmp_path, "change dependency constraint")
 
-    assert _classify(tmp_path, base, head) == {"run_tests": "true"}
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "true",
+        "docs_only": "false",
+        "run_package_metadata_checks": "false",
+    }
 
 
 def test_locked_dependency_change_runs_tests(tmp_path: Path) -> None:
@@ -102,7 +138,11 @@ def test_locked_dependency_change_runs_tests(tmp_path: Path) -> None:
     _write_metadata(tmp_path, "0.2.5", numpy_lock_version="2.3.0")
     head = _commit(tmp_path, "change locked dependency")
 
-    assert _classify(tmp_path, base, head) == {"run_tests": "true"}
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "true",
+        "docs_only": "false",
+        "run_package_metadata_checks": "false",
+    }
 
 
 def test_code_change_runs_tests(tmp_path: Path) -> None:
@@ -110,4 +150,8 @@ def test_code_change_runs_tests(tmp_path: Path) -> None:
     (tmp_path / "albucore.py").write_text("VALUE = 1\n")
     head = _commit(tmp_path, "change code")
 
-    assert _classify(tmp_path, base, head) == {"run_tests": "true"}
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "true",
+        "docs_only": "false",
+        "run_package_metadata_checks": "false",
+    }
