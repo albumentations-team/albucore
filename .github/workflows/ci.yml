@@ -22,14 +22,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Install Python
-        uses: actions/setup-python@v6
+      - name: Install Python and uv
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           python-version: "3.11"
+          uv-version: "0.12.0"
+          cache-dependency-glob: tools/classify_ci_changes.py
+          cache-suffix: albucore-change-scope
+          cache-enabled: "false"
 
       - name: Classify version-only changes
         id: classify
@@ -55,21 +60,30 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           python-version: ${{ matrix.python-version }}
-          activate-environment: true
-          enable-cache: true
+          uv-version: "0.12.0"
           cache-dependency-glob: |
             requirements-dev.txt
             pyproject.toml
+            uv.lock
+          cache-suffix: albucore-ci-torch-cpu
+
+      - name: Install CPU-only Torch
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
+        with:
+          mode: install
+          requirement: "torch>=2.13.0"
 
       - name: Install dependencies
         run: |
-          uv pip install --torch-backend cpu -e ".[torch]"
+          uv pip install -e ".[torch]"
           uv pip install -r requirements-dev.txt
 
       - name: Verify uv.lock is up-to-date
@@ -102,14 +116,14 @@ jobs:
 
       - name: Upload test environment
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-environment-${{ matrix.os }}-${{ matrix.python-version }}
           path: test-environment.json
           if-no-files-found: error
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         if: matrix.python-version == '3.10'
         with:
           files: ./coverage.xml
@@ -124,20 +138,28 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           python-version: "3.10"
-          activate-environment: true
-          enable-cache: true
+          uv-version: "0.12.0"
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
+          cache-suffix: albucore-macos-arm64-torch-cpu
+
+      - name: Install CPU-only Torch
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
+        with:
+          mode: install
+          requirement: "torch>=2.13.0"
 
       - name: Install regression-test dependencies
-        run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt
+        run: uv pip install -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt
 
       - name: Verify arm64 runner
         run: test "$(uname -m)" = "arm64"
@@ -156,27 +178,34 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v7
+        uses: albumentations-team/ci-foundation/actions/setup-python-uv@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           python-version: "3.10"
-          activate-environment: true
-          enable-cache: true
+          uv-version: "0.12.0"
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
+          cache-suffix: albucore-declared-ranges-torch-cpu
+
+      - name: Install CPU-only Torch
+        uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
+        with:
+          mode: install
+          requirement: "torch>=2.13.0"
 
       - name: Install declared dependency ranges
         run: |
           uv pip install -e ".[torch]" --no-deps
-          uv pip install --torch-backend cpu \
+          uv pip install \
             "numpy>=1.24.4" \
             "numkong>=7.8.0" \
             "stringzilla>=5.1.2" \
             "opencv-python-headless>=5.0.0.93" \
-            "torch>=2.13.0" \
             hypothesis \
             pytest \
             pytest-randomly
@@ -193,7 +222,7 @@ jobs:
 
       - name: Upload test environment
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-environment-declared-ranges
           path: test-environment.json

@@ -169,8 +169,8 @@ def test_ci_matrix_requires_pytorch_cpu_index_for_dependency_audits(monkeypatch)
     assert ".github/workflows/security.yml must pass the PyTorch CPU index to every pip-audit command" in errors
 
 
-def test_ci_matrix_requires_cpu_torch_backend_per_job(monkeypatch) -> None:
-    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace("--torch-backend cpu", "", 1)
+def test_ci_matrix_requires_shared_cpu_torch_action_per_job(monkeypatch) -> None:
+    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace(ci_matrix.CI_FOUNDATION_TORCH_ACTION, "", 1)
     original_read_text = Path.read_text
 
     def read_text(path: Path, *args: object, **kwargs: object) -> str:
@@ -182,7 +182,7 @@ def test_ci_matrix_requires_cpu_torch_backend_per_job(monkeypatch) -> None:
 
     errors = ci_matrix.check()
 
-    assert "CI test job must install Torch from the CPU backend" in errors
+    assert "CI test job must install Torch through the shared CPU-only action" in errors
 
 
 def test_ci_matrix_missing_workflow_error_is_not_duplicated(monkeypatch) -> None:
@@ -247,8 +247,8 @@ def test_ci_matrix_accepts_equivalent_macos_dependency_formatting(monkeypatch) -
         ci_matrix.CI_WORKFLOW.read_text()
         .replace("runs-on: macos-latest", "runs-on: 'macos-latest'")
         .replace(
-            'run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
-            "run: uv pip install --torch-backend cpu -e '.[headless,torch]' "
+            'run: uv pip install -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
+            "run: uv pip install -e '.[headless,torch]' "
             "'numpy==2.2.6' --requirement=requirements-dev.txt",
         )
     )
@@ -266,8 +266,8 @@ def test_ci_matrix_accepts_equivalent_macos_dependency_formatting(monkeypatch) -
 
 def test_ci_matrix_requires_dev_dependencies_in_macos_job(monkeypatch) -> None:
     ci_text = ci_matrix.CI_WORKFLOW.read_text().replace(
-        'run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
-        'run: uv pip install --torch-backend cpu -e ".[headless,torch]" "numpy==2.2.6"',
+        'run: uv pip install -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
+        'run: uv pip install -e ".[headless,torch]" "numpy==2.2.6"',
     )
     original_read_text = Path.read_text
 
@@ -355,9 +355,9 @@ def test_ci_matrix_requires_paginated_cla_status_lookup(monkeypatch) -> None:
     assert ".github/workflows/cla-status.yml is missing paginated status lookup" in errors
 
 
-def test_ci_matrix_requires_antigravity_trusted_base_checkout(monkeypatch) -> None:
+def test_ci_matrix_requires_shared_antigravity_workflow(monkeypatch) -> None:
     workflow_text = ci_matrix.ANTIGRAVITY_WORKFLOW.read_text().replace(
-        "ref: ${{ github.event.pull_request.base.sha }}",
+        ci_matrix.CI_FOUNDATION_ANTIGRAVITY_WORKFLOW,
         "",
     )
     original_read_text = Path.read_text
@@ -371,7 +371,26 @@ def test_ci_matrix_requires_antigravity_trusted_base_checkout(monkeypatch) -> No
 
     errors = ci_matrix.check()
 
-    assert ".github/workflows/antigravity-pr-checks.yml is missing trusted base checkout" in errors
+    assert ".github/workflows/antigravity-pr-checks.yml is missing shared trusted review workflow" in errors
+
+
+def test_ci_matrix_rejects_a_caller_supplied_release_candidate_ref(monkeypatch) -> None:
+    workflow_text = ci_matrix.RELEASE_CANDIDATE_WORKFLOW.read_text().replace(
+        "ref: main",
+        "ref: ${{ inputs.commit_sha }}",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.RELEASE_CANDIDATE_WORKFLOW:
+            return workflow_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/release-candidate.yml must not contain caller-supplied candidate ref" in errors
 
 
 def test_benchmark_regression_check_blocks_release(tmp_path, monkeypatch) -> None:

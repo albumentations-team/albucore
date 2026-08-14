@@ -1,0 +1,5 @@
+[paths]
+include = ["**"]
+
+[review]
+instructions = ".github/ci-foundation/antigravity-review.md"
