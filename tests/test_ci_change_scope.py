@@ -90,6 +90,7 @@ def test_version_only_change_skips_tests(tmp_path: Path) -> None:
         "run_tests": "false",
         "docs_only": "false",
         "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "false",
     }
 
 
@@ -103,6 +104,7 @@ def test_readme_only_change_skips_tests(tmp_path: Path) -> None:
         "run_tests": "false",
         "docs_only": "true",
         "run_package_metadata_checks": "true",
+        "run_docs_contract_checks": "false",
     }
 
 
@@ -118,6 +120,23 @@ def test_non_readme_documentation_change_skips_package_metadata_checks(tmp_path:
         "run_tests": "false",
         "docs_only": "true",
         "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "false",
+    }
+
+
+def test_contract_documentation_change_runs_only_contract_check(tmp_path: Path) -> None:
+    base, _ = _version_change(tmp_path)
+    _write_metadata(tmp_path, "0.2.4")
+    documentation = tmp_path / "docs" / "maintaining" / "support-policy.md"
+    documentation.parent.mkdir(parents=True)
+    documentation.write_text("# Support policy\n")
+    head = _commit(tmp_path, "update support policy")
+
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "false",
+        "docs_only": "true",
+        "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "true",
     }
 
 
@@ -130,6 +149,7 @@ def test_dependency_constraint_change_runs_tests(tmp_path: Path) -> None:
         "run_tests": "true",
         "docs_only": "false",
         "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "false",
     }
 
 
@@ -142,6 +162,7 @@ def test_locked_dependency_change_runs_tests(tmp_path: Path) -> None:
         "run_tests": "true",
         "docs_only": "false",
         "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "false",
     }
 
 
@@ -154,4 +175,24 @@ def test_code_change_runs_tests(tmp_path: Path) -> None:
         "run_tests": "true",
         "docs_only": "false",
         "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "false",
+    }
+
+
+def test_code_to_documentation_rename_runs_tests(tmp_path: Path) -> None:
+    _version_change(tmp_path)
+    _write_metadata(tmp_path, "0.2.4")
+    source = tmp_path / "module.py"
+    source.write_text("VALUE = 1\n")
+    base = _commit(tmp_path, "add module")
+    documentation = tmp_path / "docs" / "module.md"
+    documentation.parent.mkdir()
+    source.rename(documentation)
+    head = _commit(tmp_path, "move module to docs")
+
+    assert _classify(tmp_path, base, head) == {
+        "run_tests": "true",
+        "docs_only": "false",
+        "run_package_metadata_checks": "false",
+        "run_docs_contract_checks": "false",
     }

@@ -216,6 +216,24 @@ def test_ci_matrix_requires_version_only_test_gating(monkeypatch) -> None:
     assert "CI workflow does not gate all three test jobs on change scope" in errors
 
 
+def test_ci_matrix_requires_docs_contract_check_routing(monkeypatch) -> None:
+    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace(
+        "if: steps.classify.outputs.run_docs_contract_checks == 'true'", ""
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI workflow does not verify contract documentation changes" in errors
+
+
 def test_ci_matrix_requires_docs_only_routing(monkeypatch) -> None:
     security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(
         """    paths-ignore:
@@ -259,6 +277,31 @@ def test_ci_matrix_requires_docs_only_legal_routing(monkeypatch) -> None:
     errors = ci_matrix.check()
 
     assert ".github/workflows/legal-integrity.yml is missing README metadata routing" in errors
+
+
+def test_ci_matrix_requires_legal_python_before_classification(monkeypatch) -> None:
+    workflow_text = ci_matrix.LEGAL_INTEGRITY_WORKFLOW.read_text()
+    install_start = workflow_text.index("      - name: Install uv and Python")
+    classify_start = workflow_text.index("      - name: Classify change scope")
+    verifier_start = workflow_text.index("      - name: Verify source-tree legal integrity")
+    legal_text = (
+        workflow_text[:install_start]
+        + workflow_text[classify_start:verifier_start]
+        + workflow_text[install_start:classify_start]
+        + workflow_text[verifier_start:]
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.LEGAL_INTEGRITY_WORKFLOW:
+            return legal_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "Legal integrity workflow must install Python before classifying changes" in errors
 
 
 def test_ci_matrix_requires_docs_only_codeql_routing(monkeypatch) -> None:

@@ -134,6 +134,16 @@ def _check_ci_torch_install(errors: list[str], text: str) -> None:
     )
 
 
+def _check_ci_docs_contract_routing(errors: list[str], change_scope_job: str) -> None:
+    if "run_docs_contract_checks: ${{ steps.classify.outputs.run_docs_contract_checks }}" not in change_scope_job:
+        errors.append("CI workflow does not expose docs contract check routing")
+    if (
+        "if: steps.classify.outputs.run_docs_contract_checks == 'true'" not in change_scope_job
+        or "python tools/ci_matrix.py check" not in change_scope_job
+    ):
+        errors.append("CI workflow does not verify contract documentation changes")
+
+
 def _check_shared_foundation_setup(errors: list[str]) -> None:
     for workflow in (
         CI_WORKFLOW,
@@ -160,6 +170,7 @@ def _check_shared_foundation_setup(errors: list[str]) -> None:
 def _check_ci(errors: list[str], versions: set[str]) -> None:
     text = CI_WORKFLOW.read_text()
     macos_matmul_job = _workflow_job(text, "macos-arm64-matmul")
+    change_scope_job = _workflow_job(text, "change_scope")
     errors.extend(
         f"CI matrix does not mention Python {version}"
         for version in sorted(versions)
@@ -171,6 +182,7 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not run router contract check")
     if "python tools/classify_ci_changes.py" not in text:
         errors.append("CI workflow is missing version-only change classifier")
+    _check_ci_docs_contract_routing(errors, change_scope_job)
     if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 3:
         errors.append("CI workflow does not gate all three test jobs on change scope")
     if re.search(r"""runs-on:\s*["']?macos-latest["']?""", macos_matmul_job) is None:
@@ -268,6 +280,15 @@ def _check_release_workflows(errors: list[str]) -> None:
             "PR benchmark artifacts": "pr-router-benchmark-results",
         },
     )
+    legal_text = LEGAL_INTEGRITY_WORKFLOW.read_text()
+    install_python_index = legal_text.find("- name: Install uv and Python")
+    classify_change_scope_index = legal_text.find("- name: Classify change scope")
+    if (
+        install_python_index == -1
+        or classify_change_scope_index == -1
+        or install_python_index > classify_change_scope_index
+    ):
+        errors.append("Legal integrity workflow must install Python before classifying changes")
     if BENCHMARK_PR_WORKFLOW.exists():
         benchmark_text = BENCHMARK_PR_WORKFLOW.read_text()
         base_benchmark_command = (

@@ -25,6 +25,12 @@ DOCUMENTATION_FILES: Final = frozenset(
     },
 )
 DOCUMENTATION_PREFIXES: Final = ("docs/",)
+CI_MATRIX_DOCUMENTATION_FILES: Final = frozenset(
+    {
+        "docs/maintaining/release-process.md",
+        "docs/maintaining/support-policy.md",
+    },
+)
 
 
 def _git_output(repo: Path, *args: str) -> str:
@@ -78,9 +84,15 @@ def _without_lock_version(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]
 def changed_files(repo: Path, base_revision: str, head_revision: str) -> frozenset[str] | None:
     """Return the changed paths, or ``None`` when Git cannot resolve the range."""
     try:
-        return frozenset(_git_output(repo, "diff", "--name-only", base_revision, head_revision, "--").splitlines())
+        changed = _git_output(repo, "diff", "--name-status", "--find-renames", base_revision, head_revision, "--")
     except subprocess.CalledProcessError:
         return None
+
+    paths: set[str] = set()
+    for line in changed.splitlines():
+        _, *line_paths = line.split("\t")
+        paths.update(line_paths)
+    return frozenset(paths)
 
 
 def is_version_only_change(
@@ -141,9 +153,13 @@ def main() -> int:
     files = changed_files(args.repo, args.base_revision, args.head_revision)
     version_only = is_version_only_change(args.repo, args.base_revision, args.head_revision, files)
     documentation_only = is_documentation_only_change(args.repo, args.base_revision, args.head_revision, files)
+    documentation_contracts_changed = bool(
+        documentation_only and files is not None and files & CI_MATRIX_DOCUMENTATION_FILES,
+    )
     sys.stdout.write(f"run_tests={str(not version_only and not documentation_only).lower()}\n")
     sys.stdout.write(f"docs_only={str(documentation_only).lower()}\n")
     sys.stdout.write(f"run_package_metadata_checks={str(files is not None and 'README.md' in files).lower()}\n")
+    sys.stdout.write(f"run_docs_contract_checks={str(documentation_contracts_changed).lower()}\n")
     return 0
 
 
