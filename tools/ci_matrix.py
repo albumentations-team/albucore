@@ -19,7 +19,7 @@ CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 ANTIGRAVITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "antigravity-pr-checks.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
 LEGAL_INTEGRITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "legal-integrity.yml"
-CLA_STATUS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "cla-status.yml"
+CODEQL_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "codeql.yml"
 PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 SECURITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "security.yml"
@@ -36,6 +36,14 @@ CI_FOUNDATION_UNCACHED_SETUP_ACTION = (
 CI_FOUNDATION_TORCH_ACTION = "albumentations-team/ci-foundation/actions/torch-cpu@" + CI_FOUNDATION_SHA
 CI_FOUNDATION_ANTIGRAVITY_WORKFLOW = (
     "albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@" + CI_FOUNDATION_SHA
+)
+DOCUMENTATION_ONLY_PATHS = (
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "MAINTAINERS.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/**",
 )
 
 
@@ -126,6 +134,16 @@ def _check_ci_torch_install(errors: list[str], text: str) -> None:
     )
 
 
+def _check_ci_docs_contract_routing(errors: list[str], change_scope_job: str) -> None:
+    if "run_docs_contract_checks: ${{ steps.classify.outputs.run_docs_contract_checks }}" not in change_scope_job:
+        errors.append("CI workflow does not expose docs contract check routing")
+    if (
+        "if: steps.classify.outputs.run_docs_contract_checks == 'true'" not in change_scope_job
+        or "python tools/ci_matrix.py check" not in change_scope_job
+    ):
+        errors.append("CI workflow does not verify contract documentation changes")
+
+
 def _check_shared_foundation_setup(errors: list[str]) -> None:
     for workflow in (
         CI_WORKFLOW,
@@ -152,6 +170,7 @@ def _check_shared_foundation_setup(errors: list[str]) -> None:
 def _check_ci(errors: list[str], versions: set[str]) -> None:
     text = CI_WORKFLOW.read_text()
     macos_matmul_job = _workflow_job(text, "macos-arm64-matmul")
+    change_scope_job = _workflow_job(text, "change_scope")
     errors.extend(
         f"CI matrix does not mention Python {version}"
         for version in sorted(versions)
@@ -163,6 +182,7 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not run router contract check")
     if "python tools/classify_ci_changes.py" not in text:
         errors.append("CI workflow is missing version-only change classifier")
+    _check_ci_docs_contract_routing(errors, change_scope_job)
     if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 3:
         errors.append("CI workflow does not gate all three test jobs on change scope")
     if re.search(r"""runs-on:\s*["']?macos-latest["']?""", macos_matmul_job) is None:
@@ -238,6 +258,15 @@ def _check_torch_pip_audits(errors: list[str], path: Path) -> None:
         errors.append(f"{path.relative_to(REPO_ROOT)} must pass the PyTorch CPU index to every pip-audit command")
 
 
+def _check_documentation_only_filter(errors: list[str], path: Path, event: str) -> None:
+    text = path.read_text()
+    event_block = _workflow_job(text, event)
+    if "paths-ignore:" not in event_block or any(
+        f"- {doc_path}" not in event_block for doc_path in DOCUMENTATION_ONLY_PATHS
+    ):
+        errors.append(f"{path.relative_to(REPO_ROOT)} must ignore documentation-only pull requests")
+
+
 def _check_release_workflows(errors: list[str]) -> None:
     for workflow in (SECURITY_WORKFLOW, RELEASE_CANDIDATE_WORKFLOW, PUBLISH_WORKFLOW):
         _check_torch_runtime_exports(errors, workflow)
@@ -251,6 +280,15 @@ def _check_release_workflows(errors: list[str]) -> None:
             "PR benchmark artifacts": "pr-router-benchmark-results",
         },
     )
+    legal_text = LEGAL_INTEGRITY_WORKFLOW.read_text()
+    install_python_index = legal_text.find("- name: Install uv and Python")
+    classify_change_scope_index = legal_text.find("- name: Classify change scope")
+    if (
+        install_python_index == -1
+        or classify_change_scope_index == -1
+        or install_python_index > classify_change_scope_index
+    ):
+        errors.append("Legal integrity workflow must install Python before classifying changes")
     if BENCHMARK_PR_WORKFLOW.exists():
         benchmark_text = BENCHMARK_PR_WORKFLOW.read_text()
         base_benchmark_command = (
@@ -268,6 +306,9 @@ def _check_release_workflows(errors: list[str]) -> None:
             "legal integrity job": "License, CLA, and package notices",
             "source-tree verifier step": "Verify source-tree legal integrity",
             "source-tree legal verifier": "python tools/verify_legal_integrity.py",
+            "change scope classifier": "python tools/classify_ci_changes.py",
+            "docs-only legal routing": "steps.classify.outputs.docs_only != 'true'",
+            "README metadata routing": "steps.classify.outputs.run_package_metadata_checks == 'true'",
             "legal verifier tests": "tests/test_legal_integrity.py",
             "distribution build": 'uv build --out-dir "${RUNNER_TEMP}/albucore-legal-dist"',
             "artifact verifier step": "Verify distribution license and CLA exclusion",
@@ -389,36 +430,12 @@ def _check_release_workflow(errors: list[str]) -> None:
 
 def _check_security_workflow(errors: list[str]) -> None:
     text = SECURITY_WORKFLOW.read_text()
+    _check_documentation_only_filter(errors, SECURITY_WORKFLOW, "pull_request")
     if "uv export --frozen --no-dev --no-emit-project" not in text:
         errors.append("Security workflow runtime audit must omit the editable project from exported requirements")
     if "uv export --frozen --no-emit-project" not in text:
         errors.append("Security workflow dev audit must omit the editable project from exported requirements")
     _check_torch_pip_audits(errors, SECURITY_WORKFLOW)
-
-
-def _check_cla_status_workflow(errors: list[str]) -> None:
-    _check_file_fragments(
-        errors,
-        CLA_STATUS_WORKFLOW,
-        {
-            "pull request trigger": "pull_request:",
-            "manual recovery trigger": "workflow_dispatch:",
-            "read-only status permission": "statuses: read",
-            "CLA reporter job": "CLA status reported",
-            "hosted CLA context": "license/cla",
-            "paginated status lookup": "--paginate --slurp",
-            "CLA Assistant recheck URL": "https://cla-assistant.io/check/",
-            "maintainer recovery procedure": "docs/maintaining/license-provenance.md",
-        },
-    )
-    _check_file_absent_fragments(
-        errors,
-        CLA_STATUS_WORKFLOW,
-        {
-            "status write permission": "statuses: write",
-            "pull-request write permission": "pull-requests: write",
-        },
-    )
 
 
 def _check_antigravity_workflow(errors: list[str]) -> None:
@@ -444,6 +461,24 @@ def _check_antigravity_workflow(errors: list[str]) -> None:
     )
 
 
+def _check_codeql_workflow(errors: list[str]) -> None:
+    _check_documentation_only_filter(errors, CODEQL_WORKFLOW, "pull_request")
+    _check_file_fragments(
+        errors,
+        CODEQL_WORKFLOW,
+        {
+            "pull request trigger": "pull_request:",
+            "weekly schedule": 'cron: "0 4 * * 2"',
+            "manual transition trigger": "workflow_dispatch:",
+            "advanced setup transition gate": "if: vars.CODEQL_ADVANCED_SETUP == 'true'",
+            "CodeQL security upload permission": "security-events: write",
+            "CodeQL initialization": "github/codeql-action/init@",
+            "CodeQL analysis": "github/codeql-action/analyze@",
+            "Python analysis": "language: [actions, python]",
+        },
+    )
+
+
 def check() -> list[str]:
     """Return support-matrix consistency errors."""
     errors: list[str] = []
@@ -453,8 +488,8 @@ def check() -> list[str]:
         _check_support_policy(errors, versions)
         _check_release_workflow(errors)
         _check_security_workflow(errors)
-        _check_cla_status_workflow(errors)
         _check_antigravity_workflow(errors)
+        _check_codeql_workflow(errors)
     return errors
 
 

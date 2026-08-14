@@ -1,0 +1,15 @@
+ignore:
+  - .env
+  - .git
+  - .tox
+  - .venv
+  - AGENTS.md
+  - CONTRIBUTING.md
+  - MAINTAINERS.md
+  - README.md
+  - SECURITY.md
+  - docs/
+  - env
+  - node_modules
+  - vendor
+  - venv

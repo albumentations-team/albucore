@@ -216,6 +216,128 @@ def test_ci_matrix_requires_version_only_test_gating(monkeypatch) -> None:
     assert "CI workflow does not gate all three test jobs on change scope" in errors
 
 
+def test_ci_matrix_requires_docs_contract_check_routing(monkeypatch) -> None:
+    ci_text = ci_matrix.CI_WORKFLOW.read_text().replace(
+        "if: steps.classify.outputs.run_docs_contract_checks == 'true'", ""
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CI_WORKFLOW:
+            return ci_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "CI workflow does not verify contract documentation changes" in errors
+
+
+def test_ci_matrix_requires_docs_only_routing(monkeypatch) -> None:
+    security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(
+        """    paths-ignore:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - MAINTAINERS.md
+      - README.md
+      - SECURITY.md
+      - docs/**
+""",
+        "",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.SECURITY_WORKFLOW:
+            return security_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/security.yml must ignore documentation-only pull requests" in errors
+
+
+def test_ci_matrix_requires_docs_only_legal_routing(monkeypatch) -> None:
+    legal_text = ci_matrix.LEGAL_INTEGRITY_WORKFLOW.read_text().replace(
+        "steps.classify.outputs.run_package_metadata_checks == 'true'",
+        "",
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.LEGAL_INTEGRITY_WORKFLOW:
+            return legal_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/legal-integrity.yml is missing README metadata routing" in errors
+
+
+def test_ci_matrix_requires_legal_python_before_classification(monkeypatch) -> None:
+    workflow_text = ci_matrix.LEGAL_INTEGRITY_WORKFLOW.read_text()
+    install_start = workflow_text.index("      - name: Install uv and Python")
+    classify_start = workflow_text.index("      - name: Classify change scope")
+    verifier_start = workflow_text.index("      - name: Verify source-tree legal integrity")
+    legal_text = (
+        workflow_text[:install_start]
+        + workflow_text[classify_start:verifier_start]
+        + workflow_text[install_start:classify_start]
+        + workflow_text[verifier_start:]
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.LEGAL_INTEGRITY_WORKFLOW:
+            return legal_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert "Legal integrity workflow must install Python before classifying changes" in errors
+
+
+def test_ci_matrix_requires_docs_only_codeql_routing(monkeypatch) -> None:
+    codeql_text = ci_matrix.CODEQL_WORKFLOW.read_text().replace("      - README.md\n", "")
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CODEQL_WORKFLOW:
+            return codeql_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/codeql.yml must ignore documentation-only pull requests" in errors
+
+
+def test_ci_matrix_requires_codeql_transition_gate(monkeypatch) -> None:
+    codeql_text = ci_matrix.CODEQL_WORKFLOW.read_text().replace(
+        "    if: vars.CODEQL_ADVANCED_SETUP == 'true'\n", ""
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CODEQL_WORKFLOW:
+            return codeql_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/codeql.yml is missing advanced setup transition gate" in errors
+
+
 def test_ci_matrix_requires_macos_arm64_warning_regressions(monkeypatch) -> None:
     ci_text = (
         ci_matrix.CI_WORKFLOW.read_text()
@@ -320,39 +442,6 @@ def test_ci_matrix_requires_legal_artifact_verifier_in_both_publish_paths(monkey
     errors = ci_matrix.check()
 
     assert ".github/workflows/publish.yml must run the legal artifact verifier in both publish paths" in errors
-
-
-def test_ci_matrix_rejects_cla_status_write_permission(monkeypatch) -> None:
-    cla_status_text = ci_matrix.CLA_STATUS_WORKFLOW.read_text().replace("statuses: read", "statuses: write")
-    original_read_text = Path.read_text
-
-    def read_text(path: Path, *args: object, **kwargs: object) -> str:
-        if path == ci_matrix.CLA_STATUS_WORKFLOW:
-            return cla_status_text
-        return original_read_text(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "read_text", read_text)
-
-    errors = ci_matrix.check()
-
-    assert ".github/workflows/cla-status.yml is missing read-only status permission" in errors
-    assert ".github/workflows/cla-status.yml must not contain status write permission" in errors
-
-
-def test_ci_matrix_requires_paginated_cla_status_lookup(monkeypatch) -> None:
-    cla_status_text = ci_matrix.CLA_STATUS_WORKFLOW.read_text().replace("--paginate --slurp", "")
-    original_read_text = Path.read_text
-
-    def read_text(path: Path, *args: object, **kwargs: object) -> str:
-        if path == ci_matrix.CLA_STATUS_WORKFLOW:
-            return cla_status_text
-        return original_read_text(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "read_text", read_text)
-
-    errors = ci_matrix.check()
-
-    assert ".github/workflows/cla-status.yml is missing paginated status lookup" in errors
 
 
 def test_ci_matrix_requires_shared_antigravity_workflow(monkeypatch) -> None:

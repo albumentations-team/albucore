@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       run_tests: ${{ steps.classify.outputs.run_tests }}
+      run_docs_contract_checks: ${{ steps.classify.outputs.run_docs_contract_checks }}
 
     steps:
       - name: Checkout
@@ -47,6 +48,10 @@ jobs:
           "${BASE_REVISION}"
           "${HEAD_REVISION}"
           >> "${GITHUB_OUTPUT}"
+
+      - name: Check documentation contracts
+        if: steps.classify.outputs.run_docs_contract_checks == 'true'
+        run: python tools/ci_matrix.py check
 
   test:
     needs: change_scope
