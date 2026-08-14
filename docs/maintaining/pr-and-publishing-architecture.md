@@ -26,6 +26,8 @@ Required on every PR:
 - golden vector verification
 - property tests, at least on one Linux Python version
 
+Routine workflows bootstrap Python and uv through the immutable cached `ci-foundation` action at commit `93efc801c2f22e08e40000dec2541fd1cafa5f59`. The release-candidate workflow checks out an operator-selected commit, so it uses the foundation's separate uncached bootstrap. Jobs that exercise Torch install or verify the CPU-only runtime use its `torch-cpu` action. The project keeps `torch` optional for package resolution and maps that extra to the PyTorch CPU index in `pyproject.toml`; users still choose the CPU, CUDA, or MPS build that their application needs.
+
 This workflow should not publish artifacts to PyPI or create releases.
 
 ### 2. `benchmark-pr.yml`
@@ -59,16 +61,16 @@ Policy:
 
 ### 3. `antigravity-pr-checks.yml`
 
-Purpose: add an advisory AI review to pull requests that can change runtime behavior or repository policy.
+Purpose: request the shared trusted Antigravity review for every eligible Albucore pull request.
 
 Trigger:
 
 - non-draft pull requests from branches in `albumentations-team/albucore`
-- changes under `albucore/`, `tests/`, `.github/`, legal paths, Antigravity's own tools, or unclassified paths
-- documentation-only, benchmark-only, lockfile-only, and requirements-only changes skip the model
 - fork pull requests skip the workflow because they cannot use the repository's federated cloud identity
 
-Security boundary:
+The local workflow only owns the event trigger, same-repository guard, concurrency key, Vertex configuration, and the permissions required to publish a review. It calls the immutable `ci-foundation` reusable workflow at commit `93efc801c2f22e08e40000dec2541fd1cafa5f59`. The local `.github/ci-foundation/antigravity.toml` selects all changed paths, and `.github/ci-foundation/antigravity-review.md` contains Albucore-specific review instructions.
+
+The shared workflow owns the review mechanics:
 
 - `pull_request_target` checks out the trusted base SHA and never executes the pull-request branch
 - the PR title, body, changed-file list, and diff are untrusted review data
@@ -86,8 +88,9 @@ The workflow authenticates to Vertex AI through GitHub OIDC. Configure these rep
 | `ANTIGRAVITY_GCP_WIF_PROVIDER` | `projects/663083315901/locations/global/workloadIdentityPools/github-actions/providers/albucore-pr-review` |
 
 The Workload Identity provider condition must match repository ID `799690272`, owner ID `57894582`,
-event `pull_request_target`, base branch `main`, and workflow ref
-`albumentations-team/albucore/.github/workflows/antigravity-pr-checks.yml@refs/heads/main`.
+event `pull_request_target`, base branch `main`, caller workflow ref
+`albumentations-team/albucore/.github/workflows/antigravity-pr-checks.yml@refs/heads/main`, and reusable
+workflow ref `albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@93efc801c2f22e08e40000dec2541fd1cafa5f59`.
 
 `GEMINI_MODEL` and `GEMINI_CLI_VERSION` are optional repository variables. If
 `GEMINI_CLI_VERSION` is unset, the workflow uses `0.51.0`.
@@ -99,19 +102,18 @@ Purpose: validate the exact release commit before anything public is published.
 Trigger:
 
 - manual `workflow_dispatch`
-- inputs:
-  - `version`
-  - `commit_sha`
+- input: `version`
 
 Required checks:
 
-- checkout exactly `commit_sha`
+- checkout the current `main` commit; no caller-supplied ref is executed
 - verify `pyproject.toml` version equals the requested version
 - verify `uv.lock` version equals the requested version
 - verify the commit is reachable from `main`
 - verify the `CI` workflow succeeded for that commit
 - build wheel and sdist
-- install release validation dependencies with `uv sync --frozen --extra headless --group dev`
+- install release validation dependencies with `uv sync --frozen --extra headless --extra torch --group dev`
+- verify that the resolved Torch runtime is CPU-only through `ci-foundation/actions/torch-cpu`
 - run router contract checks
 - run CI matrix policy checks
 - run golden vector verification
@@ -180,7 +182,8 @@ GitHub Release publish required checks:
 - verify the release commit is reachable from `origin/main`
 - verify the `CI` workflow succeeded for that commit
 - build wheel and sdist
-- install release validation dependencies with `uv sync --frozen --extra headless --group dev`
+- install release validation dependencies with `uv sync --frozen --extra headless --extra torch --group dev`
+- verify that the resolved Torch runtime is CPU-only through `ci-foundation/actions/torch-cpu`
 - run router contract checks, CI matrix policy checks, golden vectors, release property tests, and
   `twine check`
 - smoke test the built wheel in a clean venv outside the repository checkout
@@ -211,7 +214,7 @@ maintainer action that starts publication.
 Use this sequence for a fully artifact-validated release:
 
 1. Open a normal PR for all feature and bug-fix changes.
-2. Run CI, PR benchmark checks, and Antigravity review when touched paths select them.
+2. Run CI, PR benchmark checks, and Antigravity review.
 3. Merge the code changes.
 4. Open a version bump PR.
 5. Merge the version bump after CI is green.
@@ -251,7 +254,7 @@ The publishing system is healthy when all of these are true:
 - A public GitHub Release either already has validated artifacts or has a corresponding in-progress
   or successful `publish.yml` release-published run.
 - PRs show performance impact before merge.
-- Review-relevant same-repository PRs receive an advisory Antigravity review.
+- Eligible same-repository PRs receive an advisory Antigravity review.
 - Release candidates do not run benchmarks.
 - Manual publishing does not rebuild validated artifacts.
 - Failed release-candidate runs leave enough artifacts to diagnose the failure.

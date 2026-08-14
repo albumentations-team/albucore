@@ -56,13 +56,11 @@ release infrastructure. Do not create a public GitHub Release for a version bump
 ## Release Candidate Steps
 
 1. Merge the version bump PR to `main`.
-2. Copy the exact release commit SHA from `main`.
-3. Run `release-candidate.yml` manually with:
-   - `version`
-   - `commit_sha`
-4. Review the workflow summary and artifacts.
-5. If the workflow fails, fix the repository in a new PR and restart from step 1.
-6. If the workflow succeeds, record the release-candidate workflow run id.
+2. Run `release-candidate.yml` manually with `version`. The workflow checks out the
+   current `main` commit itself; it never executes a caller-supplied ref.
+3. Review the workflow summary and artifacts.
+4. If the workflow fails, fix the repository in a new PR and restart from step 1.
+5. If the workflow succeeds, record the release-candidate workflow run id.
 
 The release-candidate workflow validates packaging, correctness, SBOM generation, checksums, and
 release summary generation. It does not run performance benchmarks, publish to PyPI, or create a

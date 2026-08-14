@@ -28,6 +28,15 @@ VALIDATE_RELEASE_CANDIDATE_TOOL = REPO_ROOT / "tools" / "validate_release_candid
 VERIFY_PUBLISH_ARTIFACTS_TOOL = REPO_ROOT / "tools" / "verify_publish_artifacts.py"
 LEGAL_ARTIFACT_VERIFY_COMMAND = "python tools/verify_legal_integrity.py --artifacts dist/*.whl dist/*.tar.gz"
 PYTORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
+CI_FOUNDATION_SHA = "93efc801c2f22e08e40000dec2541fd1cafa5f59"
+CI_FOUNDATION_SETUP_ACTION = "albumentations-team/ci-foundation/actions/setup-python-uv@" + CI_FOUNDATION_SHA
+CI_FOUNDATION_UNCACHED_SETUP_ACTION = (
+    "albumentations-team/ci-foundation/actions/setup-python-uv-uncached@" + CI_FOUNDATION_SHA
+)
+CI_FOUNDATION_TORCH_ACTION = "albumentations-team/ci-foundation/actions/torch-cpu@" + CI_FOUNDATION_SHA
+CI_FOUNDATION_ANTIGRAVITY_WORKFLOW = (
+    "albumentations-team/ci-foundation/.github/workflows/antigravity-review.yml@" + CI_FOUNDATION_SHA
+)
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -109,12 +118,35 @@ def _check_pyproject(errors: list[str]) -> set[str]:
     return versions
 
 
-def _check_ci_torch_backend(errors: list[str], text: str) -> None:
+def _check_ci_torch_install(errors: list[str], text: str) -> None:
     errors.extend(
-        f"CI {job_name} job must install Torch from the CPU backend"
+        f"CI {job_name} job must install Torch through the shared CPU-only action"
         for job_name in ("test", "macos-arm64-matmul", "declared-dependency-ranges")
-        if "--torch-backend cpu" not in _workflow_job(text, job_name)
+        if CI_FOUNDATION_TORCH_ACTION not in _workflow_job(text, job_name)
     )
+
+
+def _check_shared_foundation_setup(errors: list[str]) -> None:
+    for workflow in (
+        CI_WORKFLOW,
+        BENCHMARK_PR_WORKFLOW,
+        LEGAL_INTEGRITY_WORKFLOW,
+        PUBLISH_WORKFLOW,
+        SECURITY_WORKFLOW,
+    ):
+        if not workflow.exists():
+            continue
+        _check_file_fragments(
+            errors,
+            workflow,
+            {"shared Python and uv setup": CI_FOUNDATION_SETUP_ACTION},
+        )
+    if RELEASE_CANDIDATE_WORKFLOW.exists():
+        _check_file_fragments(
+            errors,
+            RELEASE_CANDIDATE_WORKFLOW,
+            {"uncached release-candidate Python and uv setup": CI_FOUNDATION_UNCACHED_SETUP_ACTION},
+        )
 
 
 def _check_ci(errors: list[str], versions: set[str]) -> None:
@@ -152,7 +184,8 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not install test dependencies for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
-    _check_ci_torch_backend(errors, text)
+    _check_ci_torch_install(errors, text)
+    _check_shared_foundation_setup(errors)
 
 
 def _check_support_policy(errors: list[str], versions: set[str]) -> None:
@@ -249,12 +282,14 @@ def _check_release_workflows(errors: list[str]) -> None:
         RELEASE_CANDIDATE_WORKFLOW,
         {
             "manual release candidate trigger": "workflow_dispatch:",
-            "exact commit input": "commit_sha:",
+            "main checkout": "ref: main",
+            "checked out candidate SHA": 'REQUESTED_COMMIT_SHA="$(git rev-parse HEAD)"',
+            "uncached bootstrap": CI_FOUNDATION_UNCACHED_SETUP_ACTION,
             "release metadata validator": "tools/validate_release_candidate.py metadata",
             "candidate CI success check": "Verify CI workflow succeeded for candidate",
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
             "release validation Torch profile": "uv sync --frozen --extra headless --extra torch --group dev",
-            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
+            "shared CPU Torch action": CI_FOUNDATION_TORCH_ACTION,
             "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
             "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
@@ -265,6 +300,7 @@ def _check_release_workflows(errors: list[str]) -> None:
         errors,
         RELEASE_CANDIDATE_WORKFLOW,
         {
+            "caller-supplied candidate ref": "inputs.commit_sha",
             "release benchmark runner": "benchmarks/benchmark_router_synthetic.py",
             "release benchmark regression checker": "tools/check_benchmark_regressions.py",
             "accepted benchmark regression input": "accepted_regressions:",
@@ -290,7 +326,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "trusted publishing": "pypa/gh-action-pypi-publish",
             "release event publish job": "Publish from GitHub Release",
             "GitHub Release only after PyPI": "Create or update GitHub Release",
-            "CPU Torch smoke install": 'uv pip install --torch-backend cpu "torch>=2.13.0"',
+            "shared CPU Torch action": CI_FOUNDATION_TORCH_ACTION,
         },
     )
     if PUBLISH_WORKFLOW.exists() and PUBLISH_WORKFLOW.read_text().count(LEGAL_ARTIFACT_VERIFY_COMMAND) == 1:
@@ -391,22 +427,19 @@ def _check_antigravity_workflow(errors: list[str]) -> None:
         ANTIGRAVITY_WORKFLOW,
         {
             "pull_request_target trigger": "pull_request_target:",
-            "trusted base checkout": "ref: ${{ github.event.pull_request.base.sha }}",
             "same-repository guard": "github.event.pull_request.head.repo.full_name == github.repository",
-            "Vertex AI authentication": 'use_vertex_ai: "true"',
-            "read-only Gemini tools": '"read_many_files"',
-            "Antigravity path selector": "python -m tools.antigravity_plan",
-            "validated review artifact": "python -m tools.antigravity_review",
-            "separate publisher job": "Publish Antigravity Review",
+            "shared trusted review workflow": CI_FOUNDATION_ANTIGRAVITY_WORKFLOW,
+            "data-only policy": "policy-path: .github/ci-foundation/antigravity.toml",
+            "workload identity permission": "id-token: write",
+            "review publication permission": "pull-requests: write",
         },
     )
     _check_file_absent_fragments(
         errors,
         ANTIGRAVITY_WORKFLOW,
         {
-            "PR head checkout": "ref: ${{ github.event.pull_request.head.sha }}",
             "Gemini API key": "secrets.GEMINI_API_KEY",
-            "Gemini shell tool": "run_shell_command",
+            "local Gemini runner": "google-github-actions/run-gemini-cli",
         },
     )
 
