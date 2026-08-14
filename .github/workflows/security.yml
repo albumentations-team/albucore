@@ -5,6 +5,13 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - MAINTAINERS.md
+      - README.md
+      - SECURITY.md
+      - docs/**
   schedule:
     - cron: "0 4 * * 2"
   workflow_dispatch:

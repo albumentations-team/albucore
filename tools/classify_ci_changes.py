@@ -1,4 +1,4 @@
-"""Classify whether a commit range only changes Albucore package versions."""
+"""Classify a commit range for proportionate CI checks."""
 
 from __future__ import annotations
 
@@ -15,6 +15,22 @@ except ModuleNotFoundError:
 
 VERSION_FILES: Final = frozenset({"pyproject.toml", "uv.lock"})
 PROJECT_NAME: Final = "albucore"
+DOCUMENTATION_FILES: Final = frozenset(
+    {
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "MAINTAINERS.md",
+        "README.md",
+        "SECURITY.md",
+    },
+)
+DOCUMENTATION_PREFIXES: Final = ("docs/",)
+CI_MATRIX_DOCUMENTATION_FILES: Final = frozenset(
+    {
+        "docs/maintaining/release-process.md",
+        "docs/maintaining/support-policy.md",
+    },
+)
 
 
 def _git_output(repo: Path, *args: str) -> str:
@@ -65,11 +81,30 @@ def _without_lock_version(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]
     return version, payload
 
 
-def is_version_only_change(repo: Path, base_revision: str, head_revision: str) -> bool:
+def changed_files(repo: Path, base_revision: str, head_revision: str) -> frozenset[str] | None:
+    """Return the changed paths, or ``None`` when Git cannot resolve the range."""
+    try:
+        changed = _git_output(repo, "diff", "--name-status", "--find-renames", base_revision, head_revision, "--")
+    except subprocess.CalledProcessError:
+        return None
+
+    paths: set[str] = set()
+    for line in changed.splitlines():
+        _, *line_paths = line.split("\t")
+        paths.update(line_paths)
+    return frozenset(paths)
+
+
+def is_version_only_change(
+    repo: Path,
+    base_revision: str,
+    head_revision: str,
+    files: frozenset[str] | None = None,
+) -> bool:
     """Return true only when both package metadata files change version and nothing else."""
     try:
-        changed_files = set(_git_output(repo, "diff", "--name-only", base_revision, head_revision, "--").splitlines())
-        if changed_files != VERSION_FILES:
+        resolved_files = files if files is not None else changed_files(repo, base_revision, head_revision)
+        if resolved_files != VERSION_FILES:
             return False
 
         base_project_version, base_project = _without_project_version(
@@ -92,6 +127,22 @@ def is_version_only_change(repo: Path, base_revision: str, head_revision: str) -
     )
 
 
+def is_documentation_only_change(
+    repo: Path,
+    base_revision: str,
+    head_revision: str,
+    files: frozenset[str] | None = None,
+) -> bool:
+    """Return true when every changed file is a documentation surface."""
+    changed = files if files is not None else changed_files(repo, base_revision, head_revision)
+    if changed is None:
+        return False
+
+    return bool(changed) and all(
+        path in DOCUMENTATION_FILES or path.startswith(DOCUMENTATION_PREFIXES) for path in changed
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base_revision")
@@ -99,8 +150,16 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     args = parser.parse_args()
 
-    version_only = is_version_only_change(args.repo, args.base_revision, args.head_revision)
-    sys.stdout.write(f"run_tests={str(not version_only).lower()}\n")
+    files = changed_files(args.repo, args.base_revision, args.head_revision)
+    version_only = is_version_only_change(args.repo, args.base_revision, args.head_revision, files)
+    documentation_only = is_documentation_only_change(args.repo, args.base_revision, args.head_revision, files)
+    documentation_contracts_changed = bool(
+        documentation_only and files is not None and files & CI_MATRIX_DOCUMENTATION_FILES,
+    )
+    sys.stdout.write(f"run_tests={str(not version_only and not documentation_only).lower()}\n")
+    sys.stdout.write(f"docs_only={str(documentation_only).lower()}\n")
+    sys.stdout.write(f"run_package_metadata_checks={str(files is not None and 'README.md' in files).lower()}\n")
+    sys.stdout.write(f"run_docs_contract_checks={str(documentation_contracts_changed).lower()}\n")
     return 0
 
 

@@ -68,12 +68,6 @@ GitHub displays `Expected — Waiting for status to be reported` when the
 `license/cla` context does not exist on the pull request's current head commit.
 It does not mean that a GitHub Actions job is still running.
 
-The `CLA Status Reporter` workflow waits one minute for the hosted status. It
-reports success as soon as CLA Assistant creates `license/cla`, regardless of
-whether the contributor still needs to sign. It fails with a direct recovery
-link when the status is absent. The reporter has read-only status permissions:
-it cannot approve a contribution or replace the hosted CLA decision.
-
 For a missing status:
 
 1. Open
@@ -101,7 +95,5 @@ maintainer, and reason for the service-side override outside the public
 repository. The local legal-integrity workflow verifies agreement text and
 packaging; it does not verify who accepted the agreement.
 
-Once `CLA Status Reporter` has run successfully on the default branch, add its
-GitHub Actions check `CLA status reported` to the `main` ruleset and restrict
-that required check to GitHub Actions. Keep the hosted `license/cla` and
-`License, CLA, and package notices` requirements in place.
+Keep the hosted `license/cla` and `License, CLA, and package notices`
+requirements in place.
