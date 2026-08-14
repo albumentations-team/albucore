@@ -6,9 +6,22 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), an image augmentation library.
 
-> 📚 **AlbumentationsX research paper:** If you use Albucore as part of an AlbumentationsX pipeline, please cite
-> the [AlbumentationsX preprint](https://arxiv.org/abs/2608.11123). Citations make the project's research impact
-> visible to funders and help sustain maintenance. The BibTeX entry is in [Citing AlbumentationsX](#citing-albumentationsx).
+## Citing AlbumentationsX
+
+If you use Albucore as part of an AlbumentationsX pipeline, please cite
+[AlbumentationsX: One Augmentation Pipeline for Images and Related Annotations](https://arxiv.org/abs/2608.11123).
+Your citation makes the project's research impact visible to funders and helps sustain maintenance.
+
+```bibtex
+@article{iglovikov2026albumentationsx,
+    title = {AlbumentationsX: One Augmentation Pipeline for Images and Related Annotations},
+    author = {Iglovikov, Vladimir},
+    journal = {arXiv preprint arXiv:2608.11123},
+    year = {2026},
+    doi = {10.48550/arXiv.2608.11123},
+    url = {https://arxiv.org/abs/2608.11123}
+}
+```
 
 ## Overview
 
@@ -267,20 +280,3 @@ CLA Assistant and entity acceptance paths.
 ## Acknowledgements
 
 Albucore provides core image-processing primitives for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX). We'd like to thank all [AlbumentationsX contributors](https://albumentations.ai/people) and the broader computer vision community for their inspiration and support.
-
-## Citing AlbumentationsX
-
-If you use Albucore as part of an AlbumentationsX pipeline, please cite
-[AlbumentationsX: One Augmentation Pipeline for Images and Related Annotations](https://arxiv.org/abs/2608.11123).
-Your citation makes the project's research impact visible to funders and helps sustain maintenance.
-
-```bibtex
-@article{iglovikov2026albumentationsx,
-    title = {AlbumentationsX: One Augmentation Pipeline for Images and Related Annotations},
-    author = {Iglovikov, Vladimir},
-    journal = {arXiv preprint arXiv:2608.11123},
-    year = {2026},
-    doi = {10.48550/arXiv.2608.11123},
-    url = {https://arxiv.org/abs/2608.11123}
-}
-```
