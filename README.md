@@ -4,9 +4,24 @@
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/albucore.svg)](https://pypi.org/project/albucore/)
 [![CI](https://github.com/albumentations-team/albucore/actions/workflows/ci.yml/badge.svg)](https://github.com/albumentations-team/albucore/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=albumentations-team/albucore@github)](https://gitads.dev/v1/ad-track?source=albumentations-team/albucore@github)
-
 Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), an image augmentation library.
+
+## Citing AlbumentationsX
+
+If you use Albucore as part of an AlbumentationsX pipeline, please cite
+[AlbumentationsX: One Augmentation Pipeline for Images and Related Annotations](https://arxiv.org/abs/2608.11123).
+Your citation makes the project's research impact visible to funders and helps sustain maintenance.
+
+```bibtex
+@article{iglovikov2026albumentationsx,
+    title = {AlbumentationsX: One Augmentation Pipeline for Images and Related Annotations},
+    author = {Iglovikov, Vladimir},
+    journal = {arXiv preprint arXiv:2608.11123},
+    year = {2026},
+    doi = {10.48550/arXiv.2608.11123},
+    url = {https://arxiv.org/abs/2608.11123}
+}
+```
 
 ## Overview
 
@@ -265,5 +280,3 @@ CLA Assistant and entity acceptance paths.
 ## Acknowledgements
 
 Albucore provides core image-processing primitives for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX). We'd like to thank all [AlbumentationsX contributors](https://albumentations.ai/people) and the broader computer vision community for their inspiration and support.
-
-<!-- GitAds-Verify: 1LSAKH1Y2GKIISALRDIFCG2T9YYNR5WD -->
