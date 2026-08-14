@@ -21,6 +21,7 @@ on:
       - docs/**
   schedule:
     - cron: "0 4 * * 2"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,6 +29,9 @@ permissions:
 
 jobs:
   analyze:
+    # Keep GitHub's default setup authoritative until the post-merge migration
+    # enables this repository variable and disables default setup.
+    if: vars.CODEQL_ADVANCED_SETUP == 'true'
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 15

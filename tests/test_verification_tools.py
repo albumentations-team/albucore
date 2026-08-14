@@ -277,6 +277,24 @@ def test_ci_matrix_requires_docs_only_codeql_routing(monkeypatch) -> None:
     assert ".github/workflows/codeql.yml must ignore documentation-only pull requests" in errors
 
 
+def test_ci_matrix_requires_codeql_transition_gate(monkeypatch) -> None:
+    codeql_text = ci_matrix.CODEQL_WORKFLOW.read_text().replace(
+        "    if: vars.CODEQL_ADVANCED_SETUP == 'true'\n", ""
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == ci_matrix.CODEQL_WORKFLOW:
+            return codeql_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    assert ".github/workflows/codeql.yml is missing advanced setup transition gate" in errors
+
+
 def test_ci_matrix_requires_macos_arm64_warning_regressions(monkeypatch) -> None:
     ci_text = (
         ci_matrix.CI_WORKFLOW.read_text()

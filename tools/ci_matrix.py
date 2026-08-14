@@ -448,6 +448,8 @@ def _check_codeql_workflow(errors: list[str]) -> None:
         {
             "pull request trigger": "pull_request:",
             "weekly schedule": 'cron: "0 4 * * 2"',
+            "manual transition trigger": "workflow_dispatch:",
+            "advanced setup transition gate": "if: vars.CODEQL_ADVANCED_SETUP == 'true'",
             "CodeQL security upload permission": "security-events: write",
             "CodeQL initialization": "github/codeql-action/init@",
             "CodeQL analysis": "github/codeql-action/analyze@",
