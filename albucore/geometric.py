@@ -5,7 +5,6 @@ Chunking when OpenCV limits apply. blur, GaussianBlur, medianBlur, resize, filte
 work out of the box for >4ch — use cv2 directly.
 OpenCV channel limits: see ``benchmarks/README.md``.
 """
-# ruff: noqa: PLR0911 PLR0913  # chunked fns need many args
 
 from collections.abc import Callable
 from typing import cast, overload
