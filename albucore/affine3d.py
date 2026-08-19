@@ -1,4 +1,3 @@
-# ruff: noqa: PLR0913  # The public OpenCV-compatible signature and internal kernel contract need these parameters.
 """True 3D affine resampling for single NumPy and Torch volumes."""
 
 from __future__ import annotations
