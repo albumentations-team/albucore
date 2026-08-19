@@ -77,6 +77,11 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
+  - repo: https://github.com/ternaus/ruff-policy-hooks
+    rev: v0.4.0
+    hooks:
+      - id: check-ruff-suppressions
+        args: [--protect=C901,PLR0912,PLR0913,PLR0915,PLR0917]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.21.2
     hooks:

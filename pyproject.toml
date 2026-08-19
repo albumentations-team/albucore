@@ -147,8 +147,6 @@ lint.ignore = [
   "FBT001",
   "FBT002",
   "FBT003",
-  # Public OpenCV-compatible APIs intentionally have more than five parameters.
-  "PLR0917",
   "PLR2004",
   "TRY003",
 ]
@@ -162,6 +160,13 @@ lint.unfixable = [  ]
 lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Like Black, use double quotes for strings.
 lint.pydocstyle.convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# These modules expose drop-in OpenCV-compatible signatures and internal helpers
+# that mirror those signatures. Keep the argument-count exceptions scoped to
+# those implementation modules rather than disabling the rules globally.
+"albucore/affine3d.py" = [ "PLR0913", "PLR0917" ]
+"albucore/geometric.py" = [ "PLR0911", "PLR0913", "PLR0917" ]
 
 [tool.mypy]
 python_version = "3.10"
