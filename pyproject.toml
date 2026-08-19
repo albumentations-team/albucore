@@ -165,6 +165,8 @@ lint.pydocstyle.convention = "google"
 # These modules expose drop-in OpenCV-compatible signatures and internal helpers
 # that mirror those signatures. Keep the argument-count exceptions scoped to
 # those implementation modules rather than disabling the rules globally.
+# The policy hook follows these exact path-scoped exceptions; update this table
+# if either module moves so Ruff and the policy hook stay aligned.
 "albucore/affine3d.py" = [ "PLR0913", "PLR0917" ]
 "albucore/geometric.py" = [ "PLR0911", "PLR0913", "PLR0917" ]
 
