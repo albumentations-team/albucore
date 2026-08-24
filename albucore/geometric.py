@@ -33,15 +33,125 @@ _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 
 __all__ = [
     "copy_make_border",
+    "flip_volume",
     "gaussian_blur3d",
     "remap",
     "resize",
     "resize3d",
+    "rot90_volume",
     "separable_filter3d",
+    "transpose_volume",
     "warp_affine",
     "warp_affine3d",
     "warp_perspective",
 ]
+
+
+@overload
+def flip_volume(
+    volume: np.ndarray,
+    axes: int | tuple[int, ...],
+) -> np.ndarray: ...
+
+
+@overload
+def flip_volume(
+    volume: torch.Tensor,
+    axes: int | tuple[int, ...],
+) -> torch.Tensor: ...
+
+
+def flip_volume(
+    volume: np.ndarray | torch.Tensor,
+    axes: int | tuple[int, ...],
+) -> np.ndarray | torch.Tensor:
+    """Flip one or more axes in a prevalidated volume.
+
+    NumPy volumes use ``(D, H, W, C)`` layout and CPU Tensors use ``(C, D, H, W)``.
+
+    Args:
+        volume: Prevalidated uint8 or float32 NumPy ``DHWC`` volume or CPU Torch ``CDHW`` tensor.
+        axes: Axis or axes in the supplied container's native layout.
+
+    Returns:
+        A flipped volume with the same container, layout, shape, and dtype, preserving the selected backend's native
+        stride semantics.
+
+    The caller validates container, layout, dtype, device, strides, and autograd state before entering Albucore.
+    """
+    if isinstance(volume, np.ndarray):
+        return np.flip(volume, axis=axes)
+    return torch.flip(volume, dims=(axes,) if isinstance(axes, int) else axes)
+
+
+@overload
+def transpose_volume(volume: np.ndarray, axis1: int, axis2: int) -> np.ndarray: ...
+
+
+@overload
+def transpose_volume(volume: torch.Tensor, axis1: int, axis2: int) -> torch.Tensor: ...
+
+
+def transpose_volume(volume: np.ndarray | torch.Tensor, axis1: int, axis2: int) -> np.ndarray | torch.Tensor:
+    """Transpose two axes in a prevalidated volume.
+
+    NumPy volumes use ``(D, H, W, C)`` layout and CPU Tensors use ``(C, D, H, W)``.
+
+    Args:
+        volume: Prevalidated uint8 or float32 NumPy ``DHWC`` volume or CPU Torch ``CDHW`` tensor.
+        axis1: First axis in the supplied container's native layout.
+        axis2: Second axis in the supplied container's native layout.
+
+    Returns:
+        A transposed volume with the same container and dtype, preserving the selected backend's native stride
+        semantics.
+
+    The caller validates container, layout, dtype, device, strides, and autograd state before entering Albucore.
+    """
+    if isinstance(volume, np.ndarray):
+        return np.swapaxes(volume, axis1, axis2)
+    return volume.transpose(axis1, axis2)
+
+
+@overload
+def rot90_volume(
+    volume: np.ndarray,
+    k: int,
+    axes: tuple[int, int],
+) -> np.ndarray: ...
+
+
+@overload
+def rot90_volume(
+    volume: torch.Tensor,
+    k: int,
+    axes: tuple[int, int],
+) -> torch.Tensor: ...
+
+
+def rot90_volume(
+    volume: np.ndarray | torch.Tensor,
+    k: int,
+    axes: tuple[int, int],
+) -> np.ndarray | torch.Tensor:
+    """Rotate a prevalidated volume counterclockwise in one ordered axis plane.
+
+    NumPy volumes use ``(D, H, W, C)`` layout and CPU Tensors use ``(C, D, H, W)``.
+
+    Args:
+        volume: Prevalidated uint8 or float32 NumPy ``DHWC`` volume or CPU Torch ``CDHW`` tensor.
+        k: Number of counterclockwise 90-degree turns.
+        axes: Ordered axis pair in the supplied container's native layout.
+
+    Returns:
+        A rotated volume with the same container and dtype, preserving the selected backend's native stride semantics.
+
+    The caller validates container, layout, dtype, device, strides, autograd state, k, and axes before entering
+    Albucore.
+    """
+    if isinstance(volume, np.ndarray):
+        return np.rot90(volume, k, axes=axes)
+    return torch.rot90(volume, k, dims=axes)
 
 
 def _border_value_for_cv2(
