@@ -1,4 +1,4 @@
-"""Dense 3D resampling for single NumPy volumes."""
+"""Dense 3D resampling for single volumes."""
 
 from __future__ import annotations
 
@@ -39,19 +39,6 @@ def _remap3d_numpy(
         border_values,
     )
     return np.asarray(result.permute(1, 2, 3, 0).numpy())
-
-
-def _remap3d_tensor_numpy_bridge(
-    volume: torch.Tensor,
-    sampling_grid: np.ndarray | torch.Tensor,
-    interpolation: int,
-    border_mode: int,
-    border_values: np.ndarray,
-) -> torch.Tensor:
-    """Bridge one ``CDHW`` Tensor through the NumPy route for benchmark comparison only."""
-    numpy_volume = np.asarray(volume.permute(1, 2, 3, 0).numpy())
-    result = _remap3d_numpy(numpy_volume, sampling_grid, interpolation, border_mode, border_values)
-    return torch.from_numpy(result).permute(3, 0, 1, 2)
 
 
 @overload
@@ -101,10 +88,6 @@ def remap3d(
 
     Returns:
         A newly sampled volume with the input container, dtype, layout, and channel count.
-
-    Notes:
-        Tensor inputs sample directly through the shared CPU Torch sampler. The zero-copy
-        Tensor-to-NumPy-to-Tensor bridge is retained only as a benchmark comparison candidate.
 
     """
     channels = volume.shape[-1] if isinstance(volume, np.ndarray) else volume.shape[0]

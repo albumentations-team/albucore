@@ -28,8 +28,6 @@ import torch
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
-from albucore.remap3d import _remap3d_tensor_numpy_bridge
-from albucore.sampling3d import _normalize_border_value
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -146,12 +144,12 @@ def _assert_tensor_candidate_parity(
     border_value: float | None,
 ) -> None:
     """Verify that the benchmark-only bridge matches the public direct Tensor route."""
-    bridge = _remap3d_tensor_numpy_bridge(
+    bridge = _tensor_numpy_bridge(
         volume,
         sampling_grid,
         interpolation,
         border_mode,
-        _normalize_border_value(border_value, volume.shape[0]),
+        border_value,
     )
     public = albucore.remap3d(
         volume,
@@ -191,13 +189,32 @@ def _tensor_numpy_bridge_call(
     border_value: float | None,
 ) -> Callable[[], torch.Tensor]:
     """Bind the complete Tensor-to-NumPy-to-Tensor comparison baseline."""
-    return lambda: _remap3d_tensor_numpy_bridge(
+    return lambda: _tensor_numpy_bridge(
         volume,
         sampling_grid,
         interpolation,
         border_mode,
-        _normalize_border_value(border_value, volume.shape[0]),
+        border_value,
     )
+
+
+def _tensor_numpy_bridge(
+    volume: torch.Tensor,
+    sampling_grid: Grid,
+    interpolation: int,
+    border_mode: int,
+    border_value: float | None,
+) -> torch.Tensor:
+    """Run the comparison baseline through the public NumPy route."""
+    numpy_volume = np.asarray(volume.permute(1, 2, 3, 0).numpy())
+    result = albucore.remap3d(
+        numpy_volume,
+        sampling_grid,
+        interpolation=interpolation,
+        border_mode=border_mode,
+        border_value=border_value,
+    )
+    return torch.from_numpy(result).permute(3, 0, 1, 2)
 
 
 def _wall_timing(samples: list[float]) -> WallTimingMs:

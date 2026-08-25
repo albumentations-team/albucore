@@ -237,7 +237,7 @@ def test_remap3d_tensor_volume_preserves_cdhw_and_matches_numpy_route(
     grid_container: str,
     layout: str,
 ) -> None:
-    """The public Tensor fallback preserves CDHW without mutating either caller-owned input."""
+    """The public Tensor route preserves CDHW without mutating either caller-owned input."""
     numpy_volume = _volume(dtype, channels)
     volume = torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
     if layout == "contiguous":
