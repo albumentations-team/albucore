@@ -227,6 +227,51 @@ def test_remap3d_numpy_and_tensor_grid_storage_match(
     np.testing.assert_array_equal(numpy_grid_result, tensor_grid_result)
 
 
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("channels", [1, 3, 5, 9], ids=["c1", "c3", "c5", "c9"])
+@pytest.mark.parametrize("grid_container", ["numpy", "tensor"])
+@pytest.mark.parametrize("layout", ["contiguous", "channel_last_strided"])
+def test_remap3d_tensor_volume_preserves_cdhw_and_matches_numpy_route(
+    dtype: type[np.uint8 | np.float32],
+    channels: int,
+    grid_container: str,
+    layout: str,
+) -> None:
+    """The public Tensor fallback preserves CDHW without mutating either caller-owned input."""
+    numpy_volume = _volume(dtype, channels)
+    volume = torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
+    if layout == "contiguous":
+        volume = volume.contiguous()
+    original = volume.clone()
+    grid = _identity_grid(numpy_volume.shape[:3])
+    original_grid = grid.copy()
+    sampling_grid = grid if grid_container == "numpy" else torch.from_numpy(grid.copy())
+
+    result = remap3d(volume, sampling_grid, interpolation=cv2.INTER_LINEAR, border_value=17.0)
+    expected = remap3d(numpy_volume, grid, interpolation=cv2.INTER_LINEAR, border_value=17.0)
+
+    assert isinstance(result, torch.Tensor)
+    assert result.shape == volume.shape
+    assert result.dtype == volume.dtype
+    torch.testing.assert_close(result, torch.from_numpy(expected).permute(3, 0, 1, 2), rtol=0, atol=0)
+    torch.testing.assert_close(volume, original, rtol=0, atol=0)
+    if isinstance(sampling_grid, torch.Tensor):
+        torch.testing.assert_close(sampling_grid, torch.from_numpy(original_grid), rtol=0, atol=0)
+    else:
+        np.testing.assert_array_equal(sampling_grid, original_grid)
+
+
+def test_remap3d_tensor_result_feeds_a_trainable_module() -> None:
+    """The no-grad resampling result remains valid input for a downstream trainable module."""
+    volume = torch.from_numpy(_volume(np.float32, channels=3)).permute(3, 0, 1, 2).contiguous()
+    result = remap3d(volume, _identity_grid((2, 3, 4)), interpolation=cv2.INTER_LINEAR)
+    module = torch.nn.Conv3d(3, 1, kernel_size=1)
+
+    module(result.unsqueeze(0)).sum().backward()
+
+    assert module.weight.grad is not None
+
+
 def test_remap3d_accepts_positive_negative_and_read_only_numpy_volume_views_without_mutation() -> None:
     """Torch receives one repair copy only where its shared-storage contract requires it."""
     source = _volume(np.float32, channels=3)

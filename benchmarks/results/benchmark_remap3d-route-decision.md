@@ -1,9 +1,9 @@
-# remap3d Tensor-volume route decision
+# remap3d direct Tensor sampler decision
 
-Decision: do not expose a public CPU Tensor `CDHW` overload in the first `remap3d` release.
+Decision: expose public CPU Tensor `CDHW` support through the measured `Tensor → NumPy DHWC → remap3d → Tensor` bridge. Do not route calls to the direct CPU sampler in the first release.
 
-The candidate was compared on the same Apple Silicon host, with one Torch/OpenCV thread, pre-created logically identical inputs, and 31 timed repetitions after seven warmups. It had to be no more than 1% slower than `Tensor → NumPy DHWC → remap3d → Tensor` in every cell. One repeatable loss rejects the overload because the issue prohibits size, dtype, channel, stride, or shape heuristics.
+The direct sampler is still benchmarked against the public Tensor bridge on the complete matrix: `32³`, `64×128×128`, and `128³`; `C=1/3`; `uint8/float32`; NumPy/Tensor grids; contiguous and channel-last-derived strided `CDHW`; nearest/trilinear interpolation; and zero/nonzero/replicate borders. The direct candidate has no heuristic route or public entry point.
 
-At `64×128×128×1`, `uint8`, contiguous `CDHW`, Tensor grid, nearest interpolation, and nonzero constant fill, the direct candidate median was 9.135 ms (MAD 0.261 ms); the bridge median was 8.629 ms (MAD 0.207 ms). The direct route was 5.9% slower. The same run found twelve more losses in the required matrix.
+At `128³×1`, `float32`, contiguous `CDHW`, NumPy grid, trilinear interpolation, and zero constant fill, the direct candidate median was 53.088 ms (MAD 1.824 ms); the public bridge median was 44.586 ms (MAD 2.865 ms). The direct route was 19.1% slower.
 
-The raw samples, versions, thread setting, and process peak RSS are retained in [`benchmark_remap3d-route-gate-64x128x128.md`](benchmark_remap3d-route-gate-64x128x128.md). The accepted NumPy `DHWC` router still accepts NumPy or CPU Tensor float32 grids. Its full benchmark remains [`benchmark_remap3d.py`](../benchmark_remap3d.py).
+The complete raw samples, versions, thread setting, RSS, and allocation ledger are retained in [`benchmark_remap3d.md`](benchmark_remap3d.md).
