@@ -289,9 +289,14 @@ def test_remap3d_accepts_positive_negative_and_read_only_numpy_volume_views_with
         assert not np.shares_memory(result, volume)
 
 
-def test_remap3d_uses_one_grid_sample_per_volume(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Per-channel fill correction remains fused around one volumetric resampling operation."""
-    volume = _volume(np.float32, channels=3)
+@pytest.mark.parametrize("container", ["numpy", "tensor"])
+def test_remap3d_uses_one_grid_sample_per_volume(
+    monkeypatch: pytest.MonkeyPatch,
+    container: str,
+) -> None:
+    """Both public containers fuse per-channel fill correction around one resampling operation."""
+    numpy_volume = _volume(np.float32, channels=3)
+    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
     calls = 0
     original_grid_sample = torch.nn.functional.grid_sample
 
@@ -302,7 +307,7 @@ def test_remap3d_uses_one_grid_sample_per_volume(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr("albucore.sampling3d.torch_f.grid_sample", counted_grid_sample)
 
-    remap3d(volume, _identity_grid(volume.shape[:3]), border_value=(11.0, 23.0, 37.0))
+    remap3d(volume, _identity_grid(numpy_volume.shape[:3]), border_value=(11.0, 23.0, 37.0))
 
     assert calls == 1
 

@@ -1,12 +1,12 @@
 # ruff: noqa: INP001
-"""Benchmark public ``remap3d`` CPU routes and the direct Tensor candidate.
+"""Benchmark public ``remap3d`` CPU routes and the Tensor bridge baseline.
 
 Run a development matrix with:
 
     uv run python benchmarks/benchmark_remap3d.py --quick --threads 1
 
 Use ``--full`` for the complete NumPy and Tensor matrix. Tensor rows compare the
-public ``Tensor → NumPy → Tensor`` fallback with direct CPU ``grid_sample``.
+public direct CPU ``grid_sample`` route with the ``Tensor → NumPy → Tensor`` bridge.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import gc
 import platform
 import resource
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -27,7 +28,8 @@ import torch
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
-from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu
+from albucore.remap3d import _remap3d_tensor_numpy_bridge
+from albucore.sampling3d import _normalize_border_value
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -48,7 +50,7 @@ FULL_SHAPES: tuple[Shape, ...] = (
 
 @dataclass(frozen=True, slots=True)
 class Row:
-    """One public-path or direct-candidate timing measurement."""
+    """One public-path or bridge-baseline timing measurement."""
 
     shape: Shape
     dtype: str
@@ -143,11 +145,10 @@ def _assert_tensor_candidate_parity(
     border_mode: int,
     border_value: float | None,
 ) -> None:
-    """Verify that benchmark-only direct sampling matches the public Tensor fallback."""
-    grid_tensor = torch.from_numpy(sampling_grid) if isinstance(sampling_grid, np.ndarray) else sampling_grid
-    direct = _sample3d_torch_cpu(
+    """Verify that the benchmark-only bridge matches the public direct Tensor route."""
+    bridge = _remap3d_tensor_numpy_bridge(
         volume,
-        grid_tensor,
+        sampling_grid,
         interpolation,
         border_mode,
         _normalize_border_value(border_value, volume.shape[0]),
@@ -162,7 +163,7 @@ def _assert_tensor_candidate_parity(
     if not isinstance(public, torch.Tensor):
         msg = "The Tensor route must return a Tensor."
         raise TypeError(msg)
-    torch.testing.assert_close(direct, public, rtol=0, atol=0)
+    torch.testing.assert_close(bridge, public, rtol=0, atol=0)
 
 
 def _public_call(
@@ -182,15 +183,66 @@ def _public_call(
     )
 
 
-def _direct_tensor_call(
+def _tensor_numpy_bridge_call(
     volume: torch.Tensor,
-    sampling_grid: torch.Tensor,
+    sampling_grid: Grid,
     interpolation: int,
     border_mode: int,
-    border_values: np.ndarray,
+    border_value: float | None,
 ) -> Callable[[], torch.Tensor]:
-    """Bind the direct CPU sampler candidate for an exact public-bridge comparison."""
-    return lambda: _sample3d_torch_cpu(volume, sampling_grid, interpolation, border_mode, border_values)
+    """Bind the complete Tensor-to-NumPy-to-Tensor comparison baseline."""
+    return lambda: _remap3d_tensor_numpy_bridge(
+        volume,
+        sampling_grid,
+        interpolation,
+        border_mode,
+        _normalize_border_value(border_value, volume.shape[0]),
+    )
+
+
+def _wall_timing(samples: list[float]) -> WallTimingMs:
+    """Summarize pre-collected millisecond samples like ``bench_wall_ms``."""
+    values = np.asarray(samples, dtype=np.float64)
+    median = float(np.median(values))
+    return WallTimingMs(
+        raw=tuple(samples),
+        median=median,
+        mean=float(values.mean()),
+        std=float(values.std(ddof=1)) if len(samples) > 1 else 0.0,
+        mad=float(np.median(np.abs(values - median))),
+        n=len(samples),
+    )
+
+
+def _paired_wall_timings(
+    first: Callable[[], object],
+    second: Callable[[], object],
+    *,
+    repeats: int,
+    warmup: int,
+    first_starts: bool,
+) -> tuple[WallTimingMs, WallTimingMs]:
+    """Time two routes in alternating order to remove fixed sequential-route bias."""
+    if repeats < 1:
+        msg = f"repeats must be >= 1, got {repeats}"
+        raise ValueError(msg)
+    if warmup < 0:
+        msg = f"warmup must be >= 0, got {warmup}"
+        raise ValueError(msg)
+
+    first_samples: list[float] = []
+    second_samples: list[float] = []
+    for index in range(warmup + repeats):
+        first_before_second = (index % 2 == 0) == first_starts
+        ordered = ((first, first_samples), (second, second_samples))
+        if not first_before_second:
+            ordered = tuple(reversed(ordered))
+        for function, samples in ordered:
+            started = time.perf_counter()
+            function()
+            if index >= warmup:
+                samples.append((time.perf_counter() - started) * 1000.0)
+    return _wall_timing(first_samples), _wall_timing(second_samples)
 
 
 def _parse_shape(value: str) -> Shape:
@@ -221,7 +273,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Measure public NumPy/Tensor routes and direct Tensor sampling over one shared matrix."""
+    """Measure public NumPy/Tensor routes and the complete Tensor bridge baseline."""
     args = _parse_args()
     if args.threads < 1:
         msg = "--threads must be positive."
@@ -231,6 +283,7 @@ def main() -> None:
     rng = np.random.default_rng(20260825)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
     rows: list[Row] = []
+    tensor_cell_index = 0
 
     for shape in shapes:
         for dtype in (np.dtype(np.uint8), np.dtype(np.float32)):
@@ -270,28 +323,20 @@ def main() -> None:
                                 border_mode,
                                 border_value,
                             )
-                            grid_tensor = (
-                                torch.from_numpy(sampling_grid)
-                                if isinstance(sampling_grid, np.ndarray)
-                                else sampling_grid
-                            )
-                            border_values = _normalize_border_value(border_value, shape[-1])
-                            bridge_timing = bench_wall_ms(
+                            direct_timing, bridge_timing = _paired_wall_timings(
                                 _public_call(tensor_volume, sampling_grid, interpolation, border_mode, border_value),
-                                repeats=args.repeats,
-                                warmup=args.warmup,
-                            )
-                            direct_timing = bench_wall_ms(
-                                _direct_tensor_call(
+                                _tensor_numpy_bridge_call(
                                     tensor_volume,
-                                    grid_tensor,
+                                    sampling_grid,
                                     interpolation,
                                     border_mode,
-                                    border_values,
+                                    border_value,
                                 ),
                                 repeats=args.repeats,
                                 warmup=args.warmup,
+                                first_starts=tensor_cell_index % 2 == 0,
                             )
+                            tensor_cell_index += 1
                             row_prefix = (
                                 shape,
                                 dtype.name,
@@ -303,8 +348,8 @@ def main() -> None:
                             )
                             rows.extend(
                                 (
-                                    Row(*row_prefix, "public_tensor_bridge", bridge_timing),
-                                    Row(*row_prefix, "direct_tensor_candidate", direct_timing),
+                                    Row(*row_prefix, "public_tensor_direct", direct_timing),
+                                    Row(*row_prefix, "tensor_numpy_bridge_candidate", bridge_timing),
                                 ),
                             )
                             del tensor_volume
@@ -329,9 +374,9 @@ def main() -> None:
         "",
         (
             "Every row times pre-created, logically identical inputs. NumPy rows include public dispatch, views, "
-            "uint8 float32 work and restoration, sampling, and returned DHWC conversion. Tensor rows compare the "
-            "public Tensor-to-NumPy-to-Tensor bridge with direct CPU `grid_sample`; the latter remains a "
-            "benchmark-only candidate."
+            "uint8 float32 work and restoration, sampling, and returned DHWC conversion. Tensor rows are paired "
+            "and alternate execution order for public direct CPU `grid_sample` and the complete Tensor-to-NumPy-to-"
+            "Tensor bridge baseline; both include border-value normalization and public/bridge dispatch work."
         ),
         "",
         "## Raw latency matrix",

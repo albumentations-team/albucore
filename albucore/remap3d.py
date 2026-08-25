@@ -41,14 +41,14 @@ def _remap3d_numpy(
     return np.asarray(result.permute(1, 2, 3, 0).numpy())
 
 
-def _remap3d_tensor(
+def _remap3d_tensor_numpy_bridge(
     volume: torch.Tensor,
     sampling_grid: np.ndarray | torch.Tensor,
     interpolation: int,
     border_mode: int,
     border_values: np.ndarray,
 ) -> torch.Tensor:
-    """Bridge one ``CDHW`` Tensor through the benchmark-selected NumPy public route."""
+    """Bridge one ``CDHW`` Tensor through the NumPy route for benchmark comparison only."""
     numpy_volume = np.asarray(volume.permute(1, 2, 3, 0).numpy())
     result = _remap3d_numpy(numpy_volume, sampling_grid, interpolation, border_mode, border_values)
     return torch.from_numpy(result).permute(3, 0, 1, 2)
@@ -103,12 +103,18 @@ def remap3d(
         A newly sampled volume with the input container, dtype, layout, and channel count.
 
     Notes:
-        The direct CPU Tensor sampler lost the full-path route gate. Tensor inputs therefore
-        use a zero-copy Tensor-to-NumPy-to-Tensor bridge, while retaining a Tensor result.
+        Tensor inputs sample directly through the shared CPU Torch sampler. The zero-copy
+        Tensor-to-NumPy-to-Tensor bridge is retained only as a benchmark comparison candidate.
 
     """
     channels = volume.shape[-1] if isinstance(volume, np.ndarray) else volume.shape[0]
     border_values = _normalize_border_value(border_value, channels)
     if isinstance(volume, np.ndarray):
         return _remap3d_numpy(volume, sampling_grid, interpolation, border_mode, border_values)
-    return _remap3d_tensor(volume, sampling_grid, interpolation, border_mode, border_values)
+    return _sample3d_torch_cpu(
+        volume,
+        _sampling_grid_to_tensor(sampling_grid),
+        interpolation,
+        border_mode,
+        border_values,
+    )

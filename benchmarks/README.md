@@ -38,7 +38,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_resize3d_tensor.py`](benchmark_resize3d_tensor.py) | CPU Tensor→Tensor `resize3d`: native Torch, zero-copy Tensor→NumPy→Tensor bridge, and the public router across contiguous and channel-last-strided `CDHW` inputs. |
 | [`benchmark_warp_affine3d.py`](benchmark_warp_affine3d.py) | Full CPU `warp_affine3d` NumPy `DHWC` route: control-data normalization, zero-copy Torch bridge, sampling, uint8 repair, and public dispatch. |
 | [`benchmark_warp_affine3d_tensor.py`](benchmark_warp_affine3d_tensor.py) | CPU Tensor→Tensor `warp_affine3d`: native `affine_grid`, manual-grid and coverage-fill diagnostic candidates, and public routing across contiguous and channel-last-strided `CDHW` inputs. |
-| [`benchmark_remap3d.py`](benchmark_remap3d.py) | Complete CPU `remap3d` matrix: public NumPy `DHWC`, public Tensor `CDHW` bridge, and the direct Tensor sampler candidate across sizes, dtypes, grids, strides, borders, raw timings, and RSS. |
+| [`benchmark_remap3d.py`](benchmark_remap3d.py) | Complete CPU `remap3d` matrix: public NumPy `DHWC`, public direct Tensor `CDHW`, and a Tensor-to-NumPy-to-Tensor bridge baseline across sizes, dtypes, grids, strides, borders, raw timings, and RSS. |
 | [`benchmark_gaussian_blur3d.py`](benchmark_gaussian_blur3d.py) | Full CPU `gaussian_blur3d` routes for NumPy `DHWC` and already-imported-Torch `CDHW`: selected reflect padding, universal fallback, NumPy, packed OpenCV, and public dispatch. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
 | [`benchmark_reduce_sum.py`](benchmark_reduce_sum.py) | `albucore.stats.reduce_sum` (NumKong uint8 routing) vs `numpy.sum` global / per-channel. |
@@ -105,7 +105,7 @@ uv run python benchmarks/benchmark_warp_affine3d.py --quick --threads 1
 uv run python benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1
 ```
 
-For `remap3d`, start with the development matrix, then use `--full` for the public NumPy/Tensor matrix and its direct Tensor comparison:
+For `remap3d`, start with the development matrix, then use `--full` for the public NumPy/Tensor matrix and its paired Tensor bridge comparison:
 
 ```bash
 uv run python benchmarks/benchmark_remap3d.py --quick --threads 1
