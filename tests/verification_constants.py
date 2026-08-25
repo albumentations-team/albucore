@@ -48,6 +48,7 @@ ValueKind: TypeAlias = Literal[
     "points_b",
     "scalar",
     "scalar_exponent",
+    "sampling_grid",
     "second_image",
     "shared_lut",
     "target_dtype",
@@ -103,6 +104,7 @@ VALUE_POINTS_A: Final[ValueKind] = "points_a"
 VALUE_POINTS_B: Final[ValueKind] = "points_b"
 VALUE_SCALAR: Final[ValueKind] = "scalar"
 VALUE_SCALAR_EXPONENT: Final[ValueKind] = "scalar_exponent"
+VALUE_SAMPLING_GRID: Final[ValueKind] = "sampling_grid"
 VALUE_SECOND_IMAGE: Final[ValueKind] = "second_image"
 VALUE_SHARED_LUT: Final[ValueKind] = "shared_lut"
 VALUE_TARGET_DTYPE: Final[ValueKind] = "target_dtype"
@@ -156,6 +158,7 @@ ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
     VALUE_POINTS_B,
     VALUE_SCALAR,
     VALUE_SCALAR_EXPONENT,
+    VALUE_SAMPLING_GRID,
     VALUE_SECOND_IMAGE,
     VALUE_SHARED_LUT,
     VALUE_TARGET_DTYPE,

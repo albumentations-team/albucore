@@ -23,7 +23,8 @@ import torch
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
-from albucore.affine3d import _inverse_matrix, _normalize_border_value, _normalize_matrix, _warp_affine3d_torch_cpu
+from albucore.affine3d import _inverse_matrix, _normalize_matrix, _warp_affine3d_torch_cpu
+from albucore.sampling3d import _normalize_border_value
 
 Shape = tuple[int, int, int, int]
 Size = tuple[int, int, int]
