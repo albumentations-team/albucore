@@ -26,12 +26,11 @@ from timing import WallTimingMs, bench_wall_ms
 import albucore
 from albucore.affine3d import (
     _inverse_matrix,
-    _normalize_border_value,
     _normalize_matrix,
     _normalized_theta,
-    _restore_uint8,
     _warp_affine3d_torch_cpu,
 )
+from albucore.sampling3d import _normalize_border_value, _restore_uint8
 
 Shape = tuple[int, int, int, int]
 Size = tuple[int, int, int]

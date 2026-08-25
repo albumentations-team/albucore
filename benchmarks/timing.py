@@ -13,6 +13,8 @@ import numpy as np
 class WallTimingMs:
     """Wall-clock timings in milliseconds after warmup."""
 
+    raw: tuple[float, ...]
+    """Individual timed samples in milliseconds after warmup."""
     median: float
     mean: float
     std: float
@@ -48,7 +50,7 @@ def bench_wall_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) 
     mean = float(arr.mean())
     std = float(arr.std(ddof=1)) if repeats > 1 else 0.0
     mad = float(np.median(np.abs(arr - med)))
-    return WallTimingMs(median=med, mean=mean, std=std, mad=mad, n=repeats)
+    return WallTimingMs(raw=tuple(times), median=med, mean=mean, std=std, mad=mad, n=repeats)
 
 
 def median_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) -> float:

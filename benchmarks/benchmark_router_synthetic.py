@@ -9,9 +9,9 @@ Layouts:
 
 The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
-Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``resize``, ``resize3d``,
-``separable_filter3d``, ``warp_affine``, ``warp_affine3d``, ``warp_perspective``, ``remap`` (they live in
-``albucore.geometric``, not ``functions.__all__``).
+Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``remap``, ``remap3d``,
+``resize``, ``resize3d``, ``separable_filter3d``, ``warp_affine``, ``warp_affine3d``, ``warp_perspective`` (they
+live in ``albucore.geometric``, not ``functions.__all__``).
 
 Run::
 
@@ -271,6 +271,22 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def rmp3(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        volume = np.repeat(img[np.newaxis, ...], 5, axis=0)
+        depth, height, width, _ = volume.shape
+        z, y, x = np.meshgrid(
+            (np.arange(depth, dtype=np.float32) * 2 + 1) / depth - 1,
+            (np.arange(height, dtype=np.float32) * 2 + 1) / height - 1,
+            (np.arange(width, dtype=np.float32) * 2 + 1) / width - 1,
+            indexing="ij",
+        )
+        sampling_grid = np.stack((x, y, z), axis=-1)
+
+        def thunk() -> None:
+            alb.remap3d(volume, sampling_grid, interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
     def wper(alb: Any, img: np.ndarray) -> Callable[[], object]:
         h, w = img.shape[-3], img.shape[-2]
         m = np.eye(3, dtype=np.float32)
@@ -297,6 +313,7 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("separable_filter3d", sep3),
         ("warp_affine", waff),
         ("warp_affine3d", waff3),
+        ("remap3d", rmp3),
         ("warp_perspective", wper),
         ("remap", rmp),
     ]

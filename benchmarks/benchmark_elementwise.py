@@ -79,6 +79,7 @@ def _samples_to_timing(samples_ms: list[float]) -> WallTimingMs:
     samples = np.asarray(samples_ms, dtype=np.float64)
     median = float(np.median(samples))
     return WallTimingMs(
+        raw=tuple(samples_ms),
         median=median,
         mean=float(samples.mean()),
         std=float(samples.std(ddof=1)) if samples.size > 1 else 0.0,

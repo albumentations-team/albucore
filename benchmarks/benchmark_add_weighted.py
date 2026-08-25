@@ -61,6 +61,7 @@ def benchmark_interleaved(
         data = np.asarray(values, dtype=np.float64)
         median = float(np.median(data))
         result[name] = WallTimingMs(
+            raw=tuple(values),
             median=median,
             mean=float(data.mean()),
             std=float(data.std(ddof=1)) if repeats > 1 else 0.0,

@@ -9,17 +9,9 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu
+
 __all__ = ["warp_affine3d"]
-
-
-_WARP_AFFINE3D_INTERPOLATIONS = {
-    cv2.INTER_LINEAR: "bilinear",
-    cv2.INTER_NEAREST: "nearest",
-}
-_WARP_AFFINE3D_BORDERS = {
-    cv2.BORDER_CONSTANT: "zeros",
-    cv2.BORDER_REPLICATE: "border",
-}
 
 
 def _normalize_matrix(matrix: np.ndarray) -> np.ndarray:
@@ -73,24 +65,6 @@ def _normalized_theta(
     return np.ascontiguousarray(theta[:3], dtype=np.float32)
 
 
-def _normalize_border_value(
-    border_value: float | tuple[float, ...] | np.ndarray | None,
-    channels: int,
-) -> np.ndarray:
-    """Convert prevalidated constant-border values to contiguous float32 channel data."""
-    if border_value is None:
-        return np.zeros(channels, dtype=np.float32)
-    values = np.asarray(border_value, dtype=np.float32)
-    if values.ndim == 0:
-        values = np.full(channels, values.item(), dtype=np.float32)
-    return np.ascontiguousarray(values, dtype=np.float32)
-
-
-def _restore_uint8(result: torch.Tensor) -> torch.Tensor:
-    """Saturate and round one freshly allocated float32 sampling result exactly once."""
-    return torch.clamp(result, 0.0, 255.0).add_(0.5).to(torch.uint8)
-
-
 def _warp_affine3d_torch_cpu(
     volume: torch.Tensor,
     inverse_matrix: np.ndarray,
@@ -100,37 +74,10 @@ def _warp_affine3d_torch_cpu(
     border_values: np.ndarray,
 ) -> torch.Tensor:
     """Sample one prevalidated CPU ``CDHW`` tensor through the native Torch 3D kernel."""
-    mode = _WARP_AFFINE3D_INTERPOLATIONS[interpolation]
-    padding_mode = _WARP_AFFINE3D_BORDERS[border_mode]
     input_size = volume.shape[1], volume.shape[2], volume.shape[3]
     theta = torch.from_numpy(_normalized_theta(inverse_matrix, input_size, size)).unsqueeze(0)
-    working_volume = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
-
-    with torch.no_grad():
-        grid = torch_f.affine_grid(theta, [1, volume.shape[0], *size], align_corners=False)
-        if border_mode == cv2.BORDER_CONSTANT and np.any(border_values):
-            fill = torch.from_numpy(border_values).reshape(1, volume.shape[0], 1, 1, 1)
-            result = (
-                torch_f.grid_sample(
-                    working_volume.unsqueeze(0) - fill,
-                    grid,
-                    mode=mode,
-                    padding_mode=padding_mode,
-                    align_corners=False,
-                )
-                + fill
-            )
-        else:
-            result = torch_f.grid_sample(
-                working_volume.unsqueeze(0),
-                grid,
-                mode=mode,
-                padding_mode=padding_mode,
-                align_corners=False,
-            )
-        if volume.dtype == torch.uint8:
-            result = _restore_uint8(result)
-    return result.squeeze(0)
+    grid = torch_f.affine_grid(theta, [1, volume.shape[0], *size], align_corners=False).squeeze(0)
+    return _sample3d_torch_cpu(volume, grid, interpolation, border_mode, border_values)
 
 
 def _warp_affine3d_numpy(
