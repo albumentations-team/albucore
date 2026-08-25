@@ -46,9 +46,9 @@ ValueKind: TypeAlias = Literal[
     "per_channel_vector",
     "points_a",
     "points_b",
+    "sampling_grid",
     "scalar",
     "scalar_exponent",
-    "sampling_grid",
     "second_image",
     "shared_lut",
     "target_dtype",
@@ -102,9 +102,9 @@ VALUE_PER_CHANNEL_LUT: Final[ValueKind] = "per_channel_lut"
 VALUE_PER_CHANNEL_VECTOR: Final[ValueKind] = "per_channel_vector"
 VALUE_POINTS_A: Final[ValueKind] = "points_a"
 VALUE_POINTS_B: Final[ValueKind] = "points_b"
+VALUE_SAMPLING_GRID: Final[ValueKind] = "sampling_grid"
 VALUE_SCALAR: Final[ValueKind] = "scalar"
 VALUE_SCALAR_EXPONENT: Final[ValueKind] = "scalar_exponent"
-VALUE_SAMPLING_GRID: Final[ValueKind] = "sampling_grid"
 VALUE_SECOND_IMAGE: Final[ValueKind] = "second_image"
 VALUE_SHARED_LUT: Final[ValueKind] = "shared_lut"
 VALUE_TARGET_DTYPE: Final[ValueKind] = "target_dtype"
@@ -156,9 +156,9 @@ ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
     VALUE_PER_CHANNEL_VECTOR,
     VALUE_POINTS_A,
     VALUE_POINTS_B,
+    VALUE_SAMPLING_GRID,
     VALUE_SCALAR,
     VALUE_SCALAR_EXPONENT,
-    VALUE_SAMPLING_GRID,
     VALUE_SECOND_IMAGE,
     VALUE_SHARED_LUT,
     VALUE_TARGET_DTYPE,

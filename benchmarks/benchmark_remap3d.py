@@ -39,8 +39,8 @@ QUICK_SHAPES: tuple[Shape, ...] = ((32, 32, 32, 1),)
 FULL_SHAPES: tuple[Shape, ...] = (
     (32, 32, 32, 1),
     (32, 32, 32, 3),
-    (64, 128, 128, 1),
-    (64, 128, 128, 3),
+    (64, 128, 160, 1),
+    (64, 128, 160, 3),
     (128, 128, 128, 1),
     (128, 128, 128, 3),
 )
@@ -115,23 +115,40 @@ def _format_rows(rows: list[Row]) -> list[str]:
 
 
 def _format_memory_ledger(shapes: tuple[Shape, ...]) -> list[str]:
-    """State per-call allocations separately from caller-owned input and grid storage."""
+    """List known full-volume allocations for each public sampling scenario."""
     lines = [
         (
-            "| Shape DHWC | Caller grid MiB | New dense grid | Output uint8 MiB | Output float32 MiB | "
-            "uint8 float32 work MiB | Defensive input clone |"
+            "| Shape DHWC | Scenario | Input/grid bridge | uint8 float32 cast | Nonzero-fill shifted input | "
+            "grid_sample float32 result | uint8 clamp work | uint8 final result | Defensive volume clone |"
         ),
-        "|---|---:|---|---:|---:|---:|---|",
+        "|---|---|---|---:|---:|---:|---:|---:|---|",
     ]
     for shape in shapes:
         elements = int(np.prod(shape[:3]))
         channels = shape[-1]
-        grid_mib = elements * 3 * np.dtype(np.float32).itemsize / (1024 * 1024)
         uint8_mib = elements * channels / (1024 * 1024)
         float32_mib = uint8_mib * np.dtype(np.float32).itemsize
-        lines.append(
-            f"| `{'x'.join(map(str, shape))}` | {grid_mib:.1f} | 0 (view) | {uint8_mib:.1f} | "
-            f"{float32_mib:.1f} | {float32_mib:.1f} | 0 for supported inputs |",
+        shape_label = f"`{'x'.join(map(str, shape))}`"
+        lines.extend(
+            (
+                (
+                    f"| {shape_label} | float32, zero/replicate fill | 0 (views) | 0 | 0 | "
+                    f"{float32_mib:.2f} | 0 | 0 | 0 for measured inputs |"
+                ),
+                (
+                    f"| {shape_label} | float32, nonzero fill | 0 (views) | 0 | {float32_mib:.2f} | "
+                    f"{float32_mib:.2f} | 0 | 0 | 0 for measured inputs |"
+                ),
+                (
+                    f"| {shape_label} | uint8, zero/replicate fill | 0 (views) | {float32_mib:.2f} | 0 | "
+                    f"{float32_mib:.2f} | {float32_mib:.2f} | {uint8_mib:.2f} | 0 for measured inputs |"
+                ),
+                (
+                    f"| {shape_label} | uint8, nonzero fill | 0 (views) | {float32_mib:.2f} | "
+                    f"{float32_mib:.2f} | {float32_mib:.2f} | {float32_mib:.2f} | {uint8_mib:.2f} | "
+                    "0 for measured inputs |"
+                ),
+            ),
         )
     return lines
 
@@ -403,9 +420,11 @@ def main() -> None:
         "## Per-call allocation ledger",
         "",
         (
-            "The caller-owned normalized grid enters Torch through `torch.from_numpy` or `unsqueeze`, both views. "
-            "Neither public route materializes a second `(D, H, W, 3)` grid or clones supported input storage. "
-            "The only per-call full-volume allocations are the result and, for uint8, one float32 working volume."
+            "This ledger counts each known full-volume allocation, not peak residency. The caller-owned normalized "
+            "grid enters Torch through `torch.from_numpy` or `unsqueeze`, both views; no public route materializes a "
+            "second `(D, H, W, 3)` grid or clones the measured inputs. Nonzero constant fill creates a shifted float32 "
+            "input; uint8 adds a float32 cast, the sampled float32 result, a clamped float32 result, and the final "
+            "uint8 result."
         ),
         "",
         *_format_memory_ledger(shapes),
