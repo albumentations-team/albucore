@@ -60,14 +60,16 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     ``cv2.LUT`` directly for per-channel (256, 1, C) tables.
 
     Args:
-        img: uint8 image, any shape. Strided inputs are copied before StringZilla reads them.
+        img: uint8 image, any shape. Strided inputs use a contiguous temporary for StringZilla.
         lut: 1-D uint8 array of length 256.
-        inplace: If True, mutates ``img`` in-place and returns it.
+        inplace: If True, mutates ``img`` in-place and returns it. A strided input is copied
+                 back after StringZilla processes its contiguous temporary.
                  If False, operates on a copy.
 
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
+    original_img = img
     if not img.flags["C_CONTIGUOUS"]:
         img = np.ascontiguousarray(img)
 
@@ -75,7 +77,9 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     lut_view = memoryview(cast("Any", lut))
     if inplace:
         sz.translate(img_view, lut_view, inplace=True)
-        return img
+        if img is not original_img:
+            original_img[...] = img
+        return original_img
 
     # sz.translate(inplace=False) allocates + writes in one pass — faster than copy + inplace.
     raw = sz.translate(img_view, lut_view, inplace=False)

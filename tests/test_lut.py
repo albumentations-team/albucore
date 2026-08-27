@@ -54,6 +54,20 @@ def test_sz_lut_non_contiguous_input_matches_cv2() -> None:
     np.testing.assert_array_equal(out, expected)
 
 
+def test_sz_lut_inplace_mutates_strided_input() -> None:
+    rng = np.random.default_rng(0)
+    base = rng.integers(0, 256, size=(24, 64, 3), dtype=np.uint8)
+    img = base[:, ::2, :]
+    lut = np.roll(np.arange(256, dtype=np.uint8), 17)
+    expected = _cv2_lut_uint8(np.ascontiguousarray(img.copy()), lut)
+
+    out = sz_lut(img, lut, inplace=True)
+
+    assert out is img  # noqa: S101
+    assert not img.flags["C_CONTIGUOUS"]
+    np.testing.assert_array_equal(img, expected)
+
+
 def test_cv2_lut_uint8_preserves_hw1_shape() -> None:
     """Raw ``cv2.LUT`` returns ``(H, W)`` for ``(H, W, 1)``; wrapper keeps channel axis."""
     img = np.arange(60, dtype=np.uint8).reshape(6, 10, 1)
