@@ -154,7 +154,6 @@ def array_metadata(array: np.ndarray) -> dict[str, Any]:
         "max": float(np.max(array)) if array.size else None,
         "sum": float(np.sum(array, dtype=np.float64)) if array.size else 0.0,
         "mean": float(np.mean(array, dtype=np.float64)) if array.size else None,
-        "c_contiguous": bool(array.flags.c_contiguous),
         "sha256": hashlib.sha256(raw).hexdigest(),
     }
 

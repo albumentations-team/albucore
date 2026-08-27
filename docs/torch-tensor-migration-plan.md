@@ -49,10 +49,8 @@ dtype, values, and aliasing semantics documented by the router.
 
 ### 2. Tensor-aware wrappers
 
-- [ ] Add container-aware implementations for `contiguous`,
-  `preserve_channel_dim`, `clipped`, `float32_io`, and `uint8_io`.
-- [ ] Add separate channel-last and channel-first reshape tables to
-  `batch_transform`.
+- [ ] Add container-aware implementations for `preserve_channel_dim`, `clipped`,
+  `float32_io`, and `uint8_io`.
 - [ ] Keep `maybe_process_in_chunks` explicitly NumPy/OpenCV-specific.
 - [ ] Test contiguous and strided inputs without adding defensive copies that
   the caller contract does not require.

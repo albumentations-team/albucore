@@ -61,7 +61,7 @@ def verify() -> list[str]:
                         array_metadata(expected),
                         expected_meta,
                         f"{label}.expected",
-                        ("shape", "dtype", "c_contiguous", "sha256"),
+                        ("shape", "dtype", "sha256"),
                     ),
                 )
                 errors.extend(
@@ -69,7 +69,7 @@ def verify() -> list[str]:
                         array_metadata(computed),
                         expected_meta,
                         f"{label}.computed",
-                        ("shape", "dtype", "c_contiguous"),
+                        ("shape", "dtype"),
                     ),
                 )
 

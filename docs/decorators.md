@@ -21,25 +21,6 @@ def my_function(img: ImageType) -> ImageType:
     return cv2.flip(img, 1)
 ```
 
-### `@contiguous`
-
-Ensures arrays are C-contiguous for optimal performance with certain operations (e.g., stringzilla).
-
-**Why**: Some operations require C-contiguous memory layout. Fortran-contiguous arrays will be converted, which may involve copying data.
-
-```python
-from albucore.decorators import contiguous
-
-# Implemented in ``albucore.lut``; pattern is the same.
-@contiguous
-def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8:
-    """Apply lookup table using stringzilla."""
-    if not inplace:
-        img = img.copy()
-    sz.translate(memoryview(img), memoryview(lut), inplace=True)
-    return img
-```
-
 ### `@clipped`
 
 Clips the result to the valid range for the input dtype.
@@ -89,27 +70,6 @@ def some_image_function(img: np.ndarray) -> np.ndarray:
     return uint8_only_backend(img)
 ```
 
-## Batch Processing Decorator
-
-### `@batch_transform`
-
-Handles batch transformations by reshaping data appropriately for different transform types.
-
-```python
-from albucore.decorators import batch_transform, BatchTransformType
-
-@batch_transform(transform_type="spatial")
-def apply_spatial_transform(self, img: np.ndarray, ...) -> np.ndarray:
-    # Transform is applied to reshaped data
-    # Decorator handles (N,H,W,C) -> (H,W,N*C) conversion
-    return transformed_img
-```
-
-**Transform types**:
-- `"spatial"`: For transforms that modify spatial dimensions (H, W)
-- `"channel"`: For transforms that modify channel dimension
-- `"full"`: No reshaping, process the array as-is
-
 ## Usage Patterns
 
 ### Single-Channel Image Handling
@@ -132,31 +92,14 @@ def add_opencv(img: ImageType, value: np.ndarray | float) -> ImageType:
     return cv2.add(img, prepared_value)
 ```
 
-### Memory Layout Enforcement
+### Views
 
 ```python
-@contiguous
 def hflip_numpy(img: ImageType) -> ImageType:
-    # Slicing might produce non-contiguous arrays
     return img[:, ::-1, ...]
 ```
 
-## Decorator Ordering
-
-When using multiple decorators, apply them in this order (from innermost to outermost):
-
-1. `@contiguous` - Ensure proper memory layout first
-2. `@preserve_channel_dim` - Handle OpenCV quirks
-3. `@clipped` - Clip final results
-
-```python
-@clipped
-@preserve_channel_dim
-@contiguous
-def my_function(img: ImageType) -> ImageType:
-    # Implementation
-    return result
-```
+NumPy slicing returns a view with its native strides. A later backend that requires contiguous input performs that repair at its own boundary.
 
 ## Common Gotchas
 
@@ -164,6 +107,4 @@ def my_function(img: ImageType) -> ImageType:
 
 2. **`@preserve_channel_dim` is not needed for NumPy operations**: NumPy maintains dimensions correctly; this is primarily for OpenCV.
 
-3. **`@contiguous` adds overhead**: Only use it when required by the underlying library (e.g., stringzilla).
-
-4. **Type conversion decorators**: `@float32_io` and `@uint8_io` involve conversions that have cost. Use them judiciously.
+3. **Type conversion decorators**: `@float32_io` and `@uint8_io` involve conversions that have cost. Use them judiciously.

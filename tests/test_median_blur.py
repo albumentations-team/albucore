@@ -43,7 +43,6 @@ def test_median_blur_uint8_matches_opencv(channels: int, kernel_size: int) -> No
     np.testing.assert_array_equal(result, _uint8_reference(image, kernel_size))
     assert result.shape == image.shape
     assert result.dtype == image.dtype
-    assert result.flags.c_contiguous
 
 
 @pytest.mark.parametrize("channels", [1, 3, 5])
@@ -101,7 +100,6 @@ def test_median_blur_accepts_non_contiguous_read_only_input(
     np.testing.assert_array_equal(image, before)
     assert result.shape == image.shape
     assert result.dtype == image.dtype
-    assert result.flags.c_contiguous
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
