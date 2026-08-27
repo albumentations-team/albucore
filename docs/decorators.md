@@ -70,27 +70,6 @@ def some_image_function(img: np.ndarray) -> np.ndarray:
     return uint8_only_backend(img)
 ```
 
-## Batch Processing Decorator
-
-### `@batch_transform`
-
-Handles batch transformations by reshaping data appropriately for different transform types.
-
-```python
-from albucore.decorators import batch_transform, BatchTransformType
-
-@batch_transform(transform_type="spatial")
-def apply_spatial_transform(self, img: np.ndarray, ...) -> np.ndarray:
-    # Transform is applied to reshaped data
-    # Decorator handles (N,H,W,C) -> (H,W,N*C) conversion
-    return transformed_img
-```
-
-**Transform types**:
-- `"spatial"`: For transforms that modify spatial dimensions (H, W)
-- `"channel"`: For transforms that modify channel dimension
-- `"full"`: No reshaping, process the array as-is
-
 ## Usage Patterns
 
 ### Single-Channel Image Handling

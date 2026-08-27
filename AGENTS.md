@@ -24,7 +24,6 @@ Please familiarize yourself with these key documents:
    - `@preserve_channel_dim` - Maintains single-channel shape
    - `@clipped` - Clips to valid dtype range
    - `@float32_io` / `@uint8_io` - Type conversion wrappers
-   - `@batch_transform` - Batch processing patterns
 
 3. **[Performance Optimization](docs/performance-optimization.md)** - Performance best practices
    - LUT operations and float32 dtype management

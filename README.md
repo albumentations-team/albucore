@@ -225,8 +225,7 @@ The package also star-exports multi-channel wrappers for `copy_make_border`, `ga
 | `float32_io` | Wrap a function: cast input to float32, cast output back to original dtype |
 | `uint8_io` | Wrap a function: cast input to uint8, cast output back to original dtype |
 
-See [docs/decorators.md](docs/decorators.md) for `@preserve_channel_dim`, `@clipped`, and
-`@batch_transform` (used internally, not re-exported).
+See [docs/decorators.md](docs/decorators.md) for `@preserve_channel_dim` and `@clipped`.
 
 ### Array layouts and batch processing
 
@@ -236,9 +235,9 @@ Arithmetic, normalization, statistics, conversion, and elementwise routers opera
 - Batches: `(N, H, W, C)`
 - Single volumes: `(D, H, W, C)`
 
-Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to documented array ranks while restoring the original layout.
+Spatial routers document their own image-shape requirements.
 
-See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@clipped`, `@batch_transform`).
+See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@clipped`).
 
 ## Performance
 

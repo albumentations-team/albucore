@@ -99,7 +99,7 @@ Keep intermediate buffers float32 unless a benchmark proves otherwise. Public AP
 ### 7. Utilities and Decorators
 
 - Utilities: `get_num_channels`, `convert_value`, `clip`, etc. in `albucore.utils`.
-- Decorators: `@preserve_channel_dim`, `@clipped`, `@batch_transform`, etc. in `albucore.decorators`.
+- Decorators: `@preserve_channel_dim`, `@clipped`, etc. in `albucore.decorators`.
 
 ### 8. Tests
 
