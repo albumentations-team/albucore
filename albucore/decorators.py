@@ -9,32 +9,6 @@ from albucore.utils import P
 Array = np.ndarray[Any, Any]
 
 
-def contiguous(
-    func: Callable[Concatenate[Array, P], Array],
-) -> Callable[Concatenate[Array, P], Array]:
-    """Ensure that input img is contiguous and the output array is also contiguous.
-
-    Note: This decorator enforces C-contiguous memory layout. Fortran-contiguous
-    arrays will be converted to C-contiguous, which involves copying the data.
-    This may impact performance for large arrays but is required for compatibility
-    with certain operations (e.g., stringzilla).
-    """
-
-    @wraps(func)
-    def wrapped_function(img: Array, *args: P.args, **kwargs: P.kwargs) -> Array:
-        # Ensure the input array is contiguous only if needed
-        if not img.flags["C_CONTIGUOUS"]:
-            img = np.require(img, requirements=["C_CONTIGUOUS"])
-        # Call the original function with the contiguous input
-        result = func(img, *args, **kwargs)
-        # Ensure the output array is contiguous only if needed
-        if not result.flags["C_CONTIGUOUS"]:
-            return np.require(result, requirements=["C_CONTIGUOUS"])
-        return result
-
-    return wrapped_function
-
-
 def preserve_channel_dim(
     func: Callable[Concatenate[Array, P], Array],
 ) -> Callable[Concatenate[Array, P], Array]:
@@ -224,7 +198,6 @@ __all__ = [
     "BatchTransformType",
     "ShapeType",
     "batch_transform",
-    "contiguous",
     "get_shape_type",
     "preserve_channel_dim",
     "reshape_for_channel",

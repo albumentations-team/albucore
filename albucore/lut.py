@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import stringzilla as sz
 
-from albucore.decorators import contiguous, preserve_channel_dim
+from albucore.decorators import preserve_channel_dim
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8
 
 
@@ -49,7 +49,6 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
     return _apply_float_lut_per_channel_loop(img, lut)
 
 
-@contiguous
 def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8:
     """Apply a shared 256-entry uint8→uint8 LUT using StringZilla ``translate``.
 
@@ -61,7 +60,7 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     ``cv2.LUT`` directly for per-channel (256, 1, C) tables.
 
     Args:
-        img: uint8 image, any shape — must be C-contiguous (enforced by ``@contiguous``).
+        img: uint8 image, any shape. Strided inputs are copied before StringZilla reads them.
         lut: 1-D uint8 array of length 256.
         inplace: If True, mutates ``img`` in-place and returns it.
                  If False, operates on a copy.
@@ -69,6 +68,9 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
+    if not img.flags["C_CONTIGUOUS"]:
+        img = np.ascontiguousarray(img)
+
     img_view = memoryview(cast("Any", img))
     lut_view = memoryview(cast("Any", lut))
     if inplace:

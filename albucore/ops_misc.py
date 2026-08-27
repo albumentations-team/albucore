@@ -11,7 +11,7 @@ import numkong as nk
 import numpy as np
 
 from albucore.convert import from_float, to_float
-from albucore.decorators import contiguous, preserve_channel_dim
+from albucore.decorators import preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ImageFloat32,
@@ -27,7 +27,6 @@ _IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
 
 
-@contiguous
 def hflip_numpy(img: ImageType) -> ImageType:
     return img[:, ::-1, ...]
 
@@ -43,19 +42,17 @@ def hflip(img: ImageType) -> ImageType:
     """Flip image horizontally (mirror left-right).
 
     Routing:
-    - All channel counts: ``cv2.flip(img, 1)``. Images with more than
-      ``MAX_OPENCV_FLIP_CHANNELS`` channels are chunked for OpenCV.
+    - All channel counts: NumPy slice ``img[:, ::-1, ...]``.
 
-    Alternative: ``hflip_numpy`` (NumPy slice ``img[:, ::-1, ...]``; useful when OpenCV is
-    unavailable or for non-contiguous arrays).
+    Alternative: ``hflip_cv2`` materializes an OpenCV result.
 
     Args:
-        img: ``(H, W, C)`` image or batch/volume, any dtype.
+        img: ``(H, W, C)`` image, any dtype.
 
     Returns:
         Horizontally flipped image, same shape and dtype.
     """
-    return hflip_cv2(img)
+    return hflip_numpy(img)
 
 
 @preserve_channel_dim
@@ -65,7 +62,6 @@ def vflip_cv2(img: ImageType) -> ImageType:
     return cast("ImageType", cv2.flip(img, 0))
 
 
-@contiguous
 def vflip_numpy(img: ImageType) -> ImageType:
     return img[::-1, ...]
 
@@ -74,22 +70,17 @@ def vflip(img: ImageType) -> ImageType:
     """Flip image vertically (mirror top-bottom).
 
     Routing:
-    - **C <= 4**: ``cv2.flip(img, 0)``. Images with more than
-      ``MAX_OPENCV_FLIP_CHANNELS`` channels are chunked by the explicit OpenCV
-      backend.
-    - **C > 4**: NumPy slice ``img[::-1, ...]`` (faster than OpenCV on benchmarked shapes).
+    - All channel counts: NumPy slice ``img[::-1, ...]``.
 
-    Alternative: ``vflip_numpy`` or ``vflip_cv2`` for explicit backend selection.
+    Alternative: ``vflip_cv2`` materializes an OpenCV result.
 
     Args:
-        img: ``(H, W, C)`` image or batch/volume, any dtype.
+        img: ``(H, W, C)`` image, any dtype.
 
     Returns:
         Vertically flipped image, same shape and dtype.
     """
-    if img.ndim >= 3 and get_num_channels(img) > MAX_OPENCV_WORKING_CHANNELS:
-        return vflip_numpy(img)
-    return vflip_cv2(img)
+    return vflip_numpy(img)
 
 
 def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
@@ -213,7 +204,6 @@ def _median_blur_uint8(img: ImageUInt8, ksize: int) -> ImageUInt8:
     return cast("ImageUInt8", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
 
 
-@contiguous
 @preserve_channel_dim
 def median_blur(img: ImageType, ksize: int) -> ImageType:
     """Median blur with dtype- and kernel-aware OpenCV routing.
@@ -227,11 +217,13 @@ def median_blur(img: ImageType, ksize: int) -> ImageType:
         ksize: Kernel size (odd: 3, 5, 7, 9, ...).
 
     Returns:
-        Median-filtered image with the same shape and dtype. The result is C-contiguous and does not share storage
-        with the input.
+        Median-filtered image with the same shape and dtype. It does not share storage with the input.
 
     The caller validates the image dtype and kernel size before entering this low-level router.
     """
+    if not img.flags["C_CONTIGUOUS"]:
+        img = cast("ImageType", np.ascontiguousarray(img))
+
     if img.dtype == np.uint8:
         return _median_blur_uint8(cast("ImageUInt8", img), ksize)
     if img.dtype == np.float32 and ksize in (3, 5):
