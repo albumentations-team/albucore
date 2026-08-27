@@ -22,10 +22,8 @@ Please familiarize yourself with these key documents:
 
 2. **[Decorators](docs/decorators.md)** - Decorator usage and patterns
    - `@preserve_channel_dim` - Maintains single-channel shape
-   - `@contiguous` - Ensures C-contiguous memory layout
    - `@clipped` - Clips to valid dtype range
    - `@float32_io` / `@uint8_io` - Type conversion wrappers
-   - `@batch_transform` - Batch processing patterns
 
 3. **[Performance Optimization](docs/performance-optimization.md)** - Performance best practices
    - LUT operations and float32 dtype management
@@ -120,7 +118,6 @@ def operation(img: ImageType, value: ValueType, inplace: bool = False) -> ImageT
 Albucore provides several useful decorators:
 
 - `@preserve_channel_dim` - Maintains `(H, W, 1)` shape when OpenCV might drop it
-- `@contiguous` - Ensures C-contiguous memory layout
 - `@clipped` - Clips results to valid dtype range
 - `@float32_io` / `@uint8_io` - Type conversion wrappers
 
@@ -150,7 +147,7 @@ import numpy as np
 import numkong as nk
 import stringzilla as sz
 
-from albucore.decorators import contiguous, preserve_channel_dim
+from albucore.decorators import preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,

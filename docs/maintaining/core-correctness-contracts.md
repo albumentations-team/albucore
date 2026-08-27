@@ -69,8 +69,7 @@ Short-vector behavior follows `convert_value` and must be covered by router cont
 
 ## Contiguity
 
-Routers should document whether non-contiguous input is accepted, copied, or rejected. Decorators
-that enforce contiguity need direct tests.
+Routers that need a contiguous input normalize it at their own backend boundary.
 
 ## Backend Routing
 

@@ -1,181 +1,58 @@
-import pytest
 import numpy as np
+import pytest
+
 from albucore.functions import hflip, hflip_cv2, hflip_numpy, vflip, vflip_cv2, vflip_numpy
 from albucore.ops_misc import _flip_multichannel
 
-@pytest.mark.parametrize("channels", [1, 3, 5])
+
+@pytest.mark.parametrize(
+    ("main", "numpy_backend", "cv2_backend", "axis"),
+    [
+        (hflip, hflip_numpy, hflip_cv2, 1),
+        (vflip, vflip_numpy, vflip_cv2, 0),
+    ],
+    ids=["horizontal", "vertical"],
+)
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_hflip_functions(channels, dtype):
-    # Create a sample image
-    if channels == 1:
-        img = np.arange(20).reshape(4, 5).astype(dtype)
-    else:
-        img = np.arange(20 * channels).reshape(4, 5, channels).astype(dtype)
+@pytest.mark.parametrize("channels", [1, 3, 5, 600])
+def test_flip_backends_preserve_values_and_public_views(main, numpy_backend, cv2_backend, axis, dtype, channels):
+    img = np.arange(4 * 5 * channels, dtype=dtype).reshape(4, 5, channels)
 
-    # Apply both flip functions
-    flipped_numpy = hflip_numpy(img)
-    flipped_cv2 = hflip_cv2(img)
+    expected = np.flip(img, axis=axis)
+    numpy_result = numpy_backend(img)
+    cv2_result = cv2_backend(img)
+    main_result = main(img)
 
-    # Test 1: Check if results match
-    np.testing.assert_array_equal(flipped_numpy, flipped_cv2)
-
-    # Test 2: Check if the flip is correct
-
-    expected = img[:, ::-1]
-    np.testing.assert_array_equal(flipped_numpy, expected)
-
-    # Test 3: Check if results are contiguous
-    assert flipped_numpy.flags['C_CONTIGUOUS']
-    assert flipped_cv2.flags['C_CONTIGUOUS']
-
-    # Test 4: Check if dtype is preserved
-    assert flipped_numpy.dtype == dtype
-    assert flipped_cv2.dtype == dtype
-
-@pytest.mark.parametrize("shape", [(10, 10), (10, 10, 1), (10, 10, 3), (10, 10, 5)])
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_hflip_identity(shape, dtype):
-    # Create a random image
-    img = np.random.rand(*shape).astype(dtype)
-
-    # Apply flip twice should result in the original image
-    flipped_twice_numpy = hflip_numpy(hflip_numpy(img))
-    flipped_twice_cv2 = hflip_cv2(hflip_cv2(img))
-
-    np.testing.assert_array_almost_equal(img, flipped_twice_numpy)
-    np.testing.assert_array_almost_equal(img, flipped_twice_cv2)
-
-
-@pytest.mark.parametrize("channels", [1, 3, 5])
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_vflip_functions(channels, dtype):
-    # Create a sample image
-    if channels == 1:
-        img = np.arange(20).reshape(4, 5).astype(dtype)
-    else:
-        img = np.arange(20 * channels).reshape(4, 5, channels).astype(dtype)
-
-    # Apply all flip functions
-    flipped_numpy = vflip_numpy(img)
-    flipped_cv2 = vflip_cv2(img)
-    flipped_main = vflip(img)
-
-    # Test 1: Check if results match
-    np.testing.assert_array_equal(flipped_numpy, flipped_cv2)
-    np.testing.assert_array_equal(flipped_numpy, flipped_main)
-
-    # Test 2: Check if the flip is correct
-    expected = img[::-1, :]
-    np.testing.assert_array_equal(flipped_numpy, expected)
-
-    # Test 3: Check if results are contiguous
-    assert flipped_numpy.flags['C_CONTIGUOUS']
-    assert flipped_cv2.flags['C_CONTIGUOUS']
-    assert flipped_main.flags['C_CONTIGUOUS']
-
-    # Test 4: Check if dtype is preserved
-    assert flipped_numpy.dtype == dtype
-    assert flipped_cv2.dtype == dtype
-    assert flipped_main.dtype == dtype
-
-@pytest.mark.parametrize("shape", [(10, 10), (10, 10, 1), (10, 10, 3), (10, 10, 5)])
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_vflip_identity(shape, dtype):
-    # Create a random image
-    img = np.random.rand(*shape).astype(dtype)
-
-    # Apply flip twice should result in the original image
-    flipped_twice_numpy = vflip_numpy(vflip_numpy(img))
-    flipped_twice_cv2 = vflip_cv2(vflip_cv2(img))
-    flipped_twice_main = vflip(vflip(img))
-
-    np.testing.assert_array_almost_equal(img, flipped_twice_numpy)
-    np.testing.assert_array_almost_equal(img, flipped_twice_cv2)
-    np.testing.assert_array_almost_equal(img, flipped_twice_main)
-
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_multichannel_hflip(dtype):
-    """Test horizontal flip above OpenCV's channel limit."""
-    # Create a sample image with 600 channels (exceeds OpenCV's channel limit)
-    channels = 600
-    height, width = 10, 15
-    img = np.arange(height * width * channels).reshape(height, width, channels).astype(dtype)
-
-    # Apply flip functions
-    flipped_numpy = hflip_numpy(img)
-    flipped_cv2 = hflip_cv2(img)
-    flipped_main = hflip(img)
-
-    # Test 1: Check if results match
-    np.testing.assert_array_equal(flipped_numpy, flipped_cv2)
-    np.testing.assert_array_equal(flipped_numpy, flipped_main)
-
-    # Test 2: Check if the flip is correct
-    expected = img[:, ::-1, :]
-    np.testing.assert_array_equal(flipped_numpy, expected)
-
-    # Test 3: Check if results are contiguous
-    assert flipped_cv2.flags['C_CONTIGUOUS']
-    assert flipped_main.flags['C_CONTIGUOUS']
-
-    # Test 4: Check if dtype is preserved
-    assert flipped_cv2.dtype == img.dtype
-    assert flipped_main.dtype == img.dtype
+    np.testing.assert_array_equal(numpy_result, expected)
+    np.testing.assert_array_equal(cv2_result, expected)
+    np.testing.assert_array_equal(main_result, expected)
+    assert np.shares_memory(numpy_result, img)
+    assert np.shares_memory(main_result, img)
+    assert not numpy_result.flags["C_CONTIGUOUS"]
+    assert not main_result.flags["C_CONTIGUOUS"]
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_multichannel_vflip(dtype):
-    """Test vertical flip above OpenCV's channel limit."""
-    # Create a sample image with 600 channels (exceeds OpenCV's channel limit)
-    channels = 600
-    height, width = 10, 15
-    img = np.arange(height * width * channels).reshape(height, width, channels).astype(dtype)
+@pytest.mark.parametrize("flip", [hflip, vflip], ids=["horizontal", "vertical"])
+def test_public_flips_are_involutions(flip, dtype):
+    img = np.arange(4 * 5 * 3, dtype=dtype).reshape(4, 5, 3)
 
-    # Apply flip functions
-    flipped_numpy = vflip_numpy(img)
-    flipped_cv2 = vflip_cv2(img)
-    flipped_main = vflip(img)
-
-    # Test 1: Check if results match
-    np.testing.assert_array_equal(flipped_numpy, flipped_cv2)
-    np.testing.assert_array_equal(flipped_numpy, flipped_main)
-
-    # Test 2: Check if the flip is correct
-    expected = img[::-1, :, :]
-    np.testing.assert_array_equal(flipped_numpy, expected)
-
-    # Test 3: Check if results are contiguous
-    assert flipped_cv2.flags['C_CONTIGUOUS']
-    assert flipped_main.flags['C_CONTIGUOUS']
-
-    # Test 4: Check if dtype is preserved
-    assert flipped_cv2.dtype == img.dtype
-    assert flipped_main.dtype == img.dtype
+    np.testing.assert_array_equal(flip(flip(img)), img)
 
 
 @pytest.mark.parametrize("channels", [129, 513, 600, 1024])
 @pytest.mark.parametrize("flip_code", [0, 1, -1])
 def test_flip_multichannel_function(channels, flip_code):
-    """Test the _flip_multichannel function directly with different channel counts and flip codes."""
-    height, width = 8, 10
-    img = np.arange(height * width * channels).reshape(height, width, channels).astype(np.float32)
+    img = np.arange(8 * 10 * channels, dtype=np.float32).reshape(8, 10, channels)
 
-    # Apply the multichannel flip function
     flipped = _flip_multichannel(img, flip_code)
 
-    # Determine expected result based on flip_code
-    if flip_code == 0:  # vertical flip
+    if flip_code == 0:
         expected = img[::-1, :, :]
-    elif flip_code == 1:  # horizontal flip
+    elif flip_code == 1:
         expected = img[:, ::-1, :]
     else:  # both
         expected = img[::-1, ::-1, :]
 
-    # Check if the result matches the expected output
     np.testing.assert_array_equal(flipped, expected)
-
-    # Check if the result is contiguous
-    assert flipped.flags['C_CONTIGUOUS']
-
-    # Check if dtype is preserved
     assert flipped.dtype == img.dtype

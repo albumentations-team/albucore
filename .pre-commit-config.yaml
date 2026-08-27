@@ -69,7 +69,7 @@ repos:
         additional_dependencies: ["tomli"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.16.2
+    rev: v0.16.4
     hooks:
       # Run the linter.
       - id: ruff-check
@@ -92,7 +92,7 @@ repos:
         args: [--py310-plus]
         exclude: ^(tests|benchmark)/
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
+    rev: v2.3.1
     hooks:
       - id: mypy
         files: ^(albucore|benchmark)/

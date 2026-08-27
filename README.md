@@ -200,8 +200,8 @@ These functions accept float32 arrays up to rank 4 and preserve the exact input 
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `hflip` | `(img)` | Mirror left-right | `cv2.flip(img, 1)`; chunked above OpenCV's 128-channel limit |
-| `vflip` | `(img)` | Mirror top-bottom | `cv2.flip(img, 0)` for ≤4 channels; NumPy slice for >4 channels |
+| `hflip` | `(img)` | Mirror left-right | NumPy slice view for every channel count; `hflip_cv2` remains the explicit materializing backend |
+| `vflip` | `(img)` | Mirror top-bottom | NumPy slice view for every channel count; `vflip_cv2` remains the explicit materializing backend |
 | `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked `cv2.medianBlur`; float32 ksize 3/5 → native OpenCV; float32 ksize ≥ 7 → uint8 conversion fallback |
 | `gaussian_blur3d` | `(volume, sigma, kernel_size=0)` | Blur one volume along depth, height, and width | One NumPy `DHWC` or CPU Torch `CDHW` volume; three float32 grouped Torch passes with `BORDER_REFLECT_101`; uint8 restores once after filtering |
 | `separable_filter3d` | `(volume, kernels)` | Apply three D/H/W kernels to one volume | One NumPy `DHWC` or CPU Torch `CDHW` volume; grouped Torch filtering with the same padding and dtype rules as `gaussian_blur3d` |
@@ -225,8 +225,7 @@ The package also star-exports multi-channel wrappers for `copy_make_border`, `ga
 | `float32_io` | Wrap a function: cast input to float32, cast output back to original dtype |
 | `uint8_io` | Wrap a function: cast input to uint8, cast output back to original dtype |
 
-See [docs/decorators.md](docs/decorators.md) for `@preserve_channel_dim`, `@contiguous`,
-`@clipped`, and `@batch_transform` (used internally, not re-exported).
+See [docs/decorators.md](docs/decorators.md) for `@preserve_channel_dim` and `@clipped`.
 
 ### Array layouts and batch processing
 
@@ -236,9 +235,9 @@ Arithmetic, normalization, statistics, conversion, and elementwise routers opera
 - Batches: `(N, H, W, C)`
 - Single volumes: `(D, H, W, C)`
 
-Spatial routers document their own image-shape requirements. Transform authors can use `@batch_transform` to adapt an image operation to documented array ranks while restoring the original layout.
+Spatial routers document their own image-shape requirements.
 
-See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@contiguous`, `@clipped`, `@batch_transform`).
+See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@clipped`).
 
 ## Performance
 

@@ -5,7 +5,6 @@
       "name": "add_uint8_vector_hwc",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 255.0,
           "mean": 143.81004901960785,
@@ -26,7 +25,6 @@
       "name": "multiply_float32_scalar_hwc",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "float32",
           "max": 0.75,
           "mean": 0.3750000005820766,
@@ -47,7 +45,6 @@
       "name": "multiply_add_uint8_vector_hwc9",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 255.0,
           "mean": 131.98779557589626,
@@ -68,7 +65,6 @@
       "name": "normalize_uint8_vector_hwc",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "float32",
           "max": 4.125,
           "mean": 0.41808823728020866,
@@ -89,7 +85,6 @@
       "name": "to_from_float_uint8_hwc1",
       "outputs": {
         "float": {
-          "c_contiguous": true,
           "dtype": "float32",
           "max": 0.9921568632125854,
           "mean": 0.4891067636587347,
@@ -103,7 +98,6 @@
           "sum": 35.215686983428895
         },
         "roundtrip": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 253.0,
           "mean": 124.72222222222223,
@@ -124,7 +118,6 @@
       "name": "apply_uint8_lut_shared_hwc",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 255.0,
           "mean": 127.32352941176471,
@@ -145,7 +138,6 @@
       "name": "apply_uint8_lut_per_channel_hwc9",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 255.0,
           "mean": 127.47419272819731,
@@ -166,7 +158,6 @@
       "name": "sz_lut_shared_hwc1",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 255.0,
           "mean": 130.27777777777777,
@@ -187,7 +178,6 @@
       "name": "flips_float32_hwc",
       "outputs": {
         "hflip": {
-          "c_contiguous": true,
           "dtype": "float32",
           "max": 1.0,
           "mean": 0.4999999998212397,
@@ -201,7 +191,6 @@
           "sum": 407.9999998541316
         },
         "vflip": {
-          "c_contiguous": true,
           "dtype": "float32",
           "max": 1.0,
           "mean": 0.4999999998212397,
@@ -222,7 +211,6 @@
       "name": "resize_nearest_uint8_hwc1",
       "outputs": {
         "result": {
-          "c_contiguous": true,
           "dtype": "uint8",
           "max": 253.0,
           "mean": 127.87412587412588,
@@ -243,7 +231,6 @@
       "name": "stats_uint8_per_channel_hwc",
       "outputs": {
         "mean": {
-          "c_contiguous": true,
           "dtype": "float64",
           "max": 127.97058823529412,
           "mean": 127.67647058823529,
@@ -255,7 +242,6 @@
           "sum": 383.02941176470586
         },
         "std": {
-          "c_contiguous": true,
           "dtype": "float64",
           "max": 73.87320849808306,
           "mean": 73.84734561318682,
@@ -267,7 +253,6 @@
           "sum": 221.54203683956044
         },
         "sum": {
-          "c_contiguous": true,
           "dtype": "uint64",
           "max": 34808.0,
           "mean": 34728.0,
