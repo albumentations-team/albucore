@@ -300,7 +300,7 @@ def _parse_args() -> argparse.Namespace:
     scope.add_argument("--quick", action="store_true", help="Use the small 32-cube development matrix.")
     scope.add_argument("--full", action="store_true", help="Use every required NumPy and Tensor route cell.")
     parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark an explicit DHWC shape.")
-    parser.add_argument("--threads", type=int, default=1, choices=(1,), help="Fixed CPU thread count.")
+    parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown report path.")
@@ -310,7 +310,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Measure public NumPy/Tensor routes and the complete Tensor bridge baseline."""
     args = _parse_args()
-    thread_settings = benchmark_threads.configure_libraries(torch, cv2)
+    thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     rng = np.random.default_rng(20260825)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
     rows: list[Row] = []

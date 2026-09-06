@@ -209,7 +209,7 @@ def _parse_args() -> argparse.Namespace:
     group.add_argument("--quick", action="store_true", help="Use small and thin-slab shapes.")
     group.add_argument("--full", action="store_true", help="Use the full canonical DHWC matrix.")
     parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark an explicit DHWC shape.")
-    parser.add_argument("--threads", type=int, default=1, choices=(1,), help="Fixed CPU thread count.")
+    parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown output path.")
@@ -265,7 +265,7 @@ def _time_tensor_routes(
 def main() -> None:
     """Run the selected shape/dtype matrix."""
     args = _parse_args()
-    thread_settings = benchmark_threads.configure_libraries(torch, cv2)
+    thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
     kernels = _kernels()
     rng = np.random.default_rng(20260805)

@@ -167,7 +167,7 @@ def parse_args() -> argparse.Namespace:
     shape_group.add_argument("--quick", action="store_true", help="Use small plus thin-slab shapes.")
     shape_group.add_argument("--full", action="store_true", help="Use the canonical DHWC matrix.")
     parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark one explicit DHWC shape.")
-    parser.add_argument("--threads", type=int, default=1, choices=(1,), help="Fixed CPU thread count.")
+    parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown report path.")
@@ -177,7 +177,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Measure direct Tensor, bridge, and public router performance."""
     args = parse_args()
-    thread_settings = benchmark_threads.configure_libraries(torch, cv2)
+    thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
     rows: list[Row] = []
 
