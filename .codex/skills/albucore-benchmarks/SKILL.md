@@ -10,6 +10,9 @@ Before designing a performance comparison, read `../performance-optimization/SKI
 candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random
 generation.
 
+Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
+performance guide. Benchmark additional thread counts only when the user explicitly requests thread scaling.
+
 ## Layout
 
 - `benchmarks/` - Python timing scripts. Run from repo root: `uv run python benchmarks/<script>.py`.

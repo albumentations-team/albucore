@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import benchmark_threads
 import cv2
 import numpy as np
 import torch
@@ -314,7 +315,7 @@ def _parse_args() -> argparse.Namespace:
     shape_group.add_argument("--quick", action="store_true", help="Use small and thin-slab shapes.")
     shape_group.add_argument("--full", action="store_true", help="Use the canonical single-volume DHWC matrix.")
     parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark an explicit DHWC shape.")
-    parser.add_argument("--threads", type=int, default=1, help="Torch and OpenCV CPU thread count.")
+    parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown report path.")
@@ -324,11 +325,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Run the Tensor benchmark matrix and print or write a Markdown report."""
     args = _parse_args()
-    if args.threads < 1:
-        msg = "--threads must be positive."
-        raise ValueError(msg)
-    torch.set_num_threads(args.threads)
-    cv2.setNumThreads(args.threads)
+    thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
     rows: list[Row] = []
 
@@ -369,8 +366,7 @@ def main() -> None:
         f"(`{platform.machine()}`).",
         "",
         f"Versions: Albucore `{albucore.__version__}`, Torch `{torch.__version__}`, NumPy `{np.__version__}`, "
-        f"OpenCV `{cv2.__version__}`. Torch/OpenCV CPU threads: `{args.threads}`. "
-        f"Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
+        f"OpenCV `{cv2.__version__}`. {thread_settings} Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
         "",
         "Each row is one non-batched CPU CDHW Tensor and includes public dispatch, control-data normalization, "
         "matrix inversion, grid construction, sampling, dtype restoration, and output allocation. Public output "

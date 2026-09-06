@@ -14,11 +14,11 @@ Measure the path users execute:
 
 1. Include container dispatch, `torch.from_numpy`, axis views, dtype casts, kernel construction, output layout repair, and `Tensor.numpy()` for a NumPy route.
 2. For a Tensor route, accept an already-created CPU Tensor and state that its construction is excluded.
-3. Hold Torch, OpenCV, BLAS, and interop thread counts fixed. Set `torch.set_num_threads` before eager work; set `torch.set_num_interop_threads` once at process startup, before inter-op work. `torch.utils.benchmark.Timer` is useful for isolating one Torch core because it warms up and controls the Torch threadpool; Albucore's benchmark scripts remain the source of truth for public-route decisions. [PyTorch thread controls](https://docs.pytorch.org/docs/stable/generated/torch.set_num_threads.html), [PyTorch benchmark docs](https://docs.pytorch.org/docs/stable/benchmark_utils.html)
+3. Use exactly one CPU thread per process for every candidate. Set `torch.set_num_threads(1)` and `torch.set_num_interop_threads(1)`, and disable OpenCV internal parallelism with `cv2.setNumThreads(0)` before work starts; set inter-op threads only once per process. Apply the OpenMP/BLAS environment controls from the general performance guide before numerical imports and record effective settings. Use `num_threads=1` with `torch.utils.benchmark.Timer`. Benchmark additional thread counts only when the user explicitly requests thread scaling. [PyTorch thread controls](https://docs.pytorch.org/docs/stable/generated/torch.set_num_threads.html), [PyTorch benchmark docs](https://docs.pytorch.org/docs/stable/benchmark_utils.html)
 4. Warm up lazy initialization, collect repeated samples, and report median plus spread, hardware, library versions, shapes, dtype, strides, parameter values, and allocation mode.
 5. Establish numerical, dtype, shape, range, layout, aliasing, and mutation parity before accepting a faster route.
 
-Benchmark the canonical non-square image or DHWC volume grid, then add the dimension that controls the proposal: kernel radius, channel count, contiguity, output size, or thread count. A local kernel benchmark can explain a result. It cannot select a public route by itself.
+Benchmark the canonical non-square image or DHWC volume grid, then add the dimension that controls the proposal: kernel radius, channel count, contiguity, or output size. A local kernel benchmark can explain a result. It cannot select a public route by itself.
 
 ## Remove Python and allocation work first
 
@@ -50,7 +50,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
 - For separable spatial filters, compare three one-axis passes, a dense one-pass kernel only when its extra arithmetic may be offset by launch/setup cost, and any OpenCV packing route that can represent all channels. Count padding and weight materialization.
 - For reductions, preserve accumulator dtype and overflow semantics before comparing `torch.sum`, NumPy, and NumKong.
 - For interpolation and sampling, differential-test coordinate conventions, border rules, `align_corners`, rounding, and uint8 restoration. A faster result with shifted samples is not a candidate.
-- Use Torch CPU thread counts as an explicit benchmark dimension. `OMP_NUM_THREADS` controls OpenMP regions, and `MKL_NUM_THREADS` overrides it for MKL. Do not bake one machine's thread count into a router. [PyTorch threading variables](https://docs.pytorch.org/docs/stable/threading_environment_variables.html)
+- Keep Torch CPU, OpenMP, and MKL thread counts at one for backend comparisons. A thread-count sweep requires an explicit user request. `OMP_NUM_THREADS` controls OpenMP regions, and `MKL_NUM_THREADS` overrides it for MKL. Do not bake one machine's thread count into a router. [PyTorch threading variables](https://docs.pytorch.org/docs/stable/threading_environment_variables.html)
 
 ## Escalate missing backend capabilities
 
