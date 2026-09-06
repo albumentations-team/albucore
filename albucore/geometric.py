@@ -17,6 +17,7 @@ import torch.nn.functional as torch_f
 from albucore.affine3d import warp_affine3d
 from albucore.decorators import preserve_channel_dim
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
+from albucore.pad3d import pad3d
 from albucore.remap3d import remap3d
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -36,6 +37,7 @@ __all__ = [
     "copy_make_border",
     "flip_volume",
     "gaussian_blur3d",
+    "pad3d",
     "remap",
     "remap3d",
     "resize",
