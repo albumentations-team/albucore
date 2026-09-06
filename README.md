@@ -129,7 +129,6 @@ batch_gray = np.random.randint(0, 256, (10, 100, 100, 1), dtype=np.uint8)
 
 # 3D volume with 20 slices
 volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
-
 ```
 
 ## Functions
@@ -203,13 +202,14 @@ These functions accept float32 arrays up to rank 4 and preserve the exact input 
 | `hflip` | `(img)` | Mirror left-right | NumPy slice view for every channel count; `hflip_cv2` remains the explicit materializing backend |
 | `vflip` | `(img)` | Mirror top-bottom | NumPy slice view for every channel count; `vflip_cv2` remains the explicit materializing backend |
 | `median_blur` | `(img, ksize)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked `cv2.medianBlur`; float32 ksize 3/5 → native OpenCV; float32 ksize ≥ 7 → uint8 conversion fallback |
+| `pad3d` | `(volume, padding, value=0)` | Add constant borders to uint8/float32 volumes or int16 masks | Benchmark-routed NumPy fill/copy or CPU Torch `F.pad`; preserves NumPy `DHWC` or Tensor `CDHW` |
 | `gaussian_blur3d` | `(volume, sigma, kernel_size=0)` | Blur one volume along depth, height, and width | One NumPy `DHWC` or CPU Torch `CDHW` volume; three float32 grouped Torch passes with `BORDER_REFLECT_101`; uint8 restores once after filtering |
 | `separable_filter3d` | `(volume, kernels)` | Apply three D/H/W kernels to one volume | One NumPy `DHWC` or CPU Torch `CDHW` volume; grouped Torch filtering with the same padding and dtype rules as `gaussian_blur3d` |
 | `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix | One NumPy `DHWC` or CPU Torch `CDHW` volume; native Torch `affine_grid` + `grid_sample`; uint8 uses one float32 sampling buffer |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports multi-channel wrappers for `copy_make_border`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect exactly one prevalidated NumPy `DHWC` volume or Torch `CDHW` tensor per call.
+The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `pad3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect exactly one prevalidated NumPy `DHWC` volume or Torch `CDHW` tensor per call.
 
 ### Type conversion
 
