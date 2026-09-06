@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import benchmark_threads
 import cv2
 import numpy as np
 import torch
@@ -299,7 +300,7 @@ def _parse_args() -> argparse.Namespace:
     scope.add_argument("--quick", action="store_true", help="Use the small 32-cube development matrix.")
     scope.add_argument("--full", action="store_true", help="Use every required NumPy and Tensor route cell.")
     parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark an explicit DHWC shape.")
-    parser.add_argument("--threads", type=int, default=1, help="Torch and OpenCV CPU thread count.")
+    parser.add_argument("--threads", type=int, default=1, choices=(1,), help="Fixed CPU thread count.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown report path.")
@@ -309,11 +310,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Measure public NumPy/Tensor routes and the complete Tensor bridge baseline."""
     args = _parse_args()
-    if args.threads < 1:
-        msg = "--threads must be positive."
-        raise ValueError(msg)
-    torch.set_num_threads(args.threads)
-    cv2.setNumThreads(args.threads)
+    thread_settings = benchmark_threads.configure_libraries(torch, cv2)
     rng = np.random.default_rng(20260825)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
     rows: list[Row] = []
@@ -402,8 +399,8 @@ def main() -> None:
         "",
         (
             f"Versions: Albucore `{albucore.__version__}`, Torch `{torch.__version__}`, NumPy `{np.__version__}`, "
-            f"OpenCV `{cv2.__version__}`. Torch/OpenCV CPU threads: `{args.threads}`. "
-            f"Repeats: `{args.repeats}`; warmup: `{args.warmup}`. Process peak RSS: `{peak_rss:.1f} MiB`."
+            f"OpenCV `{cv2.__version__}`. {thread_settings} Repeats: `{args.repeats}`; "
+            f"warmup: `{args.warmup}`. Process peak RSS: `{peak_rss:.1f} MiB`."
         ),
         "",
         (

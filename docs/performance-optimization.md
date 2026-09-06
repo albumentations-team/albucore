@@ -274,11 +274,11 @@ does not justify an unreviewed output change.
 ## Benchmark every candidate, including rejected ones
 
 Use the repository benchmark skill and policy. CPU comparisons run with exactly one thread per process for every
-candidate. Set OpenCV to one thread and, when used, set both Torch intra-op and inter-op threads to one before work
-starts. Set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`, and
-`NUMEXPR_NUM_THREADS` to `1` before importing numerical libraries. Record effective library thread settings; do not
-rely on environment variables alone. Benchmark additional thread counts only when the user explicitly requests a
-thread-scaling experiment.
+candidate. Disable OpenCV internal parallelism with `cv2.setNumThreads(0)` and, when used, set both Torch intra-op and
+inter-op threads to one before work starts. Set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`,
+`VECLIB_MAXIMUM_THREADS`, and `NUMEXPR_NUM_THREADS` to `1` before importing numerical libraries. Record effective
+library thread settings; do not rely on environment variables alone. Benchmark additional thread counts only when the
+user explicitly requests a thread-scaling experiment.
 
 At minimum:
 
