@@ -13,7 +13,6 @@ import datetime as dt
 import gc
 import json
 import math
-import os
 import platform
 import statistics
 import time
@@ -22,15 +21,7 @@ from functools import partial
 from pathlib import Path
 from typing import TypeAlias
 
-for variable in (
-    "OMP_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS",
-    "MKL_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",
-    "NUMEXPR_NUM_THREADS",
-):
-    os.environ[variable] = "1"
-
+import benchmark_threads
 import cv2
 import numpy as np
 import torch
@@ -293,10 +284,7 @@ def main() -> None:
     parser.add_argument("--seconds", type=float, default=0.03, help="Target seconds per candidate per round")
     parser.add_argument("--output", type=Path, default=Path("benchmarks/results/benchmark_pad3d.json"))
     args = parser.parse_args()
-    torch.set_num_threads(1)
-    torch.set_num_interop_threads(1)
-    cv2.setNumThreads(1)
-    assert torch.get_num_threads() == torch.get_num_interop_threads() == 1
+    benchmark_threads.configure_libraries(torch, cv2)
     metadata = {
         "date": dt.datetime.now(dt.timezone.utc).isoformat(),
         "platform": platform.platform(),
