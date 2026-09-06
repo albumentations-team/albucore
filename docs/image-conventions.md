@@ -86,7 +86,6 @@ result = albucore.multiply(batch, 1.5)
 # 3D volume with 20 slices (grayscale)
 volume = np.random.randint(0, 256, (20, 256, 256, 1), dtype=np.uint8)
 result = albucore.multiply(volume, 1.5)
-
 ```
 
 ## Why This Convention?

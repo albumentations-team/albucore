@@ -9,7 +9,7 @@ Layouts:
 
 The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
-Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``remap``, ``remap3d``,
+Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``pad3d``, ``remap``, ``remap3d``,
 ``resize``, ``resize3d``, ``separable_filter3d``, ``warp_affine``, ``warp_affine3d``, ``warp_perspective`` (they
 live in ``albucore.geometric``, not ``functions.__all__``).
 
@@ -230,6 +230,14 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
+    def pad3(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        volume = np.repeat(img[np.newaxis, ...], 5, axis=0)
+
+        def thunk() -> None:
+            alb.pad3d(volume, (1, 2, 2, 3, 3, 4), value=7)
+
+        return thunk
+
     def gblur3(alb: Any, img: np.ndarray) -> Callable[[], object]:
         volume = np.repeat(img[np.newaxis, ...], 5, axis=0)
 
@@ -308,6 +316,7 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
     return [
         ("copy_make_border", cmb),
         ("gaussian_blur3d", gblur3),
+        ("pad3d", pad3),
         ("resize", rsz),
         ("resize3d", rsz3),
         ("separable_filter3d", sep3),

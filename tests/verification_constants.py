@@ -11,7 +11,7 @@ from benchmarks.shape_grids import (
     PROPERTY_NON_SQUARE_HW,
 )
 
-DTypeName: TypeAlias = Literal["uint8", "float32", "float64", "other numeric fallback"]
+DTypeName: TypeAlias = Literal["uint8", "int16", "float32", "float64", "other numeric fallback"]
 LayoutName: TypeAlias = Literal["HWC", "XHWC", "DHWC", "CDHW", "2D", "points"]
 ChannelSpec: TypeAlias = Literal["1", "3", "4", ">4"]
 ValueKind: TypeAlias = Literal[
@@ -55,6 +55,7 @@ ValueKind: TypeAlias = Literal[
 ]
 
 DTYPE_UINT8: Final[DTypeName] = "uint8"
+DTYPE_INT16: Final[DTypeName] = "int16"
 DTYPE_FLOAT32: Final[DTypeName] = "float32"
 DTYPE_FLOAT64: Final[DTypeName] = "float64"
 DTYPE_OTHER_NUMERIC_FALLBACK: Final[DTypeName] = "other numeric fallback"
@@ -111,6 +112,7 @@ VALUE_TARGET_DTYPE: Final[ValueKind] = "target_dtype"
 
 ALL_DTYPE_NAMES: Final[tuple[DTypeName, ...]] = (
     DTYPE_UINT8,
+    DTYPE_INT16,
     DTYPE_FLOAT32,
     DTYPE_FLOAT64,
     DTYPE_OTHER_NUMERIC_FALLBACK,

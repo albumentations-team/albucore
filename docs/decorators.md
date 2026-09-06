@@ -15,6 +15,7 @@ Ensures single-channel images maintain their shape `(H, W, 1)` when OpenCV opera
 ```python
 from albucore.decorators import preserve_channel_dim
 
+
 @preserve_channel_dim
 def my_function(img: ImageType) -> ImageType:
     # OpenCV operation that might drop channel dimension
@@ -29,6 +30,7 @@ Clips the result to the valid range for the input dtype.
 
 ```python
 from albucore.utils import clipped
+
 
 @clipped
 def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageType:
@@ -49,6 +51,7 @@ Converts input to float32, processes it, and converts back to the original dtype
 ```python
 from albucore.functions import float32_io
 
+
 @float32_io
 def some_image_function(img: np.ndarray) -> np.ndarray:
     # Function implementation assuming float32
@@ -63,6 +66,7 @@ Converts input to uint8, processes it, and converts back to the original dtype.
 
 ```python
 from albucore.functions import uint8_io
+
 
 @uint8_io
 def some_image_function(img: np.ndarray) -> np.ndarray:
