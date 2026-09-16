@@ -43,6 +43,7 @@ torch = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
+    { name = "packaging" },
     { name = "pytest" },
     { name = "pytest-randomly" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -64,6 +65,7 @@ provides-extras = ["contrib", "contrib-headless", "gui", "headless", "torch"]
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.165.5" },
+    { name = "packaging", specifier = ">=25.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-randomly", specifier = ">=4.1.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.4.1" },

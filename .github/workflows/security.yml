@@ -46,6 +46,15 @@ jobs:
       - name: Export locked runtime dependencies
         run: uv export --frozen --no-dev --no-emit-project --extra torch --format requirements-txt --output-file runtime-requirements.txt
 
+      - name: Export locked optional runtime dependencies
+        run: uv export --frozen --no-dev --all-extras --no-emit-project --format requirements-txt --output-file all-runtime-requirements.txt
+
+      - name: Check reviewed runtime dependency licenses
+        run: >
+          uv run --with packaging python tools/verify_dependency_licenses.py
+          --requirements runtime-requirements.txt
+          --requirements all-runtime-requirements.txt
+
       - name: Run pip-audit on runtime dependencies
         run: uv tool run --from pip-audit pip-audit --extra-index-url https://download.pytorch.org/whl/cpu -r runtime-requirements.txt
 

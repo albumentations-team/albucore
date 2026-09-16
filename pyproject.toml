@@ -197,6 +197,7 @@ markers = [
 [dependency-groups]
 dev = [
     "hypothesis>=6.165.5",
+    "packaging>=25.0",
     "pytest>=9.1.1",
     "pytest-randomly>=4.1.0",
     "tomli>=2.4.1; python_version < '3.11'",

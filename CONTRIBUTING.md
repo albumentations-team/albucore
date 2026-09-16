@@ -10,6 +10,19 @@ Follow [AGENTS.md](AGENTS.md) and the relevant files in [`docs/`](docs/). Add
 tests for affected dtypes and image shapes. Include benchmark evidence when
 changing backend selection.
 
+## Dependencies, third-party material, and AI assistance
+
+Read the [dependency and contribution license policy](LICENSE_POLICY.md) before
+adding a runtime dependency or copying code, data, fonts, binaries, or other
+third-party material. State its source, version, license, and required notices
+in the pull request. A new dependency or license change also needs its reviewed
+record updated in `legal/dependency-licenses.json`.
+
+AI assistance is allowed. Before requesting review, personally read every
+change, understand it, and take responsibility for the code, tests,
+documentation, and pull-request description. See [AI_USAGE.md](AI_USAGE.md)
+for the complete policy. Mentioning AI assistance is encouraged but optional.
+
 ## Contributor License Agreement
 
 Before a pull request can be merged, the applicable rights holder must accept
