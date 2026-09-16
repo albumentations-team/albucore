@@ -87,16 +87,20 @@ def exported_requirements(paths: Iterable[Path]) -> set[tuple[str, str, str | No
     """Read pinned components and their optional markers from uv's requirements export."""
     requirements: set[tuple[str, str, str | None]] = set()
     for path in paths:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            match = REQUIREMENT.match(line)
-            if match:
-                requirements.add(
-                    (
-                        normalize_name(match["name"]),
-                        match["version"],
-                        match["marker"].strip() if match["marker"] else None,
-                    ),
-                )
+        for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            line = raw_line.split(" #", maxsplit=1)[0].strip()
+            if not line or line.startswith(("#", "--hash=")):
+                continue
+            match = REQUIREMENT.fullmatch(line)
+            if match is None:
+                raise ValueError(f"{path}:{line_number}: unsupported requirements line")
+            requirements.add(
+                (
+                    normalize_name(match["name"]),
+                    match["version"],
+                    match["marker"].strip() if match["marker"] else None,
+                ),
+            )
     return requirements
 
 
@@ -190,6 +194,11 @@ def license_identifiers(component: Mapping[str, Any]) -> set[str]:
     return identifiers
 
 
+def normalize_license_identifier(identifier: str) -> str:
+    """Normalize insignificant case and whitespace differences in license metadata."""
+    return " ".join(identifier.casefold().split())
+
+
 def check_license_evidence(registry: Mapping[str, Any], requirements: Iterable[Path], path: Path) -> list[str]:
     """Compare installed-distribution license metadata with reviewed identifiers."""
     sbom = json.loads(path.read_text(encoding="utf-8"))
@@ -217,8 +226,12 @@ def check_license_evidence(registry: Mapping[str, Any], requirements: Iterable[P
         if error := review_error(entry, name, version):
             errors.append(f"{path}: {error}")
             continue
-        expected = set(entry.get("metadata_identifiers", [entry["license_expression"]]))
-        if not expected.intersection(license_identifiers(component)):
+        expected = {
+            normalize_license_identifier(identifier)
+            for identifier in entry.get("metadata_identifiers", [entry["license_expression"]])
+        }
+        identifiers = {normalize_license_identifier(identifier) for identifier in license_identifiers(component)}
+        if not expected.intersection(identifiers):
             errors.append(f"{path}: {name}=={version} has no matching reviewed license metadata")
     for name, version in sorted(required - observed):
         errors.append(f"{path}: {name}=={version} is absent from installed dependency license evidence")

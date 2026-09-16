@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+import pytest
+
 from tools.verify_dependency_licenses import check_license_evidence, check_requirements, enrich_sbom, load_registry
 
 if TYPE_CHECKING:
@@ -47,6 +49,15 @@ def test_requirements_require_reviewed_versions(tmp_path: Path) -> None:
     ]
 
 
+def test_requirements_reject_unsupported_lines(tmp_path: Path) -> None:
+    registry = load_registry(_registry(tmp_path))
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text("example-package == 1.0\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"requirements\.txt:1: unsupported requirements line"):
+        check_requirements(registry, [requirements])
+
+
 def test_enrich_sbom_writes_the_reviewed_expression(tmp_path: Path) -> None:
     registry = load_registry(_registry(tmp_path))
     sbom = tmp_path / "sbom.json"
@@ -77,7 +88,7 @@ def test_license_evidence_requires_every_active_locked_component(tmp_path: Path)
     registry = load_registry(_registry(tmp_path))
     requirements = tmp_path / "requirements.txt"
     requirements.write_text(
-        "example-package==1.0 ; sys_platform != 'never'\nmissing-package==1.0 ; sys_platform == 'never'\n",
+        "example-package==1.0 ; sys_platform != 'never' # active\nmissing-package==1.0 ; sys_platform == 'never'\n",
         encoding="utf-8",
     )
     evidence = tmp_path / "evidence.json"
@@ -111,3 +122,26 @@ def test_license_evidence_rejects_an_unreviewed_version(tmp_path: Path) -> None:
     assert check_license_evidence(registry, [requirements], evidence) == [
         f"{evidence}: example-package==1.1 is not a reviewed version in the dependency registry",
     ]
+
+
+def test_license_evidence_normalizes_identifier_case(tmp_path: Path) -> None:
+    registry = load_registry(_registry(tmp_path))
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text("example-package==1.0\n", encoding="utf-8")
+    evidence = tmp_path / "evidence.json"
+    evidence.write_text(
+        json.dumps(
+            {
+                "components": [
+                    {
+                        "name": "example-package",
+                        "version": "1.0",
+                        "licenses": [{"expression": "mit"}],
+                    },
+                ],
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    assert check_license_evidence(registry, [requirements], evidence) == []

@@ -1,5 +1,6 @@
 hypothesis>=6.155.2
 opencv-python-headless>=4.9.0.80
+packaging>=25.0
 pre_commit>=3.5.0
 pytest>=9.0.3
 pytest_cov>=4.1.0
