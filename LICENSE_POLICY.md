@@ -7,11 +7,19 @@ required by the [CLA](CLA.md), or file-specific third-party notices.
 ## What is reviewed
 
 [`legal/dependency-licenses.json`](legal/dependency-licenses.json) records the
-reviewed runtime dependency set for the base installation and every declared
-extra. It includes transitive packages and platform-specific locked versions,
-with each component's SPDX expression, evidence source, decision, and notice
-handling. Build, test, and CI tools are outside this runtime registry because
-they are not part of the distributed library.
+union of components used by the base package and each declared extra. It is not
+one installation recipe. The base package has three dependencies: NumPy,
+NumKong, and StringZilla. An installation that adds OpenCV through an Albucore
+extra selects one of four alternative OpenCV wheels and can also select Torch.
+The current registry therefore has 17 reviewed possible runtime components: the
+base dependencies, four alternative OpenCV wheels, and Torch with its
+transitive dependencies. It records
+platform-specific locked versions, each component's SPDX expression, evidence
+source, decision, and notice handling. Build, test, and CI tools are outside
+this runtime registry because they are not part of the distributed library.
+
+The release SBOM represents the concrete `headless,torch` validation profile;
+it does not claim that all four OpenCV wheels are installed together.
 
 The registry is a reviewed record, not a generic list of allowed or forbidden
 licenses. Copied or vendored code, binary wheels, fonts, minified assets, and a

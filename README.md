@@ -58,7 +58,8 @@ Albucore, such as during a documentation build. The current public import graph 
 
 The `torch` extra declares Albucore's PyTorch runtime requirement but cannot select a CPU, CUDA, or MPS wheel through
 standard package metadata. Use PyTorch's platform-specific installation command before installing Albucore. The examples
-use the `headless` OpenCV extra; replace it with `gui`, `contrib`, or `contrib-headless` if needed.
+use the `headless` OpenCV extra. When Albucore installs OpenCV, choose exactly one extra: `headless`, `gui`,
+`contrib`, or `contrib-headless`. Use `albucore[torch]` when reusing an existing OpenCV installation.
 
 AlbumentationsX passes prevalidated CPU, strided Torch tensors with `requires_grad=False` to
 `resize3d` and `warp_affine3d`; the low-level routers do not repeat those checks or move/detach Tensor data.
@@ -76,7 +77,9 @@ pip install "albucore[contrib,torch]"              # GUI version
 pip install "albucore[contrib-headless,torch]"     # Headless version
 ```
 
-**Note:** If you already have `opencv-python` or `opencv-contrib-python` installed, use `pip install "albucore[torch]"` after installing the platform-specific PyTorch build. This does not add another OpenCV package; Albucore uses the existing installation.
+**Note:** If you already have one of the supported OpenCV distributions installed, use `pip install "albucore[torch]"`
+after installing the platform-specific PyTorch build. This does not add another OpenCV package; Albucore uses the
+existing installation.
 
 ## Usage
 
