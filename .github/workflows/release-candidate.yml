@@ -131,6 +131,22 @@ jobs:
             --output-format JSON \
             --output-file "dist/${SBOM_FILENAME}"
 
+      - name: Collect installed dependency license evidence
+        run: >-
+          uv tool run --from cyclonedx-bom cyclonedx-py environment "$(command -v python)"
+          --pyproject pyproject.toml
+          --mc-type library
+          --output-reproducible
+          --output-file "${RUNNER_TEMP}/dependency-licenses.cdx.json"
+
+      - name: Add reviewed licenses to CycloneDX SBOM
+        run: >-
+          python tools/verify_dependency_licenses.py
+          --requirements dist/runtime-requirements.txt
+          --license-sbom "${RUNNER_TEMP}/dependency-licenses.cdx.json"
+          --sbom "dist/${SBOM_FILENAME}"
+          --write-sbom
+
       - name: Generate release candidate metadata
         run: |
           python tools/validate_release_candidate.py candidate-metadata \

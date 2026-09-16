@@ -24,6 +24,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: check-dependency-license-registry
+        name: Check reviewed dependency license registry
+        entry: python tools/verify_dependency_licenses.py
+        language: system
+        pass_filenames: false
+        always_run: true
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
