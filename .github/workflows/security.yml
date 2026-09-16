@@ -51,7 +51,7 @@ jobs:
 
       - name: Check reviewed runtime dependency licenses
         run: >
-          python tools/verify_dependency_licenses.py
+          uv run --with packaging python tools/verify_dependency_licenses.py
           --requirements runtime-requirements.txt
           --requirements all-runtime-requirements.txt
 

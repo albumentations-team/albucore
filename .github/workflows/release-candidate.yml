@@ -123,7 +123,7 @@ jobs:
         run: uv lock --check
 
       - name: Export locked runtime dependencies
-        run: uv export --frozen --no-dev --no-emit-project --extra torch --format requirements-txt --output-file dist/runtime-requirements.txt
+        run: uv export --frozen --no-dev --no-emit-project --extra headless --extra torch --format requirements-txt --output-file dist/runtime-requirements.txt
 
       - name: Generate CycloneDX SBOM
         run: |
@@ -133,7 +133,7 @@ jobs:
 
       - name: Collect installed dependency license evidence
         run: >-
-          uv tool run --from cyclonedx-bom cyclonedx-py environment "$(command -v python)"
+          uv tool run --from cyclonedx-bom cyclonedx-py environment .venv/bin/python
           --pyproject pyproject.toml
           --mc-type library
           --output-reproducible
@@ -141,7 +141,7 @@ jobs:
 
       - name: Add reviewed licenses to CycloneDX SBOM
         run: >-
-          python tools/verify_dependency_licenses.py
+          uv run --no-sync python tools/verify_dependency_licenses.py
           --requirements dist/runtime-requirements.txt
           --license-sbom "${RUNNER_TEMP}/dependency-licenses.cdx.json"
           --sbom "dist/${SBOM_FILENAME}"

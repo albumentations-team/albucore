@@ -10,9 +10,13 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from packaging.markers import InvalidMarker, Marker
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REGISTRY = REPO_ROOT / "legal" / "dependency-licenses.json"
-REQUIREMENT = re.compile(r"^([A-Za-z0-9_.-]+)==([^ ;\\]+)")
+REQUIREMENT = re.compile(
+    r"^(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^ ;\\]+)(?:\s*;\s*(?P<marker>.*?))?\s*\\?$",
+)
 
 
 def normalize_name(name: str) -> str:
@@ -70,15 +74,48 @@ def registry_by_name(registry: Mapping[str, Any]) -> dict[str, Mapping[str, Any]
     return {component["name"]: component for component in registry["components"]}
 
 
-def requirement_components(paths: Iterable[Path]) -> set[tuple[str, str]]:
-    """Read pinned components from uv's hash-pinned requirements export."""
-    components: set[tuple[str, str]] = set()
+def review_error(entry: Mapping[str, Any] | None, name: str, version: str) -> str | None:
+    """Return the registry error for an unreviewed dependency name or version."""
+    if entry is None:
+        return f"{name}=={version} is absent from the reviewed dependency registry"
+    if version not in entry["reviewed_versions"]:
+        return f"{name}=={version} is not a reviewed version in the dependency registry"
+    return None
+
+
+def exported_requirements(paths: Iterable[Path]) -> set[tuple[str, str, str | None]]:
+    """Read pinned components and their optional markers from uv's requirements export."""
+    requirements: set[tuple[str, str, str | None]] = set()
     for path in paths:
         for line in path.read_text(encoding="utf-8").splitlines():
             match = REQUIREMENT.match(line)
             if match:
-                components.add((normalize_name(match.group(1)), match.group(2)))
-    return components
+                requirements.add(
+                    (
+                        normalize_name(match["name"]),
+                        match["version"],
+                        match["marker"].strip() if match["marker"] else None,
+                    ),
+                )
+    return requirements
+
+
+def requirement_components(paths: Iterable[Path]) -> set[tuple[str, str]]:
+    """Return every pinned component, including platform-specific lock entries."""
+    return {(name, version) for name, version, _ in exported_requirements(paths)}
+
+
+def active_requirement_components(paths: Iterable[Path]) -> set[tuple[str, str]]:
+    """Return locked components whose PEP 508 markers apply to this environment."""
+    active: set[tuple[str, str]] = set()
+    for name, version, marker in exported_requirements(paths):
+        try:
+            applies = marker is None or Marker(marker).evaluate()
+        except InvalidMarker as error:
+            raise ValueError(f"invalid requirement marker {marker!r}") from error
+        if applies:
+            active.add((name, version))
+    return active
 
 
 def check_requirements(registry: Mapping[str, Any], paths: Iterable[Path]) -> list[str]:
@@ -86,8 +123,8 @@ def check_requirements(registry: Mapping[str, Any], paths: Iterable[Path]) -> li
     entries = registry_by_name(registry)
     errors = []
     for name, version in sorted(requirement_components(paths)):
-        if name not in entries:
-            errors.append(f"{name}=={version} is absent from the reviewed dependency registry")
+        if error := review_error(entries.get(name), name, version):
+            errors.append(error)
     return errors
 
 
@@ -118,8 +155,8 @@ def enrich_sbom(registry: Mapping[str, Any], path: Path) -> list[str]:
             continue
         name, version = key
         entry = entries.get(name)
-        if entry is None:
-            errors.append(f"{path}: {name}=={version} is absent from the reviewed dependency registry")
+        if error := review_error(entry, name, version):
+            errors.append(f"{path}: {error}")
             continue
         component["licenses"] = [
             {
@@ -159,26 +196,32 @@ def check_license_evidence(registry: Mapping[str, Any], requirements: Iterable[P
     components = sbom.get("components")
     if not isinstance(components, list):
         return [f"{path}: CycloneDX document has no components list"]
-    required = requirement_components(requirements)
+    required = active_requirement_components(requirements)
     required_names = {name for name, _ in required}
     entries = registry_by_name(registry)
     errors: list[str] = []
+    observed: set[tuple[str, str]] = set()
     for component in components:
         if not isinstance(component, Mapping):
             continue
         key = _component_key(component)
-        if key is None or key[0] not in entries:
+        if key is None:
             continue
         name, version = key
-        if name not in required_names:
-            continue
         if key not in required:
-            errors.append(f"{path}: installed {name}=={version} does not match the locked export")
+            if name in required_names:
+                errors.append(f"{path}: installed {name}=={version} does not match the locked export")
             continue
-        entry = entries[name]
+        observed.add(key)
+        entry = entries.get(name)
+        if error := review_error(entry, name, version):
+            errors.append(f"{path}: {error}")
+            continue
         expected = set(entry.get("metadata_identifiers", [entry["license_expression"]]))
         if not expected.intersection(license_identifiers(component)):
             errors.append(f"{path}: {name}=={version} has no matching reviewed license metadata")
+    for name, version in sorted(required - observed):
+        errors.append(f"{path}: {name}=={version} is absent from installed dependency license evidence")
     return errors
 
 

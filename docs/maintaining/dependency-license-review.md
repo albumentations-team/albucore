@@ -15,12 +15,12 @@ can include additional binary components; their notices remain with the
 separately installed wheel and must be retained by a distributor of a combined
 environment.
 
-`tools/verify_dependency_licenses.py` rejects a dependency name absent from the
-registry and writes the reviewed SPDX expressions into the CycloneDX SBOM. The
-release workflow also compares the installed distributions' declared license
-metadata with the identifiers accepted in the registry before publishing that
-SBOM. The security workflow checks the locked runtime export. Future dependency
-and license changes follow
+`tools/verify_dependency_licenses.py` rejects a dependency name or resolved
+version absent from the registry and writes the reviewed SPDX expressions into
+the CycloneDX SBOM. The release workflow also compares the installed
+distributions' declared license metadata with the identifiers accepted in the
+registry before publishing that SBOM. The security workflow checks the locked
+runtime export. Future dependency and license changes follow
 [`LICENSE_POLICY.md`](../../LICENSE_POLICY.md).
 
 Albucore does not currently copy runtime dependencies into its wheel or sdist.

@@ -28,11 +28,12 @@ locked export with the registry, and the release workflow adds the reviewed SPDX
 expressions to the published SBOM. Vladimir Iglovikov reviews and merges through
 the usual process; no special label or approval service is used.
 
-A version update can keep the existing decision only while its verified license
-information and applicable notices remain the same. Missing, contradictory, or
-changed evidence requires an updated record before merge. Runtime dependencies
-are installed separately from Albucore's wheel and sdist; retain upstream
-notices when redistributing a combined environment.
+A version update requires a new reviewed version entry. It can keep the prior
+license expression only after its verified license information and applicable
+notices are confirmed unchanged. Missing, contradictory, or changed evidence
+requires an updated decision before merge. Runtime dependencies are installed
+separately from Albucore's wheel and sdist; retain upstream notices when
+redistributing a combined environment.
 
 ## Contributions
 
