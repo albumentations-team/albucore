@@ -36,14 +36,14 @@ jobs:
 
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download release candidate artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-candidate-artifacts
           path: dist
@@ -92,7 +92,7 @@ jobs:
             --version "${REQUESTED_VERSION}"
 
       - name: Create or update GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # zizmor: ignore[superfluous-actions] supports create-or-update release semantics; v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # zizmor: ignore[superfluous-actions] supports create-or-update release semantics; v3.0.3
         with:
           tag_name: ${{ inputs.version }}
           target_commitish: ${{ inputs.commit_sha }}
@@ -120,7 +120,7 @@ jobs:
 
     steps:
       - name: Checkout release tag
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
@@ -306,7 +306,7 @@ jobs:
             --version "${PACKAGE_VERSION}"
 
       - name: Attach artifacts to GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # zizmor: ignore[superfluous-actions] supports release-asset attachment semantics; v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # zizmor: ignore[superfluous-actions] supports release-asset attachment semantics; v3.0.3
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: |
