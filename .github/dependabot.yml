@@ -12,9 +12,9 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     allow:
-      - dependency-type: "direct"
+      - dependency-type: "development"
     groups:
-      python-dependencies:
+      python-development-dependencies:
         patterns:
           - "*"
 
