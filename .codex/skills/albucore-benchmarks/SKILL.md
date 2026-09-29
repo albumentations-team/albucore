@@ -26,6 +26,8 @@ performance guide. Benchmark additional thread counts only when the user explici
   NumPy→Torch bridge and public router.
 - `benchmarks/benchmark_warp_affine3d_tensor.py` - Times native Torch affine-grid, manual-grid and coverage-fill
   probes, and public single-volume `CDHW` routing.
+- `benchmarks/benchmark_warp_affine3d_batch.py` and `benchmarks/benchmark_remap3d_batch.py` - Compare full rank-5
+  paths: per-volume calls, `N × C` folding, direct native sampling, public dispatch, and Tensor/NumPy bridges.
 
 ## Canonical Shape Grid
 
@@ -50,13 +52,19 @@ DHWC volumes:
 
 For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; record any resulting routing decision in `docs/numkong-performance.md` or a focused report under `benchmarks/results/`.
 
-For `warp_affine3d`, benchmark only one volume per call: NumPy `DHWC` or CPU Tensor `CDHW`. The full matrix uses
-uint8/float32, `C=1/3/5/9`, canonical output sizes including a unit output axis, nearest/trilinear interpolation,
-one 3×4 forward matrix per scenario, and zero/nonzero fill. NumPy timings use contiguous inputs; Tensor timings add
-contiguous and channel-last-strided inputs. Test the equivalent homogeneous 4×4 representation as a contract, not a
-timing route. Run `uv run python benchmarks/benchmark_warp_affine3d.py --quick --threads 1` and `uv run python
-benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1`. A manual grid, coverage sampler, tiled route, or
-native extension remains a diagnostic candidate until it has exact correctness parity and a sustained full-path win.
+For `warp_affine3d`, benchmark both NumPy `DHWC`/`NDHWC` and CPU Tensor `CDHW`/`NCDHW`. The single-volume matrix
+uses uint8/float32, `C=1/3/5/9`, canonical output sizes, nearest/trilinear interpolation, one 3×4 forward matrix,
+and zero/nonzero fill. The batch matrix also varies `N=1/4/16`; compare per-volume calls, `N × C` folding, direct
+native sampling, public batch dispatch, and Tensor/NumPy bridges. Batch scripts time contiguous NumPy inputs;
+correctness tests cover
+supported strided and read-only inputs. Tensor timings include contiguous and channel-last-strided layouts. Test the
+equivalent homogeneous 4×4 representation as a contract.
+Run the single-volume scripts and `benchmark_warp_affine3d_batch.py --quick --threads 1` while developing.
+A manual grid, coverage sampler, tiled route, or native extension remains diagnostic until it has exact correctness
+parity and a sustained full-path win.
+
+`remap3d` uses the same rank-4/rank-5 volume layouts and applies one normalized float32 grid to every batch item. Its
+batch benchmark also checks NumPy and Tensor grid containers independently of the volume container.
 Channel choices: 1 for grayscale, 3 for RGB / 3-channel, and 9 for hyperspectral paths that exceed `MAX_OPENCV_WORKING_CHANNELS=4`.
 
 ## Compare the current tree with a previous release

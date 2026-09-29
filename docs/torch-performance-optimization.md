@@ -8,6 +8,15 @@ resolve Linux CUDA wheels.
 
 The current Albucore scope is eager CPU execution without autograd through the primitive or `torch.compile`. NumPy inputs use Albucore channel-last layouts and Tensor inputs declare their own channel-first layout. AlbumentationsX validates CPU placement, layout, strides, autograd state, and parameter ranges before caller-prevalidated 3D primitives run. Do not repeat those checks in their hot paths.
 
+`warp_affine3d` and `remap3d` accept a single rank-4 volume or rank-5 batch: NumPy `DHWC`/`NDHWC` and Tensor
+`CDHW`/`NCDHW`. Each batch call reuses one matrix or grid across its items. Other 3D routers currently receive one
+volume per call.
+
+The measured CPU route folds `N>=4, C=1` into the channel axis for both batch routers. `warp_affine3d` uses the
+rank-5 sampler for other channel counts. For `remap3d`, `N>=4, C>1` uses per-volume sampling with grid and fill
+preparation shared across items; a single native batch sampler was slower in the full-call comparison. See the
+measurements in [`REPORT_sampling3d_batch.md`](../benchmarks/results/REPORT_sampling3d_batch.md).
+
 ## Start with the whole operation
 
 Measure the path users execute:
