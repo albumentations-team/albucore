@@ -25,6 +25,7 @@ grayscale = (H, W, 1)
 rgb = (H, W, 3)
 batch = (N, H, W, C)
 volume = (D, H, W, C)
+volume_batch = (N, D, H, W, C)
 
 # Wrong - never use implicit channels
 gray = (H, W)
@@ -40,9 +41,10 @@ height = image.shape[-3]
 ```
 
 An API that explicitly accepts a `torch.Tensor` defines its layout independently; never infer a Tensor layout from its
-rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` uses the same prevalidated single-volume
-layouts. AlbumentationsX checks CPU, strided layout, eager (`requires_grad=False`) execution, and all control data
-before the call. Each volume router accepts exactly one volume.
+rank. `resize3d` declares NumPy `DHWC` and Torch `CDHW`. `warp_affine3d` and `remap3d` accept either those
+single-volume layouts or NumPy `NDHWC` and Torch `NCDHW` batches. Their shared matrix or grid applies to every item.
+Other volume routers accept one volume. AlbumentationsX checks CPU, strided layout, eager (`requires_grad=False`)
+execution, and all control data before the call.
 
 ### 1a. Precondition Boundary - Do Not Revalidate in Albucore
 
@@ -72,20 +74,20 @@ on the documented `uint8`/`float32` contract.
 
 ### 4. Torch CPU Is a Mandatory Backend
 
-- `torch>=2.13.0` is a required runtime dependency, not an optional import. Use direct imports rather than
+- `torch>=2.14.0` is a required runtime dependency, not an optional import. Use direct imports rather than
   `sys.modules` checks, class-name heuristics, or lazy imports.
 - Training callers are expected to have imported Torch already. Do not optimize public CPU routing around deferred
   import cost.
-- A public Tensor path must state its layout. For caller-prevalidated routers such as `resize3d` and `warp_affine3d`,
-  AlbumentationsX owns CPU, strided-layout, and `requires_grad=False` validation. Neither router silently detaches or
-  moves data.
+- A public Tensor path must state its layout. For caller-prevalidated routers such as `resize3d`, `warp_affine3d`, and
+  `remap3d`, AlbumentationsX owns CPU, strided-layout, and `requires_grad=False` validation. These routers do not
+  silently detach or move data.
 - Benchmark NumPy-to-Torch routes end-to-end: wrapper creation, permutations, dtype casts, kernel execution, and
   returned NumPy layout all belong inside the timed region.
 - For `resize3d`, benchmark direct Tensor and zero-copy Tensor→NumPy→Tensor routes separately. A linear all-axis
   upscale may select the bridge for speed; preserve its documented float32 tolerance and uint8 delta bound.
-- For `warp_affine3d`, benchmark the full single-volume path: matrix conversion, affine grid, sampling, nonzero-fill
-  correction, uint8 conversion, NumPy/Torch views, and output materialization. Do not introduce a batch layout or an
-  unmeasured manual-grid/native fallback.
+- For `warp_affine3d`, benchmark rank-4 single volumes and rank-5 batches separately. Include matrix conversion,
+  shared affine-grid creation, sampling, fill correction, uint8 conversion, NumPy/Torch views, and output materialization.
+  Compare per-volume calls, `N × C` folding, native batch sampling, and Tensor/NumPy bridges on the public path.
 
 ### 5. OpenCV LUT - Source vs Table Dtype
 

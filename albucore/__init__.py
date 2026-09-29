@@ -41,7 +41,7 @@ except ModuleNotFoundError as e:
     msg = (
         "Albucore requires PyTorch when it is imported.\n\n"
         "Install the PyTorch build for your platform first. For Linux CPU-only:\n"
-        '  pip install "torch>=2.13.0" --index-url https://download.pytorch.org/whl/cpu\n\n'
+        '  pip install "torch>=2.14.0" --index-url https://download.pytorch.org/whl/cpu\n\n'
         "Then install Albucore with an OpenCV extra and Torch profile:\n"
         '  pip install "albucore[headless,torch]"\n\n'
         "Use PyTorch's platform-specific command for CUDA or MPS, and replace "

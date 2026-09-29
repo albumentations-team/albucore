@@ -21,6 +21,8 @@ Read [`docs/torch-performance-optimization.md`](../../../docs/torch-performance-
 - Torch is a required dependency. Assume it is already imported for benchmarks.
 - Current public Tensor routes are eager CPU paths that do not record autograd inside the primitive and do not use `torch.compile`. Do not add device routes, graph-preserving primitive fallbacks, compilation, or their benchmark candidates.
 - Tensor layouts are explicit and independent of NumPy layouts. Do not infer `NCHW` versus `CDHW` from shape sizes.
+- `warp_affine3d` and `remap3d` support rank-4 `CDHW` volumes and rank-5 `NCDHW` batches; one affine matrix or remap grid is shared across the batch.
+- The measured CPU path folds `N>=4, C=1` batches into the channel axis for both routers. `warp_affine3d` uses rank-5 sampling for other channel counts. `remap3d` samples `N>=4, C>1` items independently while sharing grid and fill preparation because that beat a single native batch sampler in the full-call benchmark.
 - Caller-prevalidated 3D routers leave validation outside the hot path. Do not add it back while optimizing.
 - A Tensor route must preserve the documented container, layout, border, interpolation, rounding, mutation, and aliasing behavior. Its dtype contract must distinguish supported dtype preservation from any explicit fallback conversion.
 

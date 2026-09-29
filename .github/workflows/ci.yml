@@ -84,7 +84,7 @@ jobs:
         uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: install
-          requirement: "torch>=2.13.0"
+          requirement: "torch>=2.14.0"
 
       - name: Install dependencies
         run: |
@@ -161,7 +161,7 @@ jobs:
         uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: install
-          requirement: "torch>=2.13.0"
+          requirement: "torch>=2.14.0"
 
       - name: Install regression-test dependencies
         run: uv pip install -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt
@@ -201,7 +201,7 @@ jobs:
         uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: install
-          requirement: "torch>=2.13.0"
+          requirement: "torch>=2.14.0"
 
       - name: Install declared dependency ranges
         run: |

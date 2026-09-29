@@ -328,6 +328,46 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
     ]
 
 
+def _registry_volume_batches() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], object]]]]:
+    def warp_batch(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        depth = 5
+        batch_size = 4
+        image = img[:32, :40]
+        height, width = image.shape[-3], image.shape[-2]
+        volume = np.repeat(image[np.newaxis, ...], depth, axis=0)
+        volumes = np.repeat(volume[np.newaxis, ...], batch_size, axis=0)
+        matrix = np.array(
+            ((0.95, 0.1, 0.0, 0.25), (0.0, 1.05, 0.1, -0.25), (0.05, 0.0, 1.0, 0.125)),
+            dtype=np.float32,
+        )
+        target = max(depth // 2, 1), max(height // 2, 1), max(width // 2, 1)
+
+        def thunk() -> None:
+            alb.warp_affine3d(volumes, matrix, target, interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
+    def remap_batch(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        image = img[:32, :40]
+        volume = np.repeat(image[np.newaxis, ...], 5, axis=0)
+        volumes = np.repeat(volume[np.newaxis, ...], 4, axis=0)
+        depth, height, width, _ = volume.shape
+        z, y, x = np.meshgrid(
+            (np.arange(depth, dtype=np.float32) * 2 + 1) / depth - 1,
+            (np.arange(height, dtype=np.float32) * 2 + 1) / height - 1,
+            (np.arange(width, dtype=np.float32) * 2 + 1) / width - 1,
+            indexing="ij",
+        )
+        sampling_grid = np.stack((x, y, z), axis=-1)
+
+        def thunk() -> None:
+            alb.remap3d(volumes, sampling_grid, interpolation=cv2.INTER_LINEAR)
+
+        return thunk
+
+    return [("warp_affine3d_batch", warp_batch), ("remap3d_batch", remap_batch)]
+
+
 def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], object]]]]:
     """``albucore.functions.__all__`` routers (except decorators handled separately)."""
 
@@ -757,7 +797,7 @@ def main() -> None:
                 BenchRow(name, "meta", (-1,), "n/a", None, "skip", "decorator factory, not an image router"),
             )
 
-    geo_reg = _registry_geometric() if args.with_geometric else []
+    geo_reg = _registry_geometric() + _registry_volume_batches() if args.with_geometric else []
 
     for layout, shape, dtype in _iter_hwc(args.quick):
         img = _make_img(rng, shape, dtype)
@@ -788,7 +828,8 @@ def main() -> None:
                 continue
             if op_name in skip_float_only and dtype != np.float32:
                 continue
-            if not hasattr(alb, op_name):
+            api_name = op_name.removesuffix("_batch")
+            if not hasattr(alb, api_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
             t, st, det = _bench(alb, img, build, args.repeats, args.warmup)

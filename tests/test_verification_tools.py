@@ -61,7 +61,7 @@ def test_ci_matrix_check_passes() -> None:
 
 
 def test_ci_matrix_requires_torch_to_be_an_optional_dependency(monkeypatch) -> None:
-    pyproject_text = ci_matrix.PYPROJECT.read_text().replace('torch = ["torch>=2.13.0"]\n', "")
+    pyproject_text = ci_matrix.PYPROJECT.read_text().replace('torch = ["torch>=2.14.0"]\n', "")
     original_read_text = Path.read_text
 
     def read_text(path: Path, *args: object, **kwargs: object) -> str:
@@ -79,7 +79,7 @@ def test_ci_matrix_requires_torch_to_be_an_optional_dependency(monkeypatch) -> N
 def test_ci_matrix_rejects_torch_as_a_base_dependency(monkeypatch) -> None:
     pyproject_text = ci_matrix.PYPROJECT.read_text().replace(
         '  "stringzilla>=5.1.2",\n',
-        '  "stringzilla>=5.1.2",\n  "torch>=2.13.0",\n',
+        '  "stringzilla>=5.1.2",\n  "torch>=2.14.0",\n',
     )
     original_read_text = Path.read_text
 
