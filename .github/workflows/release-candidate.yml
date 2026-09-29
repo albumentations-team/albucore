@@ -104,7 +104,7 @@ jobs:
         with:
           mode: install
           python: ${{ steps.wheel_smoke.outputs.python }}
-          requirement: "torch>=2.13.0"
+          requirement: "torch>=2.14.0"
 
       - name: Smoke test built wheel
         env:

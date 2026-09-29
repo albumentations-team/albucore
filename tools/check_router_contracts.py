@@ -73,9 +73,10 @@ def _registry_names_from_function(module: ast.Module, function_name: str) -> set
 
 def _benchmark_names() -> set[str]:
     module = _parse_module(BENCHMARK_ROUTER_PATH)
-    return _registry_names_from_function(module, "_registry_functions") | _registry_names_from_function(
-        module,
-        "_registry_geometric",
+    return (
+        _registry_names_from_function(module, "_registry_functions")
+        | _registry_names_from_function(module, "_registry_geometric")
+        | _registry_names_from_function(module, "_registry_volume_batches")
     )
 
 

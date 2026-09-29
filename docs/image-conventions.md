@@ -25,6 +25,10 @@ validation pass.
 
 - **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
 - **Batch of grayscale images**: `(N, H, W, 1)`
+- **Batch of volumes**: `(N, D, H, W, C)` for NumPy or `(N, C, D, H, W)` for Torch
+
+Only `warp_affine3d` and `remap3d` accept both volume ranks today. Each applies one shared matrix or pull grid to every
+item. Other 3D routers continue to accept one volume per call. The batch axis `N` is separate from volume depth `D`.
 
 ## Accessing Dimensions
 
@@ -86,6 +90,11 @@ result = albucore.multiply(batch, 1.5)
 # 3D volume with 20 slices (grayscale)
 volume = np.random.randint(0, 256, (20, 256, 256, 1), dtype=np.uint8)
 result = albucore.multiply(volume, 1.5)
+
+# Batch of four volumes; warp_affine3d applies one matrix to each
+volume_batch = np.random.randint(0, 256, (4, 20, 256, 256, 1), dtype=np.uint8)
+matrix = np.eye(4, dtype=np.float32)
+warped_batch = albucore.warp_affine3d(volume_batch, matrix, (20, 256, 256))
 ```
 
 ## Why This Convention?

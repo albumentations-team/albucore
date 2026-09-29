@@ -42,7 +42,7 @@ Key features:
 install Albucore with an OpenCV extra. For a Linux CPU-only headless application:
 
 ```bash
-pip install "torch>=2.13.0" --index-url https://download.pytorch.org/whl/cpu
+pip install "torch>=2.14.0" --index-url https://download.pytorch.org/whl/cpu
 pip install "albucore[headless,torch]"
 ```
 
@@ -63,6 +63,7 @@ use the `headless` OpenCV extra. When Albucore installs OpenCV, choose exactly o
 
 AlbumentationsX passes prevalidated CPU, strided Torch tensors with `requires_grad=False` to
 `resize3d` and `warp_affine3d`; the low-level routers do not repeat those checks or move/detach Tensor data.
+`warp_affine3d` and `remap3d` also accept rank-5 volume batches with one shared affine matrix or pull grid.
 
 **With OpenCV GUI support** (for local development with cv2.imshow):
 
@@ -113,7 +114,7 @@ Albucore expects images to follow specific shape conventions, with the channel d
 
 1. **Channel dimension is always required**, even for grayscale images (use shape `(H, W, 1)`)
 2. Single-channel images should have shape `(H, W, 1)` not `(H, W)`
-3. **Batch vs volume:** `(N, H, W, C)` is **N separate images**; a single **3D volume** is `(D, H, W, C)` with **depth** `D`. Do not confuse `N` (batch) with `D` (slices).
+3. **Batch vs volume:** `(N, H, W, C)` is **N separate images**; a single NumPy **3D volume** is `(D, H, W, C)`. `warp_affine3d` and `remap3d` also accept NumPy volume batches `(N, D, H, W, C)`. Do not confuse `N` (batch) with `D` (slices).
 
 ### Examples:
 
@@ -208,11 +209,12 @@ These functions accept float32 arrays up to rank 4 and preserve the exact input 
 | `pad3d` | `(volume, padding, value=0)` | Add constant borders to uint8/float32 volumes or int16 masks | Benchmark-routed NumPy fill/copy or CPU Torch `F.pad`; preserves NumPy `DHWC` or Tensor `CDHW` |
 | `gaussian_blur3d` | `(volume, sigma, kernel_size=0)` | Blur one volume along depth, height, and width | One NumPy `DHWC` or CPU Torch `CDHW` volume; three float32 grouped Torch passes with `BORDER_REFLECT_101`; uint8 restores once after filtering |
 | `separable_filter3d` | `(volume, kernels)` | Apply three D/H/W kernels to one volume | One NumPy `DHWC` or CPU Torch `CDHW` volume; grouped Torch filtering with the same padding and dtype rules as `gaussian_blur3d` |
-| `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix | One NumPy `DHWC` or CPU Torch `CDHW` volume; native Torch `affine_grid` + `grid_sample`; uint8 uses one float32 sampling buffer |
+| `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix to a volume or batch | NumPy `DHWC`/`NDHWC` or CPU Torch `CDHW`/`NCDHW`; one matrix is shared across the batch; native Torch `affine_grid` + `grid_sample` |
+| `remap3d` | `(volume, sampling_grid, interpolation, border_mode, border_value)` | Sample a volume or batch through one shared normalized 3D pull grid | NumPy `DHWC`/`NDHWC` or CPU Torch `CDHW`/`NCDHW`; grid layout `(D_out, H_out, W_out, 3)` |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); replaces `cv2.gemm` which lacks uint8 support |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
 
-The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `remap`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `pad3d`, `separable_filter3d`, `resize3d`, and `warp_affine3d` expect exactly one prevalidated NumPy `DHWC` volume or Torch `CDHW` tensor per call.
+The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `remap`, `remap3d`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `pad3d`, `separable_filter3d`, and `resize3d` expect one NumPy `DHWC` volume or CPU Torch `CDHW` tensor per call. `warp_affine3d` and `remap3d` accept those single-volume layouts or NumPy `NDHWC` and CPU Torch `NCDHW` batches.
 
 ### Type conversion
 

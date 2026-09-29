@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-09-16",
+  "reviewed_on": "2026-09-29",
   "scope": "Union of runtime components resolved by uv for the base package and each declared extra. OpenCV profiles are alternatives: an installation selects one of headless, gui, contrib, or contrib-headless. Build, test, and CI tools are outside this registry.",
   "evidence_sources": {
     "pypi": "Locked distribution METADATA and license files, cross-checked at https://pypi.org/project/<name>/<version>/.",
@@ -22,7 +22,7 @@
     {"name": "setuptools", "reviewed_versions": ["84.0.0"], "license_expression": "MIT", "evidence_source": "pypi", "decision": "accepted", "notice": "Installed only by the Torch dependency graph."},
     {"name": "stringzilla", "reviewed_versions": ["5.1.2"], "license_expression": "Apache-2.0", "evidence_source": "pypi", "decision": "accepted", "notice": "Separately installed dependency."},
     {"name": "sympy", "reviewed_versions": ["1.14.0"], "license_expression": "BSD-3-Clause", "metadata_identifiers": ["License :: OSI Approved :: BSD License"], "evidence_source": "pypi", "decision": "accepted", "notice": "Separately installed dependency."},
-    {"name": "torch", "reviewed_versions": ["2.13.0", "2.13.0+cpu"], "license_expression": "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT", "evidence_source": "pytorch", "decision": "accepted", "notice": "Optional binary wheel; retain its bundled third-party notices when redistributing that wheel."},
+    {"name": "torch", "reviewed_versions": ["2.13.0", "2.13.0+cpu", "2.14.0", "2.14.0+cpu"], "license_expression": "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT", "evidence_source": "pytorch", "decision": "accepted", "notice": "Optional binary wheel; retain its bundled third-party notices when redistributing that wheel."},
     {"name": "typing-extensions", "reviewed_versions": ["4.15.0"], "license_expression": "PSF-2.0", "evidence_source": "pypi", "decision": "accepted", "notice": "Installed only by the Torch dependency graph."}
   ]
 }
