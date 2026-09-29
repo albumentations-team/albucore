@@ -12,7 +12,7 @@ resolution-markers = [
 
 [[package]]
 name = "albucore"
-version = "0.2.19"
+version = "0.2.20"
 source = { editable = "." }
 dependencies = [
     { name = "numkong" },
