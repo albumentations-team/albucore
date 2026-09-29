@@ -59,8 +59,9 @@ This means authenticity is anchored in the CI identity that built and published 
 ## SBOM Verification
 
 The CycloneDX SBOM attached to the GitHub Release describes the locked base
-runtime dependencies, without optional extras. The security workflow checks the
-Torch profile and all declared extras separately. Consumers can:
+runtime dependencies, without optional extras. The security workflow checks
+all declared extras against the reviewed license registry and runs pip-audit on
+the Torch profile. Consumers can:
 
 1. download the SBOM JSON
 2. inspect the listed runtime dependencies

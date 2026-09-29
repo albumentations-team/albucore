@@ -19,8 +19,8 @@ source, decision, and notice handling. Build, test, and CI tools are outside
 this runtime registry because they are not part of the distributed library.
 
 The release SBOM represents only the base runtime dependency set, without
-optional extras. The security workflow separately checks the Torch profile and
-all declared extras.
+optional extras. The security workflow checks all declared extras against the
+reviewed dependency-license registry and scans the Torch profile with pip-audit.
 
 The registry is a reviewed record, not a generic list of allowed or forbidden
 licenses. Copied or vendored code, binary wheels, fonts, minified assets, and a

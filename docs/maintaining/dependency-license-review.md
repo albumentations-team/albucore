@@ -25,8 +25,8 @@ version absent from the registry and writes the reviewed SPDX expressions into
 the CycloneDX SBOM. The release workflow generates it from the locked base
 runtime export without optional extras, then compares each base dependency's
 installed license metadata with accepted identifiers. The security workflow
-separately checks the Torch profile and all declared extras. Future dependency
-and license changes follow
+checks all declared extras against the registry and runs pip-audit on the Torch
+profile. Future dependency and license changes follow
 [`LICENSE_POLICY.md`](../../LICENSE_POLICY.md).
 
 Albucore does not currently copy runtime dependencies into its wheel or sdist.

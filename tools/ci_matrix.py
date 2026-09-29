@@ -254,12 +254,12 @@ def _check_release_sbom_exports(errors: list[str], path: Path) -> None:
     if not path.exists():
         return
     export_commands = re.findall(r"(?m)^\s*run:\s*(uv export[^\n]+)", path.read_text())
-    if not export_commands or any(
-        "--all-extras" in command or re.search(r"--extra(?:\s|=)", command) is not None for command in export_commands
-    ):
-        errors.append(
-            f"{path.relative_to(REPO_ROOT)} must export the base runtime without optional extras for the release SBOM",
-        )
+    expected_export = (
+        "uv export --frozen --no-dev --no-emit-project --format requirements-txt "
+        "--output-file dist/runtime-requirements.txt"
+    )
+    if export_commands != [expected_export]:
+        errors.append(f"{path.relative_to(REPO_ROOT)} must export exactly the locked base runtime for the release SBOM")
 
 
 def _check_torch_pip_audits(errors: list[str], path: Path) -> None:

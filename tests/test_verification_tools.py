@@ -153,13 +153,17 @@ def test_ci_matrix_requires_torch_in_security_exports(monkeypatch) -> None:
     "workflow",
     (ci_matrix.RELEASE_CANDIDATE_WORKFLOW, ci_matrix.PUBLISH_WORKFLOW),
 )
-def test_ci_matrix_requires_base_runtime_for_release_sbom(monkeypatch, workflow: Path) -> None:
+@pytest.mark.parametrize(
+    ("old", "new"),
+    (
+        ("--no-dev --no-emit-project", "--no-emit-project"),
+        ("--format requirements-txt", "--extra torch --format requirements-txt"),
+        ("--format requirements-txt", "--group dev --format requirements-txt"),
+    ),
+)
+def test_ci_matrix_requires_base_runtime_for_release_sbom(monkeypatch, workflow: Path, old: str, new: str) -> None:
     workflow_text = workflow.read_text()
-    modified_text = workflow_text.replace(
-        "--no-emit-project --format requirements-txt",
-        "--no-emit-project --extra torch --format requirements-txt",
-        1,
-    )
+    modified_text = workflow_text.replace(old, new, 1)
     assert modified_text != workflow_text
     original_read_text = Path.read_text
 
@@ -172,10 +176,7 @@ def test_ci_matrix_requires_base_runtime_for_release_sbom(monkeypatch, workflow:
 
     errors = ci_matrix.check()
 
-    expected_error = (
-        f"{workflow.relative_to(ci_matrix.REPO_ROOT)} must export the base runtime "
-        "without optional extras for the release SBOM"
-    )
+    expected_error = f"{workflow.relative_to(ci_matrix.REPO_ROOT)} must export exactly the locked base runtime for the release SBOM"
     assert expected_error in errors
 
 
