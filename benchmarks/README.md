@@ -39,8 +39,9 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_warp_affine3d.py`](benchmark_warp_affine3d.py) | Full CPU `warp_affine3d` NumPy `DHWC` route: control-data normalization, zero-copy Torch bridge, sampling, uint8 repair, and public dispatch. |
 | [`benchmark_warp_affine3d_tensor.py`](benchmark_warp_affine3d_tensor.py) | CPU Tensor→Tensor `warp_affine3d`: native `affine_grid`, manual-grid and coverage-fill diagnostic candidates, and public routing across contiguous and channel-last-strided `CDHW` inputs. |
 | [`benchmark_remap3d.py`](benchmark_remap3d.py) | Complete CPU `remap3d` matrix: public NumPy `DHWC`, public direct Tensor `CDHW`, and a Tensor-to-NumPy-to-Tensor bridge baseline across sizes, dtypes, grids, strides, borders, raw timings, and RSS. |
-| [`benchmark_warp_affine3d_batch.py`](benchmark_warp_affine3d_batch.py) | Full-path comparison for rank-5 `warp_affine3d`: single-volume loop, `N × C` folding, public native batch dispatch, and the Tensor→NumPy→Tensor bridge. |
-| [`benchmark_remap3d_batch.py`](benchmark_remap3d_batch.py) | Full-path comparison for rank-5 `remap3d`: single-volume loop, `N × C` folding, direct native batch sampling, public batch dispatch, and the Tensor→NumPy→Tensor bridge. |
+| [`benchmark_warp_affine3d_batch.py`](benchmark_warp_affine3d_batch.py) | Full-path comparison for rank-5 `warp_affine3d`: single-volume loop, `N × C` folding, direct native-N sampling, public batch dispatch, and the Tensor→NumPy→Tensor bridge. |
+| [`benchmark_remap3d_batch.py`](benchmark_remap3d_batch.py) | Full-path comparison for rank-5 `remap3d`: single-volume loop, `N × C` folding, direct native-N sampling, public batch dispatch, and the Tensor→NumPy→Tensor bridge. |
+| [`benchmark_sampling3d_batch_memory.py`](benchmark_sampling3d_batch_memory.py) | Isolated-process peak RSS for loop, folded, direct native-N, public dispatch, and Tensor→NumPy→Tensor batch routes. |
 | [`benchmark_pad3d.py`](benchmark_pad3d.py) | Paired one-thread constant padding: `np.pad`, allocation/fill/copy, border-only writes, complete NumPy/Torch bridges, native Torch layouts, and public `pad3d`. Covers volumes, int16 masks, tuple fills, strides, and identity. |
 | [`benchmark_gaussian_blur3d.py`](benchmark_gaussian_blur3d.py) | Full CPU `gaussian_blur3d` routes for NumPy `DHWC` and already-imported-Torch `CDHW`: selected reflect padding, universal fallback, NumPy, packed OpenCV, and public dispatch. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
@@ -109,6 +110,8 @@ uv run python benchmarks/benchmark_warp_affine3d_tensor.py --quick --threads 1
 uv run python benchmarks/benchmark_warp_affine3d_batch.py --quick --threads 1
 uv run python benchmarks/benchmark_warp_affine3d_batch.py --full --threads 1 \
   --output benchmarks/results/benchmark_warp_affine3d_batch.md
+uv run python benchmarks/benchmark_sampling3d_batch_memory.py \
+  --output benchmarks/results/benchmark_sampling3d_batch_memory.md
 ```
 
 For `remap3d`, run the rank-4 and rank-5 matrices. The batch benchmark also varies NumPy/Tensor grid containers:

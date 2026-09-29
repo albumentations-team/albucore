@@ -6,9 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import platform
-import resource
 import statistics
-import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -20,7 +18,13 @@ import numpy as np
 import torch
 
 import albucore
-from albucore.affine3d import warp_affine3d
+from albucore.affine3d import (
+    _inverse_matrix,
+    _normalize_matrix,
+    _warp_affine3d_torch_cpu_batch_native,
+    warp_affine3d,
+)
+from albucore.sampling3d import _normalize_border_value
 
 Shape = tuple[int, int, int, int]
 Size = tuple[int, int, int]
@@ -75,6 +79,7 @@ def _parse_args() -> argparse.Namespace:
     scope.add_argument("--quick", action="store_true", help="Use small development shapes and N=1/4.")
     scope.add_argument("--full", action="store_true", help="Use the canonical DHWC shape matrix and N=1/4/16.")
     parser.add_argument("--shape", action="append", type=_parse_shape)
+    parser.add_argument("--batch-sizes", type=int, nargs="+", choices=(1, 4, 16))
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=11)
     parser.add_argument("--warmup", type=int, default=3)
@@ -150,6 +155,34 @@ def _tensor_numpy_bridge(  # noqa: PLR0913, PLR0917
     return torch.from_numpy(result).permute(0, 4, 1, 2, 3)
 
 
+def _native_n_batch_sampler(  # noqa: PLR0913, PLR0917
+    volumes: Volume,
+    matrix: np.ndarray,
+    size: Size,
+    interpolation: int,
+    border_mode: int,
+    fill: tuple[float, ...] | None,
+) -> Volume:
+    if isinstance(volumes, np.ndarray):
+        channels = volumes.shape[-1]
+        if not volumes.flags.writeable or any(stride < 0 for stride in volumes.strides):
+            volumes = np.array(volumes, copy=True, order="C")
+        tensor = torch.from_numpy(volumes).permute(0, 4, 1, 2, 3)
+    else:
+        channels = volumes.shape[1]
+        tensor = volumes
+    inverse_matrix = _inverse_matrix(_normalize_matrix(matrix))
+    result = _warp_affine3d_torch_cpu_batch_native(
+        tensor,
+        inverse_matrix,
+        size,
+        interpolation,
+        border_mode,
+        _normalize_border_value(fill, channels),
+    )
+    return np.asarray(result.permute(0, 2, 3, 4, 1).numpy()) if isinstance(volumes, np.ndarray) else result
+
+
 def _time_candidates(candidates: dict[str, Call], warmup: int, repeats: int) -> tuple[tuple[str, Timing], ...]:
     samples = {name: [] for name in candidates}
     names = tuple(candidates)
@@ -215,7 +248,15 @@ def _measure_case(  # noqa: PLR0913, PLR0917
     candidates: dict[str, Call] = {
         "single_loop": loop,
         "channel_folded": lambda: _folded(volumes, matrix, size, interpolation, border_mode, fill),
-        "rank5_batch_dispatch": lambda: albucore.warp_affine3d(
+        "native_n_batch_sampler": lambda: _native_n_batch_sampler(
+            volumes,
+            matrix,
+            size,
+            interpolation,
+            border_mode,
+            fill,
+        ),
+        "public_batch_dispatch": lambda: albucore.warp_affine3d(
             volumes,
             matrix,
             size,
@@ -248,8 +289,6 @@ def _measure_case(  # noqa: PLR0913, PLR0917
 
 
 def _report(results: list[Result], args: argparse.Namespace, thread_settings: str) -> str:
-    peak_rss_units = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    peak_rss_mib = peak_rss_units / (1024 * 1024) if sys.platform == "darwin" else peak_rss_units / 1024
     lines = [
         "# Batched warp_affine3d CPU benchmark",
         "",
@@ -262,8 +301,8 @@ def _report(results: list[Result], args: argparse.Namespace, thread_settings: st
             f"OpenCV `{cv2.__version__}`."
         ),
         (
-            f"{thread_settings} Warmup: `{args.warmup}`; repeats: `{args.repeats}`; "
-            f"process peak RSS: `{peak_rss_mib:.1f} MiB`."
+            f"{thread_settings} Warmup: `{args.warmup}`; repeats: `{args.repeats}`. "
+            "Route-specific peak RSS is measured separately by `benchmark_sampling3d_batch_memory.py`."
         ),
         (
             "All candidates include grid generation, layout work, sampling, fill correction, dtype restoration, "
@@ -290,7 +329,7 @@ def main() -> None:
     args = _parse_args()
     thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
-    batch_sizes = (1, 4, 16) if args.full else (1, 4)
+    batch_sizes = tuple(args.batch_sizes) if args.batch_sizes else ((1, 4, 16) if args.full else (1, 4))
     rng = np.random.default_rng(20260929)
     results: list[Result] = []
     for shape in shapes:

@@ -6,9 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import platform
-import resource
 import statistics
-import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,7 +19,7 @@ import torch
 
 import albucore
 from albucore.remap3d import _sampling_grid_to_tensor, remap3d
-from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu_batch
+from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu_batch_native
 
 Shape = tuple[int, int, int, int]
 Size = tuple[int, int, int]
@@ -79,6 +77,7 @@ def _parse_args() -> argparse.Namespace:
     scope.add_argument("--quick", action="store_true", help="Use small development shapes and N=1/4.")
     scope.add_argument("--full", action="store_true", help="Use the canonical DHWC shape matrix and N=1/4/16.")
     parser.add_argument("--shape", action="append", type=_parse_shape)
+    parser.add_argument("--batch-sizes", type=int, nargs="+", choices=(1, 4, 16))
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=11)
     parser.add_argument("--warmup", type=int, default=3)
@@ -158,7 +157,7 @@ def _native_batch_sampler(
     channels = volumes.shape[-1] if isinstance(volumes, np.ndarray) else volumes.shape[1]
     border_values = _normalize_border_value(fill, channels)
     tensor_volumes = torch.from_numpy(volumes).permute(0, 4, 1, 2, 3) if isinstance(volumes, np.ndarray) else volumes
-    result = _sample3d_torch_cpu_batch(
+    result = _sample3d_torch_cpu_batch_native(
         tensor_volumes,
         _sampling_grid_to_tensor(grid),
         interpolation,
@@ -230,14 +229,14 @@ def _measure_case(  # noqa: PLR0913, PLR0917
     candidates: dict[str, Call] = {
         "single_loop": loop,
         "channel_folded": lambda: _folded(volumes, grid, interpolation, border_mode, fill),
-        "native_batch_sampler": lambda: _native_batch_sampler(
+        "native_n_batch_sampler": lambda: _native_batch_sampler(
             volumes,
             grid,
             interpolation,
             border_mode,
             fill,
         ),
-        "rank5_batch_dispatch": lambda: albucore.remap3d(volumes, grid, interpolation, border_mode, fill),
+        "public_batch_dispatch": lambda: albucore.remap3d(volumes, grid, interpolation, border_mode, fill),
     }
     if container == "tensor":
         candidates["tensor_numpy_bridge"] = lambda: _tensor_numpy_bridge(
@@ -264,8 +263,6 @@ def _measure_case(  # noqa: PLR0913, PLR0917
 
 
 def _report(results: list[Result], args: argparse.Namespace, thread_settings: str) -> str:
-    peak_rss_units = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    peak_rss_mib = peak_rss_units / (1024 * 1024) if sys.platform == "darwin" else peak_rss_units / 1024
     lines = [
         "# Batched remap3d CPU benchmark",
         "",
@@ -278,8 +275,8 @@ def _report(results: list[Result], args: argparse.Namespace, thread_settings: st
             f"OpenCV `{cv2.__version__}`."
         ),
         (
-            f"{thread_settings} Warmup: `{args.warmup}`; repeats: `{args.repeats}`; "
-            f"process peak RSS: `{peak_rss_mib:.1f} MiB`."
+            f"{thread_settings} Warmup: `{args.warmup}`; repeats: `{args.repeats}`. "
+            "Route-specific peak RSS is measured separately by `benchmark_sampling3d_batch_memory.py`."
         ),
         "Timing includes layout conversion, sampling, fill correction, dtype restoration, and returned layout.",
         "",
@@ -307,7 +304,7 @@ def main() -> None:  # noqa: C901
     args = _parse_args()
     thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
-    batch_sizes = (1, 4, 16) if args.full else (1, 4)
+    batch_sizes = tuple(args.batch_sizes) if args.batch_sizes else ((1, 4, 16) if args.full else (1, 4))
     rng = np.random.default_rng(20260929)
     results: list[Result] = []
     for shape in shapes:

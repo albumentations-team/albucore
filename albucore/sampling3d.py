@@ -56,6 +56,17 @@ def _sample3d_torch_cpu_batch(
         )
         return folded_result.reshape(batch_size, 1, *folded_result.shape[1:])
 
+    return _sample3d_torch_cpu_batch_native(volumes, sampling_grid, interpolation, border_mode, border_values)
+
+
+def _sample3d_torch_cpu_batch_native(
+    volumes: torch.Tensor,
+    sampling_grid: torch.Tensor,
+    interpolation: int,
+    border_mode: int,
+    border_values: np.ndarray,
+) -> torch.Tensor:
+    """Sample prevalidated CPU ``NCDHW`` volumes through one shared normalized ``DHW3`` pull grid."""
     mode = _INTERPOLATIONS[interpolation]
     padding_mode = _BORDERS[border_mode]
     working_volume = volumes if volumes.dtype == torch.float32 else volumes.to(torch.float32)
@@ -91,7 +102,7 @@ def _sample3d_torch_cpu(
     border_mode: int,
     border_values: np.ndarray,
 ) -> torch.Tensor:
-    """Sample one prevalidated CPU ``CDHW`` volume through one normalized ``DHWC3`` pull grid."""
+    """Sample one prevalidated CPU ``CDHW`` volume through one normalized ``DHW3`` pull grid."""
     mode = _INTERPOLATIONS[interpolation]
     padding_mode = _BORDERS[border_mode]
     working_volume = volume if volume.dtype == torch.float32 else volume.to(torch.float32)

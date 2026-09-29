@@ -9,7 +9,12 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
-from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu, _sample3d_torch_cpu_batch
+from albucore.sampling3d import (
+    _normalize_border_value,
+    _sample3d_torch_cpu,
+    _sample3d_torch_cpu_batch,
+    _sample3d_torch_cpu_batch_native,
+)
 
 __all__ = ["warp_affine3d"]
 
@@ -75,9 +80,18 @@ def _warp_affine3d_torch_cpu(
 ) -> torch.Tensor:
     """Sample one prevalidated CPU ``CDHW`` tensor through the native Torch 3D kernel."""
     input_size = volume.shape[1], volume.shape[2], volume.shape[3]
-    theta = torch.from_numpy(_normalized_theta(inverse_matrix, input_size, size)).unsqueeze(0)
-    grid = torch_f.affine_grid(theta, [1, volume.shape[0], *size], align_corners=False).squeeze(0)
+    grid = _affine_grid(inverse_matrix, input_size, volume.shape[0], size)
     return _sample3d_torch_cpu(volume, grid, interpolation, border_mode, border_values)
+
+
+def _affine_grid(
+    inverse_matrix: np.ndarray,
+    input_size: tuple[int, int, int],
+    channels: int,
+    size: tuple[int, int, int],
+) -> torch.Tensor:
+    theta = torch.from_numpy(_normalized_theta(inverse_matrix, input_size, size)).unsqueeze(0)
+    return torch_f.affine_grid(theta, [1, channels, *size], align_corners=False).squeeze(0)
 
 
 def _warp_affine3d_torch_cpu_batch(
@@ -90,9 +104,22 @@ def _warp_affine3d_torch_cpu_batch(
 ) -> torch.Tensor:
     """Sample prevalidated CPU ``NCDHW`` volumes with one shared affine grid."""
     input_size = volumes.shape[2], volumes.shape[3], volumes.shape[4]
-    theta = torch.from_numpy(_normalized_theta(inverse_matrix, input_size, size)).unsqueeze(0)
-    grid = torch_f.affine_grid(theta, [1, volumes.shape[1], *size], align_corners=False).squeeze(0)
+    grid = _affine_grid(inverse_matrix, input_size, volumes.shape[1], size)
     return _sample3d_torch_cpu_batch(volumes, grid, interpolation, border_mode, border_values)
+
+
+def _warp_affine3d_torch_cpu_batch_native(
+    volumes: torch.Tensor,
+    inverse_matrix: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    border_mode: int,
+    border_values: np.ndarray,
+) -> torch.Tensor:
+    """Sample prevalidated CPU ``NCDHW`` volumes without channel-folding dispatch."""
+    input_size = volumes.shape[2], volumes.shape[3], volumes.shape[4]
+    grid = _affine_grid(inverse_matrix, input_size, volumes.shape[1], size)
+    return _sample3d_torch_cpu_batch_native(volumes, grid, interpolation, border_mode, border_values)
 
 
 def _warp_affine3d_numpy(
