@@ -250,6 +250,18 @@ def _check_torch_runtime_exports(errors: list[str], path: Path) -> None:
         errors.append(f"{path.relative_to(REPO_ROOT)} must include the torch extra in every uv export")
 
 
+def _check_release_sbom_exports(errors: list[str], path: Path) -> None:
+    if not path.exists():
+        return
+    export_commands = re.findall(r"(?m)^\s*run:\s*(uv export[^\n]+)", path.read_text())
+    expected_export = (
+        "uv export --frozen --no-dev --no-emit-project --format requirements-txt "
+        "--output-file dist/runtime-requirements.txt"
+    )
+    if export_commands != [expected_export]:
+        errors.append(f"{path.relative_to(REPO_ROOT)} must export exactly the locked base runtime for the release SBOM")
+
+
 def _check_torch_pip_audits(errors: list[str], path: Path) -> None:
     if not path.exists():
         return
@@ -268,8 +280,9 @@ def _check_documentation_only_filter(errors: list[str], path: Path, event: str) 
 
 
 def _check_release_workflows(errors: list[str]) -> None:
-    for workflow in (SECURITY_WORKFLOW, RELEASE_CANDIDATE_WORKFLOW, PUBLISH_WORKFLOW):
-        _check_torch_runtime_exports(errors, workflow)
+    _check_torch_runtime_exports(errors, SECURITY_WORKFLOW)
+    for workflow in (RELEASE_CANDIDATE_WORKFLOW, PUBLISH_WORKFLOW):
+        _check_release_sbom_exports(errors, workflow)
     _check_file_fragments(
         errors,
         BENCHMARK_PR_WORKFLOW,
@@ -331,7 +344,7 @@ def _check_release_workflows(errors: list[str]) -> None:
             "candidate CI validator": "tools/validate_release_candidate.py ci-runs",
             "release validation Torch profile": "uv sync --frozen --extra headless --extra torch --group dev",
             "shared CPU Torch action": CI_FOUNDATION_TORCH_ACTION,
-            "project-free runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
+            "project-free base runtime dependency export": "uv export --frozen --no-dev --no-emit-project",
             "candidate metadata writer": "tools/validate_release_candidate.py candidate-metadata",
             "legal artifact verifier": LEGAL_ARTIFACT_VERIFY_COMMAND,
             "release candidate artifact upload": "release-candidate-artifacts",

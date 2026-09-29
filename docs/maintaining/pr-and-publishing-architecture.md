@@ -120,8 +120,8 @@ Required checks:
 - run release property tests
 - run `twine check dist/*`
 - smoke test the built wheel in a clean venv outside the repository checkout
-- export locked runtime dependencies
-- generate SBOM
+- export locked base runtime dependencies without optional extras for the SBOM
+- generate a CycloneDX SBOM from the base runtime export
 - generate release-candidate metadata
 - generate checksums
 - generate release summary
@@ -129,7 +129,8 @@ Required checks:
 Implementation:
 
 - `tools/validate_release_candidate.py metadata` owns package version, lockfile version, checkout
-  SHA, `origin/main` ancestry, SBOM filename, and headless-runtime dependency export.
+  SHA, `origin/main` ancestry, and SBOM filename. Its headless dependency list is
+  retained for the clean wheel smoke test.
 - `tools/validate_release_candidate.py ci-runs` owns the successful-CI-run requirement.
 - `tools/validate_release_candidate.py candidate-metadata` writes the release-candidate provenance
   file included in the artifact bundle.
@@ -187,8 +188,8 @@ GitHub Release publish required checks:
 - run router contract checks, CI matrix policy checks, golden vectors, release property tests, and
   `twine check`
 - smoke test the built wheel in a clean venv outside the repository checkout
-- export locked runtime dependencies
-- generate SBOM, release metadata, checksums, and release summary
+- export locked base runtime dependencies without optional extras for the SBOM
+- generate the base-runtime SBOM, release metadata, checksums, and release summary
 - verify PyPI does not already have this version
 - stage only the wheel and sdist into the PyPI upload directory
 - publish to PyPI through trusted publishing
