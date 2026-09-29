@@ -58,7 +58,9 @@ This means authenticity is anchored in the CI identity that built and published 
 
 ## SBOM Verification
 
-The CycloneDX SBOM attached to the GitHub Release is generated from the locked runtime dependency set used for the release. Consumers can:
+The CycloneDX SBOM attached to the GitHub Release describes the locked base
+runtime dependencies, without optional extras. The security workflow checks the
+Torch profile and all declared extras separately. Consumers can:
 
 1. download the SBOM JSON
 2. inspect the listed runtime dependencies
