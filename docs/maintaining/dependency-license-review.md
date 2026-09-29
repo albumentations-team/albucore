@@ -22,11 +22,11 @@ environment.
 
 `tools/verify_dependency_licenses.py` rejects a dependency name or resolved
 version absent from the registry and writes the reviewed SPDX expressions into
-the CycloneDX SBOM. The release workflow generates that SBOM from the concrete
-`headless,torch` validation profile, then compares each installed distribution's
-declared license metadata with the identifiers accepted in the registry. The
-security workflow checks the locked runtime export. Future dependency and
-license changes follow
+the CycloneDX SBOM. The release workflow generates it from the locked base
+runtime export without optional extras, then compares each base dependency's
+installed license metadata with accepted identifiers. The security workflow
+checks all declared extras against the registry and runs pip-audit on the Torch
+profile. Future dependency and license changes follow
 [`LICENSE_POLICY.md`](../../LICENSE_POLICY.md).
 
 Albucore does not currently copy runtime dependencies into its wheel or sdist.

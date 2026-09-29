@@ -133,7 +133,7 @@ def test_ci_matrix_requires_shared_cpu_environment_for_base_benchmark(monkeypatc
     assert "PR benchmark workflow must run the base source tree in the PR CPU environment" in errors
 
 
-def test_ci_matrix_requires_torch_in_audit_and_sbom_exports(monkeypatch) -> None:
+def test_ci_matrix_requires_torch_in_security_exports(monkeypatch) -> None:
     security_text = ci_matrix.SECURITY_WORKFLOW.read_text().replace(" --extra torch", "", 1)
     original_read_text = Path.read_text
 
@@ -147,6 +147,37 @@ def test_ci_matrix_requires_torch_in_audit_and_sbom_exports(monkeypatch) -> None
     errors = ci_matrix.check()
 
     assert ".github/workflows/security.yml must include the torch extra in every uv export" in errors
+
+
+@pytest.mark.parametrize(
+    "workflow",
+    (ci_matrix.RELEASE_CANDIDATE_WORKFLOW, ci_matrix.PUBLISH_WORKFLOW),
+)
+@pytest.mark.parametrize(
+    ("old", "new"),
+    (
+        ("--no-dev --no-emit-project", "--no-emit-project"),
+        ("--format requirements-txt", "--extra torch --format requirements-txt"),
+        ("--format requirements-txt", "--group dev --format requirements-txt"),
+    ),
+)
+def test_ci_matrix_requires_base_runtime_for_release_sbom(monkeypatch, workflow: Path, old: str, new: str) -> None:
+    workflow_text = workflow.read_text()
+    modified_text = workflow_text.replace(old, new, 1)
+    assert modified_text != workflow_text
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == workflow:
+            return modified_text
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    errors = ci_matrix.check()
+
+    expected_error = f"{workflow.relative_to(ci_matrix.REPO_ROOT)} must export exactly the locked base runtime for the release SBOM"
+    assert expected_error in errors
 
 
 def test_ci_matrix_requires_pytorch_cpu_index_for_dependency_audits(monkeypatch) -> None:
