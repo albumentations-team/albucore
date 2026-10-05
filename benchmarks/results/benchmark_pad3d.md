@@ -32,7 +32,7 @@ All-zero padding returns the original object before dispatch. Tuple fills retain
 
 ## Measurement and alternatives
 
-Environment: Apple M4 Max, 128 GiB RAM, macOS-26.4.1-arm64-arm-64bit, Python 3.10.16, NumPy 2.2.6, Torch 2.13.0. Measured September 6, 2026. Torch intra-op/inter-op threads were both 1. OMP, OpenBLAS, MKL, Accelerate, and NumExpr limits were set to 1 before imports. OpenCV reported 16 threads after its thread-setting call; these padding paths do not use OpenCV.
+Environment: Apple M4 Max, 128 GiB RAM, macOS-26.4.1-arm64-arm-64bit, NumPy 2.2.6, Torch 2.13.0. Measured September 6, 2026. Torch intra-op/inter-op threads were both 1. OMP, OpenBLAS, MKL, Accelerate, and NumExpr limits were set to 1 before imports. OpenCV reported 16 threads after its thread-setting call; these padding paths do not use OpenCV.
 
 The candidate sweep has 215 cases; final verification adds four Fortran controls for 219. The main 144 cases combine canonical non-square volumes and the issue grid, C=1/3/5/9, uint8/float32, both containers, and contiguous/strided storage. Controls cover int16, asymmetric padding, tuple fills, identity, unit axes, negative/read-only inputs, sliced Tensors, and 40 non-square cases around routing thresholds. JSON records every shape, stride, fill, padding, calibrated iteration count, and raw timing sample.
 

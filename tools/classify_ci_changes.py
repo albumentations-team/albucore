@@ -5,13 +5,9 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, Final
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
 
 VERSION_FILES: Final = frozenset({"pyproject.toml", "uv.lock"})
 PROJECT_NAME: Final = "albucore"
