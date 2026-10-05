@@ -12,10 +12,16 @@ The current Albucore scope is eager CPU execution without autograd through the p
 `CDHW`/`NCDHW`. Each batch call reuses one matrix or grid across its items. Other 3D routers currently receive one
 volume per call.
 
-The measured CPU route folds `N>=4, C=1` into the channel axis for both batch routers. `warp_affine3d` uses the
-rank-5 sampler for other channel counts. For `remap3d`, `N>=4, C>1` uses per-volume sampling with grid and fill
+For general 3D sampling, the measured CPU route folds `N>=4, C=1` into the channel axis for both batch routers.
+`warp_affine3d` uses the rank-5 sampler for other channel counts. For `remap3d`, `N>=4, C>1` uses per-volume sampling with grid and fill
 preparation shared across items; a single native batch sampler was slower in the full-call comparison. See the
 measurements in [`REPORT_sampling3d_batch.md`](../benchmarks/results/REPORT_sampling3d_batch.md).
+
+An exact XY-only linear affine with unchanged depth shares one plane grid across all slices and batch items.
+Single-channel inputs fold `N*D` into 2D channels. Multi-channel inputs use a 2D batch when merging `N` and `D`
+requires no copy; other layouts sample each volume into one preallocated output while reusing the grid.
+Nearest interpolation and every real Z change retain the original 3D sampler. See
+[`REPORT_xy_volume_resampling.md`](../benchmarks/results/REPORT_xy_volume_resampling.md) for numerical and timing evidence.
 
 ## Start with the whole operation
 

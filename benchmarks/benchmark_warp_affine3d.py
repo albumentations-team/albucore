@@ -24,8 +24,8 @@ import torch
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
-from albucore.affine3d import _inverse_matrix, _normalize_matrix, _warp_affine3d_torch_cpu
-from albucore.sampling3d import _normalize_border_value
+from albucore.affine3d import _affine_grid, _inverse_matrix, _normalize_matrix
+from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu
 
 Shape = tuple[int, int, int, int]
 Size = tuple[int, int, int]
@@ -79,10 +79,11 @@ def _native_torch_bridge(
 ) -> np.ndarray:
     """Time the direct zero-copy NumPy ``DHWC`` to native Torch sampler bridge."""
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
-    result = _warp_affine3d_torch_cpu(
+    inverse_matrix = _inverse_matrix(_normalize_matrix(matrix))
+    grid = _affine_grid(inverse_matrix, volume.shape[:3], volume.shape[-1], size)
+    result = _sample3d_torch_cpu(
         tensor,
-        _inverse_matrix(_normalize_matrix(matrix)),
-        size,
+        grid,
         interpolation,
         cv2.BORDER_CONSTANT,
         _normalize_border_value(fill, volume.shape[-1]),
@@ -123,6 +124,8 @@ def _target_shape(shape: Shape, scenario: str) -> Size:
         return max(1, depth // 2), height, width * 3 // 2
     if scenario == "unit":
         return 1, max(1, height * 3 // 4), width
+    if scenario == "xy":
+        return depth, height, width
     msg = f"Unknown scenario {scenario!r}."
     raise ValueError(msg)
 
@@ -137,6 +140,8 @@ def _matrix(scenario: str) -> np.ndarray:
         return np.array(((0.9, 0.15, 0.0, 1.0), (0.0, 1.1, 0.1, -0.75), (0.1, 0.0, 1.0, 0.5)), dtype=np.float32)
     if scenario == "unit":
         return np.array(((1.0, 0.1, 0.0, 0.5), (0.0, 0.95, 0.1, -0.25), (0.0, 0.0, 1.0, 0.0)), dtype=np.float32)
+    if scenario == "xy":
+        return np.array(((0.9, 0.15, 0.0, 0.37), (-0.1, 1.05, 0.0, -0.23), (0.0, 0.0, 1.0, 0.0)))
     msg = f"Unknown scenario {scenario!r}."
     raise ValueError(msg)
 
@@ -152,14 +157,22 @@ def _make_volume(
     return rng.random(shape, dtype=np.float32)
 
 
-def _validate_candidates(volume: np.ndarray, matrix: np.ndarray, size: Size, interpolation: int, fill: float) -> None:
+def _validate_candidates(  # noqa: PLR0913, PLR0917
+    volume: np.ndarray, matrix: np.ndarray, size: Size, interpolation: int, fill: float, xy: bool,
+) -> None:
     """Reject a candidate before timing when its public result differs from the direct baseline."""
     expected = _native_torch_bridge(volume, matrix, size, interpolation, fill)
     for candidate in CANDIDATES:
         result = candidate.prepare(volume, matrix, size, interpolation, fill)()
         assert result.shape == (*size, volume.shape[-1])
         assert result.dtype == volume.dtype
-        np.testing.assert_array_equal(result, expected)
+        if xy and volume.dtype == np.float32:
+            np.testing.assert_allclose(result, expected, rtol=0, atol=3e-5)
+        elif xy:
+            difference = np.abs(result.astype(np.int16) - expected.astype(np.int16))
+            assert difference.max() <= 1
+        else:
+            np.testing.assert_array_equal(result, expected)
 
 
 def _format_rows(rows: list[Row]) -> list[str]:
@@ -198,6 +211,10 @@ def _parse_args() -> argparse.Namespace:
     shape_group.add_argument("--full", action="store_true", help="Use the canonical single-volume DHWC matrix.")
     parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark an explicit DHWC shape.")
     parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
+    parser.add_argument(
+        "--scenario", action="append", choices=("down", "up", "mixed", "unit", "xy"),
+        help="Benchmark selected scale scenarios; repeat for a subset. Defaults to all scenarios.",
+    )
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown report path.")
@@ -215,12 +232,12 @@ def main() -> None:
     for shape in shapes:
         for dtype in (np.dtype(np.uint8), np.dtype(np.float32)):
             volume = _make_volume(rng, shape, dtype)
-            for scenario in ("down", "up", "mixed", "unit"):
+            for scenario in args.scenario or ("down", "up", "mixed", "unit", "xy"):
                 size = _target_shape(shape, scenario)
                 matrix = _matrix(scenario)
                 interpolation = cv2.INTER_NEAREST if scenario == "unit" else cv2.INTER_LINEAR
                 fill = 13.0 if scenario == "mixed" else 0.0
-                _validate_candidates(volume, matrix, size, interpolation, fill)
+                _validate_candidates(volume, matrix, size, interpolation, fill, scenario == "xy")
                 for candidate in CANDIDATES:
                     timing = bench_wall_ms(
                         candidate.prepare(volume, matrix, size, interpolation, fill),
@@ -243,7 +260,8 @@ def main() -> None:
         "Each row is one non-batched DHWC volume and includes public dispatch, matrix normalization/inversion, "
         "NumPy-to-Torch views, permutations, grid construction, sampling, dtype restoration, "
         "and the NumPy output view. "
-        "The direct bridge and public router must be bitwise equal before timing.",
+        "XY float32 results use absolute tolerance 3e-5 and XY uint8 results permit one level of difference. "
+        "Other scenarios require bitwise equality between the direct bridge and public router before timing.",
         "",
         *_format_rows(rows),
         "",
