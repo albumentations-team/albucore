@@ -723,7 +723,7 @@ def _resize3d_numpy_per_slice(
     interpolation: int,
     antialias: bool,
 ) -> np.ndarray:
-    """Resize each HWC slice in H/W before one packed depth pass."""
+    """Resize H/W per slice, then resize depth only when it changes."""
     depth, height, width, channels = volume.shape
     result = volume
     if (height, width) != size[1:]:
