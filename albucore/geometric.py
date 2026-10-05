@@ -640,6 +640,7 @@ def resize(
 
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
 _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
+_RESIZE3D_XY_MIN_PLANE_ELEMENTS = 16_384
 
 
 def _resize3d_axis_packing(
@@ -792,6 +793,29 @@ def _resize3d_numpy_joint_hw(
     return result
 
 
+def _can_resize3d_xy_per_slice(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> bool:
+    """Avoid tiny-plane loop overhead and fractional uint8 linear backend differences."""
+    depth, height, width, channels = volume.shape
+    return (
+        depth > 1
+        and size[0] == depth
+        and size[1] < height
+        and size[2] < width
+        and height * width * channels >= _RESIZE3D_XY_MIN_PLANE_ELEMENTS
+        and (
+            volume.dtype == np.float32
+            or interpolation == cv2.INTER_NEAREST
+            or antialias
+            or (height % size[1] == 0 and width % size[2] == 0)
+        )
+    )
+
+
 def _resize3d_numpy(
     volume: np.ndarray,
     size: tuple[int, int, int],
@@ -800,6 +824,9 @@ def _resize3d_numpy(
 ) -> np.ndarray:
     """Choose the measured NumPy, OpenCV, or CPU Torch full route for one DHWC volume."""
     source_size = volume.shape[:3]
+    if _can_resize3d_xy_per_slice(volume, size, interpolation, antialias):
+        return _resize3d_numpy_per_slice(volume, size, interpolation, antialias)
+
     all_down = all(target_axis < source_axis for source_axis, target_axis in zip(source_size, size, strict=True))
     all_up = all(target_axis > source_axis for source_axis, target_axis in zip(source_size, size, strict=True))
     torch_compatible = _can_resize3d_numpy_torch(volume, interpolation, antialias)
@@ -809,11 +836,10 @@ def _resize3d_numpy(
             return _resize3d_numpy_torch_cpu(volume, size)
         return _resize3d_numpy_linear_three_pass(volume, size)
 
-    if all_down:
-        if torch_compatible and (volume.dtype == np.float32 or volume.shape[-1] > 1):
-            return _resize3d_numpy_torch_cpu(volume, size)
-        if volume.shape[-1] == 1 and volume.size <= _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS:
-            return _resize3d_numpy_per_slice(volume, size, interpolation, antialias)
+    if all_down and torch_compatible and (volume.dtype == np.float32 or volume.shape[-1] > 1):
+        return _resize3d_numpy_torch_cpu(volume, size)
+    if all_down and volume.shape[-1] == 1 and volume.size <= _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS:
+        return _resize3d_numpy_per_slice(volume, size, interpolation, antialias)
 
     if (
         torch_compatible
