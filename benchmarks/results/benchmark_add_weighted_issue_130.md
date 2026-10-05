@@ -10,7 +10,7 @@ The rank-4 branch matters: NumKong wins whenever at least one input is strided. 
 
 ## Method
 
-Run date: 2026-07-31. Environment: macOS 26.4.1, Apple M4 Max, Python 3.10.16, NumPy 2.2.6, OpenCV 5.0.0, and NumKong 7.7.0. OpenCV reported one thread after `cv2.setNumThreads(0)`.
+Run date: 2026-07-31. Environment: macOS 26.4.1, Apple M4 Max, NumPy 2.2.6, OpenCV 5.0.0, and NumKong 7.7.0. OpenCV reported one thread after `cv2.setNumThreads(0)`.
 
 Inputs were float32 arrays in `[0, 255]`; weights were `0.5, 0.5`. Each cell reports the median ± median absolute deviation in milliseconds from 101 repeats after 10 warmups. The harness shuffled candidate order on every repeat to reduce ordering bias and validated one candidate output at a time to avoid retaining four full result arrays.
 

@@ -2,7 +2,6 @@
   "metadata": {
     "date": "2026-09-06T16:17:11.164185+00:00",
     "platform": "macOS-26.4.1-arm64-arm-64bit",
-    "python": "3.10.16",
     "numpy": "2.2.6",
     "torch": "2.13.0",
     "opencv": "5.0.0",

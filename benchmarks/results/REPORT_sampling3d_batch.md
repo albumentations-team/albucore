@@ -4,7 +4,7 @@ The existing APIs now accept rank-5 volume batches. This report records the fina
 
 ## Environment and method
 
-- macOS 27, arm64, Python 3.10.16; Albucore 0.2.18, NumPy 2.2.6, OpenCV 5.0.0, PyTorch 2.14.0.
+- macOS 27, arm64; Albucore 0.2.18, NumPy 2.2.6, OpenCV 5.0.0, PyTorch 2.14.0.
 - One Torch intra-op and inter-op thread; OpenCV parallelism disabled; OpenMP/BLAS set to one thread. MPS was outside this CPU-only run and was unavailable in the local process.
 - Each timing benchmark used 2 warmups and 7 timed samples. Ratios below are candidate median divided by the matching public per-volume loop median; below 1.0 is faster. The p10–p90 range is across dtype, interpolation, border, container/layout, and, for remap, grid-container cases. It describes workload spread, not a confidence interval.
 - Main shape: `DHW=(16,128,160)`, output `DHW=(8,96,120)`, channels `1/3/5/9`, batches `N=1/4/16`, uint8/float32, nearest/trilinear, constant-zero/per-channel-fill/replicate. NumPy used contiguous NDHWC; Tensor used contiguous and channel-last-strided NCDHW. Remap varied both NumPy and Tensor grids with one shared nonlinear grid.
