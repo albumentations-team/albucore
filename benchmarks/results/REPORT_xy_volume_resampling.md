@@ -4,7 +4,7 @@ NumPy XY downscales with unchanged depth now avoid packing depth into OpenCV cha
 
 ## Measurements
 
-Measured on 2026-10-05: Apple M4 Max, macOS 27.0.1 arm64, Python 3.10.16, NumPy 2.2.6, OpenCV 5.0.0, Torch 2.14.0. The baseline is source revision `c64a777eb2970dfcfbd7d6c63cbfacd5a06504f0` (manifest version 0.2.20); the candidate is this change. Both public implementations run in the same process. Imports and input construction are excluded. Dispatch, matrix preparation, NumPy/Torch views, allocation, sampling, and returned layout are included. OpenMP/BLAS environment variables and both Torch thread pools are set to one; OpenCV internal parallelism is disabled.
+Measured on 2026-10-05: Apple M4 Max, macOS 27.0.1 arm64, NumPy 2.2.6, OpenCV 5.0.0, Torch 2.14.0. The baseline is source revision `c64a777eb2970dfcfbd7d6c63cbfacd5a06504f0` (manifest version 0.2.20); the candidate is this change. Both public implementations run in the same process. Imports and input construction are excluded. Dispatch, matrix preparation, NumPy/Torch views, allocation, sampling, and returned layout are included. OpenMP/BLAS environment variables and both Torch thread pools are set to one; OpenCV internal parallelism is disabled.
 
 Each candidate receives ten warmups followed by nine rotating timing blocks. Per-candidate call counts target 50 ms per block, with a maximum of 3,000 calls. Values below are medians of block averages. All calls allocate independent output storage. Float32 inputs use seeded values in `[0, 1]`; affine fill is zero.
 
