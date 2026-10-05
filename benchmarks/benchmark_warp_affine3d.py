@@ -260,7 +260,8 @@ def main() -> None:
         "Each row is one non-batched DHWC volume and includes public dispatch, matrix normalization/inversion, "
         "NumPy-to-Torch views, permutations, grid construction, sampling, dtype restoration, "
         "and the NumPy output view. "
-        "The direct bridge and public router must be bitwise equal before timing.",
+        "XY float32 results use absolute tolerance 3e-5 and XY uint8 results permit one level of difference. "
+        "Other scenarios require bitwise equality between the direct bridge and public router before timing.",
         "",
         *_format_rows(rows),
         "",
