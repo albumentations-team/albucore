@@ -4,12 +4,12 @@ This policy describes what Albucore verification must cover before release.
 
 ## Python
 
-Albucore supports the Python versions declared in `pyproject.toml` classifiers and
-`requires-python`.
+Albucore verifies the Python versions declared in `pyproject.toml` classifiers.
+`requires-python` sets the minimum installation version without an upper bound.
 
 Current policy:
 
-- Python 3.10, 3.11, 3.12, 3.13, and 3.14
+- Python 3.11, 3.12, 3.13, and 3.14 in CI; package installation requires Python 3.11 or newer
 - Ubuntu CI across every supported Python version
 - Windows and macOS smoke coverage on the oldest and latest supported Python versions when CI cost
   allows

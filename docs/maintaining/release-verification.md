@@ -85,6 +85,9 @@ verification.
 
 ## Maintainer Guardrail
 
+Release verification covers Python 3.11, 3.12, 3.13, and 3.14. Confirm that wheel and sdist
+metadata declare `Requires-Python: >=3.11` and that CI passes for all four versions.
+
 The release-candidate pipeline enforces lockfile consistency with:
 
 ```bash

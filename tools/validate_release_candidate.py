@@ -7,14 +7,10 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
 
 PROJECT_NAME: Final = "albucore"
 

@@ -5,13 +5,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
@@ -96,8 +92,8 @@ def _check_pyproject(errors: list[str]) -> set[str]:
         return set()
 
     requires_python = project.get("requires-python")
-    if requires_python != ">=3.10":
-        errors.append(f"Expected requires-python >=3.10, found {requires_python!r}")
+    if requires_python != ">=3.11":
+        errors.append(f"Expected requires-python >=3.11, found {requires_python!r}")
 
     classifiers = project.get("classifiers", [])
     if not isinstance(classifiers, list) or not all(isinstance(item, str) for item in classifiers):
@@ -105,7 +101,7 @@ def _check_pyproject(errors: list[str]) -> set[str]:
         return set()
 
     versions = _classifier_python_versions(classifiers)
-    expected = {"3.10", "3.11", "3.12", "3.13", "3.14"}
+    expected = {"3.11", "3.12", "3.13", "3.14"}
     if versions != expected:
         errors.append(f"Expected Python classifiers {sorted(expected)}, found {sorted(versions)}")
 

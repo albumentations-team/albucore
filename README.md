@@ -1,7 +1,7 @@
 # Albucore: High-Performance Image Processing Functions
 
 [![PyPI version](https://img.shields.io/pypi/v/albucore.svg)](https://pypi.org/project/albucore/)
-[![Python 3.10+](https://img.shields.io/pypi/pyversions/albucore.svg)](https://pypi.org/project/albucore/)
+[![Python 3.11+](https://img.shields.io/pypi/pyversions/albucore.svg)](https://pypi.org/project/albucore/)
 [![CI](https://github.com/albumentations-team/albucore/actions/workflows/ci.yml/badge.svg)](https://github.com/albumentations-team/albucore/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 Albucore is a library of optimized atomic functions designed for efficient image processing. These functions serve as the foundation for [AlbumentationsX](https://github.com/albumentations-team/AlbumentationsX), an image augmentation library.
@@ -38,8 +38,8 @@ Key features:
 
 ## Installation
 
-**Requires Python 3.10+.** Choose and install the PyTorch build for your CPU, CUDA, or MPS environment first. Then
-install Albucore with an OpenCV extra. For a Linux CPU-only headless application:
+**Requires Python 3.11+.** CI covers Python 3.11, 3.12, 3.13, and 3.14. Choose and install the PyTorch build for your CPU,
+CUDA, or MPS environment first. Then install Albucore with an OpenCV extra. For a Linux CPU-only headless application:
 
 ```bash
 pip install "torch>=2.14.0" --index-url https://download.pytorch.org/whl/cpu
