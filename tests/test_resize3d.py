@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as torch_f
 
 from albucore import resize3d
-from albucore.geometric import _can_resize3d_joint_hw, _resize3d_numpy_axis_packing
+from albucore.geometric import _can_resize3d_joint_hw, _resize3d_numpy_axis_packing, _resize3d_numpy_joint_hw
 from albucore.utils import get_opencv_max_channels
 
 
@@ -104,6 +104,113 @@ def test_resize3d_numpy_identity_returns_input() -> None:
     volume = _numpy_volume(np.uint8, channels=3)
 
     assert resize3d(volume, volume.shape[:3]) is volume
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize(
+    "shape",
+    [(1, 128, 160, 1), (8, 64, 96, 3), (64, 64, 80, 9), (512, 128, 128, 1), (513, 128, 128, 1)],
+)
+@pytest.mark.parametrize("layout", ["contiguous", "positive_stride", "negative_stride", "readonly"])
+@pytest.mark.parametrize("interpolation", [cv2.INTER_NEAREST, cv2.INTER_LINEAR], ids=["nearest", "linear"])
+def test_resize3d_numpy_xy_downscale_preserves_independent_depth_slices(
+    dtype: type[np.uint8 | np.float32],
+    shape: tuple[int, int, int, int],
+    layout: str,
+    interpolation: int,
+) -> None:
+    rng = np.random.default_rng(137)
+    if dtype is np.uint8:
+        volume = rng.integers(0, 256, size=shape, dtype=np.uint8)
+    else:
+        volume = rng.random(shape, dtype=np.float32)
+    if layout == "positive_stride":
+        volume = np.repeat(volume, 2, axis=2)[:, :, ::2]
+    elif layout == "negative_stride":
+        volume = volume[:, :, ::-1]
+    elif layout == "readonly":
+        volume.flags.writeable = False
+    before = volume.copy()
+    size = (shape[0], shape[1] // 2, shape[2] // 2)
+
+    result = resize3d(volume, size, interpolation=interpolation)
+
+    assert result.shape == (*size, shape[-1])
+    assert result.dtype == volume.dtype
+    assert not np.shares_memory(result, volume)
+    np.testing.assert_array_equal(volume, before)
+    if interpolation == cv2.INTER_NEAREST:
+        rows = np.arange(size[1]) * shape[1] // size[1]
+        columns = np.arange(size[2]) * shape[2] // size[2]
+        expected = before[:, rows[:, None], columns[None, :], :]
+        np.testing.assert_array_equal(result, expected)
+    elif dtype is np.float32:
+        tensor = torch.from_numpy(before).permute(3, 0, 1, 2)
+        expected = _torch_linear_reference(tensor, size).permute(1, 2, 3, 0).numpy()
+        np.testing.assert_allclose(result, expected, rtol=2e-5, atol=2e-5)
+    else:
+        expected = np.stack(
+            [np.atleast_3d(cv2.resize(image, (size[2], size[1]), interpolation=interpolation)) for image in before],
+        )
+        np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("channels", [1, 5, 9])
+def test_resize3d_numpy_xy_antialias_matches_block_averages(
+    dtype: type[np.uint8 | np.float32],
+    channels: int,
+) -> None:
+    rng = np.random.default_rng(137)
+    shape = (8, 128, 160, channels)
+    if dtype is np.uint8:
+        volume = rng.integers(0, 256, size=shape, dtype=np.uint8)
+    else:
+        volume = rng.random(shape, dtype=np.float32)
+    before = volume.copy()
+
+    result = resize3d(volume, (8, 32, 40), antialias=True)
+    expected = before.astype(np.float32).reshape(8, 32, 4, 40, 4, channels).mean(axis=(2, 4))
+
+    assert result.dtype == volume.dtype
+    assert not np.shares_memory(result, volume)
+    np.testing.assert_array_equal(volume, before)
+    if dtype is np.float32:
+        np.testing.assert_allclose(result, expected, rtol=2e-6, atol=2e-6)
+    else:
+        delta = np.abs(result.astype(np.int16) - np.floor(expected + 0.5).astype(np.int16))
+        assert delta.max() <= 1
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("width", [127, 128, 129])
+def test_resize3d_xy_plane_routing_boundary_preserves_linear_results(
+    dtype: type[np.uint8 | np.float32], width: int,
+) -> None:
+    rng = np.random.default_rng(137)
+    shape = (8, 128, width, 1)
+    volume = rng.integers(0, 256, shape, dtype=np.uint8) if dtype is np.uint8 else rng.random(shape, dtype=np.float32)
+    size = (8, 64, width // 2)
+    expected = _resize3d_numpy_joint_hw(volume, size, cv2.INTER_LINEAR, antialias=False)
+
+    result = resize3d(volume, size)
+
+    if dtype is np.float32:
+        np.testing.assert_allclose(result, expected, rtol=2e-5, atol=2e-5)
+    else:
+        difference = np.abs(result.astype(np.int16) - expected.astype(np.int16))
+        assert difference.max() <= 1
+
+
+@pytest.mark.parametrize("channels", [1, 3])
+def test_resize3d_fractional_uint8_xy_scale_keeps_existing_rounding(channels: int) -> None:
+    volume = np.random.default_rng(137).integers(0, 256, (4, 128, 160, channels), dtype=np.uint8)
+    size = (4, 65, 81)
+    expected = _resize3d_numpy_joint_hw(volume, size, cv2.INTER_LINEAR, antialias=False)
+
+    result = resize3d(volume, size)
+
+    np.testing.assert_array_equal(result, expected)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])

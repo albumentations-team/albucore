@@ -39,6 +39,7 @@ QUICK_SHAPES: tuple[tuple[int, int, int, int], ...] = (
     (5, 11, 13, 5),
     (16, 128, 160, 1),
     (16, 128, 160, 5),
+    (30, 256, 256, 1),
 )
 FULL_SHAPES: tuple[tuple[int, int, int, int], ...] = (
     (16, 128, 160, 1),
@@ -49,6 +50,7 @@ FULL_SHAPES: tuple[tuple[int, int, int, int], ...] = (
     (32, 128, 160, 3),
     (32, 128, 160, 5),
     (32, 128, 160, 9),
+    (30, 256, 256, 1),
     (64, 128, 160, 3),
     (96, 128, 160, 1),
     (64, 64, 80, 9),
@@ -73,6 +75,7 @@ class Row:
     dtype: str
     candidate: str
     timing: WallTimingMs
+    max_abs_difference: float
 
 
 def _resize_2d(array: np.ndarray, dsize: tuple[int, int], interpolation: int) -> np.ndarray:
@@ -189,6 +192,14 @@ def resize3d_torch_round_trip(volume: np.ndarray, size: tuple[int, int, int]) ->
     return result.squeeze(0).permute(1, 2, 3, 0).numpy()
 
 
+def resize3d_torch_xy_round_trip(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    """Treat unchanged depth as a 2D batch, including NumPy/Torch views and native uint8 bilinear."""
+    tensor = torch.from_numpy(volume).permute(0, 3, 1, 2)
+    with torch.inference_mode():
+        result = torch_f.interpolate(tensor, size=size[1:], mode="bilinear", align_corners=False)
+    return result.permute(0, 2, 3, 1).numpy()
+
+
 CANDIDATES: tuple[Candidate, ...] = (
     Candidate("numpy_three_pass", lambda volume, size: lambda: resize3d_numpy_reference(volume, size)),
     Candidate("opencv_axis_packing", lambda volume, size: lambda: resize3d_opencv_axis_packing(volume, size)),
@@ -200,6 +211,12 @@ CANDIDATES: tuple[Candidate, ...] = (
     ),
     Candidate("opencv_per_slice", lambda volume, size: lambda: resize3d_opencv_per_slice(volume, size)),
     Candidate("torch_round_trip", lambda volume, size: lambda: resize3d_torch_round_trip(volume, size)),
+    Candidate(
+        "torch_xy_round_trip",
+        lambda volume, size: (
+            (lambda: resize3d_torch_xy_round_trip(volume, size)) if size[0] == volume.shape[0] else None
+        ),
+    ),
     Candidate("albucore_public", lambda volume, size: lambda: resize3d(volume, size)),
 )
 
@@ -214,6 +231,10 @@ def _target_shape(shape: tuple[int, int, int, int], scenario: str) -> tuple[int,
         return max(1, depth // 2), height, width * 3 // 2
     if scenario == "unit":
         return 1, max(1, height * 3 // 4), width
+    if scenario == "xy_down":
+        return depth, max(1, height // 8), max(1, width // 8)
+    if scenario == "xy_half":
+        return depth, max(1, height // 2), max(1, width // 2)
     msg = f"Unknown scenario {scenario!r}."
     raise ValueError(msg)
 
@@ -241,11 +262,14 @@ def _validate_candidates(volume: np.ndarray, size: tuple[int, int, int]) -> None
 
 
 def _format_rows(rows: list[Row]) -> list[str]:
-    lines = ["| Shape | Target | Dtype | Candidate | Median ms | MAD ms |", "|---|---|---|---|---:|---:|"]
+    lines = [
+        "| Shape | Target | Dtype | Candidate | Median ms | MAD ms | Max reference difference |",
+        "|---|---|---|---|---:|---:|---:|",
+    ]
     lines.extend(
         "| "
         f"`{'x'.join(map(str, row.shape))}` | `{'x'.join(map(str, row.target))}` | {row.dtype} | "
-        f"{row.candidate} | {row.timing.median:.3f} | {row.timing.mad:.3f} |"
+        f"{row.candidate} | {row.timing.median:.3f} | {row.timing.mad:.3f} | {row.max_abs_difference:.3g} |"
         for row in rows
     )
     return lines
@@ -276,6 +300,12 @@ def parse_args() -> argparse.Namespace:
         help="Benchmark one explicit DHWC shape; repeat the option for an isolated subset.",
     )
     parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        choices=("down", "up", "mixed", "unit", "xy_down", "xy_half"),
+        help="Benchmark selected scale scenarios; repeat for a subset. Defaults to all scenarios.",
+    )
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
     parser.add_argument("--output", type=Path, help="Optional Markdown report path.")
@@ -287,7 +317,7 @@ def main() -> None:
     thread_settings = benchmark_threads.configure_libraries(torch, cv2, args.threads)
     rng = np.random.default_rng(137)
     shapes = tuple(args.shape) if args.shape else (FULL_SHAPES if args.full else QUICK_SHAPES)
-    scenarios = ("down", "up", "mixed", "unit")
+    scenarios = tuple(args.scenario) if args.scenario else ("down", "up", "mixed", "unit", "xy_down", "xy_half")
     rows: list[Row] = []
 
     for shape in shapes:
@@ -296,12 +326,14 @@ def main() -> None:
             for scenario in scenarios:
                 size = _target_shape(shape, scenario)
                 _validate_candidates(volume, size)
+                reference = resize3d_numpy_reference(volume, size).astype(np.float32)
                 for candidate in CANDIDATES:
                     fn = candidate.prepare(volume, size)
                     if fn is None:
                         continue
                     timing = bench_wall_ms(fn, repeats=args.repeats, warmup=args.warmup)
-                    rows.append(Row(shape, size, dtype.name, candidate.name, timing))
+                    difference = float(np.abs(fn().astype(np.float32) - reference).max())
+                    rows.append(Row(shape, size, dtype.name, candidate.name, timing, difference))
                 del fn
             del volume
             gc.collect()
@@ -319,7 +351,9 @@ def main() -> None:
         "conversion, and output materialization. `opencv_two_stage` is omitted when `D*C` exceeds OpenCV's encoded "
         "channel limit. Float32 candidates are checked against the pure NumPy three-pass half-pixel reference. "
         "Uint8 candidates preserve dtype and range; intermediate rounding differs between OpenCV and final-only "
-        "trilinear routes.",
+        "trilinear routes. Maximum differences from the half-pixel reference are reported outside the timed calls. "
+        "`torch_xy_round_trip` applies only when depth is unchanged. `xy_down` and `xy_half` preserve depth and "
+        "shrink H/W by factors of eight and two. Repeat `--shape` to vary depth at fixed H/W and channels.",
         "",
         *_format_rows(rows),
         "",

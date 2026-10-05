@@ -9,6 +9,8 @@ import pytest
 import torch
 
 from albucore import warp_affine3d
+from albucore.affine3d import _inverse_matrix, _normalize_matrix, _warp_affine3d_torch_cpu_batch_native
+from albucore.sampling3d import _normalize_border_value
 
 
 def _volume(dtype: type[np.uint8 | np.float32], channels: int, batch: int = 3) -> np.ndarray:
@@ -196,3 +198,95 @@ def test_warp_affine3d_batch_result_can_feed_a_trainable_torch_module() -> None:
     layer(result).sum().backward()
 
     assert layer.weight.grad is not None
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=("uint8", "float32"))
+@pytest.mark.parametrize("interpolation", [cv2.INTER_NEAREST, cv2.INTER_LINEAR], ids=("nearest", "linear"))
+@pytest.mark.parametrize("border_mode", [cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE])
+@pytest.mark.parametrize(
+    ("batch_size", "depth", "channels", "layout"),
+    [
+        (1, 1, 1, "numpy"),
+        (1, 30, 3, "tensor_view"),
+        (4, 5, 1, "numpy_negative"),
+        (4, 96, 9, "tensor_contiguous"),
+        (1, 257, 5, "numpy_readonly"),
+        (4, 8, 5, "tensor_view"),
+        (1, 511, 1, "numpy"),
+        (1, 513, 1, "tensor_view"),
+    ],
+)
+def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
+    dtype: type[np.uint8 | np.float32],
+    interpolation: int,
+    border_mode: int,
+    batch_size: int,
+    depth: int,
+    channels: int,
+    layout: str,
+) -> None:
+    rng = np.random.default_rng(137)
+    shape = (batch_size, depth, 11, 13, channels)
+    if dtype is np.uint8:
+        source = rng.integers(0, 256, shape, dtype=np.uint8)
+        fill = np.arange(channels, dtype=np.float32) + 17
+    else:
+        source = rng.random(shape, dtype=np.float32)
+        fill = np.linspace(0.1, 0.8, channels, dtype=np.float32)
+    if layout == "numpy_negative":
+        source = source[:, :, :, ::-1]
+    before = source.copy()
+    tensor = _tensor_batch(before)
+    volumes: np.ndarray | torch.Tensor = source
+    if layout.startswith("tensor"):
+        volumes = _tensor_batch(source)
+        if layout == "tensor_contiguous":
+            volumes = volumes.contiguous()
+        tensor = volumes
+    elif layout == "numpy_readonly":
+        volumes.flags.writeable = False
+    matrix = np.array(((0.9, 0.1, 0.0, 0.37), (-0.07, 1.05, 0.0, -0.23), (0.0, 0.0, 1.0, 0.0)))
+    size = (depth, 9, 15)
+    expected = _warp_affine3d_torch_cpu_batch_native(
+        tensor, _inverse_matrix(_normalize_matrix(matrix)), size, interpolation, border_mode,
+        _normalize_border_value(fill, channels),
+    ).permute(0, 2, 3, 4, 1).numpy()
+    if batch_size == 1:
+        volumes = volumes[0]
+
+    result = warp_affine3d(volumes, matrix, size, interpolation, border_mode, fill)
+
+    if isinstance(result, torch.Tensor):
+        actual = result.permute(1, 2, 3, 0).numpy() if batch_size == 1 else result.permute(0, 2, 3, 4, 1).numpy()
+        assert result.untyped_storage().data_ptr() != volumes.untyped_storage().data_ptr()
+        unchanged = volumes.permute(1, 2, 3, 0).numpy() if batch_size == 1 else volumes.permute(0, 2, 3, 4, 1).numpy()
+    else:
+        actual = result
+        unchanged = volumes
+        assert not np.shares_memory(result, volumes)
+    if batch_size == 1:
+        expected = expected[0]
+        before = before[0]
+    np.testing.assert_array_equal(unchanged, before)
+    assert actual.shape == expected.shape
+    assert actual.dtype == expected.dtype
+    if interpolation == cv2.INTER_NEAREST:
+        np.testing.assert_array_equal(actual, expected)
+    elif dtype is np.float32:
+        np.testing.assert_allclose(actual, expected, rtol=0, atol=3e-5)
+    else:
+        difference = np.abs(actual.astype(np.int16) - expected.astype(np.int16))
+        assert difference.max() <= 1
+
+
+def test_warp_affine3d_xy_tensor_batch_can_feed_training() -> None:
+    volumes = _tensor_batch(_volume(np.float32, channels=3, batch=4)).contiguous()
+    matrix = np.eye(4, dtype=np.float64)
+    matrix[0, 3] = 0.25
+    layer = torch.nn.Conv3d(3, 1, kernel_size=1)
+
+    result = warp_affine3d(volumes, matrix, (3, 4, 5))
+    layer(result).sum().backward()
+
+    assert layer.weight.grad is not None
+    assert not result.requires_grad

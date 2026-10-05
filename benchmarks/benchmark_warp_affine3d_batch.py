@@ -81,6 +81,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--shape", action="append", type=_parse_shape)
     parser.add_argument("--batch-sizes", type=int, nargs="+", choices=(1, 4, 16))
     parser.add_argument("--threads", type=int, default=1)
+    parser.add_argument("--xy-only", action="store_true", help="Preserve depth and benchmark a shared XY matrix.")
     parser.add_argument("--repeats", type=int, default=11)
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--output", type=Path)
@@ -206,17 +207,29 @@ def _time_candidates(candidates: dict[str, Call], warmup: int, repeats: int) -> 
     )
 
 
-def _validate(candidates: dict[str, Call], expected: Volume) -> None:
+def _validate(candidates: dict[str, Call], expected: Volume, xy_only: bool) -> None:
     for name, call in candidates.items():
         actual = call()
         if isinstance(expected, np.ndarray):
             if not isinstance(actual, np.ndarray):
                 raise TypeError(f"{name} returned {type(actual).__name__} for NumPy input.")
-            np.testing.assert_array_equal(actual, expected, err_msg=f"{name} differs from the single-volume reference")
+            if xy_only and expected.dtype == np.float32:
+                np.testing.assert_allclose(actual, expected, rtol=0, atol=3e-5, err_msg=name)
+            elif xy_only and expected.dtype == np.uint8:
+                difference = np.abs(actual.astype(np.int16) - expected.astype(np.int16))
+                assert difference.max() <= 1, name  # noqa: S101 - permitted XY interpolation rounding
+            else:
+                np.testing.assert_array_equal(actual, expected, err_msg=f"{name} differs from the single-volume reference")
         else:
             if not isinstance(actual, torch.Tensor):
                 raise TypeError(f"{name} returned {type(actual).__name__} for Tensor input.")
-            torch.testing.assert_close(actual, expected, rtol=0, atol=0, msg=f"{name} differs from the reference")
+            if xy_only and expected.dtype == torch.float32:
+                torch.testing.assert_close(actual, expected, rtol=0, atol=3e-5, msg=name)
+            elif xy_only and expected.dtype == torch.uint8:
+                difference = (actual.to(torch.int16) - expected.to(torch.int16)).abs()
+                assert int(difference.max()) <= 1, name  # noqa: S101 - permitted XY interpolation rounding
+            else:
+                torch.testing.assert_close(actual, expected, rtol=0, atol=0, msg=f"{name} differs from the reference")
 
 
 def _measure_case(  # noqa: PLR0913, PLR0917
@@ -231,6 +244,7 @@ def _measure_case(  # noqa: PLR0913, PLR0917
     fill: tuple[float, ...] | None,
     warmup: int,
     repeats: int,
+    xy_only: bool,
 ) -> Result:
     size = _target(shape)
     numpy_volumes = _volume(rng, (batch_size, *shape), dtype)
@@ -240,6 +254,10 @@ def _measure_case(  # noqa: PLR0913, PLR0917
         if layout == "contiguous":
             volumes = volumes.contiguous()
     matrix = _matrix()
+    if xy_only:
+        size = (shape[0], size[1], size[2])
+        matrix[:2, 2] = 0
+        matrix[2] = (0, 0, 1, 0)
 
     def loop() -> Volume:
         return _single_loop(volumes, matrix, size, interpolation, border_mode, fill)
@@ -274,7 +292,7 @@ def _measure_case(  # noqa: PLR0913, PLR0917
             border_mode,
             fill,
         )
-    _validate(candidates, expected)
+    _validate(candidates, expected, xy_only and interpolation == cv2.INTER_LINEAR)
     timings = _time_candidates(candidates, warmup, repeats)
     return Result(
         shape,
@@ -339,10 +357,11 @@ def main() -> None:
             if args.full and shape[0] >= 48 and batch_size == 16:
                 continue
             for dtype in (np.dtype(np.uint8), np.dtype(np.float32)):
+                dtype_fill = tuple(np.linspace(0.1, 0.8, channels)) if args.xy_only and dtype == np.float32 else fill
                 for interpolation in (cv2.INTER_NEAREST, cv2.INTER_LINEAR):
                     for border_mode, border_value in (
                         (cv2.BORDER_CONSTANT, None),
-                        (cv2.BORDER_CONSTANT, fill),
+                        (cv2.BORDER_CONSTANT, dtype_fill),
                         (cv2.BORDER_REPLICATE, None),
                     ):
                         for container in ("numpy", "tensor"):
@@ -361,6 +380,7 @@ def main() -> None:
                                         border_value,
                                         args.warmup,
                                         args.repeats,
+                                        args.xy_only,
                                     ),
                                 )
     report = _report(results, args, thread_settings)
