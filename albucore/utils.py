@@ -93,7 +93,6 @@ def maybe_process_in_chunks(
 
     @wraps(process_fn)
     def __process_fn(img: np.ndarray, *process_args: P.args, **process_kwargs: P.kwargs) -> np.ndarray:
-        # Merge args and kwargs
         all_args = (*args, *process_args)
         all_kwargs: dict[str, Any] = kwargs | process_kwargs
 
@@ -101,7 +100,7 @@ def maybe_process_in_chunks(
         if num_channels > MAX_OPENCV_WORKING_CHANNELS:
             # dst shape = full image, not chunk shape — strip before passing to cv2
             chunk_kwargs = {k: v for k, v in all_kwargs.items() if k != "dst"}
-            out: np.ndarray | None = all_kwargs.get("dst")  # pre-allocated buffer or None
+            out: np.ndarray | None = all_kwargs.get("dst")
             offset = 0
             for index in range(0, num_channels, 4):
                 if num_channels - index == TWO:
@@ -170,45 +169,17 @@ def clipped(func: Callable[Concatenate[ImageInput, P], ImageInput]) -> Callable[
 
 
 def get_num_channels(image: ImageInput, *, layout: TensorLayout | None = None) -> int:
-    """Get the number of channels in an image array.
+    """Return the channel count from the input's declared layout.
 
-    This function returns the size of the last dimension, which always represents
-    the number of channels in our convention.
-
-    Args:
-        image: Input image array. Expected shapes:
-            - HWC: (height, width, channels) - multi-channel image
-            - NHWC: (batch, height, width, channels) - batch of multi-channel images
-            - XHWC: (leading, height, width, channels) - image batch or single volume
-        layout: Required for Tensor inputs; selects CHW, NCHW, CDHW, or NCDHW channel axis.
-
-    Returns:
-        int: Number of channels (the size of the last dimension).
+    NumPy inputs use the last axis (HWC, NHWC, DHWC, or NDHWC). Tensor inputs require
+    ``layout=`` to select the channel axis in CHW, NCHW, CDHW, or NCDHW.
+    Callers validate rank and layout before entering Albucore.
 
     Examples:
-        >>> # Grayscale image with explicit channel
-        >>> img = np.zeros((100, 200, 1))
-        >>> get_num_channels(img)
-        1
-
-        >>> # RGB image
-        >>> img = np.zeros((100, 200, 3))
-        >>> get_num_channels(img)
+        >>> get_num_channels(np.zeros((100, 200, 3)))
         3
-
-        >>> # Batch of grayscale images
-        >>> img = np.zeros((10, 100, 200, 1))
-        >>> get_num_channels(img)
-        1
-
-        >>> # Batch of RGB images
-        >>> img = np.zeros((10, 100, 200, 3))
-        >>> get_num_channels(img)
+        >>> get_num_channels(torch.zeros((2, 3, 100, 200)), layout="NCHW")
         3
-
-    Note:
-        NumPy inputs use the last axis. Tensor inputs use the channel axis from ``layout``.
-        The caller owns validation of the public layout contract before entering Albucore.
     """
     if isinstance(image, torch.Tensor):
         if layout is None:
@@ -219,43 +190,10 @@ def get_num_channels(image: ImageInput, *, layout: TensorLayout | None = None) -
 
 
 def is_grayscale_image(image: ImageInput, *, layout: TensorLayout | None = None) -> bool:
-    """Check if an image array represents a grayscale (single-channel) image.
+    """Return whether the declared channel axis has exactly one channel.
 
-    This function determines whether an image has only one channel by checking if
-    shape[-1] == 1.
-
-    Args:
-        image: Input image array with explicit channel dimension.
-        layout: Required for Tensor inputs; selects CHW, NCHW, CDHW, or NCDHW channel axis.
-
-    Returns:
-        bool: True if the image has only 1 channel (shape[-1] == 1), False otherwise.
-
-    Examples:
-        >>> # Grayscale image with explicit channel
-        >>> img = np.zeros((100, 200, 1))
-        >>> is_grayscale_image(img)
-        True
-
-        >>> # RGB image
-        >>> img = np.zeros((100, 200, 3))
-        >>> is_grayscale_image(img)
-        False
-
-        >>> # Batch of grayscale images
-        >>> img = np.zeros((10, 100, 200, 1))
-        >>> is_grayscale_image(img)
-        True
-
-        >>> # Batch of RGB images
-        >>> img = np.zeros((10, 100, 200, 3))
-        >>> is_grayscale_image(img)
-        False
-
-    See Also:
-        get_num_channels: For getting the exact number of channels.
-        is_rgb_image: For checking if an image has exactly 3 channels (RGB).
-        is_multispectral_image: For checking if an image has channels other than 1 or 3.
+    NumPy inputs use the last axis; Tensor inputs require ``layout=``.
+    See :func:`get_num_channels` for supported layouts.
     """
     return get_num_channels(image, layout=layout) == 1
 
@@ -294,13 +232,9 @@ def convert_value(value: object, num_channels: int) -> float | np.ndarray:
 
     The caller validates value type and channel-vector length before entering the router.
     """
-    # Handle scalar types
-    if isinstance(value, (float, int)):
-        return float(value)
-    if isinstance(value, np.floating):
+    if isinstance(value, (float, int, np.floating)):
         return float(value)
 
-    # Handle numpy arrays
     if isinstance(value, np.ndarray):
         if value.ndim == 0:
             result: float | np.ndarray = float(value.item())
@@ -319,12 +253,7 @@ ValueType = np.ndarray | float | int
 
 def get_max_value(dtype: np.dtype | type[np.generic] | torch.dtype) -> float:
     if isinstance(dtype, torch.dtype):
-        torch_to_numpy_dtype: dict[torch.dtype, type[np.generic]] = {
-            torch.uint8: np.uint8,
-            torch.float16: np.float16,
-            torch.float32: np.float32,
-        }
-        dtype = torch_to_numpy_dtype[dtype]
+        dtype = _NUMPY_DTYPES[dtype]
     if dtype not in MAX_VALUES_BY_DTYPE:
         msg = (
             f"Can't infer the maximum value for dtype {dtype}. "
@@ -335,75 +264,42 @@ def get_max_value(dtype: np.dtype | type[np.generic] | torch.dtype) -> float:
 
 
 def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | torch.dtype | int]:
-    """Extract image metadata (dtype, height, width, num_channels) from a dictionary.
+    """Extract dtype, height, width, and channel count from image data.
 
-    This function checks for image data under specific keys in priority order:
-    'image' > 'images' > 'volume'
-
-    The function correctly extracts height and width by accounting for the leading
-    dimension based on the key type:
-    - 'image': Direct H, W from shape[0], shape[1]
-    - 'images': Skip batch dimension (shape[1], shape[2])
-    - 'volume': Skip depth dimension (shape[1], shape[2])
-
-    Args:
-        data: Dictionary potentially containing image/volume arrays under specific keys.
-
-    Returns:
-        dict: Dictionary with 'dtype', 'height', 'width', and 'num_channels' keys.
+    Keys take priority in the order ``image``, ``images``, ``volume``.
+    NumPy arrays use HWC for ``image`` and NHWC/DHWC for the other keys;
+    Tensor inputs use CHW, NCHW, and CDHW respectively.
 
     Raises:
-        ValueError: If no valid image or single-volume data key is found in the dictionary.
+        ValueError: If none of the supported keys is present.
     """
     if "image" in data:
         image = data["image"]
-        if isinstance(image, torch.Tensor):
-            return {
-                "dtype": image.dtype,
-                "height": image.shape[1],
-                "width": image.shape[2],
-                "num_channels": get_num_channels(image, layout="CHW"),
-            }
-        shape = data["image"].shape
-        return {
-            "dtype": data["image"].dtype,
-            "height": shape[0],
-            "width": shape[1],
-            "num_channels": shape[-1],
-        }
-    if "images" in data:
-        images = data["images"]
-        if isinstance(images, torch.Tensor):
-            return {
-                "dtype": images.dtype,
-                "height": images.shape[2],
-                "width": images.shape[3],
-                "num_channels": get_num_channels(images, layout="NCHW"),
-            }
-        shape = data["images"].shape
-        return {
-            "dtype": data["images"].dtype,
-            "height": shape[1],
-            "width": shape[2],
-            "num_channels": shape[-1],
-        }
-    if "volume" in data:
-        volume = data["volume"]
-        if isinstance(volume, torch.Tensor):
-            return {
-                "dtype": volume.dtype,
-                "height": volume.shape[2],
-                "width": volume.shape[3],
-                "num_channels": get_num_channels(volume, layout="CDHW"),
-            }
-        shape = data["volume"].shape
-        return {
-            "dtype": data["volume"].dtype,
-            "height": shape[1],
-            "width": shape[2],
-            "num_channels": shape[-1],
-        }
-    raise ValueError("No valid image/volume data found in data dict")
+        height_axis = 0
+        layout: TensorLayout = "CHW"
+    elif "images" in data:
+        image = data["images"]
+        height_axis = 1
+        layout = "NCHW"
+    elif "volume" in data:
+        image = data["volume"]
+        height_axis = 1
+        layout = "CDHW"
+    else:
+        raise ValueError("No valid image/volume data found in data dict")
+
+    shape = image.shape
+    if isinstance(image, torch.Tensor):
+        height_axis += 1
+        channel_axis = _TENSOR_CHANNEL_AXES[layout]
+    else:
+        channel_axis = -1
+    return {
+        "dtype": image.dtype,
+        "height": shape[height_axis],
+        "width": shape[height_axis + 1],
+        "num_channels": shape[channel_axis],
+    }
 
 
 __all__ = [

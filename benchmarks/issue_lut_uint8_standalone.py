@@ -31,6 +31,7 @@ import argparse
 import importlib.metadata
 import platform
 import time
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -114,14 +115,13 @@ def make_per_channel_luts(c: int) -> tuple[np.ndarray, list[np.ndarray]]:
 # ---------------------------------------------------------------------------
 # Timing helper
 # ---------------------------------------------------------------------------
-def median_ms(fn: object, repeats: int, warmup: int) -> float:
-    f = fn  # type: ignore[assignment]
+def median_ms(fn: Callable[[], object], repeats: int, warmup: int) -> float:
     for _ in range(warmup):
-        f()
+        fn()
     times: list[float] = []
     for _ in range(repeats):
         t0 = time.perf_counter()
-        f()
+        fn()
         times.append((time.perf_counter() - t0) * 1000.0)
     return float(np.median(times))
 

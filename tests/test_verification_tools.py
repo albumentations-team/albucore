@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import urllib.error
@@ -9,6 +10,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from benchmarks.shape_grids import parse_dhwc_shape
 from tests.router_contracts import ROUTER_CONTRACTS
 from tools import (
     check_benchmark_regressions,
@@ -22,6 +24,17 @@ from tools import (
     verify_publish_artifacts,
 )
 from tools.golden_vectors import array_metadata
+
+
+@pytest.mark.parametrize("value", ["1,5,7,3", " 1, 5, 7, 3 ", "+1,5,7,3"])
+def test_benchmark_shape_parser_preserves_explicit_dhwc_axes(value: str) -> None:
+    assert parse_dhwc_shape(value) == (1, 5, 7, 3)
+
+
+@pytest.mark.parametrize("value", ["", "1,5,7", "1,5,7,3,9", "0,5,7,3", "1,-5,7,3", "1,5.5,7,3", "a,5,7,3"])
+def test_benchmark_shape_parser_rejects_malformed_or_nonpositive_sizes(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError, match="four comma-separated positive integers"):
+        parse_dhwc_shape(value)
 
 
 def _router_json(ms: float) -> dict[str, object]:

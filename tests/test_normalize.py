@@ -159,8 +159,6 @@ def test_normalize(dtype, shape) -> None:
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_normalize_with_1d_arrays(dtype):
-    """Test normalize function with 1D array mean and denominator for single channel images."""
-    # Test 1: Single channel image (H, W, 1) with 1D arrays
     img = np.ones((50, 50, 1), dtype=dtype) * 100
     mean = np.array([50.0], dtype=np.float32)  # 1D array with single element
     denominator = np.array([2.0], dtype=np.float32)  # 1D array with single element
@@ -173,7 +171,6 @@ def test_normalize_with_1d_arrays(dtype):
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, expected, rtol=1e-5)
 
-    # Test 2: Batch of single channel images (N, H, W, 1) with 1D arrays
     batch = np.ones((3, 50, 50, 1), dtype=dtype) * 100  # Create fresh batch
     expected_batch = (batch.astype(np.float32) - 50.0) * 2.0
     result_batch = normalize(batch, mean, denominator)
@@ -185,7 +182,6 @@ def test_normalize_with_1d_arrays(dtype):
     np.testing.assert_allclose(result_batch[0], result_batch[2], rtol=1e-5)
     np.testing.assert_allclose(result_batch, expected_batch, rtol=1e-5)
 
-    # Test 3: Multi-channel image (H, W, C) with matching 1D arrays
     img_3ch = np.ones((50, 50, 3), dtype=dtype) * np.array([100, 150, 200])
     mean_3ch = np.array([50.0, 75.0, 100.0], dtype=np.float32)
     denominator_3ch = np.array([2.0, 3.0, 4.0], dtype=np.float32)
@@ -204,39 +200,30 @@ def test_normalize_with_1d_arrays(dtype):
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("shape", [(100, 100, 1), (100, 100, 3)])
 def test_normalize_preserves_original_image(dtype, shape):
-    """Test that normalize functions don't modify the original image."""
-    # Create test image
     if dtype == np.uint8:
         original_img = np.random.randint(0, 256, size=shape, dtype=dtype)
     else:
         original_img = np.random.randn(*shape).astype(dtype)
 
-    # Make a copy to compare later
     img_copy = original_img.copy()
 
-    # Define normalization parameters
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32) if shape[-1] == 3 else np.array(0.5, dtype=np.float32)
     std = np.array([0.229, 0.224, 0.225], dtype=np.float32) if shape[-1] == 3 else np.array(0.5, dtype=np.float32)
 
-    # Convert std to denominator
     max_pixel_value = MAX_VALUES_BY_DTYPE[dtype] if dtype == np.uint8 else 1.0
     denominator = np.reciprocal(std * max_pixel_value)
 
-    # Test main normalize function
     _ = normalize(original_img, mean, denominator)
     np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize() modified the original image")
 
-    # Test normalize_numpy
     original_img = img_copy.copy()
     _ = normalize_numpy(original_img, mean, denominator)
     np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize_numpy() modified the original image")
 
-    # Test normalize_opencv
     original_img = img_copy.copy()
     _ = normalize_opencv(original_img, mean, denominator)
     np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize_opencv() modified the original image")
 
-    # Test normalize_lut for uint8 only
     if dtype == np.uint8:
         original_img = img_copy.copy()
         num_channels = get_num_channels(original_img)

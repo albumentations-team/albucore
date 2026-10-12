@@ -94,7 +94,6 @@ def test_convert_value(value, num_channels, expected):
         assert result == expected
 
 
-# Sample functions to be wrapped
 @float32_io
 def dummy_float32_func(img):
     return img * 2
@@ -105,7 +104,6 @@ def dummy_uint8_func(img):
     return np.clip(img + 10, 0, 255).astype(np.uint8)
 
 
-# Test data
 @pytest.fixture(
     params=[
         np.uint8,
@@ -119,7 +117,6 @@ def test_image(request):
     return np.random.rand(10, 10, 3).astype(dtype)
 
 
-# Tests
 @pytest.mark.parametrize(
     "wrapper,func, image",
     [
@@ -131,10 +128,8 @@ def test_io_wrapper(wrapper, func, image):
     input_dtype = image.dtype
     result = func(image)
 
-    # Check if the output dtype matches the input dtype
     assert result.dtype == input_dtype
 
-    # Check if the function was actually applied
     if wrapper == float32_io:
         expected = from_float(to_float(image) * 2, input_dtype)
     else:  # uint8_io
@@ -256,7 +251,6 @@ def test_wrapper_intermediate_dtype(wrapper):
     ],
 )
 def test_get_num_channels(shape, expected_channels, description):
-    """Test get_num_channels for various array dimensions."""
     image = np.zeros(shape)
     assert get_num_channels(image) == expected_channels, f"Failed for {description} with shape {shape}"
 
@@ -274,7 +268,6 @@ def test_get_num_channels(shape, expected_channels, description):
     ],
 )
 def test_is_grayscale_image(shape, expected_grayscale, description):
-    """Test is_grayscale_image with various shape combinations."""
     image = np.zeros(shape)
     result = is_grayscale_image(image)
     assert result == expected_grayscale, f"Failed for {description} with shape {shape}"
@@ -296,7 +289,6 @@ def test_is_grayscale_image(shape, expected_grayscale, description):
 def test_image_channel_predicates(
     shape: tuple[int, ...], expected_rgb: bool, expected_multispectral: bool
 ) -> None:
-    """Test RGB and multispectral channel predicates for HWC and XHWC arrays."""
     image = np.zeros(shape, dtype=np.uint8)
 
     assert is_rgb_image(image) is expected_rgb
@@ -315,7 +307,6 @@ def test_image_channel_predicates(
     ],
 )
 def test_get_num_channels_and_is_grayscale_consistency(shape):
-    """Test that get_num_channels and is_grayscale_image are consistent."""
     image = np.zeros(shape)
     num_channels = get_num_channels(image)
     is_grayscale = is_grayscale_image(image)
@@ -337,7 +328,6 @@ def test_get_num_channels_and_is_grayscale_consistency(shape):
     ],
 )
 def test_get_image_data_single_image(dtype, shape):
-    """Test get_image_data with single image."""
     img = np.zeros(shape, dtype=dtype)
     data = {"image": img}
     result = get_image_data(data)
@@ -360,7 +350,6 @@ def test_get_image_data_single_image(dtype, shape):
     ],
 )
 def test_get_image_data_batch_of_images(dtype, shape):
-    """Test get_image_data with batch of images."""
     imgs = np.zeros(shape, dtype=dtype)
     data = {"images": imgs}
     result = get_image_data(data)
@@ -381,7 +370,6 @@ def test_get_image_data_batch_of_images(dtype, shape):
     ],
 )
 def test_get_image_data_volume(dtype, shape):
-    """Test get_image_data with volume."""
     vol = np.zeros(shape, dtype=dtype)
     data = {"volume": vol}
     result = get_image_data(data)
@@ -434,8 +422,6 @@ def test_get_image_data_volume(dtype, shape):
 def test_get_image_data_priority_order(
     array_specs, expected_dtype, expected_height, expected_width, expected_num_channels, description
 ):
-    """Test that get_image_data follows the priority order: image > images > volume."""
-    # Create data dictionary from specifications
     data = {key: np.zeros(spec["shape"], dtype=spec["dtype"]) for key, spec in array_specs.items()}
 
     result = get_image_data(data)
@@ -454,7 +440,6 @@ def test_get_image_data_priority_order(
     ],
 )
 def test_get_image_data_missing_keys(invalid_data, error_message):
-    """Test that get_image_data raises ValueError when no valid keys are present."""
     with pytest.raises(ValueError, match=error_message):
         get_image_data(invalid_data)
 
@@ -468,7 +453,6 @@ def test_get_image_data_missing_keys(invalid_data, error_message):
     ],
 )
 def test_get_image_data_with_additional_keys(additional_keys):
-    """Test that get_image_data works correctly when additional keys are present."""
     dtype = np.uint8
     img = np.zeros((100, 200, 3), dtype=dtype)
     data = {"image": img, **additional_keys}
@@ -490,7 +474,6 @@ def test_get_image_data_with_additional_keys(additional_keys):
 )
 @pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64, np.int32])
 def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_width_idx, dtype):
-    """Parametrized test for get_image_data with different keys, shapes, and dtypes."""
     arr = np.zeros(shape, dtype=dtype)
     data = {key: arr}
 
@@ -513,7 +496,6 @@ def test_get_image_data_parametrized(key, shape, expected_height_idx, expected_w
 def test_get_image_data_preserves_numpy_dtype_object(
     dtype_str, shape, expected_height, expected_width, expected_num_channels
 ):
-    """Test that get_image_data returns the actual numpy dtype object."""
     img = np.zeros(shape, dtype=np.dtype(dtype_str))
     data = {"image": img}
     result = get_image_data(data)
@@ -526,7 +508,6 @@ def test_get_image_data_preserves_numpy_dtype_object(
 
 
 def test_get_image_data_returns_correct_keys():
-    """Test that get_image_data returns a dictionary with exactly the expected keys."""
     img = np.zeros((224, 224, 3), dtype=np.float32)
     data = {"image": img}
     result = get_image_data(data)

@@ -274,7 +274,6 @@ def test_add_weighted_float32_backend_routing(
 @pytest.mark.parametrize(
     "img1, weight1, img2, weight2, expected_output",
     [
-        # Test case 1: Both weights are 1, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             1.0,
@@ -289,7 +288,6 @@ def test_add_weighted_float32_backend_routing(
             -1.0,
             np.zeros((2, 2)),
         ),
-        # Test case 2: Different weights, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             0.5,
@@ -304,7 +302,6 @@ def test_add_weighted_float32_backend_routing(
             -0.5,
             np.zeros((2, 2)),
         ),
-        # Test case 3: Zero weights, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             0.0,
@@ -312,7 +309,6 @@ def test_add_weighted_float32_backend_routing(
             0.0,
             np.array([[0, 0], [0, 0]], dtype=np.uint8),
         ),
-        # Test case 4: Weight 1 and weight 0, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             1.0,
@@ -320,7 +316,6 @@ def test_add_weighted_float32_backend_routing(
             0.0,
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
         ),
-        # Test case 5: Both weights are 1, image of type float32
         (
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             1.0,
@@ -328,7 +323,6 @@ def test_add_weighted_float32_backend_routing(
             1.0,
             np.array([[0.6, 0.8], [1.0, 1.0]], dtype=np.float32),
         ),
-        # Test case 6: Different weights, image of type float32
         (
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             0.5,

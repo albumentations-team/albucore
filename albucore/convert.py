@@ -51,7 +51,6 @@ def to_float_opencv(img: ImageType, max_value: float | None = None) -> ImageFloa
     img_float = img.astype(np.float32, copy=False)
 
     if get_num_channels(img) > MAX_OPENCV_WORKING_CHANNELS:
-        # For images with more than 4 channels, create a full-sized divisor
         max_value_array = np.full_like(img_float, max_value)
         return cast("ImageFloat32", cv2.divide(img_float, max_value_array))
 

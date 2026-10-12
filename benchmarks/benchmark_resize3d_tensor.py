@@ -24,6 +24,7 @@ import benchmark_threads
 import cv2
 import numpy as np
 import torch
+from shape_grids import parse_dhwc_shape
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
@@ -147,26 +148,13 @@ def _format_rows(rows: list[Row]) -> list[str]:
     return lines
 
 
-def _parse_shape(value: str) -> Shape:
-    """Parse one ``D,H,W,C`` shape for an isolated Tensor benchmark cell."""
-    try:
-        shape = tuple(int(axis_size) for axis_size in value.split(","))
-    except ValueError as error:
-        msg = f"--shape must be four comma-separated positive integers, got {value!r}."
-        raise argparse.ArgumentTypeError(msg) from error
-    if len(shape) != 4 or any(axis_size <= 0 for axis_size in shape):
-        msg = f"--shape must be four comma-separated positive integers, got {value!r}."
-        raise argparse.ArgumentTypeError(msg)
-    return shape
-
-
 def parse_args() -> argparse.Namespace:
     """Read one benchmark matrix configuration."""
     parser = argparse.ArgumentParser(description=__doc__)
     shape_group = parser.add_mutually_exclusive_group()
     shape_group.add_argument("--quick", action="store_true", help="Use small plus thin-slab shapes.")
     shape_group.add_argument("--full", action="store_true", help="Use the canonical DHWC matrix.")
-    parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark one explicit DHWC shape.")
+    parser.add_argument("--shape", action="append", type=parse_dhwc_shape, help="Benchmark one explicit DHWC shape.")
     parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")
