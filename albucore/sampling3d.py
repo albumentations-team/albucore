@@ -92,6 +92,8 @@ def _sample3d_torch_cpu_batch_native(
             )
         if volumes.dtype == torch.uint8:
             result = _restore_uint8(result)
+        elif volumes.dtype == torch.float16:
+            result = result.to(torch.float16)
     return result
 
 
@@ -128,4 +130,6 @@ def _sample3d_torch_cpu(
             )
         if volume.dtype == torch.uint8:
             result = _restore_uint8(result)
+        elif volume.dtype == torch.float16:
+            result = result.to(torch.float16)
     return result.squeeze(0)

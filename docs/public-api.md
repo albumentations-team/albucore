@@ -9,28 +9,42 @@ rank/layout, dtype, device, contiguity, autograd, and operation-control validati
 repeat those checks on the hot path; NumPy/Torch dispatch selects the implementation, and backend code
 may still normalize values or allocate the buffers required by its kernel.
 
+## Containers, layouts, and dtypes
+
+NumPy uses channel-last layouts: HWC/NHWC for images and DHWC/NDHWC for volumes. Eager CPU Torch uses channel-first
+layouts: CHW/NCHW for images and CDHW/NCDHW for volumes. Common Tensor operations with channel-dependent controls
+take keyword-only `layout=`; do not infer layout from rank. Spatial APIs define their layout by operation.
+
+Image inputs support `uint8`, `float16`, and `float32`; float64 is not a supported image input. Most arithmetic and
+geometric operations preserve the input dtype. `normalize`, `normalize_per_image`, and `to_float` return float16 for
+float16 input and float32 for uint8/float32 input; `exp`, `log`, and `sqrt` return float32 for uint8 input. Statistics
+use wide accumulators and may return float64. `apply_uint8_lut` and `sz_lut` remain uint8-only. A backend may compute
+in float32 and restore float16 when needed; include those conversions in the full-path benchmark.
+
 ## Routers (package `__all__`)
 
 User-facing entry points with benchmark-driven backends inside:
 
 - **Arithmetic / weighted:** `add`, `add_constant`, `add_array`, `add_vector`, `add_weighted`, `multiply`, `multiply_by_constant`, `multiply_by_vector`, `multiply_by_array`, `multiply_add`, `power`, `normalize`, `normalize_per_image`
-- **Elementwise float32:** `exp`, `log`, `sqrt` (NumPy-compatible special values, exact shape preservation, safe owned-buffer `inplace`)
+- **Elementwise math:** `exp`, `log`, `sqrt` (float16/float32 inputs, uint8 with float32 output, NumPy-compatible special values, exact shape preservation, safe owned-buffer `inplace`)
 - **Uint8 LUT (`albucore.lut`):** `sz_lut`, `apply_uint8_lut` (StringZilla + OpenCV routing; re-exported on `albucore` for star imports)
 - **I/O:** `to_float`, `from_float`
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
 - **Stats:** `mean`, `std`, `mean_std`, `reduce_sum` (from `albucore.stats`)
 - **Decorators:** see `decorators.__all__` in [`albucore/decorators.py`](../albucore/decorators.py)
-- **Geometric:** `copy_make_border`, `flip_volume`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `rot90_volume`, `separable_filter3d`, `transpose_volume`, `warp_affine`, `warp_affine3d`, `warp_perspective`. `flip_volume`, `transpose_volume`, and `rot90_volume` apply prevalidated NumPy `DHWC` or CPU Torch `CDHW` volume geometry primitives. Their integer axes are passed directly to the selected NumPy or Torch operation: `flip_volume` takes one or more axes, `transpose_volume` takes two, and `rot90_volume` takes an ordered pair. The native calls preserve container, supported uint8/float32 dtype, and native NumPy/Torch stride semantics. For `transpose_volume` and `rot90_volume`, caller-selected raw axes determine output shape and layout. Contiguity is the caller's decision. `gaussian_blur3d` and `separable_filter3d` filter one prevalidated NumPy `DHWC` or CPU Torch `CDHW` volume through three float32 D/H/W passes with fixed `BORDER_REFLECT_101` semantics, then restore uint8 once. They preserve their supported uint8 and float32 dtypes; callers reject other dtypes before dispatch. `gaussian_blur3d` accepts scalar or `(D,H,W)` sigma and kernel-size controls; zero sigma skips that axis. Target-level mask behavior is outside these single-volume primitives. `resize3d` expects prevalidated NumPy `DHWC` or Torch `CDHW`, supports uint8/float32, and runs Tensor kernels in inference mode. Large linear all-axis Tensor upscales (at least 10,000 output elements) use a zero-copy NumPy/OpenCV bridge selected by benchmark; float32 remains within `rtol=2e-4`, `atol=3e-5` of native Torch and uint8 differs by at most one value. `warp_affine3d` applies one forward voxel-space `(x, y, z)` matrix to one NumPy `DHWC`/`NDHWC` array or CPU Torch `CDHW`/`NCDHW` tensor. For rank 5 the same matrix is applied to every volume. The upstream caller supplies uint8/float32 data, a valid matrix, size, interpolation, border mode, and fill; masks use the same dtype rule, so AlbumentationsX rejects int64 before this call. It does not repeat CPU, layout, or autograd validation and never moves or detaches Tensor data. The volume routers preserve container and their documented supported dtypes.
+- **Geometric:** `copy_make_border`, `flip_volume`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `rot90_volume`, `separable_filter3d`, `transpose_volume`, `warp_affine`, `warp_affine3d`, `warp_perspective`.
+  NumPy image layouts are HWC/NHWC and volume layouts are DHWC/NDHWC; CPU Tensor image layouts are CHW/NCHW and volume layouts are CDHW/NCDHW.
+  Only `warp_affine3d` and `remap3d` accept volume batches, applying one shared matrix or grid to each item. Other 3D routers accept one volume per call.
 - **3D dense resampling:** `remap3d` applies a caller-provided float32 `(D_out, H_out, W_out, 3)` normalized `align_corners=False` pull grid in `(x, y, z)` order to one NumPy `DHWC`/`NDHWC` array or CPU Torch `CDHW`/`NCDHW` tensor. For rank 5 the same grid is applied to every volume. The grid can be NumPy or Torch, its spatial shape defines the output, and coordinates outside `[-1, 1]` use constant or replicate borders. The router preserves the input container, dtype, channel count, and public layout. `remap3d` does not scan the dense grid for identity or convert a voxel-coordinate map.
 - `warp_affine3d` and `remap3d` retain their `DHWC`/`CDHW` single-volume calls and also accept NumPy `NDHWC` and CPU Torch `NCDHW` batches. Other 3D routers continue to accept one volume per call.
-- **3D constant padding:** `pad3d(volume, padding, value=0)` takes one NumPy `DHWC` volume or CPU Torch `CDHW` tensor and spatial padding `(front, back, top, bottom, left, right)`. It supports uint8/float32 volumes and int16 masks. All-zero padding returns the input itself; other calls allocate independent output and preserve dtype and channel count. NumPy inputs may be strided or read-only; Tensor inputs may be non-contiguous. Scalar fills follow NumPy assignment, including uint8 wrapping and fractional truncation for integers. A one-element tuple supplies the same fill on both sides; a two-element tuple means `(before, after)` for each spatial axis. At corners, width takes precedence over height, then depth. These are NumPy padding semantics, not per-channel colors. Callers validate the contract and add/remove the singleton channel axis for DHW inputs. Tensor outputs remain usable by subsequent training operations. See the [padding benchmark](../benchmarks/results/benchmark_pad3d.md) for backend selection and complete bridge timings.
+- **3D constant padding:** `pad3d` takes NumPy DHWC or CPU Torch CDHW and spatial padding `(front, back, top, bottom, left, right)`. It supports uint8/float16/float32 volumes and int16 masks, preserves dtype and channel count, and follows NumPy fill semantics.
 - **Utils:** see `utils.__all__` in [`albucore/utils.py`](../albucore/utils.py)
-- **Types / constants:** `ImageType`, `ImageUInt8`, `ImageFloat32`, `SupportedDType`, `NormalizationType`, `ValueType`, `MAX_OPENCV_WORKING_CHANNELS`, `get_opencv_max_channels`, etc.
+- **Types / constants:** `ImageInput`, `ImageType`, `ImageUInt8`, `ImageFloat16`, `ImageFloat32`, `SupportedDType`, `TensorLayout`, `NormalizationType`, `ValueType`, and shared routing constants.
 - **Metadata:** `__version__`, `__author__`, `__maintainer__`
 
-## Shims (submodule-only, not star-exported)
+## Backend-specific imports (submodule-only)
 
-Import explicitly from `albucore.functions` for tests and golden references:
+Backend implementations stay outside the package star-import API. Import one explicitly when a test or specialized integration must select a backend:
 
 - Backend-specific: `*_numpy`, `*_opencv`, `*_lut`, `*_cv2`, `hflip_numpy`, `vflip_numpy`; this includes `exp_numpy`/`exp_opencv`, `log_numpy`/`log_opencv`, and `sqrt_numpy`/`sqrt_opencv`
 - NumKong helpers: `add_weighted_numkong`, `add_array_numkong`, `multiply_by_constant_numkong` (`albucore.functions`); `add_constant_numkong` lives on [`albucore.weighted`](../albucore/weighted.py) only
@@ -39,11 +53,3 @@ Import explicitly from `albucore.functions` for tests and golden references:
 ## Internal
 
 Names prefixed with `_` or used only inside albucore (not stable API).
-
-## Migration (package `__all__`)
-
-- `from albucore import *` no longer exposes backend-specific helpers (`add_opencv`, `normalize_per_image_numpy`, …). Import them explicitly: `from albucore.functions import add_opencv`.
-- Deprecated **SimSimd** aliases are removed; use `add_weighted_numkong` (and other `*_numkong` helpers) from `albucore.functions` if needed.
-- New stats entrypoints: `from albucore.stats import mean, std, mean_std, reduce_sum` (also re-exported on `albucore` for star-import users).
-- New float32 elementwise entrypoints: `from albucore import exp, log, sqrt`.
-- New constant volume padding: `from albucore import pad3d`; for example, `pad3d(volume, (1, 2, 3, 4, 5, 6), value=7)`.

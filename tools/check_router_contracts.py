@@ -150,6 +150,10 @@ def _check_contract_vocabulary(errors: list[str]) -> None:
         if unknown_layouts:
             errors.append(f"{contract.name}: unknown layouts {_format_names(unknown_layouts)}")
 
+        unknown_tensor_layouts = _unknown_members(contract.tensor_layouts, ALL_LAYOUT_NAMES)
+        if unknown_tensor_layouts:
+            errors.append(f"{contract.name}: unknown Tensor layouts {_format_names(unknown_tensor_layouts)}")
+
         unknown_channels = _unknown_members(contract.channels, ALL_CHANNEL_SPECS)
         if unknown_channels:
             errors.append(f"{contract.name}: unknown channels {_format_names(unknown_channels)}")

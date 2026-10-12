@@ -4,19 +4,26 @@ from typing import Any, cast
 
 import cv2
 import numpy as np
+import torch
 
 from albucore.decorators import preserve_channel_dim
 from albucore.lut import _apply_float_lut
 from albucore.stats import DEFAULT_EPS, mean_std
+from albucore.tensor_bridge import TensorLayout, dispatch_tensor_image
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
+    ImageFloat16,
     ImageFloat32,
     ImageType,
     ImageUInt8,
     NormalizationType,
     get_num_channels,
 )
+
+
+def _restore_float_image_dtype(image: ImageType, result: ImageFloat32) -> ImageFloat16 | ImageFloat32:
+    return result.astype(np.float16) if image.dtype == np.float16 else result
 
 
 def _compute_image_stats_opencv(img: ImageType) -> tuple[float, float]:
@@ -92,7 +99,7 @@ def _normalize_min_max_per_channel_opencv(img: ImageType) -> ImageFloat32:
 def normalize_per_image_opencv(
     img: ImageType,
     normalization: NormalizationType,
-) -> ImageFloat32:
+) -> ImageFloat16 | ImageFloat32:
     """Normalize an image using OpenCV operations based on the specified normalization type.
 
     This function normalizes an image using various strategies, optimized with OpenCV operations
@@ -119,6 +126,10 @@ def normalize_per_image_opencv(
         - For images with >4 channels, falls back to array operations as OpenCV has limitations
         - Single channel images treated as "image" normalization when "image_per_channel" is specified
     """
+    if img.dtype == np.float16:
+        result = normalize_per_image_opencv(cast("ImageFloat32", img.astype(np.float32)), normalization)
+        return cast("ImageFloat16", result.astype(np.float16))
+
     # Handle single-channel edge case
     if img.shape[-1] == 1 and normalization == "image_per_channel":
         normalization = "image"
@@ -127,21 +138,22 @@ def normalize_per_image_opencv(
 
     if normalization == "image":
         mean_scalar, std_scalar = _compute_image_stats_opencv(img)
-        return _normalize_mean_std_opencv(img, mean_scalar, std_scalar)
+        return _restore_float_image_dtype(img, _normalize_mean_std_opencv(img, mean_scalar, std_scalar))
 
     if normalization == "image_per_channel":
         mean_arr, std_arr = _compute_per_channel_stats_opencv(img)
-        return _normalize_mean_std_opencv(img, mean_arr, std_arr)
+        return _restore_float_image_dtype(img, _normalize_mean_std_opencv(img, mean_arr, std_arr))
 
     if normalization == "min_max":
         dst = np.empty_like(img, dtype=np.float32)
-        return cast(
+        result = cast(
             "ImageFloat32",
             cv2.normalize(img, dst, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F),
         )
+        return _restore_float_image_dtype(img, result)
 
     if normalization == "min_max_per_channel":
-        return _normalize_min_max_per_channel_opencv(img)
+        return _restore_float_image_dtype(img, _normalize_min_max_per_channel_opencv(img))
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -150,7 +162,7 @@ def normalize_per_image_opencv(
 def normalize_per_image_numpy(
     img: ImageType,
     normalization: NormalizationType,
-) -> ImageFloat32:
+) -> ImageFloat16 | ImageFloat32:
     """Normalize an image using pure NumPy operations based on the specified normalization type.
 
     This function provides the same normalization strategies as normalize_per_image_opencv but uses
@@ -185,27 +197,27 @@ def normalize_per_image_numpy(
         mean_f = img_f.mean()
         std_f = img_f.std() + eps
         normalized_img = cast("ImageFloat32", (img_f - mean_f) / std_f)
-        return np.clip(normalized_img, -20, 20, out=normalized_img)
+        return _restore_float_image_dtype(img, np.clip(normalized_img, -20, 20, out=normalized_img))
 
     if normalization == "image_per_channel":
         pixel_mean, pixel_std = mean_std(img_f, "per_channel", eps=eps)
         pm = np.asarray(pixel_mean, dtype=np.float32)
         ps = np.asarray(pixel_std, dtype=np.float32)
         normalized_img = cast("ImageFloat32", (img_f - pm) / ps)
-        return np.clip(normalized_img, -20, 20, out=normalized_img)
+        return _restore_float_image_dtype(img, np.clip(normalized_img, -20, 20, out=normalized_img))
 
     if normalization == "min_max":
         img_min = img_f.min()
         img_max = img_f.max()
         normalized_img = cast("ImageFloat32", (img_f - img_min) / (img_max - img_min + eps))
-        return cast("ImageFloat32", np.clip(normalized_img, 0, 1))
+        return _restore_float_image_dtype(img, cast("ImageFloat32", np.clip(normalized_img, 0, 1)))
 
     if normalization == "min_max_per_channel":
         axes = tuple(range(img_f.ndim - 1))  # All axes except channel
         img_min = img_f.min(axis=axes)
         img_max = img_f.max(axis=axes)
         normalized_img = cast("ImageFloat32", (img_f - img_min) / (img_max - img_min + eps))
-        return cast("ImageFloat32", np.clip(normalized_img, 0, 1))
+        return _restore_float_image_dtype(img, cast("ImageFloat32", np.clip(normalized_img, 0, 1)))
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -327,8 +339,13 @@ def normalize_per_image_lut(
     raise ValueError(f"Unknown normalization method: {normalization}")
 
 
-def normalize_per_image(img: ImageType, normalization: NormalizationType) -> ImageFloat32:
-    """Normalize an image using statistics computed from the image itself → float32.
+def normalize_per_image(
+    img: ImageType | torch.Tensor,
+    normalization: NormalizationType,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageFloat16 | ImageFloat32 | torch.Tensor:
+    """Normalize an image using statistics computed from the image itself.
 
     Unlike ``normalize`` (which takes caller-supplied ``mean``/``denominator``), this function
     estimates the statistics from ``img`` at call time.
@@ -344,36 +361,43 @@ def normalize_per_image(img: ImageType, normalization: NormalizationType) -> Ima
     - **uint8, ``"image"`` / ``"image_per_channel"`` / ``"min_max_per_channel"``**: LUT
       (fastest — 256-entry float32 table per channel, applied via ``cv2.LUT``).
     - **uint8, ``"min_max"``**: ``cv2.normalize`` (~3x faster than LUT on router benchmarks).
-    - **float32, ``"image"``**: raw ``img.mean()`` / ``img.std()`` NumPy pass (matches 0.0.40).
-    - **float32, others**: ``cv2`` subtract + divide.
+    - **float16/float32, ``"image"``**: float32 statistics and arithmetic, cast to the input float dtype.
+    - **float16/float32, other modes**: float32 OpenCV/NumPy work, cast once to the input float dtype.
     - **ndim > 3 (batch/volume)**: NumPy path.
 
     Alternative: ``normalize`` for fixed per-channel ImageNet-style constants.
 
     Args:
-        img: uint8 or float32 image, shape ``(H, W, C)`` or ``(X, H, W, C)``.
+        img: uint8, float16, or float32 image, shape ``(H, W, C)`` or ``(X, H, W, C)``.
         normalization: One of ``"image"``, ``"image_per_channel"``, ``"min_max"``,
             ``"min_max_per_channel"``.
+        layout: Required for channel-first Tensor inputs; selects CHW, NCHW, CDHW, or NCDHW.
 
     Returns:
-        float32 image, same spatial shape as ``img``.
+        Floating image with the same dtype and spatial shape as ``img``. Uint8 input returns float32.
     """
-    # Route uint8 images
+    if isinstance(img, torch.Tensor):
+        return dispatch_tensor_image(img, layout, normalize_per_image, normalization)
+
     if img.dtype == np.uint8:
-        # Use LUT for everything except min_max (where OpenCV is 3x faster)
         if normalization == "min_max":
-            return normalize_per_image_opencv(cast("ImageUInt8", img), normalization)
-        # LUT is fastest for "image", "image_per_channel", and "min_max_per_channel"
-        return normalize_per_image_lut(cast("ImageUInt8", img), normalization)
-
-    # Route float32 images
-    if img.dtype == np.float32:
+            result = normalize_per_image_opencv(cast("ImageUInt8", img), normalization)
+        else:
+            result = normalize_per_image_lut(cast("ImageUInt8", img), normalization)
+    elif img.dtype == np.float32:
         if normalization == "image":
-            # ``normalize_per_image_numpy`` uses raw ``img.mean``/``img.std`` (matches 0.0.40)
-            return normalize_per_image_numpy(cast("ImageFloat32", img), normalization)
-        return normalize_per_image_opencv(cast("ImageFloat32", img), normalization)
-
-    # Default fallback: OpenCV for single images, NumPy for videos/volumes
-    if img.ndim > 3:
-        return normalize_per_image_numpy(img, normalization)
-    return normalize_per_image_opencv(img, normalization)
+            result = normalize_per_image_numpy(cast("ImageFloat32", img), normalization)
+        else:
+            result = normalize_per_image_opencv(cast("ImageFloat32", img), normalization)
+    elif img.dtype == np.float16:
+        float32_img = cast("ImageFloat32", img.astype(np.float32))
+        if normalization == "image":
+            float32_result = normalize_per_image_numpy(float32_img, normalization)
+        else:
+            float32_result = normalize_per_image_opencv(float32_img, normalization)
+        result = cast("ImageFloat16", float32_result.astype(np.float16))
+    elif img.ndim > 3:
+        result = normalize_per_image_numpy(img, normalization)
+    else:
+        result = normalize_per_image_opencv(img, normalization)
+    return result

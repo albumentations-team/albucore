@@ -7,8 +7,10 @@ from typing import Any, cast
 import cv2
 import numpy as np
 import stringzilla as sz
+import torch
 
 from albucore.decorators import preserve_channel_dim
+from albucore.tensor_bridge import TensorLayout, dispatch_tensor_image, numpy_to_tensor_storage
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8
 
 
@@ -49,7 +51,11 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
     return _apply_float_lut_per_channel_loop(img, lut)
 
 
-def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8:
+def sz_lut(
+    img: ImageUInt8 | torch.Tensor,
+    lut: ImageUInt8,
+    inplace: bool = True,
+) -> ImageUInt8 | torch.Tensor:
     """Apply a shared 256-entry uint8→uint8 LUT using StringZilla ``translate``.
 
     StringZilla operates on raw bytes without channel awareness, making it ideal for shared
@@ -69,6 +75,11 @@ def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8
     Returns:
         uint8 image with each pixel value replaced by ``lut[pixel]``.
     """
+    if isinstance(img, torch.Tensor):
+        image_view = img.numpy()
+        result = sz_lut(image_view, lut, inplace=inplace)
+        return img if result is image_view else numpy_to_tensor_storage(result)
+
     original_img = img
     if not img.flags["C_CONTIGUOUS"]:
         img = np.ascontiguousarray(img)
@@ -153,11 +164,12 @@ def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bo
 
 
 def apply_uint8_lut(
-    img: ImageUInt8,
+    img: ImageUInt8 | torch.Tensor,
     lut: np.ndarray,
     *,
     inplace: bool = False,
-) -> ImageUInt8:
+    layout: TensorLayout | None = None,
+) -> ImageUInt8 | torch.Tensor:
     """Apply a uint8→uint8 LUT to an image.  Supports shared and per-channel tables.
 
     ``lut`` shapes:
@@ -180,12 +192,20 @@ def apply_uint8_lut(
         img: uint8 image, shape ``(H, W, C)`` or batch/volume.
         lut: uint8 array, shape ``(256,)`` or ``(256, 1, C)``.
         inplace: Reuse ``img`` buffer when the shared-LUT StringZilla path is chosen.
+        layout: Required for per-channel Tensor LUT calls; selects CHW, NCHW, CDHW, or NCDHW.
 
     Returns:
         uint8 image with pixel values remapped through the LUT.
 
     The caller validates the uint8 image and LUT shapes before entering this low-level router.
     """
+    if isinstance(img, torch.Tensor):
+        if lut.ndim == 1:
+            image_view = img.numpy()
+            result = apply_uint8_lut(image_view, lut, inplace=inplace)
+            return img if result is image_view else numpy_to_tensor_storage(result)
+        return dispatch_tensor_image(img, layout, apply_uint8_lut, lut, inplace=inplace)
+
     if lut.ndim == 1:
         return _apply_shared_uint8_lut(img, lut, inplace)
     if lut.ndim == 3 and lut.shape[0] == 256 and lut.shape[1] == 1:

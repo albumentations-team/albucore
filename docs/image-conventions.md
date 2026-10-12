@@ -14,6 +14,9 @@ validation pass.
 
 ## Shape Formats
 
+NumPy image inputs use channel-last layouts. CPU Torch inputs use channel-first layouts declared by the operation or
+by the keyword-only `layout=` argument; never infer `NCHW` versus `CDHW` from rank or axis sizes.
+
 ### Single Images and Volumes
 
 - **RGB/Multi-channel image**: `(H, W, C)` - Height, Width, Channels
@@ -27,18 +30,28 @@ validation pass.
 - **Batch of grayscale images**: `(N, H, W, 1)`
 - **Batch of volumes**: `(N, D, H, W, C)` for NumPy or `(N, C, D, H, W)` for Torch
 
+For 2D Torch images and batches, use `CHW` and `NCHW`. For volumes, use `CDHW`; only `warp_affine3d` and `remap3d`
+also accept `NCDHW` batches.
+
 Only `warp_affine3d` and `remap3d` accept both volume ranks today. Each applies one shared matrix or pull grid to every
 item. Other 3D routers continue to accept one volume per call. The batch axis `N` is separate from volume depth `D`.
 
 ## Accessing Dimensions
 
-Given any image array, you can always rely on:
+For a NumPy image array, rely on:
 
 ```python
 num_channels = image.shape[-1]
 width = image.shape[-2]
 height = image.shape[-3]
 ```
+
+For a Tensor, read the channel axis from its declared layout (`CHW`/`CDHW`: axis 0; `NCHW`/`NCDHW`: axis 1).
+
+## Supported image dtypes
+
+Image routers accept `uint8`, `float16`, and `float32`. They do not accept `float64` image inputs. Statistics may
+return `float64` or wide integer outputs, and `apply_uint8_lut` / `sz_lut` remain `uint8`-only.
 
 This consistency simplifies code and makes it more robust across different input types.
 

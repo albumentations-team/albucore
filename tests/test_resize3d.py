@@ -26,12 +26,14 @@ def _numpy_volume(dtype: type[np.uint8 | np.float32], channels: int) -> np.ndarr
 
 
 def _torch_linear_reference(volume: torch.Tensor, size: tuple[int, int, int]) -> torch.Tensor:
-    """Explicit public Torch contract for linear uint8 and float32 Tensor inputs."""
+    """Float32-accumulated linear reference for uint8, float16, and float32 Tensor inputs."""
     working = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
     with torch.inference_mode():
         result = torch_f.interpolate(working.unsqueeze(0), size=size, mode="trilinear", align_corners=False)
         if volume.dtype == torch.uint8:
             result = torch.minimum(result + 0.5, result.new_tensor(255)).to(torch.uint8)
+        elif volume.dtype == torch.float16:
+            result = result.to(torch.float16)
     return cast("torch.Tensor", result.squeeze(0))
 
 
@@ -290,7 +292,7 @@ def test_resize3d_cross_container_unit_output_contract(
         assert delta.max() <= 1
 
 
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 @pytest.mark.parametrize("channels", [1, 5], ids=["c1", "c5"])
 @pytest.mark.parametrize("size", [(3, 5, 12), (8, 11, 4)], ids=["mixed", "up_down"])
 def test_resize3d_torch_linear_matches_native_cpu_interpolate_outside_all_axis_upscales(
@@ -310,10 +312,13 @@ def test_resize3d_torch_linear_matches_native_cpu_interpolate_outside_all_axis_u
     assert isinstance(result, torch.Tensor)
     assert result.shape == (channels, *size)
     assert result.dtype == dtype
-    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    if dtype == torch.float16:
+        torch.testing.assert_close(result, expected, rtol=0, atol=float(np.finfo(np.float16).eps / 2))
+    else:
+        torch.testing.assert_close(result, expected, rtol=0, atol=0)
 
 
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 @pytest.mark.parametrize("channels", [1, 5], ids=["c1", "c5"])
 @pytest.mark.parametrize("channel_last_strided", [False, True], ids=["contiguous", "channel_last_strided"])
 def test_resize3d_torch_all_axis_upscale_uses_the_fast_numpy_route(
@@ -326,6 +331,8 @@ def test_resize3d_torch_all_axis_upscale_uses_the_fast_numpy_route(
     volume: np.ndarray
     if dtype == torch.uint8:
         volume = rng.integers(0, 256, size=(5, 20, 20, channels), dtype=np.uint8)
+    elif dtype == torch.float16:
+        volume = rng.random((5, 20, 20, channels), dtype=np.float32).astype(np.float16)
     else:
         volume = rng.random((5, 20, 20, channels), dtype=np.float32)
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2).contiguous()
@@ -340,12 +347,14 @@ def test_resize3d_torch_all_axis_upscale_uses_the_fast_numpy_route(
     torch.testing.assert_close(result, expected, rtol=0, atol=0)
     if dtype == torch.float32:
         torch.testing.assert_close(result, native, rtol=2e-4, atol=3e-5)
+    elif dtype == torch.float16:
+        torch.testing.assert_close(result, native, rtol=0, atol=float(np.finfo(np.float16).eps / 2))
     else:
         delta = (result.to(torch.int16) - native.to(torch.int16)).abs()
         assert int(delta.max()) <= 1
 
 
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 def test_resize3d_torch_small_all_axis_upscale_matches_native_cpu_interpolate(dtype: torch.dtype) -> None:
     """Small all-axis Tensor upscales avoid a marginal bridge win and retain the native result exactly."""
     if dtype == torch.uint8:
@@ -357,10 +366,13 @@ def test_resize3d_torch_small_all_axis_upscale_matches_native_cpu_interpolate(dt
     result = resize3d(volume, size)
     expected = _torch_linear_reference(volume, size)
 
-    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    if dtype == torch.float16:
+        torch.testing.assert_close(result, expected, rtol=0, atol=float(np.finfo(np.float16).eps / 2))
+    else:
+        torch.testing.assert_close(result, expected, rtol=0, atol=0)
 
 
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 def test_resize3d_torch_nearest_matches_native_cpu_interpolate(dtype: torch.dtype) -> None:
     """CPU CDHW nearest interpolation does not need a float conversion for either supported dtype."""
     if dtype == torch.uint8:

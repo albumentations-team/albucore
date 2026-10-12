@@ -32,7 +32,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
 | [`benchmark_numkong_astype.py`](benchmark_numkong_astype.py) | NumKong 7.8 buffer-first cast: previous NumPy `rint`+clip and isolated cast paths across HWC/XHWC contiguous and strided inputs. |
 | [`benchmark_elementwise.py`](benchmark_elementwise.py) | Public `exp`/`log`/`sqrt` vs NumPy/OpenCV: canonical non-square HWC C=1/3/9 and DHWC, tiny Python `math`, strided channel/size calibration, safe in-place, and NumKong `minmax` as a `log` guard. |
-| [`benchmark_torch_cpu.py`](benchmark_torch_cpu.py) | Complete CPU NumPy→Torch→NumPy candidates, including zero-copy wrappers, public Albucore routers, Torch/OpenCV thread counts, semantic checks, HWC, and an optional DHWC matrix. It measures the configured production router by default; `--disable-public-torch-route` measures the prior backend baseline. |
+| [`benchmark_torch_cpu.py`](benchmark_torch_cpu.py) | Complete CPU NumPy→Torch→NumPy candidates for uint8/float16/float32, including zero-copy wrappers, public Albucore routers, Torch/OpenCV thread counts, semantic checks, HWC, and an optional DHWC matrix. It measures the configured production router by default; `--disable-public-torch-route` measures the prior backend baseline. |
 | [`benchmark_torch_uint8_lut.py`](benchmark_torch_uint8_lut.py) | Shared and per-channel uint8 LUTs: Albucore and NumPy byte indexing versus Torch eager’s int32/int64 index casts and separately warmed `torch.compile`. |
 | [`benchmark_resize3d.py`](benchmark_resize3d.py) | Full CPU `resize3d` paths for NumPy `DHWC`: pure NumPy, OpenCV packing, native 3D Torch, and batched 2D Torch for unchanged depth. Use `--scenario xy_down` or `--scenario xy_half`; repeat `--shape D,H,W,C` to vary depth at fixed H/W and channels. |
 | [`benchmark_resize3d_tensor.py`](benchmark_resize3d_tensor.py) | CPU Tensor→Tensor `resize3d`: native Torch, zero-copy Tensor→NumPy→Tensor bridge, and the public router across contiguous and channel-last-strided `CDHW` inputs. |
@@ -46,7 +46,8 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_gaussian_blur3d.py`](benchmark_gaussian_blur3d.py) | Full CPU `gaussian_blur3d` routes for NumPy `DHWC` and already-imported-Torch `CDHW`: selected reflect padding, universal fallback, NumPy, packed OpenCV, and public dispatch. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
 | [`benchmark_reduce_sum.py`](benchmark_reduce_sum.py) | `albucore.stats.reduce_sum` (NumKong uint8 routing) vs `numpy.sum` global / per-channel. |
-| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories). Defaults **`--repeats 21`**, **`--warmup 5`**; JSON includes spread (`ms_std`, `ms_mad`). **`sz_lut`** bench uses **`inplace=False`** so the image is not mutated across iterations. **`--skip-ops`** omits routers (no rows). **`--benchmark-label`** stored in JSON meta. |
+| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Every name in **`albucore.functions.__all__`** (except decorator factories) on NumPy inputs, with HWC images and HWC/NHWC statistics. Add **`--with-geometric`** for 2D/3D geometric and volume-batch routers. Defaults **`--repeats 21`**, **`--warmup 5`**, and **`--threads 1`**; JSON records library versions, NumKong CPU capabilities, effective thread settings, and spread (`ms_std`, `ms_mad`). Use **`--interleave-float16`** for paired float16/float32 timings on the same half-quantized values, with call order alternated per sample. **`sz_lut`** uses a copy so the image is not mutated across iterations. **`--skip-ops`** omits routers (no rows), and **`--benchmark-label`** is stored in JSON metadata. |
+| [`benchmark_tensor_router_paired.py`](benchmark_tensor_router_paired.py) | Public eager CPU Tensor routes for the function routers and, with **`--with-geometric`**, all geometric exports and volume batches. Run with `uv run --extra torch python benchmarks/benchmark_tensor_router_paired.py --with-geometric`. Pairs float16/float32 calls on identical half-quantized values across CHW/NCHW/CDHW/NCDHW; batch-capable image operations also use N=4 NCHW cases. Tensor and control preparation are excluded; bridge, dispatch, kernel, and output are timed. Exactly half-representable full-array controls use matching input dtypes. HWC uses the canonical router grid, NCHW uses its batch grid, and 3D uses the DHWC volume grid. Defaults to 21 image samples and 7 volume samples per dtype pair. |
 | [`compare_router_json.py`](compare_router_json.py) | Markdown report: ratios from medians; full table shows **median ± σ** and MAD columns when present. Sections for **new-only** / **baseline-only** `ok` cells. |
 | [`benchmark_minmax_ravel.py`](benchmark_minmax_ravel.py) | Prints Markdown tables: `Tensor.minmax()` vs NumPy min+max on raveled `(H,W,C)`. |
 | [`benchmark_normalize_numkong_patterns.py`](benchmark_normalize_numkong_patterns.py) | NumKong “how to normalize” patterns: per-channel `nk.scale` (ImageNet α/β), `minmax`+`scale`, vs OpenCV/NumPy; 2D `sum`/`norm` per-channel stats vs `cv2.meanStdDev` / NumPy. |
@@ -54,7 +55,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_add_constant_uint8_channels.py`](benchmark_add_constant_uint8_channels.py) | uint8 scalar add: OpenCV vs LUT vs NumKong vs NumPy vs `add_constant` wrapper (C=5..9, several spatial sizes). |
 | [`benchmark_grayscale_paths.py`](benchmark_grayscale_paths.py) | Grayscale / routing sanity: uint8 per-channel multiply LUT vs OpenCV; float→uint8 NumPy vs cv2 (and cv2 (H,W,1) quirk). |
 | [`benchmark_scale_vs_lut.py`](benchmark_scale_vs_lut.py) | **`nk.scale` vs `sz_lut` (full-buffer) vs `cv2.LUT`** on uint8 — affine multiply-by-constant across the canonical HWC / DHWC shape grid; `median ± MAD` columns. |
-| [`benchmark_median_blur.py`](benchmark_median_blur.py) | Public `median_blur` router across canonical non-square HWC sizes, 1/3/9 channels, uint8/float32, and kernels 3/5/7. |
+| [`benchmark_median_blur.py`](benchmark_median_blur.py) | Public `median_blur` router across canonical non-square HWC sizes, 1/3/9 channels, uint8/float16/float32, and kernels 3/5/7. Defaults to one thread. Float32 inputs are widened from the matching half values; float16/float32 calls are paired and interleaved. `--with-tensor` adds public CHW and NCHW C=1 float16/float32 `ksize=5` pairs, including bridge and output restoration. `--with-data-patterns` adds C=1 `ksize=5` measurements for signed zeros, mixed signs, and sparse zero values. |
 | [`benchmark_sz_lut_vs_cv2_lut.py`](benchmark_sz_lut_vs_cv2_lut.py) | `StringZilla` `translate` / `sz_lut` vs `cv2.LUT` on uint8: shared `(256,)` and per-channel `(256,1,C)` LUTs; HWC and DHWC shapes. LUTs are **non-trivial** (fixed-seed `permutation(256)`). |
 | [`benchmark_cv2_lut_vs_sz_lut_minimal.py`](benchmark_cv2_lut_vs_sz_lut_minimal.py) | Tiny standalone repro (no `albucore`): shared **permutation** LUT, markdown table — for upstream issues. |
 | [`issue_lut_uint8_standalone.py`](issue_lut_uint8_standalone.py) | **Self-contained** `cv2.LUT` vs StringZilla `translate`: shared + per-channel, **`LUT` new vs `dst`**, SZ copy vs reuse buffer. Copy into GitHub issues. |
@@ -68,6 +69,7 @@ non-square sizes so height-width swaps are visible.
 
 ```bash
 uv run python benchmarks/benchmark_router_synthetic.py \
+  --threads 1 \
   --output-json benchmarks/results/router-current.json
 
 uv run --no-project --with albucore==<previous-version> \
@@ -102,7 +104,7 @@ The **router** JSON is the regression guard vs an older wheel; it does **not** s
 
 ## 3D benchmark entry points
 
-The single-volume scripts check the legacy rank-4 path. The batch scripts time the rank-5 path with one shared matrix or grid, including layout conversion and output restoration. Start with:
+The single-volume scripts check the rank-4 path. The batch scripts time the rank-5 path with one shared matrix or grid, including layout conversion and output restoration. Start with:
 
 ```bash
 uv run python benchmarks/benchmark_warp_affine3d.py --quick --threads 1

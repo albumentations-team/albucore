@@ -42,12 +42,15 @@ verification.
 
 ## Dtypes And Layouts
 
-Public image kernels support `uint8` and `float32` images with explicit channel dimensions:
+Public image kernels support `uint8`, `float16`, and `float32` image data with explicit channel dimensions. `float64`
+is not a supported image input dtype. Statistics may return wider result dtypes; the two specialized LUT routers
+remain `uint8`-only.
 
-- HWC
-- XHWC
+- NumPy: `HWC`, `NHWC`, `DHWC`, `NDHWC`
+- Torch CPU: `CHW`, `NCHW`, `CDHW`, `NCDHW`; pass explicit `layout=` where channel-axis semantics apply
 
-Grayscale images use `(H, W, 1)` or `(..., H, W, 1)`. Implicit-channel grayscale inputs are invalid.
+Grayscale images use `(H, W, 1)` / `(..., H, W, 1)` for NumPy or a channel-first Tensor with `C=1`.
+Implicit-channel grayscale inputs are invalid.
 
 ## Support Changes
 

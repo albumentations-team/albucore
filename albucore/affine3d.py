@@ -151,6 +151,8 @@ def _sample_xy_torch_cpu(
             )
         if planes.dtype == torch.uint8:
             result = _restore_uint8(result)
+        elif planes.dtype == torch.float16:
+            result = result.to(torch.float16)
     return result
 
 

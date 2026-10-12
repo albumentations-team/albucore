@@ -29,8 +29,7 @@ permissions:
 
 jobs:
   analyze:
-    # Keep GitHub's default setup authoritative until the post-merge migration
-    # enables this repository variable and disables default setup.
+    # Advanced analysis is opt-in; GitHub's default setup remains authoritative otherwise.
     if: vars.CODEQL_ADVANCED_SETUP == 'true'
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest

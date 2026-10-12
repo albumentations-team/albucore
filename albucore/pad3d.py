@@ -11,6 +11,7 @@ __all__ = ["pad3d"]
 _TORCH_TO_NUMPY_DTYPE: dict[torch.dtype, type[np.generic]] = {
     torch.uint8: np.uint8,
     torch.int16: np.int16,
+    torch.float16: np.float16,
     torch.float32: np.float32,
 }
 _TORCH_MIN_ELEMENTS = 524_288
@@ -100,7 +101,7 @@ def pad3d(
 ) -> np.ndarray | torch.Tensor:
     """Pad the spatial axes of one prevalidated volume with constant values.
 
-    Supports uint8 and float32 volumes, and int16 masks. Callers validate layout,
+    Supports uint8, float16, and float32 volumes, and int16 masks. Callers validate layout,
     dtype, CPU placement, ``requires_grad=False``, and nonnegative padding before
     dispatch. Channel-less DHW inputs must gain a channel axis at the caller boundary.
 
