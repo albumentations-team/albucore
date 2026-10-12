@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from numpy.typing import DTypeLike
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
 from albucore.torch_backend import reduce_sum_torch
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8, get_opencv_max_channels
@@ -204,7 +205,7 @@ def _reduce_sum_per_channel_float16_fastpath(
         or arr.size <= _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS[9]
     ):
         return None
-    result = _cv2_reduce_sum_per_channel(arr.astype(np.float32))
+    result = _cv2_reduce_sum_per_channel(_cast_float_numpy(arr, np.float32))
     if keepdims:
         return result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],))
     return result
@@ -426,7 +427,7 @@ def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarra
         np.subtract(magnitude_bits, np.uint16(1), out=magnitude_bits)
         has_subnormals = np.min(magnitude_bits) < 0x03FF
         if has_subnormals:
-            return _mean_std_per_channel_float32(cast("ImageFloat32", arr.astype(np.float32)), eps)
+            return _mean_std_per_channel_float32(_cast_float_numpy(arr, np.float32), eps)
 
     c = arr.shape[-1]
     n = arr.size // c
@@ -449,7 +450,7 @@ def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarra
 def _mean_std_per_channel_opencv(arr: ImageType, eps: float) -> tuple[np.ndarray, np.ndarray]:
     """Widen half inputs because CV_16F statistics lose subnormal precision."""
     is_half = arr.dtype == np.float16
-    work = arr.astype(np.float32) if is_half else arr
+    work = _cast_float_numpy(arr, np.float32) if is_half else arr
     mean, std = cv2.meanStdDev(work)
     if is_half and np.any(np.square(std[:, 0]) <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean[:, 0])):
         return _mean_std_per_channel_numkong(arr, eps)
@@ -561,7 +562,7 @@ def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.
             return np.array(m, dtype=np.float64).reshape(kd)
         return m
     if arr.dtype == np.float16 and arr.flags.c_contiguous and arr.size >= _FLOAT16_GLOBAL_MEAN_OPENCV_MIN_ELEMENTS:
-        wide = arr.astype(np.float32)
+        wide = _cast_float_numpy(arr, np.float32)
         mean_value = np.float64(cv2.mean(wide.reshape(-1, 1))[0])
         if keepdims:
             return mean_value.reshape((1,) * arr.ndim)
@@ -746,7 +747,7 @@ def _mean_per_channel(
     # HWC, C ≤ 4: cv2.mean is fastest; half inputs widen for accuracy.
     if arr.ndim == 3 and not keepdims and axes == spatial_axes and c <= MAX_OPENCV_WORKING_CHANNELS:
         # CV_16F mean can lose precision on skewed and subnormal inputs.
-        mu = cv2.mean(arr.astype(np.float32)) if arr.dtype == np.float16 else cv2.mean(arr)
+        mu = cv2.mean(_cast_float_numpy(arr, np.float32)) if arr.dtype == np.float16 else cv2.mean(arr)
         return np.asarray(mu[:c], dtype=np.float64)
     if arr.ndim == 4 and axes == spatial_axes and 1 <= c <= MAX_OPENCV_WORKING_CHANNELS:
         return _mean_per_channel_rank4(arr, axes, keepdims=keepdims)
@@ -761,7 +762,7 @@ def _mean_per_channel(
         ):
             result, _ = _mean_std_per_channel_opencv(arr, 0.0)
         else:
-            work = arr.astype(np.float32) if arr.dtype == np.float16 else arr
+            work = _cast_float_numpy(arr, np.float32) if arr.dtype == np.float16 else arr
             result = _cv2_reduce_mean_per_channel(work)
         if keepdims:
             return result.reshape((1,) * (arr.ndim - 1) + (c,))

@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import torch
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.decorators import preserve_channel_dim
 from albucore.lut import _apply_float_lut
 from albucore.stats import DEFAULT_EPS, mean_std
@@ -23,7 +24,7 @@ from albucore.utils import (
 
 
 def _restore_float_image_dtype(image: ImageType, result: ImageFloat32) -> ImageFloat16 | ImageFloat32:
-    return result.astype(np.float16) if image.dtype == np.float16 else result
+    return _cast_float_numpy(result, np.float16) if image.dtype == np.float16 else result
 
 
 def _compute_image_stats_opencv(img: ImageType) -> tuple[float, float]:
@@ -44,7 +45,7 @@ def _compute_per_channel_stats_opencv(img: ImageType) -> tuple[np.ndarray, np.nd
 
 def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: float | np.ndarray) -> ImageFloat32:
     """Apply mean-std normalization using OpenCV or NumPy based on dimensionality."""
-    img_f = img.astype(np.float32, copy=False)
+    img_f = _cast_float_numpy(img, np.float32)
     if img_f.ndim > 3 or (img_f.ndim == 3 and img_f.shape[-1] > MAX_OPENCV_WORKING_CHANNELS):
         # Use NumPy operations for 4D arrays and 3D images with >4 channels.
         mean_arr = np.asarray(mean, dtype=np.float32)
@@ -127,8 +128,8 @@ def normalize_per_image_opencv(
         - Single channel images treated as "image" normalization when "image_per_channel" is specified
     """
     if img.dtype == np.float16:
-        result = normalize_per_image_opencv(cast("ImageFloat32", img.astype(np.float32)), normalization)
-        return cast("ImageFloat16", result.astype(np.float16))
+        result = normalize_per_image_opencv(_cast_float_numpy(img, np.float32), normalization)
+        return _cast_float_numpy(result, np.float16)
 
     # Handle single-channel edge case
     if img.shape[-1] == 1 and normalization == "image_per_channel":
@@ -189,7 +190,7 @@ def normalize_per_image_numpy(
         - Uses in-place operations where possible for memory efficiency
         - Generally slower than the OpenCV version but more portable
     """
-    img_f = cast("ImageFloat32", img.astype(np.float32, copy=False))
+    img_f = _cast_float_numpy(img, np.float32)
     eps = DEFAULT_EPS
 
     if normalization == "image":
@@ -390,12 +391,12 @@ def normalize_per_image(
         else:
             result = normalize_per_image_opencv(cast("ImageFloat32", img), normalization)
     elif img.dtype == np.float16:
-        float32_img = cast("ImageFloat32", img.astype(np.float32))
+        float32_img = _cast_float_numpy(img, np.float32)
         if normalization == "image":
             float32_result = normalize_per_image_numpy(float32_img, normalization)
         else:
             float32_result = normalize_per_image_opencv(float32_img, normalization)
-        result = cast("ImageFloat16", float32_result.astype(np.float16))
+        result = _cast_float_numpy(float32_result, np.float16)
     elif img.ndim > 3:
         result = normalize_per_image_numpy(img, normalization)
     else:
