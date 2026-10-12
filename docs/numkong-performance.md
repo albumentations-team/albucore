@@ -267,6 +267,26 @@ samples and thread/version metadata are in
 The missing native OpenCV `CV_16F remap` capability and these measurements are
 reported in [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769).
 
+## Exact FP16 and FP32 storage casts
+
+`from_float(image, np.float16/np.float32)` casts without scaling. The same internal cast is used by arithmetic,
+normalization, statistics, filtering, and geometry when a kernel needs float32 work or float16 restoration.
+
+Contiguous NumPy inputs use NumKong from 16,384 elements when its `skylake` capability is enabled. NumKong writes
+directly into `np.empty`, preserving independent writable storage and `OWNDATA`. Other CPU/layout/size regions
+retain NumPy's order-K cast. Special values, narrowing overflow, and non-default underflow handling keep NumPy's
+floating-error behavior; checking half finiteness through integer exponent bits avoids the slow x86 half ufunc.
+
+On macOS ARM, contiguous Tensor casts from 61,440 elements use a NumPy view, one allocating cast, and zero-copy
+Tensor wrapping. Same-dtype calls retain identity. Tensor casts retain Torch's floating-error policy.
+
+One-thread, 51-sample Xeon measurements of a `(1,32,384,384)` crop reduced complete FP16→FP32 casts from
+12.30 to 4.71 ms and FP32→FP16 casts from 23.89 to 4.29 ms. On M4 Max, NumPy is faster than NumKong even for
+contiguous inputs; the selected Tensor route reduced the same casts from 0.445 to 0.224 ms and 0.460 to 0.264 ms.
+See the [cast report](../benchmarks/results/benchmark_float_cast.md) for versions, layouts, raw samples, complete
+operation bridges, rejected candidates, and precision checks. NumKong [#404](https://github.com/ashvardanian/NumKong/issues/404)
+and pending [#405](https://github.com/ashvardanian/NumKong/pull/405) track strided kernels; those routes remain on NumPy.
+
 ## Routes that stay outside NumKong
 
 | Operation | Current backend | Reason to keep the route |

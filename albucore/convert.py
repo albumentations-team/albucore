@@ -1,5 +1,7 @@
 """Convert image arrays among uint8, float16, and float32."""
 
+import platform
+import sys
 from typing import Any, cast
 
 import cv2
@@ -7,6 +9,7 @@ import numkong as nk
 import numpy as np
 import torch
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.decorators import preserve_channel_dim
 from albucore.torch_backend import from_float_uint8_torch
 from albucore.utils import (
@@ -26,6 +29,8 @@ _NUMPY_TO_TORCH_DTYPE = {
     np.dtype(np.float16): torch.float16,
     np.dtype(np.float32): torch.float32,
 }
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
 
 
 def to_float_numpy(img: ImageType, max_value: float | None = None) -> ImageFloat16 | ImageFloat32:
@@ -145,6 +150,16 @@ def _from_float_torch(
     else:
         torch_dtype = _NUMPY_TO_TORCH_DTYPE[np.dtype(target_dtype)]
     if torch_dtype in (torch.float16, torch.float32):
+        if (
+            _MACOS_ARM64
+            and img.dtype != torch_dtype
+            and img.numel() >= _TENSOR_NUMPY_CAST_MIN_ELEMENTS
+            and img.is_contiguous()
+        ):
+            numpy_dtype = np.float32 if torch_dtype == torch.float32 else np.float16
+            with np.errstate(all="ignore"):
+                result = _cast_float_numpy(img.numpy(), numpy_dtype)
+            return torch.from_numpy(result)
         return img.to(dtype=torch_dtype)
 
     scale = get_max_value(np.dtype(np.uint8)) if max_value is None else max_value
@@ -192,7 +207,7 @@ def from_float(
 
     if target_dtype in (np.dtype(np.float16), np.dtype(np.float32), np.float16, np.float32):
         numpy_dtype = np.dtype(target_dtype)
-        return cast("ImageType", img.astype(numpy_dtype, copy=False))
+        return _cast_float_numpy(img, numpy_dtype)
 
     numpy_target_dtype = np.dtype(target_dtype)
     if img.dtype in (np.float16, np.float32) and target_dtype == np.uint8:

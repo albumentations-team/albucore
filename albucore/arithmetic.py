@@ -9,6 +9,7 @@ import numkong as nk
 import numpy as np
 import torch
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.decorators import preserve_channel_dim
 from albucore.lut import _apply_float_lut
 from albucore.lut import apply_uint8_lut as _apply_uint8_lut
@@ -218,7 +219,7 @@ def _numkong_float16_single_channel_scale(
 
 
 def _restore_float_dtype(image: ImageType, result: ImageFloat32) -> ImageFloat16 | ImageFloat32:
-    return cast("ImageFloat16", result.astype(np.float16)) if _is_float16_image(image) else result
+    return cast("ImageFloat16", _cast_float_numpy(result, np.float16)) if _is_float16_image(image) else result
 
 
 def create_lut_array(
@@ -361,7 +362,7 @@ def apply_numpy(
     else:
         value_prepared = _prepare_numpy_value(value)
 
-    result = np_operations[operation](img.astype(np.float32, copy=False), value_prepared)
+    result = np_operations[operation](_cast_float_numpy(img, np.float32), value_prepared)
     if result.dtype == np.float32:
         return cast("ImageFloat32", result)
     with np.errstate(over="ignore"):
@@ -394,7 +395,7 @@ def multiply_numpy(
         if float16_result is not None:
             return float16_result
     result = apply_numpy(img, value, "multiply")
-    return cast("ImageFloat16", result.astype(np.float16)) if _is_float16_image(img) else result
+    return cast("ImageFloat16", _cast_float_numpy(result, np.float16)) if _is_float16_image(img) else result
 
 
 def multiply_by_constant(
@@ -560,7 +561,7 @@ def add_numpy(
         if float16_result is not None:
             return float16_result
     result = apply_numpy(img, value, "add")
-    return cast("ImageFloat16", result.astype(np.float16)) if _is_float16_image(img) else result
+    return cast("ImageFloat16", _cast_float_numpy(result, np.float16)) if _is_float16_image(img) else result
 
 
 def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -> ImageUInt8:
@@ -853,7 +854,7 @@ def normalize_opencv(
     mean: float | np.ndarray,
     denominator: float | np.ndarray,
 ) -> ImageFloat16 | ImageFloat32:
-    img_f = img.astype(np.float32, copy=False)
+    img_f = _cast_float_numpy(img, np.float32)
     if isinstance(mean, (int, float)):
         mean_img = np.full_like(img_f, mean)
     else:
@@ -987,14 +988,14 @@ def power_numpy(img: ImageType, exponent: float | np.ndarray) -> ImageFloat16 | 
         if float16_result is not None:
             return float16_result
     result = apply_numpy(img, exponent, "power")
-    return cast("ImageFloat16", result.astype(np.float16)) if _is_float16_image(img) else result
+    return cast("ImageFloat16", _cast_float_numpy(result, np.float16)) if _is_float16_image(img) else result
 
 
 @preserve_channel_dim
 def power_opencv(img: ImageType, value: float) -> ImageFloat16 | ImageFloat32:
     if _is_float16_image(img):
-        result = cv2.pow(img.astype(np.float32), value)
-        return cast("ImageFloat16", result.astype(np.float16))
+        result = cv2.pow(_cast_float_numpy(img, np.float32), value)
+        return cast("ImageFloat16", _cast_float_numpy(result, np.float16))
     if _is_float32_image(img):
         # For float32 images, cv2.pow works directly
         return cast("ImageFloat32", cv2.pow(img, value))
@@ -1075,8 +1076,8 @@ def add_weighted_numpy(
     weight2: float,
 ) -> ImageFloat16 | ImageFloat32:
     if _is_float16_image(img1):
-        result = img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2
-        return cast("ImageFloat16", result.astype(np.float16))
+        result = _cast_float_numpy(img1, np.float32) * weight1 + _cast_float_numpy(img2, np.float32) * weight2
+        return cast("ImageFloat16", _cast_float_numpy(result, np.float16))
     return img1.astype(np.float32, copy=False) * weight1 + img2.astype(np.float32, copy=False) * weight2
 
 
@@ -1307,7 +1308,7 @@ def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> I
             if float16_result is not None:
                 return float16_result
 
-    img_f = img.astype(np.float32, copy=False)
+    img_f = _cast_float_numpy(img, np.float32)
     factor_prepared = _prepare_numpy_value(factor)
     value_prepared = _prepare_numpy_value(value)
 
@@ -1341,7 +1342,7 @@ def multiply_add_opencv(img: ImageType, factor: ValueType, value: ValueType) -> 
     if isinstance(value, (int, float)) and value == 0 and isinstance(factor, (int, float)) and factor == 0:
         return np.zeros_like(img, dtype=np.float32)
 
-    result = img.astype(np.float32, copy=False)
+    result = cast("ImageFloat32", _cast_float_numpy(img, np.float32))
     num_channels = result.shape[-1]
     if factor != 0:
         if isinstance(factor, (int, float)) and num_channels <= MAX_OPENCV_WORKING_CHANNELS:
@@ -1471,7 +1472,7 @@ def multiply_add(
             )
         if torch_result is None:
             float16_result = multiply_add_numpy(img, factor, value)
-            torch_result = cast("ImageType", float16_result.astype(np.float16))
+            torch_result = cast("ImageType", _cast_float_numpy(float16_result, np.float16))
         return torch_result
 
     float32_img = cast("ImageFloat32", img)

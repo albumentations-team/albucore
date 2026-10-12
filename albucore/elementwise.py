@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     from albucore.utils import ImageFloat16, ImageFloat32, ImageType
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.torch_backend import float16_unary_torch
 
 __all__ = [
@@ -61,9 +62,9 @@ def _float16_unary(
         if operation == "exp":
             return cast("ImageFloat16", exp_opencv(array, inplace=mutate))
         if operation == "log":
-            working = cast("ImageFloat32", array.astype(np.float32))
+            working = cast("ImageFloat32", _cast_float_numpy(array, np.float32))
             result = cast("ImageFloat32", log_opencv(working))
-            half_result = cast("ImageFloat16", result.astype(np.float16))
+            half_result = cast("ImageFloat16", _cast_float_numpy(result, np.float16))
             if mutate:
                 np.copyto(array, half_result)
                 return array
@@ -90,11 +91,11 @@ def _opencv_unary(
     inplace: bool,
 ) -> ImageFloat16 | ImageFloat32:
     if array.dtype == np.float16:
-        result = cast("ImageFloat32", _opencv_unary(array.astype(np.float32), operation, inplace=False))
+        result = cast("ImageFloat32", _opencv_unary(_cast_float_numpy(array, np.float32), operation, inplace=False))
         if _can_mutate(array, inplace):
             np.copyto(array, result)
             return array
-        return cast("ImageFloat16", result.astype(np.float16))
+        return cast("ImageFloat16", _cast_float_numpy(result, np.float16))
     if array.size == 0:
         return array if inplace else np.empty_like(array)
     result = operation(array, dst=array if inplace else None)
