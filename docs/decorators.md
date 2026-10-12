@@ -6,7 +6,7 @@ Albucore provides several decorators to handle common image processing patterns 
 
 ### `@preserve_channel_dim`
 
-Ensures single-channel images maintain their shape `(H, W, 1)` when OpenCV operations might drop the channel dimension.
+Ensures NumPy single-channel images maintain their shape `(H, W, 1)` when OpenCV operations might drop the channel dimension.
 
 **Problem**: OpenCV functions like `cv2.flip()`, `cv2.LUT()` may drop the channel dimension for single-channel images, converting `(H, W, 1)` to `(H, W)`.
 
@@ -44,9 +44,11 @@ def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageTy
 
 ### `@float32_io`
 
-Converts input to float32, processes it, and converts back to the original dtype.
+Converts input to float32, processes it, and restores the documented output policy for the original dtype.
 
-**Use case**: When your function works best with float32 but needs to support other dtypes.
+**Use case**: When your function works best with float32 but needs to support `uint8` or `float16` image inputs.
+Float16 inputs are widened without scaling and restored to float16; uint8 inputs use the normal float image scaling.
+Tensor calls preserve the container and require an explicit `layout=` when channel-axis semantics matter.
 
 ```python
 from albucore.functions import float32_io
@@ -60,9 +62,11 @@ def some_image_function(img: np.ndarray) -> np.ndarray:
 
 ### `@uint8_io`
 
-Converts input to uint8, processes it, and converts back to the original dtype.
+Converts input to uint8, processes it, and converts back to the original floating dtype.
 
-**Use case**: When your function requires uint8 input (e.g., LUT operations) but needs to support other dtypes.
+**Use case**: When your function requires uint8 input (e.g., LUT operations) but needs to support `float16` and
+`float32` callers. Float inputs are scaled, rounded, and clipped on conversion to uint8; the output is scaled back
+and restored to the input floating dtype. Tensor calls preserve the container and accept `layout=` where needed.
 
 ```python
 from albucore.functions import uint8_io

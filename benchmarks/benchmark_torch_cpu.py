@@ -9,7 +9,6 @@ than a pre-wrapped Tensor kernel. It excludes host-to-device transfers.
 Run from the repository root::
 
     uv run python benchmarks/benchmark_torch_cpu.py --threads 1
-    uv run python benchmarks/benchmark_torch_cpu.py --threads 12
     uv run python benchmarks/benchmark_torch_cpu.py --full --output /tmp/torch-cpu.md
 
 The report marks numerically different candidates as ``mismatch``. Those rows
@@ -31,6 +30,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+# isort: split
+# This import sets BLAS/OpenMP environment variables before cv2, NumPy, and Torch load.
+from benchmark_threads import THREAD_COUNT, configure_libraries  # noqa: I001
 
 import cv2
 import numpy as np
@@ -112,6 +115,8 @@ def _assert_equal(expected: ArrayResult, actual: ArrayResult, rtol: float, atol:
     if isinstance(expected, (np.ndarray, np.generic)):
         actual_array = np.asarray(actual)
         expected_array = np.asarray(expected)
+        if actual_array.dtype != expected_array.dtype:
+            raise AssertionError(f"output dtype {actual_array.dtype} != {expected_array.dtype}")
         if expected_array.dtype == np.uint8 or expected_array.dtype == np.uint64:
             np.testing.assert_array_equal(actual_array, expected_array)
         else:
@@ -121,9 +126,13 @@ def _assert_equal(expected: ArrayResult, actual: ArrayResult, rtol: float, atol:
     np.testing.assert_allclose(actual, expected, rtol=rtol, atol=atol, equal_nan=True)
 
 
-def _float_image(rng: np.random.Generator, shape: tuple[int, ...]) -> np.ndarray:
+def _float_image(
+    rng: np.random.Generator,
+    shape: tuple[int, ...],
+    dtype: np.dtype[Any] = np.dtype(np.float32),
+) -> np.ndarray:
     # Positive finite inputs exercise the OpenCV-compatible public log route.
-    return rng.uniform(np.float32(0.05), np.float32(1.0), size=shape).astype(np.float32)
+    return rng.uniform(np.float32(0.05), np.float32(1.0), size=shape).astype(dtype)
 
 
 def _uint8_image(rng: np.random.Generator, shape: tuple[int, ...]) -> np.ndarray:
@@ -170,7 +179,8 @@ def _prepare_multiply_add(array: np.ndarray, _: np.random.Generator) -> Prepared
 
 
 def _prepare_add_weighted(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
-    other = np.ascontiguousarray(array * np.float32(0.7))
+    other_float32 = array.astype(np.float32, copy=False) * np.float32(0.7)
+    other = np.ascontiguousarray(other_float32.astype(array.dtype, copy=False))
     weight1, weight2 = np.float32(0.4), np.float32(0.6)
     return (
         lambda: albucore.add_weighted(array, weight1, other, weight2),
@@ -184,18 +194,27 @@ def _prepare_normalize(array: np.ndarray, _: np.random.Generator) -> PreparedBen
     channels = array.shape[-1]
     mean = np.linspace(0.3, 0.5, channels, dtype=np.float32)
     denominator = np.linspace(1.25, 1.75, channels, dtype=np.float32)
-    mean_t = _torch_last_axis_vector(mean, array.ndim)
-    denominator_t = _torch_last_axis_vector(denominator, array.ndim)
-    offset_t = -mean_t * denominator_t
+
+    def torch_candidate() -> np.ndarray:
+        mean_t = _torch_last_axis_vector(mean, array.ndim)
+        denominator_t = _torch_last_axis_vector(denominator, array.ndim)
+        image = torch.from_numpy(array)
+        result = torch.empty_like(image)
+        torch.addcmul(-mean_t * denominator_t, image, denominator_t, out=result)
+        return _torch_array(result)
+
     return (
         lambda: albucore.normalize(array, mean, denominator),
-        lambda: _torch_array(torch.addcmul(offset_t, torch.from_numpy(array), denominator_t)),
+        torch_candidate,
     )
 
 
 def _prepare_mean_std_global(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
     def torch_candidate() -> tuple[float, float]:
-        variance, mean = torch.var_mean(torch.from_numpy(array), correction=0)
+        tensor = torch.from_numpy(array)
+        if array.dtype == np.float16:
+            tensor = tensor.to(torch.float64)
+        variance, mean = torch.var_mean(tensor, correction=0)
         return float(mean), float(torch.sqrt(variance) + 1e-4)
 
     return lambda: albucore.mean_std(array, "global"), torch_candidate
@@ -205,7 +224,10 @@ def _prepare_mean_std_per_channel(array: np.ndarray, _: np.random.Generator) -> 
     axes = tuple(range(array.ndim - 1))
 
     def torch_candidate() -> tuple[np.ndarray, np.ndarray]:
-        variance, mean = torch.var_mean(torch.from_numpy(array), dim=axes, correction=0)
+        tensor = torch.from_numpy(array)
+        if array.dtype == np.float16:
+            tensor = tensor.to(torch.float64)
+        variance, mean = torch.var_mean(tensor, dim=axes, correction=0)
         return _torch_array(mean), _torch_array(torch.sqrt(variance) + 1e-4)
 
     return lambda: albucore.mean_std(array, "per_channel"), torch_candidate
@@ -263,7 +285,9 @@ def _prepare_to_float(array: np.ndarray, _: np.random.Generator) -> PreparedBenc
 def _prepare_from_float(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
     return (
         lambda: albucore.from_float(array, np.uint8),
-        lambda: _torch_array(torch.round(torch.mul(torch.from_numpy(array), 255.0)).clamp_(0.0, 255.0).to(torch.uint8)),
+        lambda: _torch_array(
+            torch.round(torch.from_numpy(array).to(torch.float32) * 255.0).clamp_(0.0, 255.0).to(torch.uint8),
+        ),
     )
 
 
@@ -310,39 +334,39 @@ def _prepare_resize(array: np.ndarray, _: np.random.Generator) -> PreparedBenchm
     )
 
 
-FLOAT32 = (np.dtype(np.float32),)
+FLOATING = (np.dtype(np.float16), np.dtype(np.float32))
 UINT8 = (np.dtype(np.uint8),)
-BOTH = (np.dtype(np.uint8), np.dtype(np.float32))
+BOTH = (np.dtype(np.uint8), np.dtype(np.float16), np.dtype(np.float32))
 
 CANDIDATES: tuple[Candidate, ...] = (
     Candidate("wrap_numpy_tensor_numpy", BOTH, _prepare_wrap, rtol=0, atol=0),
-    Candidate("exp", FLOAT32, _prepare_exp),
-    Candidate("log", FLOAT32, _prepare_log),
-    Candidate("sqrt", FLOAT32, _prepare_sqrt),
-    Candidate("add_scalar", FLOAT32, _prepare_add),
-    Candidate("multiply_scalar", FLOAT32, _prepare_multiply),
-    Candidate("power_scalar", FLOAT32, _prepare_power),
-    Candidate("multiply_add_scalar", FLOAT32, _prepare_multiply_add),
-    Candidate("add_weighted", FLOAT32, _prepare_add_weighted),
-    Candidate("normalize", FLOAT32, _prepare_normalize),
-    Candidate("mean_std_global", FLOAT32, _prepare_mean_std_global),
-    Candidate("mean_std_per_channel", FLOAT32, _prepare_mean_std_per_channel),
-    Candidate("reduce_sum_global_float32", FLOAT32, _prepare_reduce_sum_global_float),
-    Candidate("reduce_sum_per_channel_float32", FLOAT32, _prepare_reduce_sum_per_channel_float),
+    Candidate("exp", FLOATING, _prepare_exp),
+    Candidate("log", FLOATING, _prepare_log),
+    Candidate("sqrt", FLOATING, _prepare_sqrt),
+    Candidate("add_scalar", FLOATING, _prepare_add),
+    Candidate("multiply_scalar", FLOATING, _prepare_multiply),
+    Candidate("power_scalar", FLOATING, _prepare_power),
+    Candidate("multiply_add_scalar", FLOATING, _prepare_multiply_add),
+    Candidate("add_weighted", FLOATING, _prepare_add_weighted),
+    Candidate("normalize", FLOATING, _prepare_normalize),
+    Candidate("mean_std_global", FLOATING, _prepare_mean_std_global),
+    Candidate("mean_std_per_channel", FLOATING, _prepare_mean_std_per_channel),
+    Candidate("reduce_sum_global_float", FLOATING, _prepare_reduce_sum_global_float),
+    Candidate("reduce_sum_per_channel_float", FLOATING, _prepare_reduce_sum_per_channel_float),
     Candidate("reduce_sum_global_uint8", UINT8, _prepare_reduce_sum_global_uint8, rtol=0, atol=0),
     Candidate("reduce_sum_per_channel_uint8", UINT8, _prepare_reduce_sum_per_channel_uint8, rtol=0, atol=0),
     Candidate("hflip", BOTH, _prepare_hflip, rtol=0, atol=0),
     Candidate("vflip", BOTH, _prepare_vflip, rtol=0, atol=0),
     Candidate("to_float", UINT8, _prepare_to_float),
-    Candidate("from_float", FLOAT32, _prepare_from_float, rtol=0, atol=0),
+    Candidate("from_float", FLOATING, _prepare_from_float, rtol=0, atol=0),
     Candidate("apply_uint8_lut", UINT8, _prepare_uint8_lut, rtol=0, atol=0),
     Candidate("copy_make_border_constant", BOTH, _prepare_copy_make_border, rtol=0, atol=0),
-    Candidate("resize_linear", FLOAT32, _prepare_resize),
+    Candidate("resize_linear", FLOATING, _prepare_resize),
 )
 
 
 def _make_array(rng: np.random.Generator, shape: tuple[int, ...], dtype: np.dtype[Any]) -> np.ndarray:
-    return _uint8_image(rng, shape) if dtype == np.uint8 else _float_image(rng, shape)
+    return _uint8_image(rng, shape) if dtype == np.uint8 else _float_image(rng, shape, dtype)
 
 
 def _correctness(
@@ -369,12 +393,15 @@ def _bench_candidate(
     compare_existing_routes: bool,
 ) -> Row:
     baseline, torch_candidate = candidate.prepare(array, rng)
+    rtol, atol = candidate.rtol, candidate.atol
+    if array.dtype == np.float16 and (rtol, atol) == (1e-5, 1e-6):
+        rtol, atol = 1e-3, 1e-3
     if compare_existing_routes:
         with _torch_router_disabled():
-            correctness = _correctness(baseline, torch_candidate, rtol=candidate.rtol, atol=candidate.atol)
+            correctness = _correctness(baseline, torch_candidate, rtol=rtol, atol=atol)
             albucore_t: WallTimingMs = bench_wall_ms(baseline, repeats=repeats, warmup=warmup)
     else:
-        correctness = _correctness(baseline, torch_candidate, rtol=candidate.rtol, atol=candidate.atol)
+        correctness = _correctness(baseline, torch_candidate, rtol=rtol, atol=atol)
         albucore_t = bench_wall_ms(baseline, repeats=repeats, warmup=warmup)
     torch_t: WallTimingMs = bench_wall_ms(torch_candidate, repeats=repeats, warmup=warmup)
     return Row(candidate.name, array.shape, array.dtype.name, correctness, albucore_t.median, torch_t.median)
@@ -383,21 +410,23 @@ def _bench_candidate(
 def _matmul_rows(rng: np.random.Generator, repeats: int, warmup: int) -> list[Row]:
     rows: list[Row] = []
     for m, k, n in ((64, 80, 48), (240, 320, 160), (480, 640, 320)):
-        a = _float_image(rng, (m, k))
-        b = _float_image(rng, (k, n))
-        baseline = lambda a=a, b=b: albucore.matmul(a, b)
-        torch_candidate = lambda a=a, b=b: _torch_array(torch.matmul(torch.from_numpy(a), torch.from_numpy(b)))
-        correctness = _correctness(baseline, torch_candidate, rtol=1e-5, atol=1e-5)
-        rows.append(
-            Row(
-                "matmul",
-                (m, k, n),
-                np.dtype(np.float32).name,
-                correctness,
-                bench_wall_ms(baseline, repeats, warmup).median,
-                bench_wall_ms(torch_candidate, repeats, warmup).median,
-            ),
-        )
+        for dtype in FLOATING:
+            a = _float_image(rng, (m, k), dtype)
+            b = _float_image(rng, (k, n), dtype)
+            baseline = lambda a=a, b=b: albucore.matmul(a, b)
+            torch_candidate = lambda a=a, b=b: _torch_array(torch.matmul(torch.from_numpy(a), torch.from_numpy(b)))
+            tolerance = 1e-3 if dtype == np.float16 else 1e-5
+            correctness = _correctness(baseline, torch_candidate, rtol=tolerance, atol=tolerance)
+            rows.append(
+                Row(
+                    "matmul",
+                    (m, k, n),
+                    dtype.name,
+                    correctness,
+                    bench_wall_ms(baseline, repeats, warmup).median,
+                    bench_wall_ms(torch_candidate, repeats, warmup).median,
+                ),
+            )
     return rows
 
 
@@ -462,7 +491,7 @@ def main() -> None:
     parser.add_argument("--full", action="store_true", help="Use every canonical HWC size and C=1/3/9 (default).")
     parser.add_argument("--repeats", type=int, default=21)
     parser.add_argument("--warmup", type=int, default=5)
-    parser.add_argument("--threads", type=int, default=torch.get_num_threads())
+    parser.add_argument("--threads", type=int, default=THREAD_COUNT)
     parser.add_argument(
         "--disable-public-torch-route",
         action="store_true",
@@ -484,10 +513,7 @@ def main() -> None:
     if args.threads < 1:
         parser.error("--threads must be >= 1")
 
-    # Configure before the first parallel kernel. Interop threads can only be changed once per process.
-    torch.set_num_threads(args.threads)
-    torch.set_num_interop_threads(1)
-    cv2.setNumThreads(args.threads)
+    thread_settings = configure_libraries(torch, cv2, args.threads)
 
     rng = np.random.default_rng(0)
     sizes = ROUTER_HWC_QUICK_HW if args.quick else ROUTER_HWC_FULL_HW
@@ -527,8 +553,8 @@ def main() -> None:
             "normalize",
             "mean_std_global",
             "mean_std_per_channel",
-            "reduce_sum_global_float32",
-            "reduce_sum_per_channel_float32",
+            "reduce_sum_global_float",
+            "reduce_sum_per_channel_float",
             "reduce_sum_global_uint8",
             "reduce_sum_per_channel_uint8",
             "to_float",
@@ -563,8 +589,8 @@ def main() -> None:
         f"Run date: {dt.date.today().isoformat()}. Platform: `{platform.platform()}` (`{platform.machine()}`).",
         "",
         f"Versions: Torch `{torch.__version__}`, NumPy `{np.__version__}`, OpenCV `{cv2.__version__}`, "
-        f"NumKong `{__import__('numkong').__version__}`. Torch/OpenCV CPU threads: `{args.threads}`; "
-        f"Torch interop threads: `{torch.get_num_interop_threads()}`. Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
+        f"NumKong `{__import__('numkong').__version__}`. {thread_settings}. "
+        f"Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
         "",
         "Each Torch cell includes `torch.from_numpy(array)` and `Tensor.numpy()`. Those operations share CPU storage "
         "for these writable, positive-stride arrays; device transfers and compile time are excluded. Albucore calls "

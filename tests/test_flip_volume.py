@@ -41,7 +41,7 @@ def test_flip_volume_numpy_preserves_dhwc_contract(
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 @pytest.mark.parametrize("channels", [1, 5], ids=["c1", "c5"])
 @pytest.mark.parametrize(
     "axes",
@@ -131,7 +131,7 @@ def test_rot90_volume_numpy_preserves_dhwc_contract(
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32], ids=["uint8", "float32"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 @pytest.mark.parametrize("channels", [1, 5], ids=["c1", "c5"])
 @pytest.mark.parametrize("k", [-1, 0, 1, 2, 3])
 @pytest.mark.parametrize("axes", [(-3, -2), (-3, -1), (-2, -1)])
@@ -152,6 +152,22 @@ def test_rot90_volume_tensor_preserves_cdhw_contract(
     assert result.dtype == volume.dtype
     assert result.stride() == expected.stride()
     torch.testing.assert_close(result, expected)
+
+
+def test_float16_volume_views_preserve_special_value_bits() -> None:
+    half_bits = np.resize(
+        np.array([0x0000, 0x8000, 0x7C00, 0xFC00, 0x7E01, 0x0001, 0x3C00], dtype=np.uint16),
+        2 * 3 * 4 * 5,
+    ).reshape(2, 3, 4, 5)
+    volume = torch.from_numpy(half_bits.view(np.float16))
+    expected_flip_bits = torch.flip(volume.view(torch.int16), dims=(1, 3))
+    expected_rot90_bits = torch.rot90(volume.view(torch.int16), 1, dims=(2, 3))
+
+    flipped = flip_volume(volume, (1, 3))
+    rotated = rot90_volume(volume, 1, (2, 3))
+
+    assert torch.equal(flipped.view(torch.int16), expected_flip_bits)
+    assert torch.equal(rotated.view(torch.int16), expected_rot90_bits)
 
 
 @pytest.mark.parametrize("operation", ["flip", "transpose", "rot90"])

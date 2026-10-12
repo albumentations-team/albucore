@@ -4,7 +4,8 @@ from typing import Any, Concatenate, Literal, ParamSpec, TypeAlias, cast
 
 import cv2
 import numpy as np
-from numpy import float32, uint8
+import torch
+from numpy import float16, float32, uint8
 from numpy.typing import NDArray
 
 NUM_RGB_CHANNELS = 3
@@ -16,26 +17,48 @@ NormalizationType = Literal["image", "image_per_channel", "min_max", "min_max_pe
 
 P = ParamSpec("P")
 
-# Core image types - restrict to uint8 and float32 only
 ImageUInt8: TypeAlias = NDArray[uint8]
+ImageFloat16: TypeAlias = NDArray[float16]
 ImageFloat32: TypeAlias = NDArray[float32]
-ImageType: TypeAlias = ImageUInt8 | ImageFloat32
+ImageType: TypeAlias = ImageUInt8 | ImageFloat16 | ImageFloat32
+ImageInput: TypeAlias = ImageType | torch.Tensor
+TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
+TensorImageLayout: TypeAlias = Literal["CHW", "NCHW"]
 
-# Supported dtypes — uint8 and float32 only
-SupportedDType: TypeAlias = np.dtype[np.uint8] | np.dtype[np.float32]
+# Supported storage dtypes. Statistics and matrix operations may return wider results.
+SupportedDType: TypeAlias = np.dtype[np.uint8] | np.dtype[np.float16] | np.dtype[np.float32]
 
 MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
     np.dtype("uint8"): 255,
+    np.dtype("float16"): 1.0,
     np.dtype("float32"): 1.0,
     np.uint8: 255,
+    np.float16: 1.0,
     np.float32: 1.0,
 }
 
 NPDTYPE_TO_OPENCV_DTYPE: dict[np.dtype | type, int] = {
     np.uint8: cv2.CV_8U,
+    np.float16: cv2.CV_16F,
     np.float32: cv2.CV_32F,
     np.dtype("uint8"): cv2.CV_8U,
+    np.dtype("float16"): cv2.CV_16F,
     np.dtype("float32"): cv2.CV_32F,
+}
+
+_TENSOR_CHANNEL_AXES: dict[TensorLayout, int] = {"CHW": 0, "NCHW": 1, "CDHW": 0, "NCDHW": 1}
+_TORCH_DTYPES: dict[np.dtype | type, torch.dtype] = {
+    np.uint8: torch.uint8,
+    np.dtype(np.uint8): torch.uint8,
+    np.float16: torch.float16,
+    np.dtype(np.float16): torch.float16,
+    np.float32: torch.float32,
+    np.dtype(np.float32): torch.float32,
+}
+_NUMPY_DTYPES: dict[torch.dtype, type[np.generic]] = {
+    torch.uint8: np.uint8,
+    torch.float16: np.float16,
+    torch.float32: np.float32,
 }
 
 
@@ -111,23 +134,32 @@ def maybe_process_in_chunks(
     return __process_fn
 
 
-def clip(img: ImageType, dtype: SupportedDType, inplace: bool = False) -> ImageType:
+def clip(img: ImageInput, dtype: SupportedDType, inplace: bool = False) -> ImageInput:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
+    if isinstance(img, torch.Tensor):
+        torch_dtype = _TORCH_DTYPES[dtype]
+        if inplace and img.dtype == torch_dtype:
+            return img.clamp_(0, max_value)
+        return img.clamp(0, max_value).to(dtype=torch_dtype)
     if inplace and img.dtype == dtype:
         return cast("ImageType", np.clip(img, 0, max_value, out=img).astype(dtype, copy=False))
     return cast("ImageType", np.clip(img, 0, max_value).astype(dtype, copy=False))
 
 
-def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Concatenate[ImageType, P], ImageType]:
+def clipped(func: Callable[Concatenate[ImageInput, P], ImageInput]) -> Callable[Concatenate[ImageInput, P], ImageInput]:
     @wraps(func)
-    def wrapped_function(img: ImageType, *args: P.args, **kwargs: P.kwargs) -> ImageType:
+    def wrapped_function(img: ImageInput, *args: P.args, **kwargs: P.kwargs) -> ImageInput:
         dtype = img.dtype
         result = func(img, *args, **kwargs)
 
-        if result.dtype == np.uint8:
+        if result.dtype in (np.uint8, torch.uint8):
             return result
 
-        if result.dtype == np.float32 and dtype == np.float32 and not np.shares_memory(result, img):
+        if isinstance(img, torch.Tensor):
+            numpy_dtype = cast("SupportedDType", np.dtype(_NUMPY_DTYPES[dtype]))
+            return clip(cast("torch.Tensor", result), numpy_dtype)
+
+        if result.dtype in (np.float16, np.float32) and result.dtype == dtype and not np.shares_memory(result, img):
             max_value = MAX_VALUES_BY_DTYPE[dtype]
             np.clip(result, 0.0, max_value, out=result)
             return result
@@ -137,7 +169,7 @@ def clipped(func: Callable[Concatenate[ImageType, P], ImageType]) -> Callable[Co
     return wrapped_function
 
 
-def get_num_channels(image: ImageType) -> int:
+def get_num_channels(image: ImageInput, *, layout: TensorLayout | None = None) -> int:
     """Get the number of channels in an image array.
 
     This function returns the size of the last dimension, which always represents
@@ -148,6 +180,7 @@ def get_num_channels(image: ImageType) -> int:
             - HWC: (height, width, channels) - multi-channel image
             - NHWC: (batch, height, width, channels) - batch of multi-channel images
             - XHWC: (leading, height, width, channels) - image batch or single volume
+        layout: Required for Tensor inputs; selects CHW, NCHW, CDHW, or NCDHW channel axis.
 
     Returns:
         int: Number of channels (the size of the last dimension).
@@ -174,14 +207,18 @@ def get_num_channels(image: ImageType) -> int:
         3
 
     Note:
-        Since we always expect a channel-last channel dimension (including grayscale
-        arrays with shape[..., 1]), this function returns shape[-1]. The caller owns
-        validation of the public layout contract before entering Albucore.
+        NumPy inputs use the last axis. Tensor inputs use the channel axis from ``layout``.
+        The caller owns validation of the public layout contract before entering Albucore.
     """
+    if isinstance(image, torch.Tensor):
+        if layout is None:
+            msg = "Tensor image calls require an explicit layout."
+            raise TypeError(msg)
+        return int(image.shape[_TENSOR_CHANNEL_AXES[layout]])
     return int(image.shape[-1])
 
 
-def is_grayscale_image(image: ImageType) -> bool:
+def is_grayscale_image(image: ImageInput, *, layout: TensorLayout | None = None) -> bool:
     """Check if an image array represents a grayscale (single-channel) image.
 
     This function determines whether an image has only one channel by checking if
@@ -189,6 +226,7 @@ def is_grayscale_image(image: ImageType) -> bool:
 
     Args:
         image: Input image array with explicit channel dimension.
+        layout: Required for Tensor inputs; selects CHW, NCHW, CDHW, or NCDHW channel axis.
 
     Returns:
         bool: True if the image has only 1 channel (shape[-1] == 1), False otherwise.
@@ -219,7 +257,7 @@ def is_grayscale_image(image: ImageType) -> bool:
         is_rgb_image: For checking if an image has exactly 3 channels (RGB).
         is_multispectral_image: For checking if an image has channels other than 1 or 3.
     """
-    return bool(image.shape[-1] == 1)
+    return get_num_channels(image, layout=layout) == 1
 
 
 def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
@@ -227,7 +265,7 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
         value = value.dtype
     if isinstance(value, np.dtype):
         key: np.dtype | type = value
-    elif value in (np.uint8, np.float32):
+    elif value in (np.uint8, np.float16, np.float32):
         key = cast("type", value)
     else:
         msg = f"Unsupported dtype specifier: {value!r}"
@@ -235,12 +273,12 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
     return int(NPDTYPE_TO_OPENCV_DTYPE[key])
 
 
-def is_rgb_image(image: ImageType) -> bool:
-    return bool(image.shape[-1] == NUM_RGB_CHANNELS)
+def is_rgb_image(image: ImageInput, *, layout: TensorLayout | None = None) -> bool:
+    return get_num_channels(image, layout=layout) == NUM_RGB_CHANNELS
 
 
-def is_multispectral_image(image: ImageType) -> bool:
-    return image.shape[-1] not in {1, 3}
+def is_multispectral_image(image: ImageInput, *, layout: TensorLayout | None = None) -> bool:
+    return get_num_channels(image, layout=layout) not in {1, 3}
 
 
 def convert_value(value: object, num_channels: int) -> float | np.ndarray:
@@ -259,8 +297,8 @@ def convert_value(value: object, num_channels: int) -> float | np.ndarray:
     # Handle scalar types
     if isinstance(value, (float, int)):
         return float(value)
-    if isinstance(value, (np.float32, np.float64)):
-        return value.item()
+    if isinstance(value, np.floating):
+        return float(value)
 
     # Handle numpy arrays
     if isinstance(value, np.ndarray):
@@ -279,7 +317,14 @@ def convert_value(value: object, num_channels: int) -> float | np.ndarray:
 ValueType = np.ndarray | float | int
 
 
-def get_max_value(dtype: np.dtype) -> float:
+def get_max_value(dtype: np.dtype | type[np.generic] | torch.dtype) -> float:
+    if isinstance(dtype, torch.dtype):
+        torch_to_numpy_dtype: dict[torch.dtype, type[np.generic]] = {
+            torch.uint8: np.uint8,
+            torch.float16: np.float16,
+            torch.float32: np.float32,
+        }
+        dtype = torch_to_numpy_dtype[dtype]
     if dtype not in MAX_VALUES_BY_DTYPE:
         msg = (
             f"Can't infer the maximum value for dtype {dtype}. "
@@ -289,7 +334,7 @@ def get_max_value(dtype: np.dtype) -> float:
     return MAX_VALUES_BY_DTYPE[dtype]
 
 
-def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
+def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | torch.dtype | int]:
     """Extract image metadata (dtype, height, width, num_channels) from a dictionary.
 
     This function checks for image data under specific keys in priority order:
@@ -311,6 +356,14 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
         ValueError: If no valid image or single-volume data key is found in the dictionary.
     """
     if "image" in data:
+        image = data["image"]
+        if isinstance(image, torch.Tensor):
+            return {
+                "dtype": image.dtype,
+                "height": image.shape[1],
+                "width": image.shape[2],
+                "num_channels": get_num_channels(image, layout="CHW"),
+            }
         shape = data["image"].shape
         return {
             "dtype": data["image"].dtype,
@@ -319,6 +372,14 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "num_channels": shape[-1],
         }
     if "images" in data:
+        images = data["images"]
+        if isinstance(images, torch.Tensor):
+            return {
+                "dtype": images.dtype,
+                "height": images.shape[2],
+                "width": images.shape[3],
+                "num_channels": get_num_channels(images, layout="NCHW"),
+            }
         shape = data["images"].shape
         return {
             "dtype": data["images"].dtype,
@@ -327,6 +388,14 @@ def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | int]:
             "num_channels": shape[-1],
         }
     if "volume" in data:
+        volume = data["volume"]
+        if isinstance(volume, torch.Tensor):
+            return {
+                "dtype": volume.dtype,
+                "height": volume.shape[2],
+                "width": volume.shape[3],
+                "num_channels": get_num_channels(volume, layout="CDHW"),
+            }
         shape = data["volume"].shape
         return {
             "dtype": data["volume"].dtype,
@@ -343,12 +412,16 @@ __all__ = [
     "NPDTYPE_TO_OPENCV_DTYPE",
     "NUM_RGB_CHANNELS",
     "TWO",
+    "ImageFloat16",
     "ImageFloat32",
+    "ImageInput",
     "ImageType",
     "ImageUInt8",
     "NormalizationType",
     "P",
     "SupportedDType",
+    "TensorImageLayout",
+    "TensorLayout",
     "ValueType",
     "clip",
     "clipped",

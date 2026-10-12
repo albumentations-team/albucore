@@ -13,7 +13,7 @@ from tests.verification_constants import NON_SQUARE_HW, PROPERTY_CHANNELS
 def hwc_images(
     draw: st.DrawFn,
     *,
-    dtypes: tuple[np.dtype, ...] = (np.dtype("uint8"), np.dtype("float32")),
+    dtypes: tuple[np.dtype, ...] = (np.dtype("uint8"), np.dtype("float16"), np.dtype("float32")),
     channels: tuple[int, ...] = PROPERTY_CHANNELS,
 ) -> np.ndarray:
     height, width = draw(st.sampled_from(NON_SQUARE_HW))

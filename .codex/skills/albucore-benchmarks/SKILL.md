@@ -12,13 +12,18 @@ generation.
 
 Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
 performance guide. Benchmark additional thread counts only when the user explicitly requests thread scaling.
+For dtype comparisons, use the same logical inputs and operation controls; choose floating controls exactly
+representable in float16 when the route is compared across float16 and float32. Do not benchmark an identity route for
+one dtype against real work in another.
 
 ## Layout
 
 - `benchmarks/` - Python timing scripts. Run from repo root: `uv run python benchmarks/<script>.py`.
 - `benchmarks/timing.py` - Shared `median_ms` helper for scripts executed as `python benchmarks/foo.py`.
 - `./benchmark.sh` - Dataset-driven runner; expects an external `benchmark` package that is not always present in-tree. Prefer synthetic scripts for CI-style checks.
-- `benchmarks/benchmark_router_synthetic.py` - Times public routers on synthetic `uint8` and `float32` arrays: HWC, plus NHWC for `mean`, `std`, and `mean_std` only.
+- `benchmarks/benchmark_router_synthetic.py` - Times public routers on synthetic `uint8`, `float16`, and `float32` NumPy arrays: HWC, plus NHWC for `mean`, `std`, `mean_std`, and `reduce_sum`. With `--with-geometric`, the grid includes the parameter-specific `remap_nearest` and `warp_perspective_nearest` cases as well as the default linear routes.
+- `benchmarks/benchmark_tensor_router_paired.py` - Interleaves complete eager CPU Tensor float16/float32 router calls on half-quantized inputs across CHW/NCHW/CDHW/NCDHW. Timings include bridge, dispatch, kernel, and output; `--with-geometric` adds geometric routers and volume batches.
+- `benchmarks/benchmark_median_blur.py` - Measures public NumPy `median_blur` across image dtypes, channels, sizes, and kernels; `--with-tensor` adds CHW/NCHW calls and `--with-data-patterns` checks signed-zero and mixed-sign cases.
 - `benchmarks/compare_router_json.py` - Builds a Markdown table from two JSON outputs.
 - `benchmarks/benchmark_resize3d_tensor.py` - Times direct Tensor, zero-copy Tensor→NumPy→Tensor, and public
   `resize3d` routes for contiguous and channel-last-strided CPU `CDHW` Tensors.
@@ -33,7 +38,7 @@ performance guide. Benchmark additional thread counts only when the user explici
 
 Benchmark shape sweeps use channel-last Albucore conventions.
 
-HWC images:
+NumPy HWC images, including `uint8`, `float16`, and `float32`:
 
 - `128x160` with 1, 3, 9 channels - small / warm-cache, non-square.
 - `240x320` with 1, 3, 9 channels - mid-size crop, non-square.
@@ -53,7 +58,7 @@ DHWC volumes:
 For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; record any resulting routing decision in `docs/numkong-performance.md` or a focused report under `benchmarks/results/`.
 
 For `warp_affine3d`, benchmark both NumPy `DHWC`/`NDHWC` and CPU Tensor `CDHW`/`NCDHW`. The single-volume matrix
-uses uint8/float32, `C=1/3/5/9`, canonical output sizes, nearest/trilinear interpolation, one 3×4 forward matrix,
+uses uint8/float16/float32, `C=1/3/5/9`, canonical output sizes, nearest/trilinear interpolation, one 3×4 forward matrix,
 and zero/nonzero fill. The batch matrix also varies `N=1/4/16`; compare per-volume calls, `N × C` folding, direct
 native sampling, public batch dispatch, and Tensor/NumPy bridges. Batch scripts time contiguous NumPy inputs;
 correctness tests cover

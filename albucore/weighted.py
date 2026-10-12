@@ -7,6 +7,9 @@ import numpy as np
 
 from albucore.utils import ImageType
 
+# Skip the NumKong half route when runtime dispatch would use its unmeasured scalar fallback.
+_NUMKONG_NEON_HALF = bool(nk.get_capabilities().get("neonhalf", False))
+
 
 def add_weighted_numkong(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
     """Fused weighted sum for already validated, same-shape and same-dtype inputs."""

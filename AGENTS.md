@@ -7,7 +7,7 @@ This document provides guidelines and conventions for AI assistants (particularl
 Albucore is a high-performance image processing library that provides optimized atomic functions for image manipulation. It serves as the foundation for AlbumentationsX and focuses on:
 
 - Maximum performance through multiple backend implementations (NumPy, OpenCV, custom)
-- **Supported dtypes: uint8 and float32 only** (no float64)
+- **Supported image dtypes: uint8, float16, and float32** (no float64 image inputs)
 - **Backend routing is based ONLY on performance** — benchmark before choosing. If LUT is slower, don't use it.
 - Consistent API across different image types and shapes
 
@@ -17,8 +17,8 @@ Please familiarize yourself with these key documents:
 
 1. **[Image Shape Conventions](docs/image-conventions.md)** - **CRITICAL** rules about image shapes
    - All images must have an explicit channel dimension
-   - Grayscale images use shape `(H, W, 1)`, not `(H, W)`
-   - Consistent dimension indexing: `shape[-1]` is channels, `shape[-2]` is width, `shape[-3]` is height
+   - NumPy uses channel-last; Torch CPU uses an explicit channel-first layout
+   - Grayscale images use `(H, W, 1)` or a declared layout with `C=1`
 
 2. **[Decorators](docs/decorators.md)** - Decorator usage and patterns
    - `@preserve_channel_dim` - Maintains single-channel shape
@@ -75,10 +75,13 @@ grayscale_image = np.array(..., shape=(H, W, 1))
 grayscale_image = np.array(..., shape=(H, W))  # WRONG!
 ```
 
-Given any image, you can always assume:
+For NumPy image arrays, you can always assume:
 - `num_channels = image.shape[-1]`
 - `width = image.shape[-2]`
 - `height = image.shape[-3]`
+
+Torch image calls use explicit `CHW`, `NCHW`, `CDHW`, or `NCDHW` layout where channel-axis semantics are needed.
+Never infer `NCHW` versus `CDHW` from rank or axis sizes.
 
 ### 2. Performance First — Routing by Benchmark Only
 
@@ -89,7 +92,7 @@ Given any image, you can always assume:
 ### 3. Type Safety
 
 - Use type hints consistently
-- Leverage the provided type aliases: `ImageType`, `ImageUInt8`, `ImageFloat32`, `ValueType`
+- Leverage the provided type aliases: `ImageType`, `ImageInput`, `ImageUInt8`, `ImageFloat16`, `ImageFloat32`, `ValueType`
 - Ensure dtype preservation or explicit conversion
 
 ### 4. Multiple Implementations Pattern
@@ -106,10 +109,13 @@ def operation(img: ImageType, value: ValueType, inplace: bool = False) -> ImageT
     if img.dtype == np.uint8:
         return operation_lut(img, value, inplace)  # Only if LUT wins the benchmark
 
+    if img.dtype == np.float16:
+        return operation_float16(img, value)  # Choose the measured native or float32-working route
+
     if img.dtype == np.float32:
         return operation_numpy(img, value)  # Or opencv — whichever is faster
 
-    # The caller guarantees uint8 or float32 before entering the router.
+    # The caller guarantees uint8, float16, or float32 before entering the router.
     return operation_numpy(img, value)
 ```
 
@@ -123,7 +129,8 @@ Albucore provides several useful decorators:
 
 ### 6. Testing
 
-- Write tests for uint8 and float32 only
+- Test uint8, float16, and float32; LUT-specialized APIs remain uint8-only
+- Test NumPy channel-last and declared Torch CPU layouts where supported
 - Test single images, image batches, and single volumes; test volume batches for `warp_affine3d` and `remap3d`
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
@@ -240,7 +247,7 @@ Read `docs/performance-optimization.md` and use the `performance-optimization` s
 
 When implementing a new function, consider:
 
-1. **Supported dtypes: uint8 and float32 only**
+1. **Supported image dtypes: uint8, float16, and float32; LUT-specialized APIs are uint8-only**
 2. Can any work, full-array pass, conversion, or allocation be deleted?
 3. Can loops be vectorized or dense labels be reduced with `np.bincount`?
 4. Is the operation a LUT, reduction, fused arithmetic kernel, or existing Albucore atom?

@@ -112,12 +112,14 @@ def _separable_filter3d_torch_cpu(
     """Run the measured three-pass CPU Torch filter for one prevalidated ``CDHW`` volume."""
     working = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
     result = working.unsqueeze(0)
-    with torch.inference_mode():
+    with torch.no_grad():
         for axis, kernel in zip(_AXES, kernels, strict=True):
             if not _is_identity_kernel(kernel):
                 result = _apply_axis_filter(result, kernel, axis)
         if volume.dtype == torch.uint8:
             result = _restore_uint8(result)
+        elif volume.dtype == torch.float16:
+            result = result.to(torch.float16)
     return result.squeeze(0)
 
 
@@ -133,10 +135,10 @@ def _separable_filter3d_numpy(volume: np.ndarray, kernels: tuple[np.ndarray, np.
 def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     """Keep documented no-op inputs by identity and match the float32 working-type fallback otherwise."""
     if isinstance(volume, np.ndarray):
-        if volume.dtype in (np.uint8, np.float32):
+        if volume.dtype in (np.uint8, np.float16, np.float32):
             return volume
         return volume.astype(np.float32, copy=False)
-    if volume.dtype in (torch.uint8, torch.float32):
+    if volume.dtype in (torch.uint8, torch.float16, torch.float32):
         return volume
     return volume.to(torch.float32)
 

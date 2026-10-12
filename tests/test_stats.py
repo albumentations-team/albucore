@@ -85,6 +85,164 @@ def test_mean_per_channel_matches_numpy(shape: tuple[int, ...], dtype: type) -> 
     np.testing.assert_allclose(m, arr.mean(axis=axes, dtype=np.float64), rtol=1e-5, atol=1e-5, equal_nan=False)
 
 
+def test_small_skewed_float16_mean_per_channel_matches_float64() -> None:
+    image = np.full((13, 17, 3), np.float16(1e-7), dtype=np.float16)
+    image.reshape(-1, 3)[:2, 0] = 1.0
+
+    result = mean(image, "per_channel")
+    expected = image.mean(axis=(0, 1), dtype=np.float64)
+
+    np.testing.assert_allclose(result, expected, rtol=1e-7, atol=0)
+
+
+def test_large_float16_mean_per_channel_matches_float64() -> None:
+    image = np.random.default_rng(2).random((128, 160, 3), dtype=np.float32).astype(np.float16)
+
+    result = mean(image, "per_channel")
+    expected = image.mean(axis=(0, 1), dtype=np.float64)
+
+    np.testing.assert_allclose(result, expected, rtol=1e-7, atol=0)
+
+
+@pytest.mark.parametrize(
+    ("shape", "writeable", "torch_method"),
+    [
+        ((1, 16, 32, 3), True, None),
+        ((1, 48, 64, 3), True, None),
+        ((1, 80, 86, 3), True, "mean"),
+        ((4, 128, 160, 3), True, "mean"),
+        ((4, 240, 320, 3), True, "mean"),
+        ((4, 128, 160, 3), False, None),
+        ((1, 16, 32, 1), True, None),
+        ((1, 128, 160, 1), True, "sum"),
+        ((4, 768, 1024, 1), True, "sum"),
+        ((10, 768, 1024, 1), True, "sum"),
+        ((12, 768, 1024, 1), True, None),
+        ((4, 128, 160, 1), False, None),
+    ],
+)
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_float16_rank4_mean_uses_wide_torch_accumulator(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+    writeable: bool,
+    torch_method: str | None,
+    keepdims: bool,
+) -> None:
+    source = np.random.default_rng(621135).random(shape, dtype=np.float32).astype(np.float16)
+    if torch_method is not None:
+        source[0, 0, 0, 0] = np.nextafter(np.float16(0), np.float16(1))
+    if not writeable:
+        source.setflags(write=False)
+    before = source.copy()
+    expected = np.mean(source, axis=(0, 1, 2), dtype=np.float64, keepdims=keepdims)
+    original_mean = stats_mod.torch.mean
+    original_sum = stats_mod.torch.sum
+    mean_calls: list[dict[str, object]] = []
+    sum_calls: list[dict[str, object]] = []
+
+    def record_mean(image: object, *args: object, **kwargs: object) -> object:
+        mean_calls.append(kwargs)
+        return original_mean(image, *args, **kwargs)
+
+    def record_sum(image: object, *args: object, **kwargs: object) -> object:
+        sum_calls.append(kwargs)
+        return original_sum(image, *args, **kwargs)
+
+    monkeypatch.setattr(stats_mod.torch, "mean", record_mean)
+    monkeypatch.setattr(stats_mod.torch, "sum", record_sum)
+
+    result = mean(source, "per_channel", keepdims=keepdims)
+
+    assert np.asarray(result).dtype == np.float64
+    if torch_method == "mean":
+        assert len(mean_calls) == 1
+        assert mean_calls[0]["dim"] == (0, 1, 2)
+        assert mean_calls[0]["dtype"] == stats_mod.torch.float64
+        assert mean_calls[0]["keepdim"] is keepdims
+        assert not sum_calls
+        np.testing.assert_array_equal(result, expected)
+    elif torch_method == "sum":
+        assert not mean_calls
+        assert len(sum_calls) == 1
+        assert sum_calls[0]["dtype"] == stats_mod.torch.float64
+        np.testing.assert_array_equal(result, expected)
+    else:
+        assert not mean_calls
+        assert not sum_calls
+        np.testing.assert_allclose(result, expected, rtol=1e-7, atol=0)
+    np.testing.assert_array_equal(source, before)
+
+
+def test_float16_c1_mean_per_channel_preserves_near_constant_accuracy() -> None:
+    image = np.clip(np.random.default_rng(71).normal(0.5, 0.002, (128, 160, 1)), 0, 1).astype(np.float16)
+    assert np.min(image) > np.finfo(np.float16).tiny
+
+    result = mean(image, "per_channel")
+    expected = image.mean(axis=(0, 1), dtype=np.float64)
+
+    np.testing.assert_allclose(result, expected, rtol=1e-7, atol=0)
+
+
+def test_global_float16_mean_preserves_subnormal_residual(monkeypatch: pytest.MonkeyPatch) -> None:
+    subnormal = np.nextafter(np.float16(0), np.float16(1))
+    image = np.full((128, 128, 1), subnormal, dtype=np.float16)
+    image[0, 0, 0] = np.float16(1.0)
+    expected = np.mean(image, dtype=np.float64)
+    original_mean = stats_mod.cv2.mean
+    input_dtypes: list[np.dtype] = []
+
+    def record_mean(source: np.ndarray) -> tuple[float, ...]:
+        input_dtypes.append(source.dtype)
+        return original_mean(source)
+
+    monkeypatch.setattr(stats_mod.cv2, "mean", record_mean)
+
+    result = mean(image, "global")
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    assert np.asarray(result).dtype == np.float64
+    np.testing.assert_allclose(result, expected, rtol=1e-7, atol=0)
+
+
+@pytest.mark.parametrize("values", [[np.nan], [np.inf], [np.inf, -np.inf]])
+def test_global_float16_mean_preserves_nonfinite_semantics(values: list[float]) -> None:
+    image = np.zeros((64, 64, 1), dtype=np.float16)
+    image.flat[: len(values)] = values
+    with np.errstate(invalid="ignore"):
+        expected = np.mean(image, dtype=np.float64)
+        result = mean(image, "global")
+
+    assert np.asarray(result).dtype == np.float64
+    np.testing.assert_equal(result, expected)
+
+
+def test_small_float16_mean_std_preserves_subnormals() -> None:
+    smallest_subnormal = np.nextafter(np.float16(0), np.float16(1))
+    image = np.full((5, 7, 1), smallest_subnormal, dtype=np.float16)
+    image[0, 0, 0] = 1.0
+
+    result_mean, result_std = mean_std(image, "per_channel")
+    expected_mean = image.mean(axis=(0, 1), dtype=np.float64)
+    expected_std = image.std(axis=(0, 1), dtype=np.float64) + DEFAULT_EPS
+
+    np.testing.assert_allclose(result_mean, expected_mean, rtol=1e-7, atol=0)
+    np.testing.assert_allclose(result_std, expected_std, rtol=1e-7, atol=1e-7)
+
+
+def test_large_float16_mean_std_preserves_subnormal_accumulation() -> None:
+    subnormal = np.nextafter(np.float16(np.finfo(np.float16).tiny), np.float16(0))
+    image = np.full((128, 128, 3), subnormal, dtype=np.float16)
+    image.reshape(-1, 3)[0, 0] = 1.0
+
+    result_mean, result_std = mean_std(image, "per_channel")
+    expected_mean = image.mean(axis=(0, 1), dtype=np.float64)
+    expected_std = image.std(axis=(0, 1), dtype=np.float64) + DEFAULT_EPS
+
+    np.testing.assert_allclose(result_mean, expected_mean, rtol=1e-7, atol=0)
+    np.testing.assert_allclose(result_std, expected_std, rtol=1e-7, atol=1e-7)
+
+
 @pytest.mark.parametrize(
     "shape",
     [
@@ -154,6 +312,43 @@ def test_reduce_sum_matches_numpy(shape: tuple[int, ...], dtype: type) -> None:
         np.sum(arr, axis=axes, dtype=acc, keepdims=True),
         err_msg=f"per_channel keepdims {shape} {dtype}",
     )
+
+
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_float16_global_reduce_sum_uses_measured_torch_window(
+    keepdims: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = np.random.default_rng(73).uniform(-1, 1, (128, 160, 1)).astype(np.float16)
+    expected = np.sum(source, dtype=np.float64, keepdims=keepdims)
+    original = stats_mod.torch.sum
+    calls: list[dict[str, object]] = []
+
+    def record_torch_sum(*args: object, **kwargs: object) -> object:
+        calls.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(stats_mod.torch, "sum", record_torch_sum)
+    result = reduce_sum(source, "global", keepdims=keepdims)
+
+    assert np.asarray(result).dtype == np.float64
+    np.testing.assert_array_equal(result, expected)
+    assert calls == ([] if keepdims else [{"dtype": stats_mod.torch.float64}])
+
+
+@pytest.mark.parametrize("values", [[np.nan], [np.inf], [np.inf, -np.inf]])
+def test_float16_global_reduce_sum_preserves_nonfinite_values(values: list[float]) -> None:
+    source = np.zeros((128, 160, 1), dtype=np.float16)
+    source.reshape(-1)[: len(values)] = values
+    with np.errstate(invalid="ignore"):
+        expected = np.sum(source, dtype=np.float64)
+        result = reduce_sum(source, "global")
+
+    assert np.asarray(result).dtype == np.float64
+    if np.isnan(expected):
+        assert np.isnan(result)
+    else:
+        assert result == expected
 
 
 def test_mean_and_std_delegation() -> None:
@@ -472,3 +667,46 @@ def test_std_per_channel_float32_rgb_keeps_opencv_route(monkeypatch: pytest.Monk
 
     assert called
     np.testing.assert_allclose(out, ref, rtol=1e-4, atol=1e-4, equal_nan=False)
+
+
+@pytest.mark.parametrize("statistic", ["std", "mean_std"])
+@pytest.mark.parametrize("channels", [1, 3, 4])
+@pytest.mark.parametrize("pattern", ["random", "near_constant", "subnormal_residual"])
+def test_float16_hwc_numkong_moments_route_matches_wide_reference(
+    monkeypatch: pytest.MonkeyPatch,
+    statistic: str,
+    channels: int,
+    pattern: str,
+) -> None:
+    monkeypatch.setattr(stats_mod, "_NUMKONG_NEON_HALF", True)
+    original_numkong = stats_mod._mean_std_per_channel_numkong
+    called = False
+
+    def record_numkong(arr: np.ndarray, eps: float) -> tuple[np.ndarray, np.ndarray]:
+        nonlocal called
+        called = True
+        return original_numkong(arr, eps)
+
+    monkeypatch.setattr(stats_mod, "_mean_std_per_channel_numkong", record_numkong)
+    shape = (240, 320, channels)
+    if pattern == "random":
+        source = np.random.default_rng(920_011 + channels).uniform(-1, 1, shape).astype(np.float16)
+    elif pattern == "near_constant":
+        values = np.linspace(0.25, 0.9, num=channels, dtype=np.float32).astype(np.float16)
+        source = np.broadcast_to(values, shape).copy()
+    else:
+        smallest = np.nextafter(np.float16(0), np.float16(1))
+        source = np.full(shape, smallest, dtype=np.float16)
+        source[0, 0, :] = np.float16(1.0)
+    expected_mean = np.mean(source, axis=(0, 1), dtype=np.float64)
+    expected_std = np.std(source, axis=(0, 1), dtype=np.float64) + DEFAULT_EPS
+
+    if statistic == "std":
+        result = std(source, "per_channel")
+        np.testing.assert_allclose(result, expected_std, rtol=1e-4, atol=1e-8)
+    else:
+        result_mean, result_std = mean_std(source, "per_channel")
+        np.testing.assert_allclose(result_mean, expected_mean, rtol=1e-5, atol=1e-7)
+        np.testing.assert_allclose(result_std, expected_std, rtol=1e-4, atol=1e-8)
+
+    assert called

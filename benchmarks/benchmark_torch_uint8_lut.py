@@ -14,8 +14,8 @@ Run from the repository root::
     uv run python benchmarks/benchmark_torch_uint8_lut.py --threads 12 --volume --compile
 
 The NumPy and Albucore rows provide byte-indexed CPU reference paths. Torch
-interprets uint8 tensors as legacy boolean masks when indexing, so eager lookup
-must first construct a signed int32 or int64 index tensor. The reported
+interprets uint8 tensors as boolean masks when indexing, so eager lookup must
+first construct a signed int32 or int64 index tensor. The reported
 temporary sizes are included in both the timing and eager allocation path.
 """
 

@@ -9,14 +9,19 @@ from typing import Any, cast
 import cv2
 import numkong as nk
 import numpy as np
+import torch
 
 from albucore.convert import from_float, to_float
 from albucore.decorators import preserve_channel_dim
+from albucore.tensor_bridge import dispatch_tensor_image
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
+    ImageFloat16,
     ImageFloat32,
     ImageType,
     ImageUInt8,
+    TensorImageLayout,
+    TensorLayout,
     get_num_channels,
     get_opencv_max_channels,
     maybe_process_in_chunks,
@@ -25,10 +30,11 @@ from albucore.utils import (
 MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
 _IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
+_MEDIAN_BLUR_FLOAT16_ORDERED_U16_MIN_ELEMENTS = 76_800
 
 
 def hflip_numpy(img: ImageType) -> ImageType:
-    return img[:, ::-1, ...]
+    return img[..., ::-1, :]
 
 
 @preserve_channel_dim
@@ -38,7 +44,7 @@ def hflip_cv2(img: ImageType) -> ImageType:
     return cast("ImageType", cv2.flip(img, 1))
 
 
-def hflip(img: ImageType) -> ImageType:
+def hflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
     """Flip image horizontally (mirror left-right).
 
     Routing:
@@ -52,6 +58,10 @@ def hflip(img: ImageType) -> ImageType:
     Returns:
         Horizontally flipped image, same shape and dtype.
     """
+    if isinstance(img, torch.Tensor):
+        if img.dtype == torch.float16 and img.is_contiguous():
+            return torch.flip(img.view(torch.int16), dims=(-1,)).view(torch.float16)
+        return torch.flip(img, dims=(-1,))
     return hflip_numpy(img)
 
 
@@ -63,10 +73,10 @@ def vflip_cv2(img: ImageType) -> ImageType:
 
 
 def vflip_numpy(img: ImageType) -> ImageType:
-    return img[::-1, ...]
+    return img[..., ::-1, :, :]
 
 
-def vflip(img: ImageType) -> ImageType:
+def vflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
     """Flip image vertically (mirror top-bottom).
 
     Routing:
@@ -80,6 +90,8 @@ def vflip(img: ImageType) -> ImageType:
     Returns:
         Vertically flipped image, same shape and dtype.
     """
+    if isinstance(img, torch.Tensor):
+        return torch.flip(img, dims=(-2,))
     return vflip_numpy(img)
 
 
@@ -126,7 +138,7 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     return cast("ImageType", result)
 
 
-def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
+def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType | torch.Tensor]:
     """Decorator: transparently cast input to float32, then cast output back to the original dtype.
 
     Wraps a function that expects float32 so it accepts any dtype.  If the input is already
@@ -150,9 +162,18 @@ def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
     """
 
     @wraps(func)
-    def float32_wrapper(img: ImageType, *args: Any, **kwargs: Any) -> ImageType:
+    def float32_wrapper(
+        img: ImageType | torch.Tensor,
+        *args: Any,
+        layout: TensorLayout | None = None,
+        **kwargs: Any,
+    ) -> ImageType | torch.Tensor:
+        if isinstance(img, torch.Tensor):
+            return dispatch_tensor_image(img, layout, float32_wrapper, *args, **kwargs)
         input_dtype = img.dtype
-        if input_dtype != np.float32:
+        if input_dtype == np.float16:
+            img = cast("ImageFloat32", img.astype(np.float32))
+        elif input_dtype != np.float32:
             img = to_float(img)
         result = func(img, *args, **kwargs)
 
@@ -163,12 +184,12 @@ def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
     return float32_wrapper
 
 
-def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
+def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType | torch.Tensor]:
     """Decorator: transparently cast input to uint8, then cast output back to the original dtype.
 
     Wraps a function that only works with uint8 (e.g. ``cv2.medianBlur``) so it transparently
-    handles float32 input.  Float32 is converted to uint8 via ``from_float`` (scales x 255,
-    rounds, clips); the uint8 result is then converted back to float32 via ``to_float``.
+    handles float16 and float32 input. Floating inputs are converted to uint8 via ``from_float``
+    (scales x 255, rounds, clips); the uint8 result is converted back and restored to the input dtype.
 
     Example::
 
@@ -180,11 +201,18 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
         func: Image processing function whose first argument is a uint8 ``(H, W, C)`` image.
 
     Returns:
-        Wrapped function that accepts uint8 or float32 and returns the original dtype.
+        Wrapped function that accepts uint8, float16, or float32 and returns the original dtype.
     """
 
     @wraps(func)
-    def uint8_wrapper(img: ImageType, *args: Any, **kwargs: Any) -> ImageType:
+    def uint8_wrapper(
+        img: ImageType | torch.Tensor,
+        *args: Any,
+        layout: TensorLayout | None = None,
+        **kwargs: Any,
+    ) -> ImageType | torch.Tensor:
+        if isinstance(img, torch.Tensor):
+            return dispatch_tensor_image(img, layout, uint8_wrapper, *args, **kwargs)
         input_dtype = img.dtype
 
         if input_dtype != np.uint8:
@@ -192,7 +220,10 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
 
         result = func(img, *args, **kwargs)
 
-        return to_float(result) if input_dtype != np.uint8 else result
+        if input_dtype == np.uint8:
+            return result
+        restored = to_float(result)
+        return cast("ImageFloat16", restored.astype(np.float16)) if input_dtype == np.float16 else restored
 
     return uint8_wrapper
 
@@ -204,8 +235,34 @@ def _median_blur_uint8(img: ImageUInt8, ksize: int) -> ImageUInt8:
     return cast("ImageUInt8", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
 
 
+def _median_blur_float16_single_channel_5(img: ImageFloat16) -> ImageFloat16:
+    """Use ordered CV_16U keys while preserving float32 NaN and signed-zero behavior."""
+    bits = img.view(np.uint16)
+    # The ordered keys distinguish signed zeros, while the float32 median treats them as equal.
+    if np.isnan(img).any() or (np.any(bits == 0) and np.any(bits == np.uint16(0x8000))):
+        result = cv2.medianBlur(img.astype(np.float32), 5).astype(np.float16)
+        return cast("ImageFloat16", result)
+
+    negative = (bits & np.uint16(0x8000)) != 0
+    ordered = np.empty_like(bits)
+    np.bitwise_xor(bits, np.uint16(0x8000), out=ordered)
+    np.bitwise_not(bits, out=ordered, where=negative)
+
+    filtered = cv2.medianBlur(ordered, 5)
+    positive = (filtered & np.uint16(0x8000)) != 0
+    result = np.empty_like(filtered)
+    np.bitwise_xor(filtered, np.uint16(0x8000), out=result)
+    np.bitwise_not(filtered, out=result, where=~positive)
+    return cast("ImageFloat16", result.view(np.float16))
+
+
 @preserve_channel_dim
-def median_blur(img: ImageType, ksize: int) -> ImageType:
+def median_blur(
+    img: ImageType | torch.Tensor,
+    ksize: int,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> ImageType | torch.Tensor:
     """Median blur with dtype- and kernel-aware OpenCV routing.
 
     uint8 images use OpenCV directly, chunking high-channel inputs for kernels 7 and larger. Float32 kernels 3 and 5
@@ -213,36 +270,58 @@ def median_blur(img: ImageType, ksize: int) -> ImageType:
     OpenCV supports native CV_32F median filtering only for apertures 3 and 5.
 
     Args:
-        img: ``(H, W, C)`` image with uint8 or float32 dtype.
+        img: ``(H, W, C)`` NumPy image or channel-first CPU Tensor with uint8, float16, or float32 dtype.
         ksize: Kernel size (odd: 3, 5, 7, 9, ...).
+        layout: Required for Tensor input; selects CHW or NCHW.
 
     Returns:
         Median-filtered image with the same shape and dtype. It does not share storage with the input.
 
     The caller validates the image dtype and kernel size before entering this low-level router.
     """
+    if isinstance(img, torch.Tensor):
+        return dispatch_tensor_image(img, layout, median_blur, ksize)
+
     if not img.flags["C_CONTIGUOUS"]:
         img = cast("ImageType", np.ascontiguousarray(img))
 
+    result: ImageType
     if img.dtype == np.uint8:
-        return _median_blur_uint8(cast("ImageUInt8", img), ksize)
-    if img.dtype == np.float32 and ksize in (3, 5):
-        return cast("ImageType", cv2.medianBlur(img, ksize))
-    if img.dtype == np.float32:
+        result = _median_blur_uint8(cast("ImageUInt8", img), ksize)
+    elif img.dtype == np.float32 and ksize in (3, 5):
+        result = cast("ImageType", cv2.medianBlur(img, ksize))
+    elif img.dtype == np.float32:
         quantized = cast("ImageUInt8", from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8)))
-        return to_float(_median_blur_uint8(quantized, ksize))
+        result = to_float(_median_blur_uint8(quantized, ksize))
+    elif (
+        img.dtype == np.float16
+        and ksize == 5
+        and img.shape[-1] == 1
+        and img.size >= _MEDIAN_BLUR_FLOAT16_ORDERED_U16_MIN_ELEMENTS
+    ):
+        result = _median_blur_float16_single_channel_5(cast("ImageFloat16", img))
+    elif img.dtype == np.float16 and ksize in (3, 5):
+        result = cv2.medianBlur(img.astype(np.float32), ksize)
+        result = cast("ImageFloat16", result.astype(np.float16))
+    elif img.dtype == np.float16:
+        quantized = cast("ImageUInt8", from_float(cast("ImageFloat32", img.astype(np.float32)), np.dtype(np.uint8)))
+        filtered = to_float(_median_blur_uint8(quantized, ksize))
+        result = cast("ImageFloat16", filtered.astype(np.float16))
+    else:
+        uint8_img = cast("ImageUInt8", from_float(cast("ImageFloat32", img), np.dtype(np.uint8)))
+        result = to_float(_median_blur_uint8(uint8_img, ksize))
+    return result
 
-    uint8_img = cast("ImageUInt8", from_float(cast("ImageFloat32", img), np.dtype(np.uint8)))
-    return to_float(_median_blur_uint8(uint8_img, ksize))
 
-
-def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     """Optimized matrix multiplication for coordinate transformations.
 
     Replaces cv2.gemm which has similar performance but doesn't support all dtypes.
     Uses NumPy's @ operator which leverages optimized BLAS libraries:
     - ARM: Apple Accelerate framework
     - x86: MKL or OpenBLAS
+
+    Float16 operands are widened to float32 for the multiplication and the result is rounded once to float16.
 
     Benchmark results (macOS ARM):
     - Small matrices (2x2, 10x10): Similar to cv2.gemm (~1.0x)
@@ -251,14 +330,15 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     - uint8: Supported (cv2.gemm doesn't support uint8)
 
     Args:
-        a: First matrix, shape (M, K), dtype float32, float64, or uint8
-        b: Second matrix, shape (K, N), dtype float32, float64, or uint8
+        a: First matrix, shape (M, K), dtype float16, float32, float64, or uint8
+        b: Second matrix, shape (K, N), dtype float16, float32, float64, or uint8
 
     Returns:
-        Result matrix, shape (M, N). Output dtype follows NumPy's @ promotion rules:
+        Result matrix, shape (M, N). Same-dtype operands follow these output rules:
+        - float16 @ float16 -> float16, with float32 computation and one final cast
         - float32 @ float32 -> float32
         - float64 @ float64 -> float64
-        - uint8 @ uint8 -> int32 (promoted by NumPy)
+        - uint8 @ uint8 -> uint8, including NumPy's modulo overflow
 
     Examples:
         >>> import numpy as np
@@ -289,6 +369,16 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         - ThinPlateSpline geometric transformation (3 uses in AlbumentationsX)
         - Macenko stain normalization for medical imaging (1 use in AlbumentationsX)
     """
+    if isinstance(a, torch.Tensor) or isinstance(b, torch.Tensor):
+        if not isinstance(a, torch.Tensor) or not isinstance(b, torch.Tensor):
+            msg = "Both matrix operands must use the same container."
+            raise TypeError(msg)
+        return torch.from_numpy(cast("np.ndarray", matmul(a.numpy(), b.numpy())))
+
+    if a.dtype == np.float16:
+        result = matmul(a.astype(np.float32), b.astype(np.float32))
+        return cast("np.ndarray", result.astype(np.float16))
+
     if (
         _IS_MACOS_ARM64
         and a.dtype.kind == "f"
@@ -302,9 +392,9 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def pairwise_distances_squared(
-    points1: np.ndarray,
-    points2: np.ndarray,
-) -> np.ndarray:
+    points1: np.ndarray | torch.Tensor,
+    points2: np.ndarray | torch.Tensor,
+) -> np.ndarray | torch.Tensor:
     """Compute squared pairwise Euclidean distances between two point sets.
 
     Backend selection:
@@ -344,24 +434,37 @@ def pairwise_distances_squared(
         macOS arm64 workaround for spurious NumPy Accelerate warnings.
     """
     # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
-    points1 = points1.astype(np.float32, copy=False)
-    points2 = points2.astype(np.float32, copy=False)
+    if isinstance(points1, torch.Tensor) and isinstance(points2, torch.Tensor):
+        tensor_output = True
+        points1_array = points1.numpy()
+        points2_array = points2.numpy()
+    elif isinstance(points1, np.ndarray) and isinstance(points2, np.ndarray):
+        tensor_output = False
+        points1_array = points1
+        points2_array = points2
+    else:
+        msg = "Both point-set operands must use the same container."
+        raise TypeError(msg)
 
-    n1, n2 = points1.shape[0], points2.shape[0]
+    points1_array = points1_array.astype(np.float32, copy=False)
+    points2_array = points2_array.astype(np.float32, copy=False)
+
+    n1, n2 = points1_array.shape[0], points2_array.shape[0]
     if n1 * n2 < 1000:
         # nk.cdist requires contiguous inputs on some strided views.
-        points1 = np.ascontiguousarray(points1)
-        points2 = np.ascontiguousarray(points2)
-        result = np.asarray(nk.cdist(points1, points2, metric="sqeuclidean"), dtype=np.float32)
+        points1_array = np.ascontiguousarray(points1_array)
+        points2_array = np.ascontiguousarray(points2_array)
+        result = np.asarray(nk.cdist(points1_array, points2_array, metric="sqeuclidean"), dtype=np.float32)
         np.maximum(result, 0.0, out=result)
-        return result
+        return torch.from_numpy(result) if tensor_output else result
 
     # Vectorized: ||a-b||² = ||a||² + ||b||² - 2(a·b)
-    p1_squared = (points1**2).sum(axis=1, keepdims=True)  # (N, 1)
-    p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
-    dot_product = matmul(points1, points2.T)  # (N, M)
+    p1_squared = (points1_array**2).sum(axis=1, keepdims=True)  # (N, 1)
+    p2_squared = (points2_array**2).sum(axis=1)[None, :]  # (1, M)
+    dot_product = matmul(points1_array, points2_array.T)  # (N, M)
 
     result = p1_squared + p2_squared - 2 * dot_product
     # Clamp to zero to handle numerical errors that can produce small negative values
     np.maximum(result, 0.0, out=result)
-    return cast("np.ndarray", result)
+    result = cast("np.ndarray", result)
+    return torch.from_numpy(result) if tensor_output else result

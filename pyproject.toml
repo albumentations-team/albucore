@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
   "numpy>=1.24.4",
-  "numkong>=7.8.0",
+  "numkong>=7.8.5",
   "stringzilla>=5.1.2",
 ]
 
@@ -47,7 +47,7 @@ contrib = ["opencv-contrib-python>=5.0.0.93"]
 contrib-headless = ["opencv-contrib-python-headless>=5.0.0.93"]
 gui = ["opencv-python>=5.0.0.93"]
 headless = ["opencv-python-headless>=5.0.0.93"]
-torch = ["torch>=2.14.0"]
+torch = ["torch>=2.14.1"]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
@@ -168,6 +168,8 @@ lint.pydocstyle.convention = "google"
 # if either module moves so Ruff and the policy hook stay aligned.
 "albucore/affine3d.py" = [ "PLR0913", "PLR0917" ]
 "albucore/geometric.py" = [ "PLR0911", "PLR0913", "PLR0917" ]
+# Statistics retain explicit NumPy reduction options and add keyword-only Tensor layout.
+"albucore/stats.py" = [ "PLR0913" ]
 
 [tool.mypy]
 python_version = "3.11"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import pytest
+import torch
 
 from albucore import from_float, median_blur, to_float
 
@@ -64,10 +65,10 @@ def test_median_blur_float32_native_preserves_sub_uint8_precision(kernel_size: i
 
     result = median_blur(image, kernel_size)
     native = _repair_channel_dim(cv2.medianBlur(image, kernel_size), 1)
-    legacy = to_float(_uint8_reference(from_float(image, np.dtype(np.uint8)), kernel_size))
+    quantized_reference = to_float(_uint8_reference(from_float(image, np.dtype(np.uint8)), kernel_size))
 
     np.testing.assert_array_equal(result, native)
-    assert not np.array_equal(result, legacy)
+    assert not np.array_equal(result, quantized_reference)
 
 
 @pytest.mark.parametrize("channels", [1, 3, 5])
@@ -82,6 +83,110 @@ def test_median_blur_float32_large_kernel_matches_quantized_fallback(channels: i
     np.testing.assert_array_equal(result, expected)
     assert result.shape == image.shape
     assert result.dtype == np.float32
+
+
+@pytest.mark.parametrize("layout", ["numpy", "CHW", "NCHW"])
+@pytest.mark.parametrize("channels", [1, 3, 5])
+@pytest.mark.parametrize("kernel_size", [3, 5, 7, 9])
+def test_median_blur_float16_matches_float32_route(
+    layout: str,
+    channels: int,
+    kernel_size: int,
+) -> None:
+    batch_size = 2 if layout == "NCHW" else 1
+    source = (
+        np.random.default_rng(610111 + channels + kernel_size)
+        .random((batch_size, 19, 23, channels), dtype=np.float32)
+        .astype(np.float16)
+    )
+    expected = np.stack([median_blur(image.astype(np.float32), kernel_size).astype(np.float16) for image in source])
+    before = source.copy()
+
+    if layout == "numpy":
+        result = median_blur(source[0], kernel_size)
+        actual = result[None]
+    elif layout == "CHW":
+        tensor = torch.from_numpy(source[0]).permute(2, 0, 1)
+        result = median_blur(tensor, kernel_size, layout="CHW")
+        actual = result.permute(1, 2, 0).numpy()[None]
+        assert result.data_ptr() != tensor.data_ptr()
+    else:
+        tensor = torch.from_numpy(source).permute(0, 3, 1, 2)
+        result = median_blur(tensor, kernel_size, layout="NCHW")
+        actual = result.permute(0, 2, 3, 1).numpy()
+        assert result.data_ptr() != tensor.data_ptr()
+
+    assert result.dtype == (np.float16 if layout == "numpy" else torch.float16)
+    np.testing.assert_array_equal(actual, expected)
+    np.testing.assert_array_equal(source, before)
+
+
+def test_median_blur_float16_single_channel_k5_matches_nonzero_non_nan_binary16_values() -> None:
+    bits = np.arange(1 << 16, dtype=np.uint16)
+    exponent = bits & np.uint16(0x7C00)
+    mantissa = bits & np.uint16(0x03FF)
+    non_nan_bits = bits[~((exponent == 0x7C00) & (mantissa != 0))]
+    nonzero_bits = non_nan_bits[(non_nan_bits & np.uint16(0x7FFF)) != 0]
+    image = np.resize(nonzero_bits, (240, 320, 1)).view(np.float16)
+    expected = median_blur(image.astype(np.float32), 5).astype(np.float16)
+    before = image.copy()
+
+    result = median_blur(image, 5)
+
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+    np.testing.assert_array_equal(image, before)
+    assert result.shape == image.shape
+    assert result.dtype == image.dtype
+    assert not np.shares_memory(result, image)
+
+
+def test_median_blur_float16_single_channel_k5_nan_uses_float32_semantics() -> None:
+    bits = np.resize(np.array([0x7E00, 0x3C00, 0xBC00, 0x7C00, 0xFC00], dtype=np.uint16), (240, 320, 1))
+    image = bits.view(np.float16)
+    expected = median_blur(image.astype(np.float32), 5).astype(np.float16)
+
+    result = median_blur(image, 5)
+
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_median_blur_float16_single_channel_k5_preserves_signed_zero_bits() -> None:
+    bits = np.resize(np.array([0x0000, 0x8000], dtype=np.uint16), (240, 320, 1))
+    image = bits.view(np.float16)
+    expected = median_blur(image.astype(np.float32), 5).astype(np.float16)
+
+    result = median_blur(image, 5)
+
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+@pytest.mark.parametrize("zero_bits", [0x0000, 0x8000])
+def test_median_blur_float16_single_sign_zero_k5_preserves_bits(zero_bits: int) -> None:
+    image = np.full((240, 320, 1), zero_bits, dtype=np.uint16).view(np.float16)
+    expected = median_blur(image.astype(np.float32), 5).astype(np.float16)
+
+    result = median_blur(image, 5)
+
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+@pytest.mark.parametrize("layout", ["CHW", "NCHW"])
+def test_median_blur_float16_tensor_single_channel_k5_matches_float32_route(layout: str) -> None:
+    batch = 2 if layout == "NCHW" else 1
+    image = np.random.default_rng(640_011).random((batch, 240, 320, 1), dtype=np.float32).astype(np.float16)
+    expected = np.stack([median_blur(item.astype(np.float32), 5).astype(np.float16) for item in image])
+    if layout == "CHW":
+        tensor = torch.from_numpy(image[0]).permute(2, 0, 1).contiguous()
+        result = median_blur(tensor, 5, layout=layout)
+        actual = result.permute(1, 2, 0).numpy()[None]
+    else:
+        tensor = torch.from_numpy(image).permute(0, 3, 1, 2).contiguous()
+        result = median_blur(tensor, 5, layout=layout)
+        actual = result.permute(0, 2, 3, 1).numpy()
+
+    np.testing.assert_array_equal(actual, expected)
+    assert result.dtype == torch.float16
+    assert result.data_ptr() != tensor.data_ptr()
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])

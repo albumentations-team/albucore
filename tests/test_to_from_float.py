@@ -1,14 +1,24 @@
 from typing import Any
 
-import pytest
+import cv2
 import numpy as np
+import pytest
 
 import albucore.convert as convert
-from albucore.functions import from_float, from_float_numpy, from_float_opencv, to_float_numpy, to_float_opencv, to_float_lut, to_float, MAX_VALUES_BY_DTYPE
-import cv2
+from albucore.functions import (
+    MAX_VALUES_BY_DTYPE,
+    from_float,
+    from_float_numpy,
+    from_float_opencv,
+    to_float,
+    to_float_lut,
+    to_float_numpy,
+    to_float_opencv,
+)
+from albucore.utils import clip, convert_value, get_max_value
 
 CHANNELS = [1, 3, 5]
-DTYPES = [np.uint8, np.float32]
+DTYPES = [np.uint8, np.float16, np.float32]
 BATCHES = [0, 2]
 
 
@@ -20,11 +30,9 @@ def generate_img(max_value: int, dtype: Any, channels: int, batch: int) -> np.nd
     batch_shape = (batch,) if batch > 0 else ()
     channel_shape = (channels,) if channels > 1 else ()
     shape = (*batch_shape, 100, 100, *channel_shape)
-    return (
-        np.random.rand(*shape).astype(np.float32)
-        if dtype == np.float32
-        else np.random.randint(0, max_value, shape).astype(dtype)
-    )
+    if np.issubdtype(dtype, np.floating):
+        return np.random.rand(*shape).astype(dtype)
+    return np.random.randint(0, max_value, shape).astype(dtype)
 
 
 @pytest.mark.parametrize("dtype", DTYPES)
@@ -59,7 +67,8 @@ def test_to_float_output_type(dtype, channels, batch):
     img = generate_img(256, dtype, channels, batch)
 
     result = to_float(img)
-    assert result.dtype == np.float32
+    expected_dtype = np.dtype(np.float16) if dtype == np.float16 else np.dtype(np.float32)
+    assert result.dtype == expected_dtype
 
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
@@ -92,6 +101,68 @@ def test_to_float_custom_max_value():
     custom_max = 128.0
     result = to_float(img, max_value=custom_max)
     assert np.max(result) <= 2.0  # Since 255 / 128 = 1.9921875
+
+
+def test_float16_to_float_preserves_the_input_and_custom_scale() -> None:
+    image = np.array([[[-2.0], [0.5], [4.0]]], dtype=np.float16)
+
+    result = to_float(image, max_value=255)
+
+    assert result is image
+    assert result.dtype == np.float16
+    np.testing.assert_array_equal(result, image)
+
+
+def test_from_float_to_float16_casts_without_integer_rounding_or_clipping() -> None:
+    image = np.array([[[-2.0], [0.3333], [4.0]]], dtype=np.float32)
+
+    result = from_float(image, np.dtype(np.float16))
+
+    assert result.dtype == np.float16
+    np.testing.assert_array_equal(result, image.astype(np.float16))
+
+
+def test_float16_conversion_helpers_use_float_image_range() -> None:
+    image = np.array([[[-1.0], [0.5], [2.0]]], dtype=np.float16)
+
+    result = clip(image.copy(), np.dtype(np.float16))
+
+    assert get_max_value(image.dtype) == 1.0
+    assert result.dtype == np.float16
+    np.testing.assert_array_equal(result, np.array([[[0.0], [0.5], [1.0]]], dtype=np.float16))
+    assert convert_value(np.float16(0.3333), 3) == float(np.float16(0.3333))
+
+
+def test_from_float16_to_uint8_matches_promoted_float32_reference_exactly() -> None:
+    image = np.linspace(0.0, 1.0, num=257, dtype=np.float32).astype(np.float16).reshape(1, 257, 1)
+
+    result = from_float(image, np.dtype(np.uint8))
+    reference = from_float(image.astype(np.float32), np.dtype(np.uint8))
+
+    assert result.dtype == np.uint8
+    np.testing.assert_array_equal(result, reference)
+
+
+def test_large_from_float16_to_uint8_matches_float32_rounding() -> None:
+    source = np.linspace(0.0, 1.0, num=128 * 160 * 3, dtype=np.float32).reshape(128, 160, 3).astype(np.float16)
+
+    result = from_float(source, np.dtype(np.uint8))
+    expected = from_float_numpy(source.astype(np.float32), np.dtype(np.uint8))
+
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_large_from_float16_to_uint8_preserves_float32_rounding_edges() -> None:
+    values = np.array(
+        [-np.inf, -1, -0.0, 0, 0.5 / 17.3, 1.5 / 17.3, 127.5 / 17.3, 255 / 17.3, 1, np.inf, np.nan],
+        dtype=np.float16,
+    )
+    source = np.resize(values, (128, 160, 3))
+
+    result = from_float(source, np.dtype(np.uint8), max_value=17.3)
+    expected = from_float(source.astype(np.float32), np.dtype(np.uint8), max_value=17.3)
+
+    np.testing.assert_array_equal(result, expected)
 
 
 @pytest.mark.parametrize("dtype", DTYPES)

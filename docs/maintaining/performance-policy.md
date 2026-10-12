@@ -26,7 +26,7 @@ PR mode:
 - advisory in CI;
 - non-square HWC sizes;
 - channels 1 and 3;
-- `uint8` and `float32`;
+- `uint8`, `float16`, and `float32`;
 - quick public-router registry.
 
 Targeted local mode:
@@ -36,6 +36,13 @@ Targeted local mode:
 - include channels 1, 3, and 9 when OpenCV channel limits or high-channel paths are relevant;
 - include stats batch cases for stats routing changes;
 - include geometric routers for geometry routing changes.
+
+## Float16 release gate
+
+For every public operation that supports float16, compare its complete float16 and float32 routes on the same logical
+input and equivalent controls. Include conversions, bridges, allocations, output restoration, and the same output-size
+contract. Float16 must not be slower than float32 on the supported benchmark matrix. A missing fast kernel is an
+upstream capability gap to report; it does not remove float16 from the public dtype contract.
 
 ## Baselines
 
