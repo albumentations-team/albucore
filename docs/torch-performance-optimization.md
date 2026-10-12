@@ -111,10 +111,12 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   0.33–0.62× for `multiply` across CHW 128×160×3, CHW 480×640×3, and NCHW 4×3×240×320.
 - NumPy HWC float16 vector routes are selected by channel count and measured region: C1 uses NumKong `scale` for
   exact controls from 20,480 elements; C3 uses OpenCV CV16F from 61,440 elements; C9 `add_vector` uses NumKong
-  `add` with a zero-stride half control view for exact controls, while C9 `multiply_by_vector` uses the NumPy
-  float32 ufunc loop into half output. The C9 multiply route is 1.12–1.17× float32 public time with one robust
-  slow pair at 128×160; direct Torch half was 1.05–1.22× slower than the full float32 Torch bridge and is not
-  selected. Track the PyTorch CPU candidate in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503),
+  `add` with a zero-stride half control view for exact controls. C9 `multiply_by_vector` uses OpenCV CV16F for
+  contiguous writable HWC inputs from 184,320 elements when finite float32 controls are exactly half-representable,
+  or are inexact controls with magnitudes at most 1 and no nonzero half-subnormal values. Other controls keep the
+  NumPy float32 ufunc loop into half output. The selected C9 route has no robust slow pair in the 101-sample grid;
+  direct Torch half was 1.05–1.22× slower than the full float32 Torch bridge and is not selected. Track the PyTorch
+  CPU candidate in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503),
   the signed-zero mismatch in [NumKong #401](https://github.com/ashvardanian/NumKong/issues/401), and NumPy ufunc
   loop work in [#32970](https://github.com/numpy/numpy/issues/32970).
 - Contiguous float16 Tensor `normalize` in CHW/NCHW with C=3/9, scalar or channel-vector controls, and 16,384+ elements uses per-plane CV16F

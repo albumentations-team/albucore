@@ -39,8 +39,10 @@ MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
 
 NPDTYPE_TO_OPENCV_DTYPE: dict[np.dtype | type, int] = {
     np.uint8: cv2.CV_8U,
+    np.float16: cv2.CV_16F,
     np.float32: cv2.CV_32F,
     np.dtype("uint8"): cv2.CV_8U,
+    np.dtype("float16"): cv2.CV_16F,
     np.dtype("float32"): cv2.CV_32F,
 }
 
@@ -154,15 +156,8 @@ def clipped(func: Callable[Concatenate[ImageInput, P], ImageInput]) -> Callable[
             return result
 
         if isinstance(img, torch.Tensor):
-            tensor_result = cast("torch.Tensor", result)
-            tensor_img = cast("torch.Tensor", img)
-            if (
-                tensor_result.dtype == dtype
-                and tensor_result.untyped_storage().data_ptr() != tensor_img.untyped_storage().data_ptr()
-            ):
-                numpy_dtype = cast("SupportedDType", np.dtype(_NUMPY_DTYPES[dtype]))
-                return clip(tensor_result, numpy_dtype)
-            return tensor_result
+            numpy_dtype = cast("SupportedDType", np.dtype(_NUMPY_DTYPES[dtype]))
+            return clip(cast("torch.Tensor", result), numpy_dtype)
 
         if result.dtype in (np.float16, np.float32) and result.dtype == dtype and not np.shares_memory(result, img):
             max_value = MAX_VALUES_BY_DTYPE[dtype]
@@ -270,7 +265,7 @@ def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> 
         value = value.dtype
     if isinstance(value, np.dtype):
         key: np.dtype | type = value
-    elif value in (np.uint8, np.float32):
+    elif value in (np.uint8, np.float16, np.float32):
         key = cast("type", value)
     else:
         msg = f"Unsupported dtype specifier: {value!r}"

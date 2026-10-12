@@ -112,7 +112,7 @@ def _separable_filter3d_torch_cpu(
     """Run the measured three-pass CPU Torch filter for one prevalidated ``CDHW`` volume."""
     working = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
     result = working.unsqueeze(0)
-    with torch.inference_mode():
+    with torch.no_grad():
         for axis, kernel in zip(_AXES, kernels, strict=True):
             if not _is_identity_kernel(kernel):
                 result = _apply_axis_filter(result, kernel, axis)

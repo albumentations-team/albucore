@@ -456,7 +456,7 @@ def main() -> None:
                 continue
             if op_name in skip_float_only and dtype not in (np.float16, np.float32):
                 continue
-            api_name = op_name.removesuffix("_batch")
+            api_name = router_bench._GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
             if not hasattr(alb, api_name):
                 continue
             if half_image is not None:
@@ -571,7 +571,8 @@ def main() -> None:
         for op_name, builder in geometric:
             if op_name in skip_ops or (op_name in skip_uint8_only and dtype != np.uint8):
                 continue
-            if not hasattr(alb, op_name):
+            api_name = router_bench._GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
+            if not hasattr(alb, api_name):
                 continue
             if half_image is not None:
                 _record_image_pair(rows, alb, op_name, array_layout, shape, half_image, image, builder, args.repeats, args.warmup)

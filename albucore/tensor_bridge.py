@@ -102,7 +102,13 @@ def dispatch_tensor_image(
             return numpy_to_tensor_layout(result, layout)
         if all(
             result is source
-            or (isinstance(result, np.ndarray) and result.shape == source.shape and np.shares_memory(result, source))
+            or (
+                isinstance(result, np.ndarray)
+                and result.shape == source.shape
+                and result.dtype == source.dtype
+                and result.strides == source.strides
+                and result.__array_interface__["data"][0] == source.__array_interface__["data"][0]
+            )
             for result, source in zip(batch_results, batch_sources, strict=True)
         ):
             return image

@@ -1278,7 +1278,7 @@ def _resize3d_torch_cpu(
     interpolation: int,
 ) -> torch.Tensor:
     """Resize one CPU CDHW tensor with native Torch interpolation and no autograd graph."""
-    with torch.inference_mode():
+    with torch.no_grad():
         if interpolation == cv2.INTER_NEAREST:
             result = cast("torch.Tensor", torch_f.interpolate(volume.unsqueeze(0), size=size, mode="nearest"))
             return result.squeeze(0)

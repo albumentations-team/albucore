@@ -43,6 +43,7 @@ def test_clip(input_img, dtype, expected, inplace):
 
 valid_cv2_types = {
     cv2.CV_8U,
+    cv2.CV_16F,
     cv2.CV_16U,
     cv2.CV_32F,
     cv2.CV_64F,
@@ -58,9 +59,12 @@ def test_valid_cv2_types(cv_type):
 def test_cv_dtype_from_np():
     # Image routers support uint8, float16, and float32.
     assert get_opencv_dtype_from_numpy(np.uint8) == cv2.CV_8U
+    assert get_opencv_dtype_from_numpy(np.float16) == cv2.CV_16F
     assert get_opencv_dtype_from_numpy(np.float32) == cv2.CV_32F
     assert get_opencv_dtype_from_numpy(np.dtype("uint8")) == cv2.CV_8U
+    assert get_opencv_dtype_from_numpy(np.dtype("float16")) == cv2.CV_16F
     assert get_opencv_dtype_from_numpy(np.dtype("float32")) == cv2.CV_32F
+    assert get_opencv_dtype_from_numpy(np.zeros((1,), dtype=np.float16)) == cv2.CV_16F
 
 
 def test_get_opencv_max_channels_matches_matrix_type_encoding():

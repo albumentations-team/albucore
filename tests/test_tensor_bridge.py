@@ -32,6 +32,8 @@ from albucore import (
     multiply_by_array,
     pairwise_distances_squared,
     reduce_sum,
+    resize3d,
+    separable_filter3d,
     std,
     sz_lut,
     to_float,
@@ -82,6 +84,15 @@ def test_tensor_router_returns_the_original_tensor_for_identity(layout: Any) -> 
     assert result is tensor
 
 
+def test_batched_tensor_router_restores_a_transformed_view() -> None:
+    tensor = torch.arange(2 * 3 * 5 * 7, dtype=torch.float32).reshape(2, 3, 5, 7)
+
+    result = dispatch_tensor_image(tensor, "NCHW", lambda image: image[:, ::-1, :])
+
+    assert result is not tensor
+    torch.testing.assert_close(result, tensor.flip(-1))
+
+
 def test_tensor_router_requires_layout_when_numpy_kernel_needs_channels() -> None:
     tensor = torch.rand((3, 7, 11), dtype=torch.float16)
 
@@ -113,6 +124,32 @@ def test_clipped_decorator_supports_tensor_results() -> None:
     torch.testing.assert_close(result, torch.ones_like(tensor))
 
 
+def test_clipped_tensor_alias_is_clamped_without_mutating_input() -> None:
+    @clipped
+    def identity(image: torch.Tensor) -> torch.Tensor:
+        return image
+
+    tensor = torch.tensor([[[-1.0, 0.25, 2.0]]], dtype=torch.float32)
+
+    result = identity(tensor)
+
+    torch.testing.assert_close(result, torch.tensor([[[0.0, 0.25, 1.0]]]))
+    torch.testing.assert_close(tensor, torch.tensor([[[-1.0, 0.25, 2.0]]]))
+
+
+def test_clipped_tensor_restores_dtype_for_promoted_results() -> None:
+    @clipped
+    def double_in_float(image: torch.Tensor) -> torch.Tensor:
+        return image.to(torch.float32) * 2
+
+    tensor = torch.tensor([[[0, 127, 255]]], dtype=torch.uint8)
+
+    result = double_in_float(tensor)
+
+    assert result.dtype == torch.uint8
+    torch.testing.assert_close(result, torch.tensor([[[0, 254, 255]]], dtype=torch.uint8))
+
+
 def test_tensor_inplace_unary_mutates_leaf_view_and_its_alias() -> None:
     base = torch.linspace(0.1, 0.9, steps=12, dtype=torch.float16)
     view = base.view(3, 4)
@@ -136,6 +173,21 @@ def test_tensor_dtype_conversion_preserves_container_and_float16_policy() -> Non
         from_float(torch.tensor([0.5 / 255, 1.0], dtype=torch.float16), np.dtype(np.uint8)),
         torch.tensor([0, 255], dtype=torch.uint8),
     )
+
+
+def test_spatial_tensor_results_can_feed_trainable_operations() -> None:
+    volume = torch.rand((1, 3, 4, 5), dtype=torch.float16)
+    kernel = np.array([0.25, 0.5, 0.25], dtype=np.float32)
+    outputs = (
+        resize3d(volume, (5, 6, 7)),
+        separable_filter3d(volume, (kernel, kernel, kernel)),
+    )
+
+    for output in outputs:
+        assert not output.is_inference()
+        scale = torch.nn.Parameter(torch.tensor(1.0, dtype=output.dtype))
+        (output * scale).sum().backward()
+        assert scale.grad is not None
 
 
 def test_contiguous_float16_tensor_to_uint8_stays_within_one_over_full_half_domain() -> None:

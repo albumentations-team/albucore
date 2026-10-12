@@ -59,6 +59,11 @@ from shape_grids import (
 )
 from timing import WallTimingMs, bench_wall_ms
 
+_GEOMETRIC_API_ALIASES = {
+    "remap_nearest": "remap",
+    "warp_perspective_nearest": "warp_perspective",
+}
+
 # When ``albucore.functions`` has no ``__all__`` in a previous release, use this
 # so comparison runs time the same router names. Keep in sync with
 # ``albucore/functions.py`` ``__all__``.
@@ -904,10 +909,6 @@ def main() -> None:
             )
 
     geo_reg = _registry_geometric() + _registry_volume_batches() if args.with_geometric else []
-    geometric_api_aliases = {
-        "remap_nearest": "remap",
-        "warp_perspective_nearest": "warp_perspective",
-    }
     paired_half_images: dict[tuple[str, tuple[int, ...]], np.ndarray] = {}
 
     for layout, shape, dtype in _iter_hwc(args.quick):
@@ -941,7 +942,7 @@ def main() -> None:
             for op_name, build in geo_reg:
                 if op_name in skip_ops or op_name in skip_uint8_only or op_name in skip_float_only:
                     continue
-                api_name = geometric_api_aliases.get(op_name, op_name.removesuffix("_batch"))
+                api_name = _GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
                 if not hasattr(alb, api_name):
                     for float_dtype in ("float16", "float32"):
                         rows.append(BenchRow(op_name, layout, shape, float_dtype, None, "skip", "missing API"))
@@ -974,7 +975,7 @@ def main() -> None:
                 continue
             if op_name in skip_float_only and dtype not in (np.float16, np.float32):
                 continue
-            api_name = geometric_api_aliases.get(op_name, op_name.removesuffix("_batch"))
+            api_name = _GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
             if not hasattr(alb, api_name):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue

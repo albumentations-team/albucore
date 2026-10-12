@@ -886,7 +886,8 @@ def mean(
     - **float32 per-channel, ndim==3, C ≤ 4**: ``cv2.mean`` (fastest for HWC images).
     - **float32 per-channel, ndim==4, 1 < C ≤ 4**: NumKong ``nk.sum / n`` — 4x over arr.mean
       for NHWC/DHWC batch/volume layouts.
-    - **contiguous float16 global, 4,096 elements and larger**: direct ``CV_16F cv2.mean`` on a zero-copy scalar view.
+    - **contiguous float16 global, 4,096 elements and larger**: widen to float32 once, then call ``cv2.mean`` on a
+      single-column view.
     - **global float16 Tensor, 40,960 elements and larger, C>1**: one CPU Torch reduction with float32 accumulation;
       the scalar output remains float64.
     - **per-channel float16 Tensor, 40,960 elements and larger**: contiguous NCHW/NCDHW, CDHW, and multi-channel CHW
