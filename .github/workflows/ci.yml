@@ -84,7 +84,7 @@ jobs:
         uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: install
-          requirement: "torch>=2.14.0"
+          requirement: "torch>=2.14.1"
 
       - name: Install dependencies
         run: |
@@ -161,7 +161,7 @@ jobs:
         uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: install
-          requirement: "torch>=2.14.0"
+          requirement: "torch>=2.14.1"
 
       - name: Install regression-test dependencies
         run: uv pip install -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt
@@ -201,14 +201,14 @@ jobs:
         uses: albumentations-team/ci-foundation/actions/torch-cpu@93efc801c2f22e08e40000dec2541fd1cafa5f59
         with:
           mode: install
-          requirement: "torch>=2.14.0"
+          requirement: "torch>=2.14.1"
 
       - name: Install declared dependency ranges
         run: |
           uv pip install -e ".[torch]" --no-deps
           uv pip install \
             "numpy>=1.24.4" \
-            "numkong>=7.8.0" \
+            "numkong>=7.8.5" \
             "stringzilla>=5.1.2" \
             "opencv-python-headless>=5.0.0.93" \
             hypothesis \

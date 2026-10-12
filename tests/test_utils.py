@@ -1,6 +1,6 @@
-import cv2
 from collections.abc import Callable
 
+import cv2
 import numpy as np
 import pytest
 
@@ -56,7 +56,7 @@ def test_valid_cv2_types(cv_type):
 
 
 def test_cv_dtype_from_np():
-    # Albucore supports uint8 and float32 only
+    # Image routers support uint8, float16, and float32.
     assert get_opencv_dtype_from_numpy(np.uint8) == cv2.CV_8U
     assert get_opencv_dtype_from_numpy(np.float32) == cv2.CV_32F
     assert get_opencv_dtype_from_numpy(np.dtype("uint8")) == cv2.CV_8U

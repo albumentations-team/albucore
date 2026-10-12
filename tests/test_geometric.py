@@ -677,6 +677,128 @@ def test_warp_perspective_equiv_cv2(channels: int, rng: np.random.Generator) -> 
     np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.parametrize("channels", [1, 3, 9])
+@pytest.mark.parametrize("projective", [False, True], ids=["half-ties", "projective"])
+def test_float16_nearest_warp_perspective_uses_integer_pixel_copy(
+    channels: int,
+    projective: bool,
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    height, width = 32, 48
+    dsize = (41, 29)
+    image = rng.uniform(-4, 4, (height, width, channels)).astype(np.float16)
+    patterns = np.array([0x0001, 0x8001, 0x8000, 0x7C00, 0xFC00, 0x7E55, 0xFE55], dtype=np.uint16)
+    image.view(np.uint16).reshape(-1)[: patterns.size] = patterns
+    if projective:
+        matrix = np.array([[0.97, 0.02, 1.25], [-0.03, 0.93, -1.75], [1e-4, -2e-4, 1.0]], dtype=np.float32)
+    else:
+        matrix = np.array([[1.0, 0.0, 0.5], [0.0, 1.0, -0.5], [0.0, 0.0, 1.0]], dtype=np.float32)
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = warp_perspective(
+            image.astype(np.float32),
+            matrix,
+            dsize,
+            flags=cv2.INTER_NEAREST,
+        ).astype(np.float16)
+
+    warp_cv = cv2.warpPerspective
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpPerspective", record_warp)
+    result = warp_perspective(image, matrix, dsize, flags=cv2.INTER_NEAREST)
+
+    expected_src_dtype = np.uint8 if channels == 9 else np.uint16
+    assert input_dtypes == [np.dtype(expected_src_dtype)]
+    assert result.shape == (dsize[1], dsize[0], channels)
+    assert result.dtype == np.float16
+    finite = np.isfinite(expected)
+    np.testing.assert_array_equal(result.view(np.uint16)[finite], expected.view(np.uint16)[finite])
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isposinf(result), np.isposinf(expected))
+    np.testing.assert_array_equal(np.isneginf(result), np.isneginf(expected))
+
+
+def test_float16_nearest_warp_perspective_nonzero_border_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = rng.uniform(-2, 2, (32, 48, 3)).astype(np.float16)
+    matrix = np.array([[1.0, 0.0, 1.5], [0.0, 1.0, -2.25], [0.0, 0.0, 1.0]], dtype=np.float32)
+    dsize = (48, 32)
+    expected = warp_perspective(
+        image.astype(np.float32),
+        matrix,
+        dsize,
+        flags=cv2.INTER_NEAREST,
+        border_value=0.25,
+    ).astype(np.float16)
+
+    warp_cv = cv2.warpPerspective
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpPerspective", record_warp)
+    result = warp_perspective(image, matrix, dsize, flags=cv2.INTER_NEAREST, border_value=0.25)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+def test_float16_nearest_warp_perspective_noncontiguous_image_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = rng.uniform(-2, 2, (32, 96, 3)).astype(np.float16)
+    image = source[:, ::2]
+    matrix = np.array([[0.97, 0.0, 0.25], [0.0, 0.93, -0.5], [0.0, 0.0, 1.0]], dtype=np.float32)
+    dsize = (48, 32)
+    expected = warp_perspective(image.astype(np.float32), matrix, dsize, flags=cv2.INTER_NEAREST).astype(np.float16)
+
+    warp_cv = cv2.warpPerspective
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpPerspective", record_warp)
+    result = warp_perspective(image, matrix, dsize, flags=cv2.INTER_NEAREST)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+def test_float16_nearest_warp_perspective_float64_matrix_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = rng.uniform(-2, 2, (32, 48, 3)).astype(np.float16)
+    matrix = np.array([[0.97, 0.02, 1.25], [-0.03, 0.93, -1.75], [1e-4, -2e-4, 1.0]], dtype=np.float64)
+    dsize = (48, 32)
+    expected = warp_perspective(image.astype(np.float32), matrix, dsize, flags=cv2.INTER_NEAREST).astype(np.float16)
+
+    warp_cv = cv2.warpPerspective
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpPerspective", record_warp)
+    result = warp_perspective(image, matrix, dsize, flags=cv2.INTER_NEAREST)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
 def test_warp_perspective_per_channel_border_value(rng: np.random.Generator) -> None:
     """warp_perspective handles per-channel borderValue for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
@@ -774,6 +896,102 @@ def test_remap_preserve_channel_dim(rng: np.random.Generator) -> None:
     map_y = np.tile(np.arange(h, dtype=np.float32).reshape(-1, 1), (1, w))
     result = remap(img, map_x, map_y)
     assert result.shape == (h, w, 1)
+
+
+@pytest.mark.parametrize("channels", [1, 3, 9])
+def test_float16_nearest_remap_uses_integer_pixel_copy(
+    channels: int,
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    height, width = 32, 48
+    output_height, output_width = 29, 37
+    image = rng.uniform(-4, 4, (height, width, channels)).astype(np.float16)
+    patterns = np.array([0x0001, 0x8001, 0x8000, 0x7C00, 0xFC00, 0x7E55, 0xFE55], dtype=np.uint16)
+    image.view(np.uint16).reshape(-1)[: patterns.size] = patterns
+    yy, xx = np.indices((output_height, output_width), dtype=np.float32)
+    map_x = np.ascontiguousarray(xx * np.float32(0.97) + np.float32(1.25))
+    map_y = np.ascontiguousarray(yy * np.float32(0.93) + np.float32(1.75))
+    map_x[0, 0], map_y[0, 0] = 0.0, 0.0
+    map_x[0, 1], map_y[0, 1] = 0.5, 0.0
+    map_x[-1, -1], map_y[-1, -1] = -0.5, -0.5
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = remap(image.astype(np.float32), map_x, map_y, interpolation=cv2.INTER_NEAREST).astype(np.float16)
+
+    remap_cv = cv2.remap
+    input_metadata: list[tuple[np.dtype, np.dtype, bool]] = []
+
+    def record_remap(
+        src: np.ndarray,
+        map1: np.ndarray,
+        map2: np.ndarray | None,
+        *args: object,
+        **kwargs: object,
+    ) -> np.ndarray:
+        input_metadata.append((src.dtype, map1.dtype, map2 is None))
+        return remap_cv(src, map1, map2, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "remap", record_remap)
+    result = remap(image, map_x, map_y, interpolation=cv2.INTER_NEAREST)
+
+    expected_src_dtype = np.uint8 if channels == 9 else np.uint16
+    assert input_metadata == [(np.dtype(expected_src_dtype), np.dtype(np.int16), True)]
+    assert result.shape == (output_height, output_width, channels)
+    assert result.dtype == np.float16
+    finite = np.isfinite(expected)
+    np.testing.assert_array_equal(result.view(np.uint16)[finite], expected.view(np.uint16)[finite])
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isposinf(result), np.isposinf(expected))
+    np.testing.assert_array_equal(np.isneginf(result), np.isneginf(expected))
+
+
+def test_float16_nearest_remap_nonzero_border_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = rng.uniform(-2, 2, (32, 48, 3)).astype(np.float16)
+    yy, xx = np.indices((32, 48), dtype=np.float32)
+    map_x = xx + np.float32(1.5)
+    map_y = yy - np.float32(2.25)
+    expected = remap(image.astype(np.float32), map_x, map_y, cv2.INTER_NEAREST, border_value=0.25).astype(np.float16)
+
+    remap_cv = cv2.remap
+    input_dtypes: list[np.dtype] = []
+
+    def record_remap(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return remap_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "remap", record_remap)
+    result = remap(image, map_x, map_y, cv2.INTER_NEAREST, border_value=0.25)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+def test_float16_nearest_remap_noncontiguous_image_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = rng.uniform(-2, 2, (32, 96, 3)).astype(np.float16)
+    image = source[:, ::2]
+    yy, xx = np.indices(image.shape[:2], dtype=np.float32)
+    map_x = xx + np.float32(0.25)
+    map_y = yy - np.float32(0.25)
+    expected = remap(image.astype(np.float32), map_x, map_y, cv2.INTER_NEAREST).astype(np.float16)
+
+    remap_cv = cv2.remap
+    input_dtypes: list[np.dtype] = []
+
+    def record_remap(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return remap_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "remap", record_remap)
+    result = remap(image, map_x, map_y, cv2.INTER_NEAREST)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
 
 
 # Interpolations supported by cv2.remap (INTER_LINEAR_EXACT is not)
@@ -989,3 +1207,215 @@ def test_resize_dtypes(dtype: type, rng: np.random.Generator) -> None:
     dsize = (32, 32)
     result = resize(img, dsize)
     assert result.dtype == img.dtype
+
+
+@pytest.mark.parametrize("channels", [1, 3, 9])
+def test_float16_nearest_resize_uses_uint16_pixel_copy(
+    channels: int,
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = rng.uniform(-4, 4, size=(64, 80, channels)).astype(np.float16)
+    patterns = np.array([0x0001, 0x8001, 0x7C00, 0xFC00, 0x7E55, 0xFE55, 0x0000, 0x8000], dtype=np.uint16)
+    image.view(np.uint16).reshape(-1)[: patterns.size] = patterns
+    dsize = (31, 47)
+    resize_cv = cv2.resize
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = resize_cv(image.astype(np.float32), dsize, interpolation=cv2.INTER_NEAREST).astype(np.float16)
+    if channels == 1 and expected.ndim == 2:
+        expected = expected[..., np.newaxis]
+
+    input_dtypes: list[np.dtype] = []
+
+    def record_resize(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return resize_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "resize", record_resize)
+    result = resize(image, dsize, interpolation=cv2.INTER_NEAREST)
+
+    assert input_dtypes == [np.dtype(np.uint16)]
+    assert result.shape == expected.shape
+    assert result.dtype == np.float16
+    finite = np.isfinite(expected)
+    np.testing.assert_array_equal(result.view(np.uint16)[finite], expected.view(np.uint16)[finite])
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isposinf(result), np.isposinf(expected))
+    np.testing.assert_array_equal(np.isneginf(result), np.isneginf(expected))
+
+
+def test_float16_nearest_half_size_single_channel_uses_exact_strided_copy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = np.arange(64 * 80, dtype=np.uint16).reshape(64, 80, 1).view(np.float16)
+    image.view(np.uint16)[::2, ::2, 0][0, :4] = np.array([0x0001, 0x8001, 0x7C00, 0xFE55], dtype=np.uint16)
+    dsize = (40, 32)
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = cv2.resize(image.astype(np.float32), dsize, interpolation=cv2.INTER_NEAREST).astype(np.float16)
+    if expected.ndim == 2:
+        expected = expected[..., np.newaxis]
+
+    def reject_opencv_resize(*args: object, **kwargs: object) -> None:
+        raise AssertionError("The exact half-size single-channel path should not call OpenCV.")
+
+    monkeypatch.setattr(cv2, "resize", reject_opencv_resize)
+    result = resize(image, dsize, interpolation=cv2.INTER_NEAREST)
+
+    assert result.shape == expected.shape
+    assert result.dtype == np.float16
+    assert result.flags.c_contiguous
+    assert not np.shares_memory(result, image)
+    finite = np.isfinite(expected)
+    np.testing.assert_array_equal(result.view(np.uint16)[finite], expected.view(np.uint16)[finite])
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isposinf(result), np.isposinf(expected))
+    np.testing.assert_array_equal(np.isneginf(result), np.isneginf(expected))
+
+    tiny_image = np.array([[[1.0], [2.0]], [[3.0], [4.0]]], dtype=np.float16)
+    tiny_result = resize(tiny_image, (1, 1), interpolation=cv2.INTER_NEAREST)
+    assert not np.shares_memory(tiny_result, tiny_image)
+    assert tiny_result[0, 0, 0] == tiny_image[0, 0, 0]
+
+
+@pytest.mark.parametrize("strided_axis", [0, 1])
+def test_float16_nearest_resize_noncontiguous_routes_preserve_samples(
+    strided_axis: int,
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = rng.uniform(-4, 4, size=(64, 80, 3)).astype(np.float16)
+    image = base[::2] if strided_axis == 0 else base[:, ::2, :]
+    dsize = (image.shape[1] // 2, image.shape[0] // 2)
+    resize_cv = cv2.resize
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = resize_cv(image.astype(np.float32), dsize, interpolation=cv2.INTER_NEAREST).astype(np.float16)
+
+    input_arrays: list[np.ndarray] = []
+
+    def record_resize(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_arrays.append(src)
+        return resize_cv(src, *args, **kwargs)
+
+    if strided_axis == 0:
+        monkeypatch.setattr(cv2, "resize", record_resize)
+        result = resize(image, dsize, interpolation=cv2.INTER_NEAREST)
+        assert len(input_arrays) == 1
+        assert input_arrays[0].dtype == np.uint16
+        assert not input_arrays[0].flags.c_contiguous
+    else:
+        def reject_opencv_resize(*args: object, **kwargs: object) -> None:
+            raise AssertionError("Exact half-size downscaling should copy the sampled pixels directly.")
+
+        monkeypatch.setattr(cv2, "resize", reject_opencv_resize)
+        result = resize(image, dsize, interpolation=cv2.INTER_NEAREST)
+        assert result.flags.c_contiguous
+        assert not np.shares_memory(result, image)
+
+    assert result.dtype == np.float16
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+def test_float16_nearest_resize_preserves_every_binary16_finite_value() -> None:
+    image = np.arange(65_536, dtype=np.uint16).reshape(256, 256, 1).view(np.float16)
+    dsize = (173, 119)
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = cv2.resize(image.astype(np.float32), dsize, interpolation=cv2.INTER_NEAREST).astype(np.float16)
+    if expected.ndim == 2:
+        expected = expected[..., np.newaxis]
+
+    result = resize(image, dsize, interpolation=cv2.INTER_NEAREST)
+
+    finite = np.isfinite(expected)
+    np.testing.assert_array_equal(result.view(np.uint16)[finite], expected.view(np.uint16)[finite])
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isposinf(result), np.isposinf(expected))
+    np.testing.assert_array_equal(np.isneginf(result), np.isneginf(expected))
+
+
+@pytest.mark.parametrize("channels", [1, 3, 9])
+def test_float16_nearest_warp_affine_uses_uint16_pixel_copy(
+    channels: int,
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = rng.uniform(-2, 2, size=(64, 80, channels)).astype(np.float16)
+    patterns = np.array([0x0001, 0x8001, 0x7C00, 0xFC00, 0x7E55, 0xFE55], dtype=np.uint16)
+    image.view(np.uint16).reshape(-1)[: patterns.size] = patterns
+    matrix = np.array([[0.95, 0.0, 1.25], [0.0, 1.05, -2.25]], dtype=np.float32)
+    dsize = (80, 64)
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = warp_affine(image.astype(np.float32), matrix, dsize, flags=cv2.INTER_NEAREST).astype(np.float16)
+
+    warp_cv = cv2.warpAffine
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpAffine", record_warp)
+    result = warp_affine(image, matrix, dsize, flags=cv2.INTER_NEAREST)
+
+    expected_backend_dtype = np.uint8 if channels == 9 else np.uint16
+    assert input_dtypes == [np.dtype(expected_backend_dtype)]
+    assert result.shape == image.shape
+    assert result.dtype == np.float16
+    finite = np.isfinite(expected)
+    np.testing.assert_array_equal(result.view(np.uint16)[finite], expected.view(np.uint16)[finite])
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isposinf(result), np.isposinf(expected))
+    np.testing.assert_array_equal(np.isneginf(result), np.isneginf(expected))
+
+
+def test_float16_nearest_warp_affine_nonzero_border_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = rng.uniform(-2, 2, size=(64, 80, 3)).astype(np.float16)
+    matrix = np.array([[1.0, 0.0, 3.5], [0.0, 1.0, -2.25]], dtype=np.float32)
+    dsize = (80, 64)
+    border_value = 0.25
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = warp_affine(
+            image.astype(np.float32),
+            matrix,
+            dsize,
+            flags=cv2.INTER_NEAREST,
+            border_value=border_value,
+        ).astype(np.float16)
+
+    warp_cv = cv2.warpAffine
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpAffine", record_warp)
+    result = warp_affine(image, matrix, dsize, flags=cv2.INTER_NEAREST, border_value=border_value)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+def test_float16_nearest_warp_affine_noncontiguous_input_uses_float32_path(
+    rng: np.random.Generator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = rng.uniform(-2, 2, size=(64, 80, 3)).astype(np.float16)
+    image = source[:, ::2, :]
+    matrix = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
+    dsize = (40, 64)
+    expected = warp_affine(image.astype(np.float32), matrix, dsize, flags=cv2.INTER_NEAREST).astype(np.float16)
+    warp_cv = cv2.warpAffine
+    input_dtypes: list[np.dtype] = []
+
+    def record_warp(src: np.ndarray, *args: object, **kwargs: object) -> np.ndarray:
+        input_dtypes.append(src.dtype)
+        return warp_cv(src, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "warpAffine", record_warp)
+    result = warp_affine(image, matrix, dsize, flags=cv2.INTER_NEAREST)
+
+    assert input_dtypes == [np.dtype(np.float32)]
+    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))

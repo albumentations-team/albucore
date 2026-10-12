@@ -3,6 +3,7 @@ import warnings
 import cv2
 import numpy as np
 import pytest
+import torch
 
 from albucore import matmul, pairwise_distances_squared
 
@@ -63,6 +64,35 @@ class TestMatmul:
         assert result.shape == (m, n)
         assert result.dtype == expected.dtype
 
+    @pytest.mark.parametrize("as_tensor", [False, True])
+    def test_matmul_uint8_wraps_in_output_dtype(self, as_tensor: bool) -> None:
+        a = np.array([[255]], dtype=np.uint8)
+        b = np.array([[255]], dtype=np.uint8)
+        if as_tensor:
+            a = torch.from_numpy(a)
+            b = torch.from_numpy(b)
+
+        result = matmul(a, b)
+
+        expected = torch.tensor([[1]], dtype=torch.uint8) if as_tensor else np.array([[1]], dtype=np.uint8)
+        assert result.dtype == expected.dtype
+        if isinstance(result, torch.Tensor):
+            torch.testing.assert_close(result, expected, rtol=0, atol=0)
+        else:
+            np.testing.assert_array_equal(result, expected)
+
+    def test_matmul_tensor_float16_matches_wide_accumulation(self) -> None:
+        rng = np.random.default_rng(0)
+        a = torch.from_numpy(rng.random((128, 64), dtype=np.float32).astype(np.float16))
+        b = torch.from_numpy(rng.random((64, 32), dtype=np.float32).astype(np.float16))
+
+        result = matmul(a, b)
+        expected = torch.from_numpy((a.numpy().astype(np.float32) @ b.numpy().astype(np.float32)).astype(np.float16))
+
+        assert isinstance(result, torch.Tensor)
+        assert result.dtype == torch.float16
+        torch.testing.assert_close(result, expected, rtol=0, atol=0)
+
     def test_matmul_output_dtype(self) -> None:
         """Verify output dtype matches input dtype for float types."""
         a_f32 = np.random.randn(5, 3).astype(np.float32)
@@ -74,6 +104,17 @@ class TestMatmul:
         b_f64 = np.random.randn(3, 4).astype(np.float64)
         result = matmul(a_f64, b_f64)
         assert result.dtype == np.float64
+
+    def test_matmul_float16_uses_wide_accumulation_and_preserves_dtype(self) -> None:
+        rng = np.random.default_rng(0)
+        a = rng.random((128, 64), dtype=np.float32).astype(np.float16)
+        b = rng.random((64, 32), dtype=np.float32).astype(np.float16)
+
+        result = matmul(a, b)
+        expected = (a.astype(np.float32) @ b.astype(np.float32)).astype(np.float16)
+
+        assert result.dtype == np.float16
+        np.testing.assert_array_equal(result, expected)
 
     def test_matmul_shape(self) -> None:
         """Verify output shape is correct."""

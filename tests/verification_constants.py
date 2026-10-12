@@ -11,8 +11,8 @@ from benchmarks.shape_grids import (
     PROPERTY_NON_SQUARE_HW,
 )
 
-DTypeName: TypeAlias = Literal["uint8", "int16", "float32", "float64", "other numeric fallback"]
-LayoutName: TypeAlias = Literal["HWC", "XHWC", "DHWC", "CDHW", "NDHWC", "NCDHW", "2D", "points"]
+DTypeName: TypeAlias = Literal["uint8", "int16", "float16", "float32", "float64", "other numeric fallback"]
+LayoutName: TypeAlias = Literal["HWC", "XHWC", "CHW", "NCHW", "DHWC", "CDHW", "NDHWC", "NCDHW", "2D", "points"]
 ChannelSpec: TypeAlias = Literal["1", "3", "4", ">4"]
 ValueKind: TypeAlias = Literal[
     "alpha",
@@ -56,12 +56,15 @@ ValueKind: TypeAlias = Literal[
 
 DTYPE_UINT8: Final[DTypeName] = "uint8"
 DTYPE_INT16: Final[DTypeName] = "int16"
+DTYPE_FLOAT16: Final[DTypeName] = "float16"
 DTYPE_FLOAT32: Final[DTypeName] = "float32"
 DTYPE_FLOAT64: Final[DTypeName] = "float64"
 DTYPE_OTHER_NUMERIC_FALLBACK: Final[DTypeName] = "other numeric fallback"
 
 LAYOUT_HWC: Final[LayoutName] = "HWC"
 LAYOUT_XHWC: Final[LayoutName] = "XHWC"
+LAYOUT_CHW: Final[LayoutName] = "CHW"
+LAYOUT_NCHW: Final[LayoutName] = "NCHW"
 LAYOUT_DHWC: Final[LayoutName] = "DHWC"
 LAYOUT_CDHW: Final[LayoutName] = "CDHW"
 LAYOUT_NDHWC: Final[LayoutName] = "NDHWC"
@@ -115,6 +118,7 @@ VALUE_TARGET_DTYPE: Final[ValueKind] = "target_dtype"
 ALL_DTYPE_NAMES: Final[tuple[DTypeName, ...]] = (
     DTYPE_UINT8,
     DTYPE_INT16,
+    DTYPE_FLOAT16,
     DTYPE_FLOAT32,
     DTYPE_FLOAT64,
     DTYPE_OTHER_NUMERIC_FALLBACK,
@@ -122,6 +126,8 @@ ALL_DTYPE_NAMES: Final[tuple[DTypeName, ...]] = (
 ALL_LAYOUT_NAMES: Final[tuple[LayoutName, ...]] = (
     LAYOUT_HWC,
     LAYOUT_XHWC,
+    LAYOUT_CHW,
+    LAYOUT_NCHW,
     LAYOUT_DHWC,
     LAYOUT_CDHW,
     LAYOUT_NDHWC,
@@ -171,7 +177,20 @@ ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
 )
 
 HWC_XHWC: Final[tuple[LayoutName, ...]] = (LAYOUT_HWC, LAYOUT_XHWC)
-IMAGE_DTYPES: Final[tuple[DTypeName, ...]] = (DTYPE_UINT8, DTYPE_FLOAT32)
+ARRAY_IMAGE_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_HWC, LAYOUT_XHWC, LAYOUT_DHWC, LAYOUT_NDHWC)
+IMAGE_ROUTER_LAYOUTS: Final[tuple[LayoutName, ...]] = (
+    *ARRAY_IMAGE_LAYOUTS,
+    LAYOUT_CHW,
+    LAYOUT_NCHW,
+    LAYOUT_CDHW,
+    LAYOUT_NCDHW,
+)
+TENSOR_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CHW, LAYOUT_NCHW, LAYOUT_CDHW, LAYOUT_NCDHW)
+TENSOR_IMAGE_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CHW, LAYOUT_NCHW)
+TENSOR_VOLUME_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CDHW,)
+TENSOR_VOLUME_BATCH_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CDHW, LAYOUT_NCDHW)
+IMAGE_DTYPES: Final[tuple[DTypeName, ...]] = (DTYPE_UINT8, DTYPE_FLOAT16, DTYPE_FLOAT32)
+FLOATING_DTYPES: Final[tuple[DTypeName, ...]] = (DTYPE_FLOAT16, DTYPE_FLOAT32)
 IMAGE_CHANNELS: Final[tuple[ChannelSpec, ...]] = (CHANNEL_1, CHANNEL_3, CHANNEL_4, CHANNEL_GT4)
 SCALAR_VECTOR_ARRAY: Final[tuple[ValueKind, ...]] = (
     VALUE_SCALAR,

@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 
 from albucore import arithmetic
 from albucore.functions import (
@@ -12,7 +13,7 @@ from albucore.functions import (
     add_weighted_numpy,
     add_weighted_opencv,
 )
-from albucore.utils import clip
+from albucore.utils import ImageType, clip
 
 
 def test_add_weighted_does_not_clip_float32_result_to_unit_range():
@@ -33,6 +34,165 @@ def test_add_weighted_preserves_float32_values_outside_image_range(weight1: floa
     result = add_weighted(img1, weight1, img2, weight2)
 
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("shape", [(9, 11, 1), (9, 11, 3), (9, 11, 9), (2, 4, 9, 11, 3)])
+@pytest.mark.parametrize(("weight1", "weight2"), [(0.4, 0.6), (1.25, -0.25)])
+def test_add_weighted_float16_matches_wide_result_within_one_ulp(
+    shape: tuple[int, ...],
+    weight1: float,
+    weight2: float,
+) -> None:
+    rng = np.random.default_rng(15)
+    img1 = rng.uniform(-1, 1, size=shape).astype(np.float16)
+    img2 = rng.uniform(-1, 1, size=shape).astype(np.float16)
+    original_img1 = img1.copy()
+    original_img2 = img2.copy()
+    expected = (img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2).astype(np.float16)
+
+    result = add_weighted(img1, weight1, img2, weight2)
+
+    assert result.dtype == np.float16
+    assert result.shape == shape
+    np.testing.assert_array_max_ulp(result, expected, maxulp=1)
+    np.testing.assert_array_equal(img1, original_img1)
+    np.testing.assert_array_equal(img2, original_img2)
+
+
+def test_add_weighted_float16_preserves_wide_accumulation_on_large_cancellation() -> None:
+    large_positive = np.array([0x7BF1], dtype=np.uint16).view(np.float16)[0]
+    cancelling_negative = np.array([0xF94B], dtype=np.uint16).view(np.float16)[0]
+    img1 = np.full((9, 11, 3), large_positive, dtype=np.float16)
+    img2 = np.full_like(img1, cancelling_negative)
+    expected = (img1.astype(np.float32) * np.float32(0.4) + img2.astype(np.float32) * np.float32(0.6)).astype(
+        np.float16,
+    )
+
+    result = add_weighted(img1, 0.4, img2, 0.6)
+
+    np.testing.assert_array_max_ulp(result, expected, maxulp=1)
+
+
+def test_add_weighted_float16_numkong_half_route_matches_binary16_domain(monkeypatch) -> None:
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    calls: list[tuple[float, float]] = []
+    original_numkong = arithmetic.add_weighted_numkong
+
+    def record_numkong(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
+        calls.append((weight1, weight2))
+        return original_numkong(img1, weight1, img2, weight2)
+
+    monkeypatch.setattr(arithmetic, "add_weighted_numkong", record_numkong)
+    bits = np.arange(1 << 16, dtype=np.uint16)
+    exponent = bits & np.uint16(0x7C00)
+    mantissa = bits & np.uint16(0x03FF)
+    non_nan_bits = bits[~((exponent == 0x7C00) & (mantissa != 0))]
+    img1 = np.resize(non_nan_bits, (256, 256, 1)).view(np.float16)
+    img2 = np.ascontiguousarray(np.roll(img1, 12345, axis=1))
+    expected = (
+        img1.astype(np.float32) * np.float32(0.5) + img2.astype(np.float32) * np.float32(0.5)
+    ).astype(np.float16)
+
+    result = add_weighted(img1, 0.5, img2, 0.5)
+
+    assert calls == [(0.5, 0.5)]
+    assert result.shape == img1.shape
+    assert result.dtype == np.float16
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_equal(np.isinf(result), np.isinf(expected))
+    np.testing.assert_array_equal(np.signbit(result[np.isinf(result)]), np.signbit(expected[np.isinf(expected)]))
+    finite = np.isfinite(result) & np.isfinite(expected)
+    np.testing.assert_array_max_ulp(result[finite], expected[finite], maxulp=1)
+    assert not np.shares_memory(result, img1)
+    assert not np.shares_memory(result, img2)
+
+
+def test_add_weighted_float16_numkong_route_skips_other_weights(monkeypatch) -> None:
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+
+    def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
+        msg = "NumKong float16 blend is enabled only for the measured half-exact 0.5/0.5 weights."
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(arithmetic, "add_weighted_numkong", fail_numkong)
+    rng = np.random.default_rng(910_014)
+    img1 = rng.uniform(-1, 1, (240, 320, 3)).astype(np.float16)
+    img2 = rng.uniform(-1, 1, (240, 320, 3)).astype(np.float16)
+    expected = (img1.astype(np.float32) * np.float32(0.4) + img2.astype(np.float32) * np.float32(0.6)).astype(
+        np.float16,
+    )
+
+    result = add_weighted(img1, 0.4, img2, 0.6)
+
+    np.testing.assert_array_max_ulp(result, expected, maxulp=1)
+
+
+@pytest.mark.parametrize("layout", ["CHW", "NCHW"])
+@pytest.mark.parametrize("channels", [3, 9])
+def test_add_weighted_float16_numkong_tensor_route_preserves_layout(
+    monkeypatch,
+    layout: str,
+    channels: int,
+) -> None:
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    calls: list[tuple[float, float]] = []
+    original_numkong = arithmetic.add_weighted_numkong
+
+    def record_numkong(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
+        calls.append((weight1, weight2))
+        return original_numkong(img1, weight1, img2, weight2)
+
+    monkeypatch.setattr(arithmetic, "add_weighted_numkong", record_numkong)
+    batch = 2 if layout == "NCHW" else 1
+    rng = np.random.default_rng(910_011 + channels)
+    img1 = rng.uniform(-1, 1, (batch, 240, 320, channels)).astype(np.float32).astype(np.float16)
+    img2 = (img1.astype(np.float32) * np.float32(0.7)).astype(np.float16)
+    if layout == "CHW":
+        tensor1 = torch.from_numpy(img1[0]).permute(2, 0, 1).contiguous()
+        tensor2 = torch.from_numpy(img2[0]).permute(2, 0, 1).contiguous()
+    else:
+        tensor1 = torch.from_numpy(img1).permute(0, 3, 1, 2).contiguous()
+        tensor2 = torch.from_numpy(img2).permute(0, 3, 1, 2).contiguous()
+    expected = add_weighted(tensor1.to(torch.float32), 0.5, tensor2.to(torch.float32), 0.5, layout=layout).to(
+        torch.float16,
+    )
+    before1, before2 = tensor1.clone(), tensor2.clone()
+
+    result = add_weighted(tensor1, 0.5, tensor2, 0.5, layout=layout)
+
+    assert calls == [(0.5, 0.5)]
+    assert result.shape == tensor1.shape
+    assert result.dtype == torch.float16
+    assert result.data_ptr() != tensor1.data_ptr()
+    assert result.data_ptr() != tensor2.data_ptr()
+    np.testing.assert_array_equal(tensor1.numpy(), before1.numpy())
+    np.testing.assert_array_equal(tensor2.numpy(), before2.numpy())
+    np.testing.assert_array_max_ulp(result.numpy(), expected.numpy(), maxulp=1)
+
+
+def test_add_weighted_float16_numkong_half_route_matches_all_non_nan_patterns(monkeypatch) -> None:
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    bits = np.arange(1 << 16, dtype=np.uint16)
+    exponent = bits & np.uint16(0x7C00)
+    mantissa = bits & np.uint16(0x03FF)
+    non_nan_bits = bits[~((exponent == 0x7C00) & (mantissa != 0))]
+    img1 = np.resize(non_nan_bits, (256, 256, 1)).view(np.float16)
+    img2 = np.ascontiguousarray(np.roll(img1, 12345, axis=1))
+    expected = (
+        img1.astype(np.float32) * np.float32(0.5) + img2.astype(np.float32) * np.float32(0.5)
+    ).astype(np.float16)
+    before1, before2 = img1.copy(), img2.copy()
+
+    result = add_weighted(img1, 0.5, img2, 0.5)
+
+    assert result.shape == img1.shape
+    assert result.dtype == np.float16
+    assert not np.shares_memory(result, img1)
+    assert not np.shares_memory(result, img2)
+    np.testing.assert_array_equal(img1, before1)
+    np.testing.assert_array_equal(img2, before2)
+    np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+    np.testing.assert_array_max_ulp(result[np.isfinite(expected)], expected[np.isfinite(expected)], maxulp=1)
 
 
 @pytest.mark.parametrize(
