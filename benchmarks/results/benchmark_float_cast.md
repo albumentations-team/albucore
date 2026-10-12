@@ -9,8 +9,6 @@ Measured 2026-10-12 with one native thread, five warmups, and 51 balanced repeti
 | M4 Max, macOS 27.0.1, CPython 3.11.11 | 2.4.6 | 7.8.5 | 2.14.1 | 5.0.0 |
 | Xeon model 85, GCP a2-highgpu-1g, CPython 3.13.16 | 2.5.2 | 7.8.5 | 2.14.1+cu130 | 5.0.0 |
 
-The Xeon NumKong 7.8.5 build was isolated under `/tmp`; its training environment was unchanged by this benchmark.
-
 ## Complete crop casts
 
 Shape `(1,32,384,384)`, C-contiguous; medians in milliseconds.
@@ -45,10 +43,8 @@ M4 keeps NumPy for these bridges; all measured public/baseline median ratios rem
 - NaN/infinity, narrowing overflow, and non-default underflow policy retain NumPy casts. Tensor conversion retains Torch error behavior. No scaling, clipping, accumulator, or intermediate-rounding policy changes.
 - Guarded Torch casts into owned NumPy output did not establish a sustained win over guarded NumKong in the Xeon matrix under the median/2-MAD screen. They remain benchmark candidates.
 - Released NumKong 7.8.5 loses to NumPy on M4 even for contiguous input. Strided NumKong is excluded; NumPy preserves order K while NumKong returns C output, so packing must be included in a future comparison. NumKong [#404](https://github.com/ashvardanian/NumKong/issues/404) and [PR #405](https://github.com/ashvardanian/NumKong/pull/405) track that work.
-- Native-half NumPy/Torch exp/log and preallocated RGB batch normalization were slower in the initial probe. LUTs, random generation, and grouped label reductions do not implement this storage cast contract.
-- VoxelPipe has a related `cast_numpy` helper with its own C-output/copy policy; migrating that consumer is outside this change.
 
-Validation: 3,643 local tests pass, including a separate full run forcing the NumKong cast selector. Native AVX-512 regression tests pass: 33 passed, one macOS-specific NaN-payload test skipped. Tests cover finite binary16 encodings, FP32 rounding boundaries, signed zero, special values, `np.errstate`, shape, dtype, source mutation, ownership, readonly/strided inputs, and Tensor storage. Strict typing and 45 router contracts pass.
+Validation: 3,647 local tests pass, including a separate full run forcing the NumKong cast selector. The initial native AVX-512 run passed 33 regression tests and skipped one macOS-specific NaN-payload test. Tests cover finite binary16 encodings, FP32 rounding boundaries, signed zero, special values, `np.errstate`, shape, dtype, source mutation, ownership, readonly/strided inputs, Tensor storage, and fast-route selection. Strict typing and 45 router contracts pass.
 
 ## Reproduce
 

@@ -427,7 +427,7 @@ def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarra
         np.subtract(magnitude_bits, np.uint16(1), out=magnitude_bits)
         has_subnormals = np.min(magnitude_bits) < 0x03FF
         if has_subnormals:
-            return _mean_std_per_channel_float32(cast("ImageFloat32", _cast_float_numpy(arr, np.float32)), eps)
+            return _mean_std_per_channel_float32(_cast_float_numpy(arr, np.float32), eps)
 
     c = arr.shape[-1]
     n = arr.size // c

@@ -5,7 +5,7 @@ Scripts here time **NumKong vs OpenCV / NumPy / LUT** and compare **`albucore.st
 ## Setup
 
 ```bash
-uv sync --extra headless   # OpenCV + NumKong + numpy; required for most tables
+uv sync --extra headless --extra torch
 ```
 
 Run each script from the **repository root** so imports resolve:

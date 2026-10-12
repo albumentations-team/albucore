@@ -6,13 +6,13 @@ import argparse
 import hashlib
 import json
 import platform
-import re
 import sys
 import time
 from functools import partial
 from pathlib import Path
 
 from benchmark_threads import THREAD_COUNT, configure_libraries
+from shape_grids import ROUTER_HWC_FULL_HW
 
 import cv2
 import numkong as nk
@@ -54,17 +54,6 @@ def numkong_cast(image, dtype):
     result = np.empty(image.shape, dtype=dtype)
     nk.astype(image, np.dtype(dtype).name, out=result)
     return result
-
-
-def format_results(result):
-    return (
-        re.sub(
-            r'("(?:samples_ms|shape|strides)": )\[([^\[\]]*)\]',
-            lambda match: match[1] + "[" + " ".join(match[2].split()) + "]",
-            json.dumps(result, indent=2),
-        )
-        + "\n"
-    )
 
 
 def guarded_torch_cast(image, dtype):
@@ -118,7 +107,7 @@ def main():
     settings = configure_libraries(torch, cv2, args.threads)
     rng = np.random.default_rng(183)
     shapes = [(1, 16_383, 1), (1, 16_384, 1), (1, 61_439, 1), (1, 61_440, 1)]
-    shapes += [(h, w, c) for h, w in [(128, 160), (240, 320), (480, 640), (768, 1024)] for c in [1, 3, 9]]
+    shapes += [(h, w, c) for h, w in ROUTER_HWC_FULL_HW for c in [1, 3, 9]]
     shapes += [(16, 128, 160, 1), (32, 128, 160, 3), (32, 240, 320, 1), (1, 32, 384, 384)]
     if args.routers_only:
         shapes = []
@@ -215,7 +204,7 @@ def main():
         "router_rows": router_rows(rng, args.repeats) if args.with_routers or args.routers_only else [],
     }
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
-    args.output_json.write_text(format_results(result))
+    args.output_json.write_text(json.dumps(result, indent=2) + "\n")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 """Exact storage casts, backend boundaries, and allocation contracts."""
 
 import warnings
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -127,6 +128,25 @@ def test_float_cast_preserves_numpy_overflow_warning(numkong_calls):
     assert not numkong_calls
 
 
+@pytest.mark.parametrize("position", [0, -1])
+def test_signaling_nan_warning_matches_numpy(position, numkong_calls):
+    source = np.ones((128, 160, 1), np.float32)
+    source.view(np.uint32).flat[position] = 0x7F800001
+    with warnings.catch_warnings(record=True) as expected_warnings, np.errstate(invalid="warn"):
+        warnings.simplefilter("always")
+        expected = source.astype(np.float16)
+
+    with warnings.catch_warnings(record=True) as actual_warnings, np.errstate(invalid="warn"):
+        warnings.simplefilter("always")
+        actual = from_float(source, np.float16)
+
+    np.testing.assert_array_equal(actual.view(np.uint16), expected.view(np.uint16))
+    assert [(w.category, str(w.message)) for w in actual_warnings] == [
+        (w.category, str(w.message)) for w in expected_warnings
+    ]
+    assert not numkong_calls
+
+
 @pytest.mark.parametrize("dtype", [np.float16, np.float32])
 def test_same_dtype_cast_returns_original_array(dtype, numkong_calls):
     source = np.ones((128, 160, 1), dtype)
@@ -139,11 +159,14 @@ def test_same_dtype_cast_returns_original_array(dtype, numkong_calls):
 @pytest.mark.parametrize("source_dtype,target_dtype", [(torch.float16, torch.float32), (torch.float32, torch.float16)])
 def test_tensor_cast_matches_torch_and_has_independent_storage(shape, source_dtype, target_dtype, monkeypatch):
     monkeypatch.setattr(convert_mod, "_MACOS_ARM64", True)
+    numpy_cast = Mock(wraps=convert_mod._cast_float_numpy)
+    monkeypatch.setattr(convert_mod, "_cast_float_numpy", numpy_cast)
     source = torch.linspace(-2, 2, int(np.prod(shape)), dtype=source_dtype).reshape(shape)
     original = source.clone()
 
     actual = from_float(source, target_dtype)
 
+    assert numpy_cast.call_count == 1
     np.testing.assert_array_equal(actual.numpy(), source.to(target_dtype).numpy())
     assert actual.dtype == target_dtype
     assert actual.shape == source.shape
@@ -152,6 +175,19 @@ def test_tensor_cast_matches_torch_and_has_independent_storage(shape, source_dty
     assert not torch.is_inference(actual)
     actual.zero_()
     np.testing.assert_array_equal(source.numpy(), original.numpy())
+
+
+@pytest.mark.parametrize("size", [61_439, 61_440])
+def test_tensor_numpy_cast_size_boundary(size, monkeypatch):
+    monkeypatch.setattr(convert_mod, "_MACOS_ARM64", True)
+    numpy_cast = Mock(wraps=convert_mod._cast_float_numpy)
+    monkeypatch.setattr(convert_mod, "_cast_float_numpy", numpy_cast)
+    source = torch.linspace(-1, 1, size, dtype=torch.float16).reshape(1, 1, size)
+
+    actual = from_float(source, torch.float32)
+
+    assert numpy_cast.call_count == int(size >= 61_440)
+    np.testing.assert_array_equal(actual.numpy(), source.to(torch.float32).numpy())
 
 
 @pytest.mark.skipif(not convert_mod._MACOS_ARM64, reason="NaN payload equality is specific to the macOS ARM route.")

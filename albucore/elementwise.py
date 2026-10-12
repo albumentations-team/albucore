@@ -62,9 +62,9 @@ def _float16_unary(
         if operation == "exp":
             return cast("ImageFloat16", exp_opencv(array, inplace=mutate))
         if operation == "log":
-            working = cast("ImageFloat32", _cast_float_numpy(array, np.float32))
+            working = _cast_float_numpy(array, np.float32)
             result = cast("ImageFloat32", log_opencv(working))
-            half_result = cast("ImageFloat16", _cast_float_numpy(result, np.float16))
+            half_result = _cast_float_numpy(result, np.float16)
             if mutate:
                 np.copyto(array, half_result)
                 return array
@@ -95,7 +95,7 @@ def _opencv_unary(
         if _can_mutate(array, inplace):
             np.copyto(array, result)
             return array
-        return cast("ImageFloat16", _cast_float_numpy(result, np.float16))
+        return _cast_float_numpy(result, np.float16)
     if array.size == 0:
         return array if inplace else np.empty_like(array)
     result = operation(array, dst=array if inplace else None)

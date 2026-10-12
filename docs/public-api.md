@@ -29,7 +29,8 @@ User-facing entry points with benchmark-driven backends inside:
 - **Elementwise math:** `exp`, `log`, `sqrt` (float16/float32 inputs, uint8 with float32 output, NumPy-compatible special values, exact shape preservation, safe owned-buffer `inplace`)
 - **Uint8 LUT (`albucore.lut`):** `sz_lut`, `apply_uint8_lut` (StringZilla + OpenCV routing; re-exported on `albucore` for star imports)
 - **I/O:** `to_float`, `from_float`
-  Floating `from_float` targets cast without intensity scaling. Large contiguous NumPy FP16↔FP32 casts use NumKong
+  Floating `from_float` targets cast without intensity scaling; Tensor inputs follow the prevalidated CPU,
+  `requires_grad=False`, float16/float32 contract above. Large contiguous NumPy FP16↔FP32 casts use NumKong
   on the measured AVX-512 region; other layouts retain NumPy. Large contiguous macOS ARM Tensor casts use NumPy
   storage conversion and zero-copy Tensor wrapping. Same-dtype calls preserve the input object.
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 import numkong as nk
 import numpy as np
 
 if TYPE_CHECKING:
-    from albucore.utils import ImageFloat16, ImageFloat32, ImageType
+    from numpy.typing import NDArray
 
-_CAPABILITIES = nk.get_capabilities()
-_NUMKONG_X86_CAST = bool(_CAPABILITIES.get("skylake"))
+    from albucore.utils import ImageType
+
+_FloatType = TypeVar("_FloatType", bound=np.float16 | np.float32)
+_NUMKONG_X86_CAST = bool(nk.get_capabilities().get("skylake"))
 _NUMKONG_CAST_MIN_ELEMENTS = 16_384
 _FLOAT_DTYPES = (np.dtype(np.float16), np.dtype(np.float32))
 
@@ -25,8 +27,8 @@ def _numkong_cast_preserves_numpy_errors(image: ImageType) -> bool:
 
 def _cast_float_numpy(
     image: ImageType,
-    dtype: type[np.float16 | np.float32] | np.dtype,
-) -> ImageFloat16 | ImageFloat32:
+    dtype: type[_FloatType] | np.dtype[_FloatType],
+) -> NDArray[_FloatType]:
     """Preserve NumPy cast semantics and ownership in the measured contiguous x86 region."""
     if (
         _NUMKONG_X86_CAST
@@ -34,10 +36,9 @@ def _cast_float_numpy(
         and image.flags.c_contiguous
         and image.dtype != dtype
         and image.dtype in _FLOAT_DTYPES
-        and dtype in _FLOAT_DTYPES
         and _numkong_cast_preserves_numpy_errors(image)
     ):
         result = np.empty(image.shape, dtype=dtype)
-        cast("Any", nk).astype(image, "float32" if dtype == np.float32 else "float16", out=result)
-        return cast("ImageFloat16 | ImageFloat32", result)
-    return cast("ImageFloat16 | ImageFloat32", image.astype(dtype, copy=False))
+        nk.astype(image, "float32" if dtype == np.float32 else "float16", out=result)
+        return cast("NDArray[_FloatType]", result)
+    return cast("NDArray[_FloatType]", image.astype(dtype, copy=False))

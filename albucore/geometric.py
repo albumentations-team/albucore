@@ -24,7 +24,6 @@ from albucore.tensor_bridge import dispatch_tensor_image, tensor_operand_to_nump
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ImageFloat16,
-    ImageFloat32,
     ImageType,
     TensorImageLayout,
     get_num_channels,
@@ -329,14 +328,14 @@ def _warp_affine_float16(
     result = _warp_affine_float16_nearest(img, m, dsize, flags, border_mode, border_value, dst)
     if result is None:
         wide_result = warp_affine(
-            cast("ImageFloat32", _cast_float_numpy(img, np.float32)),
+            _cast_float_numpy(img, np.float32),
             m,
             dsize,
             flags,
             border_mode,
             border_value,
         )
-        result = cast("ImageType", _cast_float_numpy(wide_result, np.float16))
+        result = _cast_float_numpy(wide_result, np.float16)
     if dst is None:
         return result
     np.copyto(dst, result)
@@ -553,14 +552,14 @@ def warp_perspective(
         if nearest_result is not None:
             return nearest_result
         result = warp_perspective(
-            cast("ImageFloat32", _cast_float_numpy(img, np.float32)),
+            _cast_float_numpy(img, np.float32),
             m,
             dsize,
             flags,
             border_mode,
             border_value,
         )
-        restored = cast("ImageType", _cast_float_numpy(result, np.float16))
+        restored = _cast_float_numpy(result, np.float16)
         if dst is not None:
             np.copyto(dst, restored)
             return dst
@@ -843,14 +842,14 @@ def remap(
         if nearest_result is not None:
             return nearest_result
         result = remap(
-            cast("ImageFloat32", _cast_float_numpy(img, np.float32)),
+            _cast_float_numpy(img, np.float32),
             map_x,
             map_y,
             interpolation,
             border_mode,
             border_value,
         )
-        restored = cast("ImageType", _cast_float_numpy(result, np.float16))
+        restored = _cast_float_numpy(result, np.float16)
         if dst is not None:
             np.copyto(dst, restored)
             return dst
@@ -999,8 +998,8 @@ def resize(
         nearest_result = _resize_float16_nearest(img, dsize, fx, fy, interpolation)
         if nearest_result is not None:
             return nearest_result
-        result = resize(cast("ImageFloat32", _cast_float_numpy(img, np.float32)), dsize, fx, fy, interpolation)
-        return cast("ImageType", _cast_float_numpy(result, np.float16))
+        result = resize(_cast_float_numpy(img, np.float32), dsize, fx, fy, interpolation)
+        return _cast_float_numpy(result, np.float16)
 
     # Calculate actual output size only if dsize is (0, 0), matching cv2.resize semantics
     if dsize[0] == 0 and dsize[1] == 0:
@@ -1346,7 +1345,7 @@ def resize3d(
         if volume.shape[:3] == size:
             return volume
         if volume.dtype == np.float16:
-            float32_volume = cast("np.ndarray", _cast_float_numpy(volume, np.float32))
+            float32_volume = _cast_float_numpy(volume, np.float32)
             result = _resize3d_numpy(float32_volume, size, interpolation, antialias)
             return _cast_float_numpy(result, np.float16)
         return _resize3d_numpy(volume, size, interpolation, antialias)

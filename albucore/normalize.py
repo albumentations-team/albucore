@@ -128,8 +128,8 @@ def normalize_per_image_opencv(
         - Single channel images treated as "image" normalization when "image_per_channel" is specified
     """
     if img.dtype == np.float16:
-        result = normalize_per_image_opencv(cast("ImageFloat32", _cast_float_numpy(img, np.float32)), normalization)
-        return cast("ImageFloat16", _cast_float_numpy(result, np.float16))
+        result = normalize_per_image_opencv(_cast_float_numpy(img, np.float32), normalization)
+        return _cast_float_numpy(result, np.float16)
 
     # Handle single-channel edge case
     if img.shape[-1] == 1 and normalization == "image_per_channel":
@@ -190,7 +190,7 @@ def normalize_per_image_numpy(
         - Uses in-place operations where possible for memory efficiency
         - Generally slower than the OpenCV version but more portable
     """
-    img_f = cast("ImageFloat32", _cast_float_numpy(img, np.float32))
+    img_f = _cast_float_numpy(img, np.float32)
     eps = DEFAULT_EPS
 
     if normalization == "image":
@@ -391,12 +391,12 @@ def normalize_per_image(
         else:
             result = normalize_per_image_opencv(cast("ImageFloat32", img), normalization)
     elif img.dtype == np.float16:
-        float32_img = cast("ImageFloat32", _cast_float_numpy(img, np.float32))
+        float32_img = _cast_float_numpy(img, np.float32)
         if normalization == "image":
             float32_result = normalize_per_image_numpy(float32_img, normalization)
         else:
             float32_result = normalize_per_image_opencv(float32_img, normalization)
-        result = cast("ImageFloat16", _cast_float_numpy(float32_result, np.float16))
+        result = _cast_float_numpy(float32_result, np.float16)
     elif img.ndim > 3:
         result = normalize_per_image_numpy(img, normalization)
     else:
