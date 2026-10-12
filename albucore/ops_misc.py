@@ -11,6 +11,7 @@ import numkong as nk
 import numpy as np
 import torch
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.convert import from_float, to_float
 from albucore.decorators import preserve_channel_dim
 from albucore.tensor_bridge import dispatch_tensor_image
@@ -172,7 +173,7 @@ def float32_io(func: Callable[..., ImageType]) -> Callable[..., ImageType | torc
             return dispatch_tensor_image(img, layout, float32_wrapper, *args, **kwargs)
         input_dtype = img.dtype
         if input_dtype == np.float16:
-            img = cast("ImageFloat32", img.astype(np.float32))
+            img = _cast_float_numpy(img, np.float32)
         elif input_dtype != np.float32:
             img = to_float(img)
         result = func(img, *args, **kwargs)
@@ -223,7 +224,7 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType | torch.
         if input_dtype == np.uint8:
             return result
         restored = to_float(result)
-        return cast("ImageFloat16", restored.astype(np.float16)) if input_dtype == np.float16 else restored
+        return _cast_float_numpy(restored, np.float16) if input_dtype == np.float16 else restored
 
     return uint8_wrapper
 
@@ -240,8 +241,7 @@ def _median_blur_float16_single_channel_5(img: ImageFloat16) -> ImageFloat16:
     bits = img.view(np.uint16)
     # The ordered keys distinguish signed zeros, while the float32 median treats them as equal.
     if np.isnan(img).any() or (np.any(bits == 0) and np.any(bits == np.uint16(0x8000))):
-        result = cv2.medianBlur(img.astype(np.float32), 5).astype(np.float16)
-        return cast("ImageFloat16", result)
+        return _cast_float_numpy(cv2.medianBlur(_cast_float_numpy(img, np.float32), 5), np.float16)
 
     negative = (bits & np.uint16(0x8000)) != 0
     ordered = np.empty_like(bits)
@@ -301,12 +301,15 @@ def median_blur(
     ):
         result = _median_blur_float16_single_channel_5(cast("ImageFloat16", img))
     elif img.dtype == np.float16 and ksize in (3, 5):
-        result = cv2.medianBlur(img.astype(np.float32), ksize)
-        result = cast("ImageFloat16", result.astype(np.float16))
+        result = cv2.medianBlur(_cast_float_numpy(img, np.float32), ksize)
+        result = _cast_float_numpy(result, np.float16)
     elif img.dtype == np.float16:
-        quantized = cast("ImageUInt8", from_float(cast("ImageFloat32", img.astype(np.float32)), np.dtype(np.uint8)))
+        quantized = cast(
+            "ImageUInt8",
+            from_float(_cast_float_numpy(img, np.float32), np.dtype(np.uint8)),
+        )
         filtered = to_float(_median_blur_uint8(quantized, ksize))
-        result = cast("ImageFloat16", filtered.astype(np.float16))
+        result = _cast_float_numpy(filtered, np.float16)
     else:
         uint8_img = cast("ImageUInt8", from_float(cast("ImageFloat32", img), np.dtype(np.uint8)))
         result = to_float(_median_blur_uint8(uint8_img, ksize))
@@ -376,8 +379,8 @@ def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.nda
         return torch.from_numpy(cast("np.ndarray", matmul(a.numpy(), b.numpy())))
 
     if a.dtype == np.float16:
-        result = matmul(a.astype(np.float32), b.astype(np.float32))
-        return cast("np.ndarray", result.astype(np.float16))
+        result = matmul(_cast_float_numpy(a, np.float32), _cast_float_numpy(b, np.float32))
+        return _cast_float_numpy(result, np.float16)
 
     if (
         _IS_MACOS_ARM64

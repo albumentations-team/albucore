@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.affine3d import warp_affine3d
 from albucore.decorators import preserve_channel_dim
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
@@ -23,7 +24,6 @@ from albucore.tensor_bridge import dispatch_tensor_image, tensor_operand_to_nump
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ImageFloat16,
-    ImageFloat32,
     ImageType,
     TensorImageLayout,
     get_num_channels,
@@ -328,14 +328,14 @@ def _warp_affine_float16(
     result = _warp_affine_float16_nearest(img, m, dsize, flags, border_mode, border_value, dst)
     if result is None:
         wide_result = warp_affine(
-            cast("ImageFloat32", img.astype(np.float32)),
+            _cast_float_numpy(img, np.float32),
             m,
             dsize,
             flags,
             border_mode,
             border_value,
         )
-        result = cast("ImageType", wide_result.astype(np.float16))
+        result = _cast_float_numpy(wide_result, np.float16)
     if dst is None:
         return result
     np.copyto(dst, result)
@@ -552,14 +552,14 @@ def warp_perspective(
         if nearest_result is not None:
             return nearest_result
         result = warp_perspective(
-            cast("ImageFloat32", img.astype(np.float32)),
+            _cast_float_numpy(img, np.float32),
             m,
             dsize,
             flags,
             border_mode,
             border_value,
         )
-        restored = cast("ImageType", result.astype(np.float16))
+        restored = _cast_float_numpy(result, np.float16)
         if dst is not None:
             np.copyto(dst, restored)
             return dst
@@ -842,14 +842,14 @@ def remap(
         if nearest_result is not None:
             return nearest_result
         result = remap(
-            cast("ImageFloat32", img.astype(np.float32)),
+            _cast_float_numpy(img, np.float32),
             map_x,
             map_y,
             interpolation,
             border_mode,
             border_value,
         )
-        restored = cast("ImageType", result.astype(np.float16))
+        restored = _cast_float_numpy(result, np.float16)
         if dst is not None:
             np.copyto(dst, restored)
             return dst
@@ -998,8 +998,8 @@ def resize(
         nearest_result = _resize_float16_nearest(img, dsize, fx, fy, interpolation)
         if nearest_result is not None:
             return nearest_result
-        result = resize(cast("ImageFloat32", img.astype(np.float32)), dsize, fx, fy, interpolation)
-        return cast("ImageType", result.astype(np.float16))
+        result = resize(_cast_float_numpy(img, np.float32), dsize, fx, fy, interpolation)
+        return _cast_float_numpy(result, np.float16)
 
     # Calculate actual output size only if dsize is (0, 0), matching cv2.resize semantics
     if dsize[0] == 0 and dsize[1] == 0:
@@ -1092,13 +1092,13 @@ def _resize3d_numpy_linear_axis(volume: np.ndarray, axis: int, output_size: int)
 
 def _resize3d_numpy_linear_three_pass(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
     """Resize DHWC linearly with full-float intermediates and one final uint8 rounding step."""
-    result = volume.astype(np.float32, copy=False)
+    result = _cast_float_numpy(volume, np.float32)
     for axis, output_size in enumerate(size):
         result = _resize3d_numpy_linear_axis(result, axis, output_size)
     if volume.dtype == np.uint8:
         return np.asarray(np.minimum(result + np.float32(0.5), np.float32(255)).astype(np.uint8))
     if volume.dtype == np.float16:
-        return result.astype(np.float16)
+        return _cast_float_numpy(result, np.float16)
     return result
 
 
@@ -1265,10 +1265,10 @@ def _resize3d_torch_via_numpy(
     numpy_volume = volume.permute(1, 2, 3, 0).numpy()
     restore_half = volume.dtype == torch.float16
     if restore_half:
-        numpy_volume = numpy_volume.astype(np.float32)
+        numpy_volume = _cast_float_numpy(numpy_volume, np.float32)
     resized = _resize3d_numpy(numpy_volume, size, interpolation, antialias=False)
     if restore_half:
-        resized = resized.astype(np.float16)
+        resized = _cast_float_numpy(resized, np.float16)
     return torch.from_numpy(resized).permute(3, 0, 1, 2)
 
 
@@ -1345,9 +1345,9 @@ def resize3d(
         if volume.shape[:3] == size:
             return volume
         if volume.dtype == np.float16:
-            float32_volume = cast("np.ndarray", volume.astype(np.float32))
+            float32_volume = _cast_float_numpy(volume, np.float32)
             result = _resize3d_numpy(float32_volume, size, interpolation, antialias)
-            return result.astype(np.float16)
+            return _cast_float_numpy(result, np.float16)
         return _resize3d_numpy(volume, size, interpolation, antialias)
 
     if tuple(volume.shape[1:]) == size:
