@@ -318,6 +318,9 @@ def median_blur(
 def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     """Multiply NumPy matrices or CPU Tensors, preserving the input container.
 
+    Tensor inputs must be on CPU with ``requires_grad=False``. Callers validate
+    these preconditions before dispatch.
+
     Args:
         a: First matrix, shape (M, K), dtype float16, float32, float64, or uint8.
         b: Second matrix, shape (K, N), with the same container as ``a``.
