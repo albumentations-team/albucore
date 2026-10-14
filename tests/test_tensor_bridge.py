@@ -111,6 +111,21 @@ def test_layout_aware_tensor_shape_helpers_and_clip() -> None:
     assert metadata == {"dtype": torch.float32, "height": 5, "width": 7, "num_channels": 3}
 
 
+@pytest.mark.parametrize(
+    ("key", "shape"),
+    [("image", (3, 5, 7)), ("images", (2, 3, 5, 7)), ("volume", (3, 2, 5, 7))],
+)
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32])
+def test_tensor_metadata_uses_the_selected_key_layout(key: str, shape: tuple[int, ...], dtype: torch.dtype) -> None:
+    tensor = torch.zeros(shape, dtype=dtype)
+    data = {"volume": torch.zeros((9, 11, 13, 17)), "images": torch.zeros((4, 9, 13, 17))}
+    if key == "volume":
+        del data["images"]
+    data[key] = tensor
+
+    assert get_image_data(data) == {"dtype": dtype, "height": 5, "width": 7, "num_channels": 3}
+
+
 def test_clipped_decorator_supports_tensor_results() -> None:
     @clipped
     def double(image: torch.Tensor) -> torch.Tensor:

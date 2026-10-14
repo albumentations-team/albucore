@@ -25,6 +25,7 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
+from shape_grids import parse_dhwc_shape
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
@@ -275,19 +276,6 @@ def _format_rows(rows: list[Row]) -> list[str]:
     return lines
 
 
-def _parse_shape(value: str) -> tuple[int, int, int, int]:
-    """Parse one comma-separated DHWC shape for an isolated memory or routing benchmark cell."""
-    try:
-        shape = tuple(int(axis_size) for axis_size in value.split(","))
-    except ValueError as error:
-        msg = f"--shape must be four comma-separated positive integers, got {value!r}."
-        raise argparse.ArgumentTypeError(msg) from error
-    if len(shape) != 4 or any(axis_size <= 0 for axis_size in shape):
-        msg = f"--shape must be four comma-separated positive integers, got {value!r}."
-        raise argparse.ArgumentTypeError(msg)
-    return shape  # type: ignore[return-value]
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     shape_group = parser.add_mutually_exclusive_group()
@@ -296,7 +284,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--shape",
         action="append",
-        type=_parse_shape,
+        type=parse_dhwc_shape,
         help="Benchmark one explicit DHWC shape; repeat the option for an isolated subset.",
     )
     parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")

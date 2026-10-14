@@ -106,7 +106,6 @@ def test_normalize_per_image_lut_single_channel_preserves_channel_dim(normalizat
     assert result.dtype == np.float32
 
 
-# Parameterize tests for all combinations
 @pytest.mark.parametrize(
     "shape",
     [
@@ -138,17 +137,14 @@ def test_normalize_per_image(shape, normalization, dtype):
     else:  # float32
         img = np.random.random(size=shape).astype(dtype) * 255
 
-    # Normalize the image
     normalized_img = normalize_per_image(img, normalization)
 
     assert normalized_img.dtype == np.float32, "Output dtype should be float32"
     assert normalized_img.shape == img.shape, "Output shape should match input shape"
 
-    # Assert the output shape matches the input shape
     assert normalized_img.shape == img.shape, "Output shape should match input shape"
     assert normalized_img.dtype == np.float32, "Output dtype should be float32"
 
-    # Additional checks based on normalization type
     if normalization in ["min_max", "min_max_per_channel"]:
         # For min-max normalization, values should be in [0, 1]
         assert abs(normalized_img.min()) < 1e-6, "Min value should be >= 0"
@@ -163,7 +159,6 @@ def test_normalize_per_image(shape, normalization, dtype):
             )
             assert np.isclose(normalized_img.std(), 1, atol=1e-3), "STD should be close to 1 for 'image' normalization"
         elif normalization == "image_per_channel":
-            # Check channel-wise normalization for multi-channel images
             if len(shape) == 3 and shape[2] > 1:
                 for c in range(shape[2]):
                     channel_mean = normalized_img[:, :, c].mean()
@@ -198,7 +193,6 @@ def test_normalize_per_image(shape, normalization, dtype):
 def test_normalize_per_image_constant(shape, normalization, dtype):
     img = np.ones(shape).astype(dtype)
 
-    # Normalize the image
     normalized_img = normalize_per_image(img, normalization)
     np.testing.assert_array_equal(normalized_img, np.zeros_like(normalized_img))
 
@@ -219,29 +213,23 @@ def test_normalize_consistency_across_shapes(normalization, dtype):
     Verifies that:
     - normalized_image == normalized_images[0] (for batch of identical images)
     """
-    # Set random seed for reproducibility
     np.random.seed(42)
 
-    # Create a base image
     H, W, C = 64, 64, 3
     if dtype == np.uint8:
         image = np.random.randint(0, 256, size=(H, W, C), dtype=dtype)
     else:
         image = np.random.randn(H, W, C).astype(dtype)
 
-    # Create batch of identical images
     N = 4
     images = np.stack([image] * N, axis=0)  # (N, H, W, C)
 
-    # Normalize each shape
     normalized_image = normalize_per_image(image, normalization)
     normalized_images = normalize_per_image(images, normalization)
 
-    # Verify shapes are preserved
     assert normalized_image.shape == image.shape, "Single image shape mismatch"
     assert normalized_images.shape == images.shape, "Batch shape mismatch"
 
-    # Verify consistency
     # normalized_image should equal normalized_images[0]
     # For image_per_channel, we need slightly higher tolerance due to
     # differences between OpenCV and numpy implementations
@@ -278,37 +266,30 @@ def test_normalize_consistency_across_shapes(normalization, dtype):
     ],
 )
 def test_normalize_per_image_preserves_original(dtype, shape, normalization):
-    """Test that normalize_per_image functions don't modify the original image."""
-    # Create test image
     if dtype == np.uint8:
         original_img = np.random.randint(0, 256, size=shape, dtype=dtype)
     else:
         original_img = np.random.randn(*shape).astype(dtype)
 
-    # Make a copy to compare later
     img_copy = original_img.copy()
 
-    # Test main normalize_per_image function
     _ = normalize_per_image(original_img, normalization)
     np.testing.assert_array_equal(
         original_img, img_copy, err_msg=f"normalize_per_image('{normalization}') modified the original image"
     )
 
-    # Test normalize_per_image_numpy
     original_img = img_copy.copy()
     _ = normalize_per_image_numpy(original_img, normalization)
     np.testing.assert_array_equal(
         original_img, img_copy, err_msg=f"normalize_per_image_numpy('{normalization}') modified the original image"
     )
 
-    # Test normalize_per_image_opencv
     original_img = img_copy.copy()
     _ = normalize_per_image_opencv(original_img, normalization)
     np.testing.assert_array_equal(
         original_img, img_copy, err_msg=f"normalize_per_image_opencv('{normalization}') modified the original image"
     )
 
-    # Test normalize_per_image_lut for uint8 only
     if dtype == np.uint8:
         original_img = img_copy.copy()
         _ = normalize_per_image_lut(original_img, normalization)

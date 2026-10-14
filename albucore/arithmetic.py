@@ -722,13 +722,8 @@ def normalize_numpy(
         n_dim = img.ndim
         c = int(img.shape[-1])
 
-        def _broadcast_last(x: np.ndarray | np.float32) -> np.ndarray | np.float32:
-            if isinstance(x, np.ndarray) and x.shape == (c,):
-                return x.reshape((1,) * (n_dim - 1) + (c,))
-            return x
-
-        mean_b = _broadcast_last(mean_f)
-        denom_b = _broadcast_last(denom_f)
+        mean_b = _broadcast_channel_vector(mean_f, n_dim, c)
+        denom_b = _broadcast_channel_vector(denom_f, n_dim, c)
         offset = mean_b * denom_b
         result = cast("ImageFloat32", np.multiply(img, denom_b, dtype=np.float32))
         np.subtract(result, offset, out=result)

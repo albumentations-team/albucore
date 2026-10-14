@@ -15,6 +15,7 @@ import numpy as np
 
 import albucore as ac
 from benchmarks.shape_grids import MEMORY_SMOKE_C9_SHAPE, MEMORY_SMOKE_RGB_SHAPE
+from tools.golden_vectors import float32_image, uint8_image
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,16 +27,6 @@ class MemoryCase:
 
     name: str
     run: Callable[[], object]
-
-
-def _uint8_image(shape: tuple[int, ...]) -> np.ndarray:
-    data = np.arange(np.prod(shape), dtype=np.uint32).reshape(shape)
-    return np.ascontiguousarray((data * 37 + 13) % 256, dtype=np.uint8)
-
-
-def _float32_image(shape: tuple[int, ...]) -> np.ndarray:
-    data = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
-    return np.ascontiguousarray(data / np.float32(max(data.size - 1, 1)), dtype=np.float32)
 
 
 def _shared_lut() -> np.ndarray:
@@ -51,10 +42,10 @@ def _per_channel_lut(channels: int) -> np.ndarray:
 
 
 def _cases() -> tuple[MemoryCase, ...]:
-    uint8_rgb = _uint8_image(MEMORY_SMOKE_RGB_SHAPE)
-    uint8_c9 = _uint8_image(MEMORY_SMOKE_C9_SHAPE)
-    float_rgb = _float32_image(MEMORY_SMOKE_RGB_SHAPE)
-    float_c9 = _float32_image(MEMORY_SMOKE_C9_SHAPE)
+    uint8_rgb = uint8_image(MEMORY_SMOKE_RGB_SHAPE)
+    uint8_c9 = uint8_image(MEMORY_SMOKE_C9_SHAPE)
+    float_rgb = float32_image(MEMORY_SMOKE_RGB_SHAPE)
+    float_c9 = float32_image(MEMORY_SMOKE_C9_SHAPE)
     mean_rgb = np.array([0.4, 0.5, 0.6], dtype=np.float32)
     denom_rgb = np.array([2.0, 2.0, 2.0], dtype=np.float32)
     factor = np.full(float_rgb.shape, np.float32(1.02), dtype=np.float32)

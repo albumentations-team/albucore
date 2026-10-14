@@ -8,7 +8,6 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageType, clip
 @pytest.mark.parametrize(
     "img, value, factor, expected_output",
     [
-        # Test case 1: Both factor and value are 1, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             1.0,
@@ -28,35 +27,30 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageType, clip
             1.0,
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
         ),
-        # Test case 2: Different factor and value, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             2.0,
             0.5,
             np.array([[2, 3], [3, 4]], dtype=np.uint8),
         ),
-        # Test case 3: Zero factor and value, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             0.0,
             0.0,
             np.array([[0, 0], [0, 0]], dtype=np.uint8),
         ),
-        # Test case 4: Factor 1 and value 0, image of type uint8
         (
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
             0.0,
             1.0,
             np.array([[1, 2], [3, 4]], dtype=np.uint8),
         ),
-        # Test case 5: Both factor and value are 1, image of type float32
         (
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             1.0,
             1.0,
             np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float32),
         ),
-        # Test case 6: Different factor and value, image of type float32
         (
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             0.5,

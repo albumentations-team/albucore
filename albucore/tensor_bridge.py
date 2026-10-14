@@ -130,10 +130,9 @@ def _tensor_reduction_axes_to_numpy(axis: Any, layout: TensorLayout) -> Any:
     if axis is None or isinstance(axis, str):
         return axis
     channel_last_axes = _CHANNEL_LAST_TO_TENSOR[layout]
-    tensor_axis_to_numpy = dict(enumerate(channel_last_axes))
     rank = len(channel_last_axes)
     tensor_axes = (axis,) if isinstance(axis, int) else tuple(axis)
-    return tuple(tensor_axis_to_numpy[int(tensor_axis) % rank] for tensor_axis in tensor_axes)
+    return tuple(channel_last_axes[int(tensor_axis) % rank] for tensor_axis in tensor_axes)
 
 
 def _reduction_result_to_tensor(

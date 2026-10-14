@@ -26,6 +26,7 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
+from shape_grids import parse_dhwc_shape
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore
@@ -189,26 +190,13 @@ def _format_rows(rows: list[Row]) -> list[str]:
     return lines
 
 
-def _parse_shape(value: str) -> Shape:
-    """Parse one non-batched ``D,H,W,C`` shape."""
-    try:
-        shape = tuple(int(axis_size) for axis_size in value.split(","))
-    except ValueError as error:
-        msg = f"--shape must be four comma-separated positive integers, got {value!r}."
-        raise argparse.ArgumentTypeError(msg) from error
-    if len(shape) != 4 or any(axis_size <= 0 for axis_size in shape):
-        msg = f"--shape must be four comma-separated positive integers, got {value!r}."
-        raise argparse.ArgumentTypeError(msg)
-    return shape
-
-
 def _parse_args() -> argparse.Namespace:
     """Read timing controls."""
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--quick", action="store_true", help="Use small and thin-slab shapes.")
     group.add_argument("--full", action="store_true", help="Use the full canonical DHWC matrix.")
-    parser.add_argument("--shape", action="append", type=_parse_shape, help="Benchmark an explicit DHWC shape.")
+    parser.add_argument("--shape", action="append", type=parse_dhwc_shape, help="Benchmark an explicit DHWC shape.")
     parser.add_argument("--threads", type=int, default=1, help="CPU thread count; default baseline is 1.")
     parser.add_argument("--repeats", type=int, default=11, help="Timed repetitions per cell.")
     parser.add_argument("--warmup", type=int, default=3, help="Untimed warmups per cell.")

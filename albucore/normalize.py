@@ -47,12 +47,10 @@ def _normalize_mean_std_opencv(img: ImageType, mean: float | np.ndarray, std: fl
     """Apply mean-std normalization using OpenCV or NumPy based on dimensionality."""
     img_f = _cast_float_numpy(img, np.float32)
     if img_f.ndim > 3 or (img_f.ndim == 3 and img_f.shape[-1] > MAX_OPENCV_WORKING_CHANNELS):
-        # Use NumPy operations for 4D arrays and 3D images with >4 channels.
         mean_arr = np.asarray(mean, dtype=np.float32)
         std_arr = np.asarray(std, dtype=np.float32)
         normalized_img = cast("ImageFloat32", (img_f - mean_arr) / std_arr)
     else:
-        # Use OpenCV for 3D images up to 4 channels.
         mean_cv2: Any = mean if np.isscalar(mean) else np.asarray(mean, dtype=np.float32)
         std_cv2: Any = std if np.isscalar(std) else np.asarray(std, dtype=np.float32)
         normalized_img = cast(
@@ -101,37 +99,19 @@ def normalize_per_image_opencv(
     img: ImageType,
     normalization: NormalizationType,
 ) -> ImageFloat16 | ImageFloat32:
-    """Normalize an image using OpenCV operations based on the specified normalization type.
+    """Normalize with OpenCV and NumPy kernels for :func:`normalize_per_image` modes.
 
-    This function normalizes an image using various strategies, optimized with OpenCV operations
-    for better performance on standard image types.
-
-    Args:
-        img: Input image as a numpy array with shape (H, W, C).
-        normalization: Type of normalization to apply. Options are:
-            - "image": Normalize using global mean and std across all pixels
-            - "image_per_channel": Normalize each channel separately using its own mean and std
-            - "min_max": Scale to [0, 1] using global min and max values
-            - "min_max_per_channel": Scale each channel to [0, 1] using per-channel min and max
-
-    Returns:
-        Normalized image as float32 array with values clipped to [-20, 20] range to prevent
-        extreme values that could cause training instability.
+    Mean/std modes clip to [-20, 20]; min/max modes scale to [0, 1].
+    Float16 inputs compute in float32 and return float16; uint8 and float32
+    inputs return float32. Single-channel per-channel modes use global statistics.
 
     Raises:
-        ValueError: If an unknown normalization method is specified.
-
-    Notes:
-        - The function automatically converts input to float32
-        - Adds epsilon (1e-4) to std deviation to prevent division by zero
-        - For images with >4 channels, falls back to array operations as OpenCV has limitations
-        - Single channel images treated as "image" normalization when "image_per_channel" is specified
+        ValueError: If the normalization mode is unknown.
     """
     if img.dtype == np.float16:
         result = normalize_per_image_opencv(_cast_float_numpy(img, np.float32), normalization)
         return _cast_float_numpy(result, np.float16)
 
-    # Handle single-channel edge case
     if img.shape[-1] == 1 and normalization == "image_per_channel":
         normalization = "image"
     if img.shape[-1] == 1 and normalization == "min_max_per_channel":
@@ -139,22 +119,21 @@ def normalize_per_image_opencv(
 
     if normalization == "image":
         mean_scalar, std_scalar = _compute_image_stats_opencv(img)
-        return _restore_float_image_dtype(img, _normalize_mean_std_opencv(img, mean_scalar, std_scalar))
+        return _normalize_mean_std_opencv(img, mean_scalar, std_scalar)
 
     if normalization == "image_per_channel":
         mean_arr, std_arr = _compute_per_channel_stats_opencv(img)
-        return _restore_float_image_dtype(img, _normalize_mean_std_opencv(img, mean_arr, std_arr))
+        return _normalize_mean_std_opencv(img, mean_arr, std_arr)
 
     if normalization == "min_max":
         dst = np.empty_like(img, dtype=np.float32)
-        result = cast(
+        return cast(
             "ImageFloat32",
             cv2.normalize(img, dst, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F),
         )
-        return _restore_float_image_dtype(img, result)
 
     if normalization == "min_max_per_channel":
-        return _restore_float_image_dtype(img, _normalize_min_max_per_channel_opencv(img))
+        return _normalize_min_max_per_channel_opencv(img)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
 
@@ -164,31 +143,14 @@ def normalize_per_image_numpy(
     img: ImageType,
     normalization: NormalizationType,
 ) -> ImageFloat16 | ImageFloat32:
-    """Normalize an image using pure NumPy operations based on the specified normalization type.
+    """Normalize with NumPy kernels for :func:`normalize_per_image` modes.
 
-    This function provides the same normalization strategies as normalize_per_image_opencv but uses
-    pure NumPy operations. This can be useful for compatibility or when OpenCV is not available.
-
-    Args:
-        img: Input image as a numpy array with shape (H, W, C).
-        normalization: Type of normalization to apply. Options are:
-            - "image": Normalize using global mean and std across all pixels
-            - "image_per_channel": Normalize each channel separately using its own mean and std
-            - "min_max": Scale to [0, 1] using global min and max values
-            - "min_max_per_channel": Scale each channel to [0, 1] using per-channel min and max
-
-    Returns:
-        Normalized image as float32 array with values clipped to [-20, 20] range to prevent
-        extreme values that could cause training instability.
+    Mean/std modes clip to [-20, 20]; min/max modes scale to [0, 1].
+    Computation uses float32 with epsilon 1e-4 in the denominator.
+    Float16 input returns float16; uint8 and float32 inputs return float32.
 
     Raises:
-        ValueError: If an unknown normalization method is specified.
-
-    Notes:
-        - The function automatically converts input to float32
-        - Adds epsilon (1e-4) to std deviation to prevent division by zero
-        - Uses in-place operations where possible for memory efficiency
-        - Generally slower than the OpenCV version but more portable
+        ValueError: If the normalization mode is unknown.
     """
     img_f = _cast_float_numpy(img, np.float32)
     eps = DEFAULT_EPS
@@ -235,11 +197,6 @@ def _create_min_max_lut(img_min: float, img_max: float, max_value: float, eps: f
     return lut.clip(0, 1).astype(np.float32)
 
 
-def _apply_per_channel_lut(img: ImageUInt8, luts: np.ndarray, num_channels: int) -> ImageFloat32:
-    """Apply per-channel LUTs to an image."""
-    return _apply_float_lut(img, luts)
-
-
 def _normalize_image_lut(img: ImageUInt8, max_value: float, eps: float) -> ImageFloat32:
     """Normalize using global mean and std with LUT."""
     m, s = mean_std(img, "global", eps=eps)
@@ -256,7 +213,7 @@ def _normalize_image_per_channel_lut(img: ImageUInt8, max_value: float, eps: flo
     std_lut = np.asarray(pixel_std, dtype=np.float32).reshape(1, 1, num_channels)
     luts = ((arange_vals - mean_lut) / std_lut).clip(-20, 20).astype(np.float32)
 
-    return _apply_per_channel_lut(img, luts, num_channels)
+    return _apply_float_lut(img, luts)
 
 
 def _normalize_min_max_lut(img: ImageUInt8, max_value: float, eps: float) -> ImageFloat32:
@@ -281,7 +238,7 @@ def _normalize_min_max_per_channel_lut(
     img_max_lut = np.asarray(img_max, dtype=np.float32).reshape(1, 1, num_channels)
     luts = ((arange_vals - img_min_lut) / (img_max_lut - img_min_lut + eps)).clip(0, 1).astype(np.float32)
 
-    return _apply_per_channel_lut(img, luts, num_channels)
+    return _apply_float_lut(img, luts)
 
 
 @preserve_channel_dim
@@ -289,39 +246,20 @@ def normalize_per_image_lut(
     img: ImageUInt8,
     normalization: NormalizationType,
 ) -> ImageFloat32:
-    """Normalize an image using lookup tables (LUT) for optimized performance on uint8 images.
+    """Normalize uint8 inputs through shared or per-channel lookup tables.
 
-    This function implements the same normalization strategies but uses pre-computed lookup tables
-    for extremely fast normalization of uint8 images. This is the fastest method for uint8 data.
-
-    Args:
-        img: Input image as a numpy array with uint8 dtype and shape (H, W, C).
-        normalization: Type of normalization to apply. Options are:
-            - "image": Normalize using global mean and std across all pixels
-            - "image_per_channel": Normalize each channel separately using its own mean and std
-            - "min_max": Scale to [0, 1] using global min and max values
-            - "min_max_per_channel": Scale each channel to [0, 1] using per-channel min and max
-
-    Returns:
-        Normalized image as float32 array with values clipped to [-20, 20] range to prevent
-        extreme values that could cause training instability.
+    Uses the modes from :func:`normalize_per_image`. Mean/std modes clip to
+    [-20, 20]; min/max modes scale to [0, 1]. Returns float32 with the input shape.
+    Single-channel per-channel modes use global statistics.
 
     Raises:
-        ValueError: If an unknown normalization method is specified.
-
-    Notes:
-        - Designed specifically for uint8 images for maximum performance
-        - Creates a 256-element lookup table mapping each possible uint8 value to its normalized value
-        - Uses OpenCV's LUT function for fast application of the transformation
-        - For per-channel normalization, creates separate LUTs for each channel
-        - Single channel images treated as "image" normalization when "image_per_channel" is specified
+        ValueError: If the normalization mode is unknown.
     """
     max_value = MAX_VALUES_BY_DTYPE[img.dtype]
     eps = 1e-4
     num_channels = get_num_channels(img)
     is_single_channel = img.shape[-1] == 1
 
-    # Handle single-channel edge cases
     if is_single_channel and normalization in ("image_per_channel", "min_max_per_channel"):
         normalization = "image" if normalization == "image_per_channel" else "min_max"
 

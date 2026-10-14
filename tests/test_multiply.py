@@ -11,7 +11,6 @@ from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
 @pytest.mark.parametrize(
     "img, multiplier, expected_output",
     [
-        # Test case 1: Multiplier as a float, image of type uint8
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             2.0,
@@ -22,7 +21,6 @@ from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
             -2,
             np.zeros((2, 2, 3)),
         ),
-        # Test case 2: Multiplier as a vector, image of type uint8
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             np.array([0.5, 1.5, 2.0], dtype=np.float32),
@@ -38,25 +36,21 @@ from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
             np.array([-0.5, 1.5, -2.0], dtype=np.float32),
             np.array([[[0, 3, 0], [0, 7, 0]], [[0, 12, 0], [0, 16, 0]]], dtype=np.uint8),
         ),
-        # Test case 3: Multiplier as an array, image of type uint8
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             np.array([[[1, 0.5, 0.25], [0.5, 1, 1.5]], [[1.5, 2, 0.5], [0.25, 0.75, 1]]], dtype=np.float32),
             np.array([[[1, 1, 0], [2, 5, 9]], [[10, 16, 4], [2, 8, 12]]], dtype=np.uint8),
         ),
-        # Test case 4: Multiplier as a float, image of type float32
         (
             np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]], dtype=np.float32),
             2.0,
             np.array([[[0.2, 0.4, 0.6], [0.8, 1.0, 1.0]], [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]], dtype=np.float32),
         ),
-        # Test case 5: Multiplier as a vector, image of type float32
         (
             np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]], dtype=np.float32),
             np.array([0.5, 1.5, 2.0], dtype=np.float32),
             np.array([[[0.05, 0.3, 0.6], [0.2, 0.75, 1.0]], [[0.35, 1.0, 1.0], [0.5, 1.0, 1.0]]], dtype=np.float32),
         ),
-        # Test case 6: Multiplier as an array, image of type float32
         (
             np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]], dtype=np.float32),
             np.array([[[1.0, 0.5, 0.25], [0.5, 1.0, 1.5]], [[1.5, 2.0, 0.5], [0.25, 0.75, 1.0]]], dtype=np.float32),
@@ -104,31 +98,26 @@ from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
                 dtype=np.float32,
             ),
         ),
-        # Test case 1: Multiplier as a float, image of type uint8, shape (height, width)
         (
             np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint8),
             2.0,
             np.array([[2, 4, 6], [8, 10, 12]], dtype=np.uint8),
         ),
-        # Test case 2: Multiplier as a float, image of type uint8, shape (height, width, 1)
         (
             np.array([[[1], [2]], [[3], [4]]], dtype=np.uint8),
             2.0,
             np.array([[[2], [4]], [[6], [8]]], dtype=np.uint8),
         ),
-        # Test case 3: Multiplier as a float, image of type float32, shape (height, width)
         (
             np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], dtype=np.float32),
             2.0,
             np.array([[0.2, 0.4, 0.6], [0.8, 1.0, 1.0]], dtype=np.float32),
         ),
-        # Test case 4: Multiplier as a float, image of type float32, shape (height, width, 1)
         (
             np.array([[[0.1], [0.2]], [[0.3], [0.4]]], dtype=np.float32),
             2.0,
             np.array([[[0.2], [0.4]], [[0.6], [0.8]]], dtype=np.float32),
         ),
-        # Test case 7: Multiplier as a vector, image of type uint8 with 5 channels
         (
             np.array(
                 [[[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], [[11, 12, 13, 14, 15], [16, 17, 18, 19, 20]]], dtype=np.uint8
@@ -138,7 +127,6 @@ from albucore.functions import multiply_lut, multiply_numpy, multiply_opencv
                 [[[0, 3, 6, 10, 15], [3, 10, 16, 22, 30]], [[5, 18, 26, 35, 45], [8, 25, 36, 47, 60]]], dtype=np.uint8
             ),
         ),
-        # Test case 8: Multiplier as a vector, image of type float32 with 5 channels
         (
             np.array(
                 [
