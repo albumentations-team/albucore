@@ -39,21 +39,17 @@ def generate_img(max_value: int, dtype: Any, channels: int, batch: int) -> np.nd
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
 def test_to_float_functions_match(dtype, channels, batch):
-    # Generate random image
     img = generate_img(256, dtype, channels, batch)
 
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
-    # Apply each function
     result_numpy = to_float_numpy(img, max_value)
     result_opencv = to_float_opencv(img, max_value)
     result_to_float = to_float(img)
 
-    # Check that results match
     np.testing.assert_allclose(result_numpy, result_opencv, rtol=1e-5, atol=1e-8)
     np.testing.assert_allclose(result_numpy, result_to_float, rtol=1e-5, atol=1e-8)
 
-    # For uint8, also check LUT method
     if dtype == np.uint8:
         result_lut = to_float_lut(img, max_value)
         np.testing.assert_allclose(result_numpy, result_lut, rtol=1e-5, atol=1e-8)
@@ -170,15 +166,12 @@ def test_large_from_float16_to_uint8_preserves_float32_rounding_edges() -> None:
 @pytest.mark.parametrize("batch", BATCHES)
 def test_from_float_numpy_vs_opencv(dtype, channels, batch):
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    # Generate random float image
     float_img = generate_img(None, np.float32, channels, batch)
 
-    # Convert using both methods
     numpy_result = from_float_numpy(float_img, dtype, max_value)
     opencv_result = from_float_opencv(float_img, dtype, max_value)
     result = from_float(float_img, dtype, max_value)
 
-    # Check that results are the same
     np.testing.assert_allclose(numpy_result, opencv_result, rtol=1e-5, atol=1)
     np.testing.assert_allclose(numpy_result, result, rtol=1e-5, atol=1)
     np.testing.assert_allclose(opencv_result, result, rtol=1e-5, atol=1)
@@ -219,14 +212,11 @@ def test_from_float_uint8_uses_numkong_fallback(monkeypatch, layout, max_value):
 @pytest.mark.parametrize("batch", BATCHES)
 def test_to_float_from_float_roundtrip(dtype, channels, batch):
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    # Generate random image
     original_img = generate_img(max_value + 1, dtype, channels, batch)
 
-    # Convert to float and back
     float_img = to_float(original_img, max_value)
     roundtrip_img = from_float_opencv(float_img, dtype, max_value)
 
-    # Check that the result is the same as the original
     np.testing.assert_allclose(original_img, roundtrip_img, rtol=1e-5, atol=1e-8)
 
 @pytest.mark.parametrize("dtype", DTYPES)
@@ -234,14 +224,11 @@ def test_to_float_from_float_roundtrip(dtype, channels, batch):
 @pytest.mark.parametrize("batch", BATCHES)
 def test_from_float_to_float_roundtrip(dtype, channels, batch):
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    # Generate random float image
     original_float_img = generate_img(None, np.float32, channels, batch)
 
-    # Convert from float and back
     int_img = from_float(original_float_img, dtype, max_value)
     roundtrip_float_img = to_float(int_img, max_value)
 
-    # Check that the result is the same as the original
     np.testing.assert_array_almost_equal(original_float_img, roundtrip_float_img, decimal=2)
 
 
@@ -250,16 +237,12 @@ def test_from_float_to_float_roundtrip(dtype, channels, batch):
 @pytest.mark.parametrize("batch", BATCHES)
 def test_from_float_opencv_channels(dtype, channels, batch):
     max_value = MAX_VALUES_BY_DTYPE[dtype]
-    # Generate random float image
     float_img = generate_img(None, np.float32, channels, batch)
 
-    # Convert using OpenCV method
     result = from_float_opencv(float_img, dtype, max_value)
 
-    # Check that the result has the correct number of channels
     assert result.shape == float_img.shape
 
-    # Check that the result is correct
     np.testing.assert_allclose(
         result, cv2.multiply(float_img, np.full_like(float_img, max_value)), rtol=1e-5, atol=1
     )

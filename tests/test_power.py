@@ -7,13 +7,11 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
 @pytest.mark.parametrize(
     "img, exponent, expected_output",
     [
-        # Test case 1: Exponent as a float, image of type uint8
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             2.0,
             np.array([[[1, 4, 9], [16, 25, 36]], [[49, 64, 81], [100, 121, 144]]], dtype=np.uint8),
         ),
-        # Test case 2: Exponent as a vector, image of type uint8
         (
             np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.uint8),
             np.array([2.0, 3.0, 4.0], dtype=np.float32),
@@ -25,7 +23,6 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
             2.0,
             np.array([[[255, 255, 255], [255, 255, 255]], [[255, 255, 255], [255, 255, 255]]], dtype=np.uint8),
         ),
-        # Test case 3: Exponent as a float, image of type float32
         (
             np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]], dtype=np.float32),
             2.0,
@@ -34,7 +31,6 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
                 dtype=np.float32,
             ),
         ),
-        # Test case 4: Exponent as a vector, image of type float32
         (
             np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [1.0, 1.1, 1.2]]], dtype=np.float32),
             np.array([0.5, 1.5, 2.0], dtype=np.float32),

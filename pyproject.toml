@@ -83,13 +83,11 @@ exclude = [
 ]
 
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
 target-version = "py311"
 
 line-length = 120
 indent-width = 4
 
-# Assume the minimum supported Python version.
 exclude = [
   ".bzr",
   ".direnv",
@@ -125,12 +123,9 @@ exclude = [
 ]
 
 format.indent-style = "space"
-# Like Black, respect magic trailing commas.
 format.quote-style = "double"
-# Like Black, indent with spaces, rather than tabs.
 format.line-ending = "auto"
 format.skip-magic-trailing-comma = false
-# Like Black, automatically detect the appropriate line ending.
 lint.select = [ "ALL" ]
 lint.ignore = [
   "ANN401",
@@ -150,14 +145,11 @@ lint.ignore = [
   "TRY003",
 ]
 
-# Allow fix for all enabled rules (when `--fix`) is provided.
-
 lint.explicit-preview-rules = true
 lint.fixable = [ "ALL" ]
 lint.unfixable = [  ]
 # Allow unused variables when underscore-prefixed.
 lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-# Like Black, use double quotes for strings.
 lint.pydocstyle.convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
@@ -182,10 +174,8 @@ check_untyped_defs = true
 no_implicit_reexport = true
 disable_error_code = ["type-arg"]
 
-# for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
 
-# more strict rules
 warn_return_any = true
 strict_equality = true
 warn_unreachable = true

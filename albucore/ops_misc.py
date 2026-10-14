@@ -110,7 +110,6 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     Returns:
         Flipped image with all channels preserved
     """
-    # Get image dimensions
     num_channels = img.shape[2]
 
     if num_channels <= MAX_OPENCV_FLIP_CHANNELS:
@@ -317,60 +316,28 @@ def median_blur(
 
 
 def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
-    """Optimized matrix multiplication for coordinate transformations.
+    """Multiply NumPy matrices or CPU Tensors, preserving the input container.
 
-    Replaces cv2.gemm which has similar performance but doesn't support all dtypes.
-    Uses NumPy's @ operator which leverages optimized BLAS libraries:
-    - ARM: Apple Accelerate framework
-    - x86: MKL or OpenBLAS
-
-    Float16 operands are widened to float32 for the multiplication and the result is rounded once to float16.
-
-    Benchmark results (macOS ARM):
-    - Small matrices (2x2, 10x10): Similar to cv2.gemm (~1.0x)
-    - Large matrices (1024x1024, 2048x2048): Similar to cv2.gemm (~1.0x)
-    - Tall/skinny TPS matrices: Similar to cv2.gemm (0.93-1.02x)
-    - uint8: Supported (cv2.gemm doesn't support uint8)
+    Tensor inputs must be on CPU with ``requires_grad=False``. Callers validate
+    these preconditions before dispatch.
 
     Args:
-        a: First matrix, shape (M, K), dtype float16, float32, float64, or uint8
-        b: Second matrix, shape (K, N), dtype float16, float32, float64, or uint8
+        a: First matrix, shape (M, K), dtype float16, float32, float64, or uint8.
+        b: Second matrix, shape (K, N), with the same container as ``a``.
 
     Returns:
-        Result matrix, shape (M, N). Same-dtype operands follow these output rules:
-        - float16 @ float16 -> float16, with float32 computation and one final cast
-        - float32 @ float32 -> float32
-        - float64 @ float64 -> float64
-        - uint8 @ uint8 -> uint8, including NumPy's modulo overflow
+        A matrix of shape (M, N). Same-dtype operands preserve dtype; uint8
+        multiplication follows NumPy's modulo overflow. Float16 operands compute
+        in float32 and round once to float16.
+
+    Notes:
+        On macOS arm64, large floating-point matrices use a narrowly scoped
+        workaround for spurious divide, overflow, and invalid warnings from
+        NumPy's Accelerate kernels. Computed values are returned unchanged.
 
     Examples:
-        >>> import numpy as np
-        >>> from albucore import matmul
-        >>>
-        >>> # ThinPlateSpline pairwise distance computation
-        >>> points1 = np.random.randn(10000, 2).astype(np.float32)  # Target points
-        >>> points2 = np.random.randn(10, 2).astype(np.float32)     # Control points
-        >>> dot_matrix = matmul(points1, points2.T)  # (10000, 10)
-        >>>
-        >>> # TPS coordinate transformation
-        >>> kernel = np.random.randn(10000, 10).astype(np.float32)
-        >>> weights = np.random.randn(10, 2).astype(np.float32)
-        >>> transformed = matmul(kernel, weights)  # (10000, 2)
-
-    Note:
-        This function is a simple wrapper around NumPy's @ operator,
-        provided for API consistency and to make it explicit that
-        this is the recommended replacement for cv2.gemm in geometric
-        transformation contexts.
-
-        On macOS arm64, NumPy's Accelerate-backed kernels can emit spurious
-        divide, overflow, and invalid warnings for large finite floating-point
-        matrices. Those warning statuses are suppressed only on the affected
-        platform and size path; the computed values are returned unchanged.
-
-        Use Cases:
-        - ThinPlateSpline geometric transformation (3 uses in AlbumentationsX)
-        - Macenko stain normalization for medical imaging (1 use in AlbumentationsX)
+        >>> matmul(np.ones((2, 3), dtype=np.float32), np.ones((3, 4), dtype=np.float32)).shape
+        (2, 4)
     """
     if isinstance(a, torch.Tensor) or isinstance(b, torch.Tensor):
         if not isinstance(a, torch.Tensor) or not isinstance(b, torch.Tensor):

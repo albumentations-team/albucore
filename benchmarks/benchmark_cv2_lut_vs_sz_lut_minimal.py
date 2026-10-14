@@ -15,6 +15,7 @@ Run from anywhere with ``numpy``, ``opencv-python[-headless]``, ``stringzilla`` 
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -22,14 +23,13 @@ import stringzilla as sz
 from shape_grids import MINIMAL_SHARED_LUT_SHAPES
 
 
-def _median_ms(fn: object, repeats: int = 15, warmup: int = 5) -> float:
-    f = fn  # type: ignore[assignment]
+def _median_ms(fn: Callable[[], object], repeats: int = 15, warmup: int = 5) -> float:
     for _ in range(warmup):
-        f()
+        fn()
     times: list[float] = []
     for _ in range(repeats):
         t0 = time.perf_counter()
-        f()
+        fn()
         times.append((time.perf_counter() - t0) * 1000.0)
     return float(np.median(times))
 

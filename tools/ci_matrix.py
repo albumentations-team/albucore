@@ -428,15 +428,6 @@ def _check_release_docs(errors: list[str]) -> None:
     )
 
 
-def _check_release_workflows_and_docs(errors: list[str]) -> None:
-    _check_release_workflows(errors)
-    _check_release_docs(errors)
-
-
-def _check_release_workflow(errors: list[str]) -> None:
-    _check_release_workflows_and_docs(errors)
-
-
 def _check_security_workflow(errors: list[str]) -> None:
     text = SECURITY_WORKFLOW.read_text()
     _check_documentation_only_filter(errors, SECURITY_WORKFLOW, "pull_request")
@@ -495,7 +486,8 @@ def check() -> list[str]:
     if versions:
         _check_ci(errors, versions)
         _check_support_policy(errors, versions)
-        _check_release_workflow(errors)
+        _check_release_workflows(errors)
+        _check_release_docs(errors)
         _check_security_workflow(errors)
         _check_antigravity_workflow(errors)
         _check_codeql_workflow(errors)

@@ -147,9 +147,8 @@ def _apply_shared_uint8_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool) -> 
     return sz_lut(img, lut, inplace)
 
 
-def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bool) -> ImageUInt8:
-    """``luts`` shaped ``(256, 1, C)`` uint8. Vector ``apply_lut`` ignores ``inplace`` (always new array)."""
-    del inplace  # API symmetry with ``apply_uint8_lut``; matches historical ``apply_lut`` behaviour.
+def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8) -> ImageUInt8:
+    """Apply ``(256, 1, C)`` uint8 tables out of place, matching vector ``apply_lut``."""
     num_channels = img.shape[-1]
     if num_channels == 1:
         return _apply_shared_uint8_lut(img, luts[:, 0, 0], inplace=False)
@@ -208,6 +207,4 @@ def apply_uint8_lut(
 
     if lut.ndim == 1:
         return _apply_shared_uint8_lut(img, lut, inplace)
-    if lut.ndim == 3 and lut.shape[0] == 256 and lut.shape[1] == 1:
-        return _apply_per_channel_uint8_luts(img, lut, inplace)
-    return _apply_per_channel_uint8_luts(img, lut, inplace)
+    return _apply_per_channel_uint8_luts(img, lut)

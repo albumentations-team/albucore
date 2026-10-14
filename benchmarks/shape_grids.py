@@ -2,6 +2,21 @@
 
 from __future__ import annotations
 
+import argparse
+
+
+def parse_dhwc_shape(value: str) -> tuple[int, int, int, int]:
+    """Parse four positive D,H,W,C sizes for benchmark command-line arguments."""
+    message = f"--shape must be four comma-separated positive integers, got {value!r}."
+    try:
+        shape = tuple(int(axis_size) for axis_size in value.split(","))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(message) from error
+    if len(shape) != 4 or any(axis_size <= 0 for axis_size in shape):
+        raise argparse.ArgumentTypeError(message)
+    return shape[0], shape[1], shape[2], shape[3]
+
+
 PROPERTY_NON_SQUARE_HW: tuple[tuple[int, int], ...] = ((5, 7), (8, 11), (13, 17))
 NON_SQUARE_IMAGE_HW: tuple[int, int] = (17, 23)
 NON_SQUARE_RESIZE_TARGET_WH: tuple[int, int] = (31, 19)
