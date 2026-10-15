@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from albucore import preserve_channel_dim
+from albucore import clipped, preserve_channel_dim
 from albucore.functions import add_weighted_opencv
 
 
@@ -47,3 +47,25 @@ def test_preserve_channel_dim_builtin_callback():
     negative = preserve_channel_dim(np.negative)
     image = np.arange(15, dtype=np.float32).reshape(3, 5, 1)
     np.testing.assert_array_equal(negative(img=image), -image)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("readonly", [False, True])
+def test_clipped_preserves_borrowed_result(dtype, readonly):
+    @clipped
+    def select_other(img, other):
+        return other
+
+    image = np.full((2, 3, 1), 0.5, dtype=dtype)
+    other = np.array([[-0.5, 0.0, 0.25], [0.75, 1.0, 1.5]], dtype=dtype)[..., None].copy()
+    original = other.copy()
+    other.flags.writeable = not readonly
+
+    result = select_other(image, other)
+
+    expected = np.array([[0.0, 0.0, 0.25], [0.75, 1.0, 1.0]], dtype=dtype)[..., None]
+    assert result.dtype == dtype
+    assert not np.shares_memory(result, other)
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(other, original)
+    np.testing.assert_array_equal(image, np.full_like(image, 0.5))

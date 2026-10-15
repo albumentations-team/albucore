@@ -217,6 +217,8 @@ def clipped(
 
 
 def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:
+    """Clip floating results without modifying the callback's output."""
+
     @wraps(func)
     def wrapped_function(img: ImageInput, *args: Any, **kwargs: Any) -> ImageInput:
         dtype = img.dtype
@@ -231,15 +233,6 @@ def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:
 
         result = cast("ImageType", result)
         numpy_dtype = cast("SupportedDType", dtype)
-        if (
-            result.dtype in (np.float16, np.float32)
-            and result.dtype == numpy_dtype
-            and not np.shares_memory(result, img)
-        ):
-            max_value = MAX_VALUES_BY_DTYPE[numpy_dtype]
-            np.clip(result, 0.0, max_value, out=result)
-            return result
-
         return cast("ImageType", clip(result, numpy_dtype))
 
     return wrapped_function
