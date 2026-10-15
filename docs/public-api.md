@@ -27,9 +27,17 @@ Overloads preserve the relationship between input and output container and dtype
 that array type; Tensor calls return Tensor. Normalization and conversion follow their explicit output-dtype contracts.
 The implementation may still accept a union of inputs without exposing that entire union as every caller's result.
 
-`float32_io` and `uint8_io` expose dtype-preserving callables. Stacking `clipped` inside or outside either decorator
-preserves their NumPy/Tensor signatures and supported keyword calls. A plain `clipped` callback that intentionally
-returns uint8 keeps that output contract. Checked consumer examples live in
+`float32_io` and `uint8_io` preserve NumPy input types and required callback arguments, including `img=` calls.
+Bind a Tensor layout before calling a decorated function: `kernel.with_layout("CHW")(tensor, amount=1.5)`.
+The bound callable accepts NumPy/Tensor unions and preserves the input container and dtype. Bind once and reuse the
+callable for repeated calls. Both forms check callback argument names and types; omitting a required argument is a
+static error. Binding requires a non-None `CHW`, `NCHW`, `CDHW`, or `NCDHW` layout.
+
+Stacking `clipped` inside or outside either I/O decorator preserves those signatures and the clipping behavior of the
+chosen order. A plain `clipped` callback that intentionally returns uint8 keeps that output contract.
+
+Direct Tensor calls with `layout=` remain available at runtime for compatibility; static checking requires `.with_layout()`.
+Checked consumer examples live in
 [`tests/typing/router_calls.py`](../tests/typing/router_calls.py); the mypy hook and runtime-stub CI check compile them.
 
 ## Routers (package `__all__`)
