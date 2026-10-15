@@ -2,7 +2,7 @@
 
 import math
 from collections.abc import Callable
-from typing import Any, Literal, TypeAlias, TypeGuard, cast
+from typing import Any, Literal, TypeAlias, TypeGuard, cast, overload
 
 import cv2
 import numkong as nk
@@ -30,6 +30,7 @@ from albucore.torch_backend import (
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
+    ImageArrayT,
     ImageFloat16,
     ImageFloat32,
     ImageType,
@@ -113,10 +114,11 @@ def _opencv_float16_three_channel_vector(
     if control0 is None or control1 is None or control2 is None:
         return None
     scalar = (control0, control1, control2, 0.0)
+    # OpenCV stubs: https://github.com/opencv/opencv/issues/30296 (review 2026-11-15).
     if operation == "add":
-        result = cv2.add(img, scalar, dtype=cv2.CV_16F)
+        result = cv2.add(img, cast("Any", scalar), dtype=cv2.CV_16F)
     else:
-        result = cv2.multiply(img, scalar, dtype=cv2.CV_16F)
+        result = cv2.multiply(img, cast("Any", scalar), dtype=cv2.CV_16F)
     return cast("ImageFloat16", result)
 
 
@@ -373,15 +375,36 @@ def multiply_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = Fal
     return apply_lut(img, value, "multiply", inplace)
 
 
+@overload
+def multiply_opencv(img: ImageFloat16, value: np.ndarray | float) -> ImageFloat16: ...
+
+
+@overload
+def multiply_opencv(img: ImageUInt8 | ImageFloat32, value: np.ndarray | float) -> ImageFloat32: ...
+
+
 @preserve_channel_dim
-def multiply_opencv(img: ImageType, value: np.ndarray | float) -> ImageFloat32:
+def multiply_opencv(img: ImageType, value: np.ndarray | float) -> ImageFloat16 | ImageFloat32:
     value = prepare_value_opencv(img, value, "multiply")
     value_cv2: Any = value
     if _is_uint8_image(img):
         if isinstance(value, np.ndarray):
             value_cv2 = value.astype(np.float32, copy=False)
         return cast("ImageFloat32", cv2.multiply(img.astype(np.float32, copy=False), value_cv2))
-    return cast("ImageFloat32", cv2.multiply(img, value_cv2))
+    return cast("ImageFloat16 | ImageFloat32", cv2.multiply(img, value_cv2))
+
+
+@overload
+def multiply_numpy(img: ImageFloat16, value: float | np.ndarray, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def multiply_numpy(
+    img: ImageUInt8 | ImageFloat32,
+    value: float | np.ndarray,
+    *,
+    inplace: bool = False,
+) -> ImageFloat32: ...
 
 
 def multiply_numpy(
@@ -398,6 +421,26 @@ def multiply_numpy(
     return _cast_float_numpy(result, np.float16) if _is_float16_image(img) else result
 
 
+@overload
+def multiply_by_constant(
+    img: ImageArrayT,
+    value: float,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def multiply_by_constant(
+    img: torch.Tensor,
+    value: float | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
+
+
 def multiply_by_constant(
     img: ImageType | torch.Tensor,
     value: float | torch.Tensor,
@@ -407,15 +450,37 @@ def multiply_by_constant(
 ) -> ImageType | torch.Tensor:
     if isinstance(img, torch.Tensor):
         return _dispatch_tensor_multiply(img, value, layout, multiply_by_constant, inplace)
+
+    value = cast("float", value)
     if _is_uint8_image(img):
         return multiply_lut(img, value, inplace)
     if _is_float16_image(img):
         torch_result = float16_pointwise_torch(img, "multiply", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
         if torch_result is not None:
-            return cast("ImageType", torch_result)
-        return cast("ImageFloat16", multiply_numpy(img, value, inplace=inplace))
+            return torch_result
+        return multiply_numpy(img, value, inplace=inplace)
     # float32: match 0.0.40 (`multiply_numpy`); OpenCV / NumKong scalar paths regressed on router grid
     return multiply_numpy(img, value)
+
+
+@overload
+def multiply_by_vector(
+    img: ImageArrayT,
+    value: np.ndarray,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def multiply_by_vector(
+    img: torch.Tensor,
+    value: np.ndarray | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def multiply_by_vector(
@@ -427,6 +492,8 @@ def multiply_by_vector(
 ) -> ImageType | torch.Tensor:
     if isinstance(img, torch.Tensor):
         return _dispatch_tensor_multiply(img, value, layout, multiply_by_vector, inplace)
+
+    value = cast("np.ndarray", value)
     if _is_uint8_image(img):
         # LUT beats OpenCV float-multiply + clip for per-channel uint8 (see benchmarks/benchmark_grayscale_paths.py).
         return multiply_lut(img, value, inplace)
@@ -435,15 +502,33 @@ def multiply_by_vector(
         if half_result is None:
             half_result = _opencv_float16_c9_multiply_vector(img, value, inplace)
         if half_result is None and _numpy_float16_c9_vector_eligible(img, value, inplace):
-            half_result = cast("ImageFloat16", multiply_numpy(img, value))
+            half_result = multiply_numpy(img, value)
         if half_result is None:
             half_result = _numkong_float16_single_channel_scale(img, value, "multiply")
         if half_result is None:
             half_result = float16_pointwise_torch(img, "multiply", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
         if half_result is None:
-            half_result = cast("ImageFloat16", multiply_numpy(img, value, inplace=inplace))
+            half_result = multiply_numpy(img, value, inplace=inplace)
         return half_result
     return multiply_numpy(img, value)
+
+
+@overload
+def multiply_by_array(
+    img: ImageArrayT,
+    value: np.ndarray,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def multiply_by_array(
+    img: torch.Tensor,
+    value: np.ndarray | torch.Tensor,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def multiply_by_array(
@@ -466,17 +551,36 @@ def multiply_by_array(
             return torch.mul(img, value)
         operand = tensor_operand_to_numpy(value, layout)
         return dispatch_tensor_image(img, layout, multiply_by_array, operand)
+
+    value = cast("np.ndarray", value)
     if _is_float32_image(img):
         return multiply_numpy(img, value)
     if _is_float16_image(img):
         if isinstance(value, np.ndarray) and value.dtype == np.float32 and value.ndim == img.ndim:
-            half_result: np.ndarray | None = cast("np.ndarray", multiply_numpy(img, value))
-        else:
-            half_result = float16_pointwise_torch(img, "multiply", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
-            if half_result is None:
-                half_result = cast("np.ndarray", multiply_numpy(img, value))
-        return cast("ImageType", half_result)
-    return clip(multiply_opencv(img, value), img.dtype)
+            return multiply_numpy(img, value)
+        half_result = float16_pointwise_torch(img, "multiply", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
+        return multiply_numpy(img, value) if half_result is None else half_result
+    return cast("ImageType", clip(multiply_opencv(img, value), img.dtype))
+
+
+@overload
+def multiply(
+    img: ImageArrayT,
+    value: ValueType,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def multiply(
+    img: torch.Tensor,
+    value: ValueType | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def multiply(
@@ -524,6 +628,18 @@ def multiply(
     return multiply_by_array(img, value)
 
 
+@overload
+def add_opencv(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -> ImageUInt8 | ImageFloat32: ...
+
+
+@overload
+def add_opencv(img: ImageFloat16, value: np.ndarray | float, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def add_opencv(img: ImageFloat32, value: np.ndarray | float, inplace: bool = False) -> ImageFloat32: ...
+
+
 @preserve_channel_dim
 def add_opencv(img: ImageType, value: np.ndarray | float, inplace: bool = False) -> ImageType:
     value = prepare_value_opencv(img, value, "add")
@@ -550,6 +666,14 @@ def add_opencv(img: ImageType, value: np.ndarray | float, inplace: bool = False)
     return cast("ImageType", cv2.add(img, value_cv2, dst=dst))
 
 
+@overload
+def add_numpy(img: ImageFloat16, value: float | np.ndarray, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def add_numpy(img: ImageUInt8 | ImageFloat32, value: float | np.ndarray, *, inplace: bool = False) -> ImageFloat32: ...
+
+
 def add_numpy(
     img: ImageType,
     value: float | np.ndarray,
@@ -568,6 +692,26 @@ def add_lut(img: ImageUInt8, value: np.ndarray | float, inplace: bool = False) -
     return apply_lut(img, value, "add", inplace)
 
 
+@overload
+def add_constant(
+    img: ImageArrayT,
+    value: float,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def add_constant(
+    img: torch.Tensor,
+    value: float | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
+
+
 def add_constant(
     img: ImageType | torch.Tensor,
     value: float | torch.Tensor,
@@ -577,17 +721,39 @@ def add_constant(
 ) -> ImageType | torch.Tensor:
     if isinstance(img, torch.Tensor):
         return _dispatch_tensor_add(img, value, layout, add_constant, inplace)
+
+    value = cast("float", value)
     if _is_float32_image(img):
         return add_numpy(img, value)
     if _is_float16_image(img):
         torch_result = float16_pointwise_torch(img, "add", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
         if torch_result is not None:
-            return cast("ImageType", torch_result)
-        return cast("ImageFloat16", add_numpy(img, value, inplace=inplace))
+            return torch_result
+        return add_numpy(img, value, inplace=inplace)
     # uint8 (all C): OpenCV + ``prepare_value_opencv`` broadcast. NumKong ``add_constant_numkong``
     # regressed vs 0.0.40 on large (H,W,C>4) router cells; helper remains in ``weighted`` for benches.
     result = add_opencv(img, value, inplace)
-    return result if result.dtype == np.uint8 else clip(result, img.dtype)
+    return result if result.dtype == np.uint8 else cast("ImageType", clip(result, img.dtype))
+
+
+@overload
+def add_vector(
+    img: ImageArrayT,
+    value: np.ndarray,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def add_vector(
+    img: torch.Tensor,
+    value: np.ndarray | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def add_vector(
@@ -599,6 +765,8 @@ def add_vector(
 ) -> ImageType | torch.Tensor:
     if isinstance(img, torch.Tensor):
         return _dispatch_tensor_add(img, value, layout, add_vector, inplace)
+
+    value = cast("np.ndarray", value)
     if _is_uint8_image(img):
         return add_lut(img, value, inplace)
     if _is_float16_image(img):
@@ -606,15 +774,33 @@ def add_vector(
         if half_result is None:
             half_result = _numkong_float16_c9_add_vector(img, value, inplace)
         if half_result is None and _numpy_float16_c9_vector_eligible(img, value, inplace):
-            half_result = cast("ImageFloat16", add_numpy(img, value))
+            half_result = add_numpy(img, value)
         if half_result is None:
             half_result = _numkong_float16_single_channel_scale(img, value, "add")
         if half_result is None:
             half_result = float16_pointwise_torch(img, "add", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
         if half_result is None:
-            half_result = cast("ImageFloat16", add_numpy(img, value, inplace=inplace))
+            half_result = add_numpy(img, value, inplace=inplace)
         return half_result
     return add_numpy(img, value)
+
+
+@overload
+def add_array(
+    img: ImageArrayT,
+    value: np.ndarray,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def add_array(
+    img: torch.Tensor,
+    value: np.ndarray | torch.Tensor,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def add_array(
@@ -638,22 +824,44 @@ def add_array(
         operand = tensor_operand_to_numpy(value, layout)
         return dispatch_tensor_image(img, layout, add_array, operand)
 
+    value = cast("np.ndarray", value)
+
     if _is_float32_image(img):
         # Benchmarks: NumPy broadcast add beats NumKong and OpenCV scalar/tensor prep on float32.
         return add_numpy(img, value)
     if _is_float16_image(img):
-        half_result: np.ndarray | None
+        half_result: ImageFloat16 | None
         if isinstance(value, np.ndarray) and value.dtype == np.float32 and value.ndim == img.ndim:
-            half_result = cast("np.ndarray", add_numpy(img, value))
+            half_result = add_numpy(img, value)
         else:
             half_result = float16_pointwise_torch(img, "add", value, minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS)
         if half_result is None:
-            half_result = cast("np.ndarray", add_numpy(img, value))
-        return cast("ImageType", half_result)
+            half_result = add_numpy(img, value)
+        return half_result
     if value.shape == img.shape and value.dtype == img.dtype:
         return add_array_numkong(img, value)
     result = add_opencv(img, value)
-    return result if result.dtype == np.uint8 else clip(result, img.dtype)
+    return result if result.dtype == np.uint8 else cast("ImageType", clip(result, img.dtype))
+
+
+@overload
+def add(
+    img: ImageArrayT,
+    value: ValueType,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def add(
+    img: torch.Tensor,
+    value: ValueType | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def add(
@@ -706,6 +914,18 @@ def add(
         return add_constant(img, value, inplace)
 
     return add_vector(img, value, inplace) if value.ndim == 1 else add_array(img, value)
+
+
+@overload
+def normalize_numpy(img: ImageFloat16, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat16: ...
+
+
+@overload
+def normalize_numpy(
+    img: ImageUInt8 | ImageFloat32,
+    mean: float | np.ndarray,
+    denominator: float | np.ndarray,
+) -> ImageFloat32: ...
 
 
 def normalize_numpy(
@@ -843,6 +1063,18 @@ def _normalize_float16_opencv_planes(
             )
 
 
+@overload
+def normalize_opencv(img: ImageFloat16, mean: float | np.ndarray, denominator: float | np.ndarray) -> ImageFloat16: ...
+
+
+@overload
+def normalize_opencv(
+    img: ImageUInt8 | ImageFloat32,
+    mean: float | np.ndarray,
+    denominator: float | np.ndarray,
+) -> ImageFloat32: ...
+
+
 @preserve_channel_dim
 def normalize_opencv(
     img: ImageType,
@@ -893,6 +1125,36 @@ def _normalize_is_identity(mean: float | np.ndarray, denominator: float | np.nda
     elif abs(float(denominator) - 1.0) > eps:
         return False
     return True
+
+
+@overload
+def normalize(
+    img: ImageFloat16,
+    mean: ValueType | torch.Tensor,
+    denominator: ValueType | torch.Tensor,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageFloat16: ...
+
+
+@overload
+def normalize(
+    img: ImageUInt8 | ImageFloat32,
+    mean: ValueType | torch.Tensor,
+    denominator: ValueType | torch.Tensor,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageFloat32: ...
+
+
+@overload
+def normalize(
+    img: torch.Tensor,
+    mean: ValueType | torch.Tensor,
+    denominator: ValueType | torch.Tensor,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def normalize(
@@ -977,6 +1239,14 @@ def normalize(
     return float32_result if float32_result is not None else normalize_numpy(img, mean, denominator)
 
 
+@overload
+def power_numpy(img: ImageFloat16, exponent: float | np.ndarray) -> ImageFloat16: ...
+
+
+@overload
+def power_numpy(img: ImageUInt8 | ImageFloat32, exponent: float | np.ndarray) -> ImageFloat32: ...
+
+
 def power_numpy(img: ImageType, exponent: float | np.ndarray) -> ImageFloat16 | ImageFloat32:
     if _is_float16_image(img):
         float16_result = _float16_numpy_ufunc(img, exponent, "power")
@@ -986,23 +1256,55 @@ def power_numpy(img: ImageType, exponent: float | np.ndarray) -> ImageFloat16 | 
     return _cast_float_numpy(result, np.float16) if _is_float16_image(img) else result
 
 
+@overload
+def power_opencv(img: ImageFloat16, value: float) -> ImageFloat16: ...
+
+
+@overload
+def power_opencv(img: ImageFloat32, value: float) -> ImageFloat32: ...
+
+
+@overload
+def power_opencv(img: ImageUInt8, value: float) -> ImageUInt8 | ImageFloat32: ...
+
+
 @preserve_channel_dim
-def power_opencv(img: ImageType, value: float) -> ImageFloat16 | ImageFloat32:
+def power_opencv(img: ImageType, value: float) -> ImageType:
     if _is_float16_image(img):
-        result = cv2.pow(_cast_float_numpy(img, np.float32), value)
+        result = cast("ImageFloat32", cv2.pow(_cast_float_numpy(img, np.float32), value))
         return _cast_float_numpy(result, np.float16)
     if _is_float32_image(img):
         # For float32 images, cv2.pow works directly
         return cast("ImageFloat32", cv2.pow(img, value))
     if int(value) == value:
         # For uint8 images, cv2.pow works directly if value is actual integer, even if it's type is float
-        return cast("ImageFloat32", cv2.pow(img, value))
+        return cast("ImageUInt8", cv2.pow(img, value))
     # For uint8 images, convert to float32 before applying a fractional power.
     return cast("ImageFloat32", cv2.pow(img.astype(np.float32, copy=False), value))
 
 
 def power_lut(img: ImageUInt8, exponent: float | np.ndarray, inplace: bool = False) -> ImageUInt8:
     return apply_lut(img, exponent, "power", inplace)
+
+
+@overload
+def power(
+    img: ImageArrayT,
+    exponent: ValueType,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def power(
+    img: torch.Tensor,
+    exponent: ValueType | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def power(
@@ -1051,17 +1353,26 @@ def power(
                 exponent,
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
             )
-            result = (
-                cast("ImageType", torch_result)
-                if torch_result is not None
-                else cast("ImageFloat16", power_numpy(img, exponent))
-            )
+            result = torch_result if torch_result is not None else power_numpy(img, exponent)
         return result
 
     if isinstance(exponent, (float, int)):
         return power_opencv(img, exponent)
 
     return power_numpy(img, exponent)
+
+
+@overload
+def add_weighted_numpy(img1: ImageFloat16, weight1: float, img2: ImageType, weight2: float) -> ImageFloat16: ...
+
+
+@overload
+def add_weighted_numpy(
+    img1: ImageUInt8 | ImageFloat32,
+    weight1: float,
+    img2: ImageType,
+    weight2: float,
+) -> ImageFloat32: ...
 
 
 def add_weighted_numpy(
@@ -1077,8 +1388,8 @@ def add_weighted_numpy(
 
 
 @preserve_channel_dim
-def add_weighted_opencv(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
-    return cast("ImageType", cv2.addWeighted(img1, weight1, img2, weight2, 0))
+def add_weighted_opencv(img1: ImageArrayT, weight1: float, img2: ImageType, weight2: float) -> ImageArrayT:
+    return cast("ImageArrayT", cv2.addWeighted(img1, weight1, img2, weight2, 0))
 
 
 @preserve_channel_dim
@@ -1088,28 +1399,50 @@ def add_weighted_lut(
     img2: ImageUInt8,
     weight2: float,
     inplace: bool = False,
-) -> ImageType:
+) -> ImageUInt8 | ImageFloat32:
     """Add weighted using LUT. Only works with uint8 images."""
     dtype = img1.dtype
     max_value = MAX_VALUES_BY_DTYPE[dtype]
 
     if weight1 == 1 and weight2 == 0:
-        return cast("ImageType", img1)
+        return img1
 
     if weight1 == 0 and weight2 == 1:
-        return cast("ImageType", img2)
+        return img2
 
     if weight1 == 0 and weight2 == 0:
-        return cast("ImageType", np.zeros_like(img1))
+        return np.zeros_like(img1)
 
     if weight1 == 1 and weight2 == 1:
         return add_array(img1, img2)
 
     base = np.arange(max_value + 1, dtype=np.float32)
-    result1 = cast("ImageType", cv2.LUT(img1, base * weight1))
-    result2 = cast("ImageType", cv2.LUT(img2, base * weight2))
+    result1 = cast("ImageFloat32", cv2.LUT(img1, base * weight1))
+    result2 = cast("ImageFloat32", cv2.LUT(img2, base * weight2))
 
     return add_opencv(result1, result2, inplace)
+
+
+@overload
+def add_weighted(
+    img1: ImageArrayT,
+    weight1: float,
+    img2: ImageType,
+    weight2: float,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def add_weighted(
+    img1: torch.Tensor,
+    weight1: float,
+    img2: torch.Tensor,
+    weight2: float,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def add_weighted(
@@ -1168,6 +1501,8 @@ def add_weighted(
             return torch.from_numpy(result)
         image2 = tensor_operand_to_numpy(img2, layout)
         return dispatch_tensor_image(img1, layout, add_weighted, weight1, image2, weight2)
+
+    img2 = cast("ImageType", img2)
 
     if _is_float16_image(img1):
         if (
@@ -1295,6 +1630,14 @@ def _use_numkong_scalar_multiply_add(img: ImageType, factor: ValueType, value: V
     )
 
 
+@overload
+def multiply_add_numpy(img: ImageFloat16, factor: ValueType, value: ValueType) -> ImageFloat16: ...
+
+
+@overload
+def multiply_add_numpy(img: ImageUInt8 | ImageFloat32, factor: ValueType, value: ValueType) -> ImageFloat32: ...
+
+
 def multiply_add_numpy(img: ImageType, factor: ValueType, value: ValueType) -> ImageFloat16 | ImageFloat32:
     if _is_float16_image(img):
         float16_product = _float16_numpy_ufunc(img, factor, "multiply")
@@ -1393,6 +1736,28 @@ def multiply_add_lut(img: ImageUInt8, factor: ValueType, value: ValueType, inpla
     return _apply_uint8_lut(img, luts, inplace=inplace)
 
 
+@overload
+def multiply_add(
+    img: ImageArrayT,
+    factor: ValueType,
+    value: ValueType,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageArrayT: ...
+
+
+@overload
+def multiply_add(
+    img: torch.Tensor,
+    factor: ValueType | torch.Tensor,
+    value: ValueType | torch.Tensor,
+    inplace: bool = False,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
+
+
 def multiply_add(
     img: ImageType | torch.Tensor,
     factor: ValueType | torch.Tensor,
@@ -1479,5 +1844,5 @@ def multiply_add(
             multiply_add_numkong(float32_img, float(factor), float(value)) if torch_result is None else torch_result
         )
     else:
-        result = cast("ImageFloat32", multiply_add_numpy(float32_img, factor, value))
+        result = multiply_add_numpy(float32_img, factor, value)
     return result
