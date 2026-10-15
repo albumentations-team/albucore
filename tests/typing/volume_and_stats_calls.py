@@ -88,3 +88,8 @@ def check_tensors(
     assert_type(reduce_sum(image, layout="CDHW"), torch.Tensor)
     assert_type(matmul(tensor_matrix, tensor_matrix), torch.Tensor)
     assert_type(pairwise_distances_squared(tensor_matrix, tensor_matrix), torch.Tensor)
+
+
+def check_matrix_unions(matrix: NDArray[np.float32] | torch.Tensor) -> None:
+    assert_type(matmul(matrix, matrix), NDArray[np.float32] | torch.Tensor)
+    assert_type(pairwise_distances_squared(matrix, matrix), NDArray[np.float32] | torch.Tensor)

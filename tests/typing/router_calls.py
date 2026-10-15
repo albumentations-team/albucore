@@ -63,6 +63,16 @@ def integer_kernel(img: NDArray[np.uint8], *, mask: NDArray[np.uint8]) -> NDArra
     return result
 
 
+@clipped
+def uint8_mask(img: NDArray[np.float32]) -> NDArray[np.uint8]:
+    return (img > 0.5).astype(np.uint8)
+
+
+@clipped
+def floating_result(img: NDArray[np.float32]) -> NDArray[np.float32]:
+    return img.copy()
+
+
 def check_numpy(image: ConsumerImage, half: NDArray[np.float16], floats: NDArray[np.float32]) -> None:
     assert_type(add(image, 0.5), ConsumerImage)
     assert_type(multiply(image, 1.5), ConsumerImage)
@@ -110,6 +120,8 @@ def check_luts(image: NDArray[np.uint8], lut: NDArray[np.uint8]) -> None:
 
 
 def check_decorators(image: ConsumerImage, half: NDArray[np.float16], mask: NDArray[np.uint8]) -> None:
+    assert_type(uint8_mask(half.astype(np.float32)), NDArray[np.uint8])
+    assert_type(floating_result(half.astype(np.float32)), NDArray[np.float32])
     assert_type(floating_kernel(img=image, amount=1.5), ConsumerImage)
     assert_type(floating_kernel(half, amount=1.5), NDArray[np.float16])
     assert_type(integer_kernel(img=image, mask=mask), ConsumerImage)
@@ -133,6 +145,7 @@ def check_union_inputs(image: ConsumerImage | torch.Tensor, floats: NDArray[np.f
     assert_type(floating_kernel(image, amount=1.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(multiply(image, 1.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(add(image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
+    assert_type(add_weighted(image, 0.5, image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(to_float(image), NDArray[np.float32] | torch.Tensor)
     assert_type(normalize(image, 0.5, 2.0, layout="CHW"), NDArray[np.float32] | torch.Tensor)
     assert_type(resize(image, (11, 13), layout="CHW"), ConsumerImage | torch.Tensor)

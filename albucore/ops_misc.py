@@ -380,11 +380,11 @@ def median_blur(
 
 
 @overload
-def matmul(a: ArrayT, b: ArrayT) -> ArrayT: ...
+def matmul(a: ArrayT, b: np.ndarray | torch.Tensor) -> ArrayT: ...
 
 
 @overload
-def matmul(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor: ...
+def matmul(a: torch.Tensor, b: np.ndarray | torch.Tensor) -> torch.Tensor: ...
 
 
 def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
@@ -434,11 +434,11 @@ def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.nda
 
 
 @overload
-def pairwise_distances_squared(points1: np.ndarray, points2: np.ndarray) -> ImageFloat32: ...
+def pairwise_distances_squared(points1: np.ndarray, points2: np.ndarray | torch.Tensor) -> ImageFloat32: ...
 
 
 @overload
-def pairwise_distances_squared(points1: torch.Tensor, points2: torch.Tensor) -> torch.Tensor: ...
+def pairwise_distances_squared(points1: torch.Tensor, points2: np.ndarray | torch.Tensor) -> torch.Tensor: ...
 
 
 def pairwise_distances_squared(

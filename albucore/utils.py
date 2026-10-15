@@ -23,13 +23,14 @@ ImageFloat32: TypeAlias = NDArray[float32]
 ImageType: TypeAlias = ImageUInt8 | ImageFloat16 | ImageFloat32
 ImageInput: TypeAlias = ImageType | torch.Tensor
 ImageArrayT = TypeVar("ImageArrayT", bound=ImageType)
-_ImageT = TypeVar("_ImageT", bound=ImageInput)
+_InputImageT_contra = TypeVar("_InputImageT_contra", bound=ImageInput, contravariant=True)
+_OutputImageT_co = TypeVar("_OutputImageT_co", bound=ImageInput, covariant=True)
 ArrayT = TypeVar("ArrayT", bound=np.ndarray)
 _ImageDTypeT = TypeVar("_ImageDTypeT", bound=np.uint8 | np.float16 | np.float32)
 
 
-class _ClippedFunction(Protocol[_ImageT, P]):
-    def __call__(self, img: _ImageT, *args: P.args, **kwargs: P.kwargs) -> _ImageT: ...
+class _ClippedFunction(Protocol[_InputImageT_contra, P, _OutputImageT_co]):
+    def __call__(self, img: _InputImageT_contra, *args: P.args, **kwargs: P.kwargs) -> _OutputImageT_co: ...
 
 
 TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
@@ -192,15 +193,27 @@ def clip(
 
 
 @overload
-def clipped(func: Callable[Concatenate[ImageArrayT, P], np.ndarray]) -> _ClippedFunction[ImageArrayT, P]: ...
+def clipped(
+    func: Callable[Concatenate[ImageArrayT, P], ImageUInt8],
+) -> _ClippedFunction[ImageArrayT, P, ImageUInt8]: ...
 
 
 @overload
-def clipped(func: Callable[Concatenate[torch.Tensor, P], torch.Tensor]) -> _ClippedFunction[torch.Tensor, P]: ...
+def clipped(
+    func: Callable[Concatenate[ImageArrayT, P], ImageFloat16 | ImageFloat32],
+) -> _ClippedFunction[ImageArrayT, P, ImageArrayT]: ...
 
 
 @overload
-def clipped(func: Callable[Concatenate[_ImageT, P], _ImageT]) -> _ClippedFunction[_ImageT, P]: ...
+def clipped(
+    func: Callable[Concatenate[ImageArrayT, P], np.ndarray],
+) -> _ClippedFunction[ImageArrayT, P, ImageArrayT | ImageUInt8]: ...
+
+
+@overload
+def clipped(
+    func: Callable[Concatenate[torch.Tensor, P], torch.Tensor],
+) -> _ClippedFunction[torch.Tensor, P, torch.Tensor]: ...
 
 
 def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:

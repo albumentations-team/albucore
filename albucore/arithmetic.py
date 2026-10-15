@@ -1427,7 +1427,7 @@ def add_weighted_lut(
 def add_weighted(
     img1: ImageArrayT,
     weight1: float,
-    img2: ImageType,
+    img2: ImageType | torch.Tensor,
     weight2: float,
     *,
     layout: TensorLayout | None = None,
@@ -1438,7 +1438,7 @@ def add_weighted(
 def add_weighted(
     img1: torch.Tensor,
     weight1: float,
-    img2: torch.Tensor,
+    img2: ImageType | torch.Tensor,
     weight2: float,
     *,
     layout: TensorLayout | None = None,
