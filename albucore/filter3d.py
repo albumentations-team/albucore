@@ -11,6 +11,8 @@ import torch.nn.functional as torch_f
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from albucore.utils import ImageArrayT
+
 __all__ = ["gaussian_blur3d", "separable_filter3d"]
 
 
@@ -144,7 +146,7 @@ def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Te
 
 
 @overload
-def separable_filter3d(volume: np.ndarray, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray: ...
+def separable_filter3d(volume: ImageArrayT, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> ImageArrayT: ...
 
 
 @overload
@@ -178,10 +180,10 @@ def separable_filter3d(
 
 @overload
 def gaussian_blur3d(
-    volume: np.ndarray,
+    volume: ImageArrayT,
     sigma: float | Sequence[float],
     kernel_size: int | Sequence[int] = 0,
-) -> np.ndarray: ...
+) -> ImageArrayT: ...
 
 
 @overload

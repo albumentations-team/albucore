@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Literal, ParamSpec, TypeAlias, cast
+from typing import Any, Concatenate, Literal, ParamSpec, Protocol, TypeAlias, TypeVar, cast, overload
 
 import cv2
 import numpy as np
@@ -22,11 +22,22 @@ ImageFloat16: TypeAlias = NDArray[float16]
 ImageFloat32: TypeAlias = NDArray[float32]
 ImageType: TypeAlias = ImageUInt8 | ImageFloat16 | ImageFloat32
 ImageInput: TypeAlias = ImageType | torch.Tensor
+ImageArrayT = TypeVar("ImageArrayT", bound=ImageType)
+_InputImageT_contra = TypeVar("_InputImageT_contra", bound=ImageInput, contravariant=True)
+_OutputImageT_co = TypeVar("_OutputImageT_co", bound=ImageInput, covariant=True)
+ArrayT = TypeVar("ArrayT", bound=np.ndarray)
+_ImageDTypeT = TypeVar("_ImageDTypeT", bound=np.uint8 | np.float16 | np.float32)
+
+
+class _ClippedFunction(Protocol[_InputImageT_contra, P, _OutputImageT_co]):
+    def __call__(self, img: _InputImageT_contra, *args: P.args, **kwargs: P.kwargs) -> _OutputImageT_co: ...
+
+
 TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
 TensorImageLayout: TypeAlias = Literal["CHW", "NCHW"]
 
 # Supported storage dtypes. Statistics and matrix operations may return wider results.
-SupportedDType: TypeAlias = np.dtype[np.uint8] | np.dtype[np.float16] | np.dtype[np.float32]
+SupportedDType: TypeAlias = np.dtype[np.uint8 | np.float16 | np.float32] | type[np.uint8 | np.float16 | np.float32]
 
 MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
     np.dtype("uint8"): 255,
@@ -55,7 +66,7 @@ _TORCH_DTYPES: dict[np.dtype | type, torch.dtype] = {
     np.float32: torch.float32,
     np.dtype(np.float32): torch.float32,
 }
-_NUMPY_DTYPES: dict[torch.dtype, type[np.generic]] = {
+_NUMPY_DTYPES: dict[torch.dtype, type[np.uint8 | np.float16 | np.float32]] = {
     torch.uint8: np.uint8,
     torch.float16: np.float16,
     torch.float32: np.float32,
@@ -133,7 +144,43 @@ def maybe_process_in_chunks(
     return __process_fn
 
 
-def clip(img: ImageInput, dtype: SupportedDType, inplace: bool = False) -> ImageInput:
+@overload
+def clip(img: np.ndarray, dtype: np.dtype[np.uint8] | type[np.uint8], inplace: bool = False) -> ImageUInt8: ...
+
+
+@overload
+def clip(img: np.ndarray, dtype: np.dtype[np.float16] | type[np.float16], inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def clip(img: np.ndarray, dtype: np.dtype[np.float32] | type[np.float32], inplace: bool = False) -> ImageFloat32: ...
+
+
+@overload
+def clip(
+    img: np.ndarray,
+    dtype: np.dtype[np.uint8 | np.float32] | type[np.uint8] | type[np.float32],
+    inplace: bool = False,
+) -> ImageUInt8 | ImageFloat32: ...
+
+
+@overload
+def clip(
+    img: np.ndarray,
+    dtype: np.dtype[_ImageDTypeT] | type[_ImageDTypeT],
+    inplace: bool = False,
+) -> NDArray[_ImageDTypeT]: ...
+
+
+@overload
+def clip(img: torch.Tensor, dtype: SupportedDType, inplace: bool = False) -> torch.Tensor: ...
+
+
+def clip(
+    img: np.ndarray | torch.Tensor,
+    dtype: np.dtype | type[np.generic],
+    inplace: bool = False,
+) -> np.ndarray | torch.Tensor:
     max_value = MAX_VALUES_BY_DTYPE[dtype]
     if isinstance(img, torch.Tensor):
         torch_dtype = _TORCH_DTYPES[dtype]
@@ -145,9 +192,35 @@ def clip(img: ImageInput, dtype: SupportedDType, inplace: bool = False) -> Image
     return cast("ImageType", np.clip(img, 0, max_value).astype(dtype, copy=False))
 
 
-def clipped(func: Callable[Concatenate[ImageInput, P], ImageInput]) -> Callable[Concatenate[ImageInput, P], ImageInput]:
+@overload
+def clipped(
+    func: Callable[Concatenate[ImageArrayT, P], ImageUInt8],
+) -> _ClippedFunction[ImageArrayT, P, ImageUInt8]: ...
+
+
+@overload
+def clipped(
+    func: Callable[Concatenate[ImageArrayT, P], ImageFloat16 | ImageFloat32],
+) -> _ClippedFunction[ImageArrayT, P, ImageArrayT]: ...
+
+
+@overload
+def clipped(
+    func: Callable[Concatenate[ImageArrayT, P], np.ndarray],
+) -> _ClippedFunction[ImageArrayT, P, ImageArrayT | ImageUInt8]: ...
+
+
+@overload
+def clipped(
+    func: Callable[Concatenate[torch.Tensor, P], torch.Tensor],
+) -> _ClippedFunction[torch.Tensor, P, torch.Tensor]: ...
+
+
+def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:
+    """Clip floating results without modifying the callback's output."""
+
     @wraps(func)
-    def wrapped_function(img: ImageInput, *args: P.args, **kwargs: P.kwargs) -> ImageInput:
+    def wrapped_function(img: ImageInput, *args: Any, **kwargs: Any) -> ImageInput:
         dtype = img.dtype
         result = func(img, *args, **kwargs)
 
@@ -155,15 +228,12 @@ def clipped(func: Callable[Concatenate[ImageInput, P], ImageInput]) -> Callable[
             return result
 
         if isinstance(img, torch.Tensor):
-            numpy_dtype = cast("SupportedDType", np.dtype(_NUMPY_DTYPES[dtype]))
+            numpy_dtype = cast("SupportedDType", np.dtype(_NUMPY_DTYPES[cast("torch.dtype", dtype)]))
             return clip(cast("torch.Tensor", result), numpy_dtype)
 
-        if result.dtype in (np.float16, np.float32) and result.dtype == dtype and not np.shares_memory(result, img):
-            max_value = MAX_VALUES_BY_DTYPE[dtype]
-            np.clip(result, 0.0, max_value, out=result)
-            return result
-
-        return clip(result, dtype)
+        result = cast("ImageType", result)
+        numpy_dtype = cast("SupportedDType", dtype)
+        return cast("ImageType", clip(result, numpy_dtype))
 
     return wrapped_function
 
