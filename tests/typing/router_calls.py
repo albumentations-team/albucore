@@ -156,3 +156,33 @@ def check_union_inputs(image: ConsumerImage | torch.Tensor, floats: NDArray[np.f
     assert_type(add_constant(floats, 0.5), NDArray[np.float32])
     assert_type(add_vector(floats, vector), NDArray[np.float32])
     assert_type(add_array(floats, floats), NDArray[np.float32])
+
+
+@clipped
+@float32_io
+def clipping_outside_float(img: NDArray[np.float32], amount: float) -> NDArray[np.float32]:
+    return img * amount
+
+
+@clipped
+@uint8_io
+def clipping_outside_integer(img: NDArray[np.uint8], *, mask: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    return np.bitwise_and(img, mask)
+
+
+def check_outer_clipping(
+    image: ConsumerImage,
+    half: NDArray[np.float16],
+    floats: NDArray[np.float32],
+    bytes_image: NDArray[np.uint8],
+    tensor: torch.Tensor,
+) -> None:
+    assert_type(clipping_outside_float(image, 1.5), ConsumerImage)
+    assert_type(clipping_outside_float(img=image, amount=1.5), ConsumerImage)
+    assert_type(clipping_outside_float(half, 1.5), NDArray[np.float16])
+    assert_type(clipping_outside_float(floats, 1.5), NDArray[np.float32])
+    assert_type(clipping_outside_float(bytes_image, 1.5), NDArray[np.uint8])
+    assert_type(clipping_outside_float(tensor, 1.5, layout="CHW"), torch.Tensor)
+    assert_type(clipping_outside_integer(image, mask=bytes_image), ConsumerImage)
+    assert_type(clipping_outside_integer(img=half, mask=bytes_image), NDArray[np.float16])
+    assert_type(clipping_outside_integer(tensor, mask=bytes_image, layout="CHW"), torch.Tensor)

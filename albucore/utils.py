@@ -36,6 +36,27 @@ class _ClippedFunction(Protocol[_InputImageT_contra, P, _OutputImageT_co]):
 TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
 TensorImageLayout: TypeAlias = Literal["CHW", "NCHW"]
 
+
+class _DtypePreservingFunction(Protocol[P]):
+    @overload
+    def __call__(self, img: ImageArrayT, *args: P.args, **kwargs: P.kwargs) -> ImageArrayT: ...
+
+    @overload
+    def __call__(self, img: ImageArrayT, *args: Any, layout: TensorLayout | None, **kwargs: Any) -> ImageArrayT: ...
+
+    @overload
+    def __call__(self, *, img: ImageArrayT, **kwargs: Any) -> ImageArrayT: ...
+
+    @overload
+    def __call__(
+        self,
+        img: torch.Tensor,
+        *args: Any,
+        layout: TensorLayout | None = None,
+        **kwargs: Any,
+    ) -> torch.Tensor: ...
+
+
 # Supported storage dtypes. Statistics and matrix operations may return wider results.
 SupportedDType: TypeAlias = np.dtype[np.uint8 | np.float16 | np.float32] | type[np.uint8 | np.float16 | np.float32]
 
@@ -190,6 +211,10 @@ def clip(
     if inplace and img.dtype == dtype:
         return cast("ImageType", np.clip(img, 0, max_value, out=img).astype(dtype, copy=False))
     return cast("ImageType", np.clip(img, 0, max_value).astype(dtype, copy=False))
+
+
+@overload
+def clipped(func: _DtypePreservingFunction[P]) -> _DtypePreservingFunction[P]: ...
 
 
 @overload

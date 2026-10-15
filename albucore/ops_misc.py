@@ -4,7 +4,7 @@ import platform
 import sys
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Protocol, cast, overload
+from typing import Any, Concatenate, cast, overload
 
 import cv2
 import numkong as nk
@@ -26,31 +26,11 @@ from albucore.utils import (
     P,
     TensorImageLayout,
     TensorLayout,
+    _DtypePreservingFunction,
     get_num_channels,
     get_opencv_max_channels,
     maybe_process_in_chunks,
 )
-
-
-class _DtypePreservingFunction(Protocol[P]):
-    @overload
-    def __call__(self, img: ImageArrayT, *args: P.args, **kwargs: P.kwargs) -> ImageArrayT: ...
-
-    @overload
-    def __call__(self, img: ImageArrayT, *args: Any, layout: TensorLayout | None, **kwargs: Any) -> ImageArrayT: ...
-
-    @overload
-    def __call__(self, *, img: ImageArrayT, **kwargs: Any) -> ImageArrayT: ...
-
-    @overload
-    def __call__(
-        self,
-        img: torch.Tensor,
-        *args: Any,
-        layout: TensorLayout | None = None,
-        **kwargs: Any,
-    ) -> torch.Tensor: ...
-
 
 MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
 _IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"

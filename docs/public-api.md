@@ -21,6 +21,17 @@ float16 input and float32 for uint8/float32 input; `exp`, `log`, and `sqrt` retu
 use wide accumulators and may return float64. `apply_uint8_lut` and `sz_lut` remain uint8-only. A backend may compute
 in float32 and restore float16 when needed; include those conversions in the full-path benchmark.
 
+## Static return types
+
+Overloads preserve the relationship between input and output container and dtype. Dtype-preserving NumPy calls retain
+that array type; Tensor calls return Tensor. Normalization and conversion follow their explicit output-dtype contracts.
+The implementation may still accept a union of inputs without exposing that entire union as every caller's result.
+
+`float32_io` and `uint8_io` expose dtype-preserving callables. Stacking `clipped` inside or outside either decorator
+preserves their NumPy/Tensor signatures and supported keyword calls. A plain `clipped` callback that intentionally
+returns uint8 keeps that output contract. Checked consumer examples live in
+[`tests/typing/router_calls.py`](../tests/typing/router_calls.py); the mypy hook and runtime-stub CI check compile them.
+
 ## Routers (package `__all__`)
 
 User-facing entry points with benchmark-driven backends inside:
