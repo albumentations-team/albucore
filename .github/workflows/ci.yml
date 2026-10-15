@@ -103,6 +103,12 @@ jobs:
         if: matrix.python-version == '3.11'
         run: uv run python tools/ci_matrix.py check
 
+      - name: Check consumer typing with runtime stubs
+        if: matrix.python-version == '3.11'
+        run: |
+          python -c "import cv2, torch"
+          uvx --from mypy==2.4.0 mypy --config-file=pyproject.toml --disallow-any-unimported --python-executable="$(command -v python)" tests/typing
+
       - name: Check code formatting with pre-commit
         if: matrix.python-version == '3.11'
         run: pre-commit run --all-files --show-diff-on-failure

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 import cv2
 import numpy as np
 import torch
 
 from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu, _sample3d_torch_cpu_batch
+
+if TYPE_CHECKING:
+    from albucore.utils import ImageArrayT
 
 __all__ = ["remap3d"]
 
@@ -83,12 +86,12 @@ def _remap3d_torch_cpu_batch(
 
 @overload
 def remap3d(
-    volume: np.ndarray,
+    volume: ImageArrayT,
     sampling_grid: np.ndarray | torch.Tensor,
     interpolation: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-) -> np.ndarray: ...
+) -> ImageArrayT: ...
 
 
 @overload

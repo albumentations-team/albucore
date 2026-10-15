@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore.utils import ArrayT
+
 __all__ = ["pad3d"]
 
 _TORCH_TO_NUMPY_DTYPE: dict[torch.dtype, type[np.generic]] = {
@@ -80,10 +82,10 @@ def _numpy_pad_use_torch(volume: np.ndarray) -> bool:
 
 @overload
 def pad3d(
-    volume: np.ndarray,
+    volume: ArrayT,
     padding: tuple[int, int, int, int, int, int],
     value: float | tuple[float, ...] = 0,
-) -> np.ndarray: ...
+) -> ArrayT: ...
 
 
 @overload

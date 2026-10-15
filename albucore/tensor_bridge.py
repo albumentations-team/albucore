@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import numpy as np
 import torch
@@ -65,7 +65,7 @@ def dispatch_tensor_image(
     numpy_router: Callable[..., Any],
     *args: Any,
     **kwargs: Any,
-) -> Any:
+) -> torch.Tensor:
     """Call an existing channel-last router and restore an image result to the input layout."""
     image_view = tensor_to_numpy_channel_last(image, layout)
     router_kwargs = kwargs.copy()
@@ -170,13 +170,33 @@ def _reduction_result_to_tensor(
     return tensor_result.permute(permutation) if permutation != tuple(range(len(permutation))) else tensor_result
 
 
+@overload
+def dispatch_tensor_reduction(
+    image: torch.Tensor,
+    layout: TensorLayout | None,
+    numpy_router: Callable[..., tuple[object, object]],
+    axis: Any,
+    kwargs: dict[str, Any],
+) -> tuple[torch.Tensor, torch.Tensor]: ...
+
+
+@overload
+def dispatch_tensor_reduction(
+    image: torch.Tensor,
+    layout: TensorLayout | None,
+    numpy_router: Callable[..., float | np.generic | np.ndarray | torch.Tensor],
+    axis: Any,
+    kwargs: dict[str, Any],
+) -> torch.Tensor: ...
+
+
 def dispatch_tensor_reduction(
     image: torch.Tensor,
     layout: TensorLayout | None,
     numpy_router: Callable[..., Any],
     axis: Any,
     kwargs: dict[str, Any],
-) -> Any:
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
     """Reduce a channel-last NumPy view and restore scalar/vector/matrix Tensor outputs."""
     if layout is None:
         msg = "Tensor image calls require an explicit layout."
@@ -187,4 +207,7 @@ def dispatch_tensor_reduction(
         axis=numpy_axes,
         **kwargs,
     )
-    return _reduction_result_to_tensor(result, image, layout, numpy_axes, keepdims=kwargs["keepdims"])
+    return cast(
+        "torch.Tensor | tuple[torch.Tensor, torch.Tensor]",
+        _reduction_result_to_tensor(result, image, layout, numpy_axes, keepdims=kwargs["keepdims"]),
+    )

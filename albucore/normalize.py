@@ -1,6 +1,6 @@
 """Per-image normalization (mean/std, min/max) and helpers."""
 
-from typing import Any, cast
+from typing import Any, cast, overload
 
 import cv2
 import numpy as np
@@ -94,6 +94,14 @@ def _normalize_min_max_per_channel_opencv(img: ImageType) -> ImageFloat32:
     return np.clip(normalized_img, -20, 20, out=normalized_img)
 
 
+@overload
+def normalize_per_image_opencv(img: ImageFloat16, normalization: NormalizationType) -> ImageFloat16: ...
+
+
+@overload
+def normalize_per_image_opencv(img: ImageUInt8 | ImageFloat32, normalization: NormalizationType) -> ImageFloat32: ...
+
+
 @preserve_channel_dim
 def normalize_per_image_opencv(
     img: ImageType,
@@ -136,6 +144,14 @@ def normalize_per_image_opencv(
         return _normalize_min_max_per_channel_opencv(img)
 
     raise ValueError(f"Unknown normalization method: {normalization}")
+
+
+@overload
+def normalize_per_image_numpy(img: ImageFloat16, normalization: NormalizationType) -> ImageFloat16: ...
+
+
+@overload
+def normalize_per_image_numpy(img: ImageUInt8 | ImageFloat32, normalization: NormalizationType) -> ImageFloat32: ...
 
 
 @preserve_channel_dim
@@ -278,6 +294,33 @@ def normalize_per_image_lut(
     raise ValueError(f"Unknown normalization method: {normalization}")
 
 
+@overload
+def normalize_per_image(
+    img: ImageFloat16,
+    normalization: NormalizationType,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageFloat16: ...
+
+
+@overload
+def normalize_per_image(
+    img: ImageUInt8 | ImageFloat32,
+    normalization: NormalizationType,
+    *,
+    layout: TensorLayout | None = None,
+) -> ImageFloat32: ...
+
+
+@overload
+def normalize_per_image(
+    img: torch.Tensor,
+    normalization: NormalizationType,
+    *,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
+
+
 def normalize_per_image(
     img: ImageType | torch.Tensor,
     normalization: NormalizationType,
@@ -315,6 +358,7 @@ def normalize_per_image(
     Returns:
         Floating image with the same dtype and spatial shape as ``img``. Uint8 input returns float32.
     """
+    result: ImageFloat16 | ImageFloat32
     if isinstance(img, torch.Tensor):
         return dispatch_tensor_image(img, layout, normalize_per_image, normalization)
 

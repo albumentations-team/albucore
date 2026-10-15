@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, overload
 
 import cv2
 import numpy as np
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Literal
 
-    from albucore.utils import ImageFloat16, ImageFloat32, ImageType
+    from albucore.utils import ImageFloat16, ImageFloat32, ImageType, ImageUInt8
 
 from albucore._float_cast import _cast_float_numpy
 from albucore.torch_backend import float16_unary_torch
@@ -60,10 +60,10 @@ def _float16_unary(
     mutate = _can_mutate(array, inplace)
     if array.flags["C_CONTIGUOUS"] and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS:
         if operation == "exp":
-            return cast("ImageFloat16", exp_opencv(array, inplace=mutate))
+            return exp_opencv(array, inplace=mutate)
         if operation == "log":
             working = _cast_float_numpy(array, np.float32)
-            result = cast("ImageFloat32", log_opencv(working))
+            result = log_opencv(working)
             half_result = _cast_float_numpy(result, np.float16)
             if mutate:
                 np.copyto(array, half_result)
@@ -76,7 +76,7 @@ def _float16_unary(
     }[operation]
     torch_result = float16_unary_torch(array, operation, minimum_elements=minimum, inplace=mutate)
     if torch_result is not None:
-        return cast("ImageFloat16", torch_result)
+        return torch_result
     return _float16_unary_numpy(array, numpy_operation, inplace=mutate)
 
 
@@ -104,11 +104,27 @@ def _opencv_unary(
     return cast("ImageFloat32", result.reshape(array.shape))
 
 
+@overload
+def exp_numpy(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def exp_numpy(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
 def exp_numpy(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32:
     """Apply NumPy's elementwise exponential."""
     if array.dtype == np.float16:
         return _float16_unary_numpy(cast("ImageFloat16", array), np.exp, inplace=_can_mutate(array, inplace))
     return np.exp(array, out=array if inplace else None)
+
+
+@overload
+def exp_opencv(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def exp_opencv(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
 
 
 def exp_opencv(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32:
@@ -132,6 +148,18 @@ def _torch_unary(
                 return working.log_()
             return working.sqrt_()
         return operation(working)
+
+
+@overload
+def exp(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def exp(array: ImageUInt8 | ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
+@overload
+def exp(array: torch.Tensor, *, inplace: bool = False) -> torch.Tensor: ...
 
 
 def exp(array: ImageType | torch.Tensor, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32 | torch.Tensor:
@@ -166,11 +194,27 @@ def exp(array: ImageType | torch.Tensor, *, inplace: bool = False) -> ImageFloat
     return exp_numpy(cast("ImageFloat32", array), inplace=mutate)
 
 
+@overload
+def log_numpy(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def log_numpy(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
 def log_numpy(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32:
     """Apply NumPy's elementwise natural logarithm."""
     if array.dtype == np.float16:
         return _float16_unary_numpy(cast("ImageFloat16", array), np.log, inplace=_can_mutate(array, inplace))
     return np.log(array, out=array if inplace else None)
+
+
+@overload
+def log_opencv(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def log_opencv(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
 
 
 def log_opencv(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32:
@@ -186,6 +230,18 @@ def log_opencv(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> 
     if minimum < _FLOAT32_TINY or not np.isfinite(minimum) or not np.isfinite(maximum):
         return log_numpy(array, inplace=inplace)
     return _opencv_unary(array, cv2.log, inplace=inplace)
+
+
+@overload
+def log(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def log(array: ImageUInt8 | ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
+@overload
+def log(array: torch.Tensor, *, inplace: bool = False) -> torch.Tensor: ...
 
 
 def log(array: ImageType | torch.Tensor, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32 | torch.Tensor:
@@ -237,6 +293,14 @@ def log(array: ImageType | torch.Tensor, *, inplace: bool = False) -> ImageFloat
     return log_numpy(cast("ImageFloat32", array), inplace=mutate)
 
 
+@overload
+def sqrt_numpy(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def sqrt_numpy(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
 def sqrt_numpy(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32:
     """Apply NumPy's elementwise square root."""
     if array.dtype == np.float16:
@@ -244,9 +308,29 @@ def sqrt_numpy(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> 
     return np.sqrt(array, out=array if inplace else None)
 
 
+@overload
+def sqrt_opencv(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def sqrt_opencv(array: ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
 def sqrt_opencv(array: ImageFloat16 | ImageFloat32, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32:
     """Apply OpenCV's elementwise square root and restore the exact input shape."""
     return _opencv_unary(array, cv2.sqrt, inplace=inplace)
+
+
+@overload
+def sqrt(array: ImageFloat16, *, inplace: bool = False) -> ImageFloat16: ...
+
+
+@overload
+def sqrt(array: ImageUInt8 | ImageFloat32, *, inplace: bool = False) -> ImageFloat32: ...
+
+
+@overload
+def sqrt(array: torch.Tensor, *, inplace: bool = False) -> torch.Tensor: ...
 
 
 def sqrt(array: ImageType | torch.Tensor, *, inplace: bool = False) -> ImageFloat16 | ImageFloat32 | torch.Tensor:

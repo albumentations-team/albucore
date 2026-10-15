@@ -7,7 +7,7 @@ CPU storage without an input repair copy.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, TypeGuard, cast
 
 import numpy as np
 import torch
@@ -32,7 +32,7 @@ def _is_torch_compatible_array(array: np.ndarray, *, minimum_elements: int | Non
     )
 
 
-def _is_half_torch_compatible(array: np.ndarray, minimum_elements: int) -> bool:
+def _is_half_torch_compatible(array: np.ndarray, minimum_elements: int) -> TypeGuard[ImageFloat16]:
     """Return whether a writable, nonnegative-stride half array meets the CPU Torch size threshold."""
     return (
         array.dtype == np.float16
@@ -83,7 +83,7 @@ def float16_pointwise_torch(
     value: float | np.ndarray,
     *,
     minimum_elements: int,
-) -> np.ndarray | None:
+) -> ImageFloat16 | None:
     """Apply a measured eager CPU half operation without widening the image buffer."""
     if not _is_half_torch_compatible(array, minimum_elements):
         return None
@@ -97,7 +97,7 @@ def float16_pointwise_torch(
         result = image * parameter
     else:
         result = torch.pow(image, parameter)
-    return cast("np.ndarray", result.numpy())
+    return cast("ImageFloat16", result.numpy())
 
 
 def float16_unary_torch(
@@ -106,7 +106,7 @@ def float16_unary_torch(
     *,
     minimum_elements: int,
     inplace: bool = False,
-) -> np.ndarray | None:
+) -> ImageFloat16 | None:
     """Apply a measured CPU half unary operation without a float32 image buffer."""
     if not _is_half_torch_compatible(array, minimum_elements):
         return None
@@ -120,7 +120,7 @@ def float16_unary_torch(
     if inplace and array.flags.owndata:
         np.copyto(array, result.numpy())
         return array
-    return cast("np.ndarray", result.numpy())
+    return cast("ImageFloat16", result.numpy())
 
 
 def multiply_add_float16_torch(
@@ -129,7 +129,7 @@ def multiply_add_float16_torch(
     bias: float | np.ndarray,
     *,
     minimum_elements: int,
-) -> np.ndarray | None:
+) -> ImageFloat16 | None:
     """Compute a measured half multiply-add on one shared CPU buffer."""
     if not _is_half_torch_compatible(array, minimum_elements):
         return None
@@ -139,7 +139,7 @@ def multiply_add_float16_torch(
         return None
     image = torch.from_numpy(array)
     result = image * factor_tensor + bias_tensor
-    return cast("np.ndarray", result.numpy())
+    return cast("ImageFloat16", result.numpy())
 
 
 def _parameter_tensor(value: float | np.ndarray, ndim: int, channels: int) -> torch.Tensor:

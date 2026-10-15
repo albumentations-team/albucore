@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 import cv2
 import numpy as np
@@ -18,6 +18,9 @@ from albucore.sampling3d import (
     _sample3d_torch_cpu_batch,
     _sample3d_torch_cpu_batch_native,
 )
+
+if TYPE_CHECKING:
+    from albucore.utils import ImageArrayT
 
 __all__ = ["warp_affine3d"]
 
@@ -294,13 +297,13 @@ def _warp_affine3d_batch(
 
 @overload
 def warp_affine3d(
-    volume: np.ndarray,
+    volume: ImageArrayT,
     matrix: np.ndarray,
     size: tuple[int, int, int],
     interpolation: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-) -> np.ndarray: ...
+) -> ImageArrayT: ...
 
 
 @overload
