@@ -134,7 +134,7 @@ def normalize_per_image_opencv(
         return _normalize_mean_std_opencv(img, mean_arr, std_arr)
 
     if normalization == "min_max":
-        dst = np.empty_like(img, dtype=np.float32)
+        dst = np.empty_like(img, dtype=np.float32, order="C")
         return cast(
             "ImageFloat32",
             cv2.normalize(img, dst, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F),
