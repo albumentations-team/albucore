@@ -55,8 +55,8 @@ def _cases() -> tuple[MemoryCase, ...]:
         MemoryCase("apply_uint8_lut_per_channel_c9", lambda: ac.apply_uint8_lut(uint8_c9, _per_channel_lut(9))),
         MemoryCase("normalize_float32_rgb", lambda: ac.normalize(float_rgb, mean_rgb, denom_rgb)),
         MemoryCase("normalize_per_image_float32_c9", lambda: ac.normalize_per_image(float_c9, "image")),
-        MemoryCase("add_array_float32_rgb", lambda: ac.add_array(float_rgb, np.full_like(float_rgb, 0.01))),
-        MemoryCase("multiply_by_array_float32_rgb", lambda: ac.multiply_by_array(float_rgb, factor)),
+        MemoryCase("add_field_float32_rgb", lambda: ac.add(float_rgb, np.full_like(float_rgb, 0.01))),
+        MemoryCase("multiply_field_float32_rgb", lambda: ac.multiply(float_rgb, factor)),
         MemoryCase("mean_std_float32_c9", lambda: ac.mean_std(float_c9, "per_channel")),
         MemoryCase("resize_uint8_c9", lambda: ac.resize(uint8_c9, (211, 137), interpolation=cv2.INTER_NEAREST)),
     )

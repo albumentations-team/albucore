@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
-from albucore.functions import power, power_numpy, power_opencv, power_lut
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
+from albucore import power
 
 
 @pytest.mark.parametrize(
@@ -17,7 +16,6 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
             np.array([2.0, 3.0, 4.0], dtype=np.float32),
             np.array([[[1, 8, 81], [16, 125, 255]], [[49, 255, 255], [100, 255, 255]]], dtype=np.uint8),
         ),
-        # Clipping effect test for uint8
         (
             np.array([[[100, 150, 200], [250, 255, 100]], [[50, 75, 125], [175, 200, 225]]], dtype=np.uint8),
             2.0,
@@ -44,24 +42,15 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, convert_value, clip
         ),
     ],
 )
-def test_power_with_numpy(img, exponent, expected_output):
-    result_numpy = power_numpy(img, exponent)
-    if img.dtype == np.uint8:
-        result_numpy = clip(result_numpy, img.dtype)
-    np.testing.assert_allclose(result_numpy, expected_output, rtol=1e-5, atol=1e-6, equal_nan=False)
+def test_power_regression(img, exponent, expected_output):
+    original = img.copy()
 
-    assert result_numpy.dtype == img.dtype, "Input image was modified"
-    assert result_numpy.shape == img.shape
+    result = power(img, exponent)
 
-    if isinstance(exponent, (float, int)):
-        result_opencv = power_opencv(img, exponent)
-        if img.dtype == np.uint8:
-            result_opencv = clip(result_opencv, img.dtype)
-        np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
-
-    if img.dtype == np.uint8:
-        result_lut = clip(power_lut(img, exponent), img.dtype)
-        np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
+    np.testing.assert_allclose(result, expected_output, rtol=1e-5, atol=1e-6, equal_nan=False)
+    np.testing.assert_array_equal(img, original)
+    assert result.dtype == img.dtype
+    assert result.shape == img.shape
 
 
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
@@ -94,29 +83,15 @@ def test_power(img_dtype, num_channels, exponent, is_contiguous):
 
     original_image = img.copy()
 
-    processed_exponent = convert_value(exponent, num_channels)
+    controls = np.asarray(exponent, dtype=np.float32).reshape(-1)
+    processed_exponent = controls[0] if controls.size == 1 or num_channels == 1 else controls[:num_channels]
+    expected = np.power(img.astype(np.float32), processed_exponent)
+    if img_dtype == np.uint8:
+        expected = np.clip(expected, 0, 255).astype(np.uint8)
 
     result = power(img, exponent)
+
     assert result.shape == original_image.shape
     assert result.dtype == original_image.dtype
-
-    result_numpy = power_numpy(img, processed_exponent)
-    if img_dtype == np.uint8:
-        result_numpy = clip(result_numpy, img_dtype)
-
-    np.testing.assert_array_equal(img, original_image)
-
-    np.testing.assert_allclose(result, result_numpy, atol=1e-6)
-
-    if img.dtype == np.uint8:
-        result_lut = power_lut(img, processed_exponent)
-
-        np.testing.assert_array_equal(result, result_lut)
-
-    if isinstance(exponent, (float, int)):
-        result_opencv = power_opencv(img, processed_exponent)
-        if img_dtype == np.uint8:
-            result_opencv = clip(result_opencv, img.dtype)
-        np.testing.assert_allclose(result, result_opencv, atol=1e-6)
-
+    np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-6)
     np.testing.assert_array_equal(img, original_image)

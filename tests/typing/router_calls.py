@@ -9,9 +9,6 @@ from numpy.typing import NDArray
 
 from albucore import (
     add,
-    add_array,
-    add_constant,
-    add_vector,
     add_weighted,
     apply_uint8_lut,
     clip,
@@ -24,9 +21,6 @@ from albucore import (
     log,
     median_blur,
     multiply,
-    multiply_by_array,
-    multiply_by_constant,
-    multiply_by_vector,
     multiply_add,
     normalize,
     normalize_per_image,
@@ -35,7 +29,6 @@ from albucore import (
     remap,
     resize,
     sqrt,
-    sz_lut,
     to_float,
     uint8_io,
     vflip,
@@ -104,7 +97,10 @@ def check_geometry(
 
 
 def check_conversions(
-    image: ConsumerImage, half: NDArray[np.float16], floats: NDArray[np.float32], dtype: np.dtype[np.uint8 | np.float32]
+    image: ConsumerImage,
+    half: NDArray[np.float16],
+    floats: NDArray[np.float32],
+    dtype: np.dtype[np.uint8] | np.dtype[np.float32],
 ) -> None:
     assert_type(to_float(image), NDArray[np.float32])
     assert_type(to_float(half), NDArray[np.float16])
@@ -116,7 +112,6 @@ def check_conversions(
 
 def check_luts(image: NDArray[np.uint8], lut: NDArray[np.uint8]) -> None:
     assert_type(apply_uint8_lut(image, lut), NDArray[np.uint8])
-    assert_type(sz_lut(image, lut), NDArray[np.uint8])
 
 
 def check_decorators(image: ConsumerImage, half: NDArray[np.float16], mask: NDArray[np.uint8]) -> None:
@@ -146,17 +141,16 @@ def check_union_inputs(image: ConsumerImage | torch.Tensor, floats: NDArray[np.f
     assert_type(floating_kernel.with_layout("CHW")(img=image, amount=1.5), ConsumerImage | torch.Tensor)
     assert_type(multiply(image, 1.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(add(image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
-    assert_type(add_weighted(image, 0.5, image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(to_float(image), NDArray[np.float32] | torch.Tensor)
     assert_type(normalize(image, 0.5, 2.0, layout="CHW"), NDArray[np.float32] | torch.Tensor)
     assert_type(resize(image, (11, 13), layout="CHW"), ConsumerImage | torch.Tensor)
-    assert_type(multiply_by_constant(floats, 1.5), NDArray[np.float32])
+    assert_type(multiply(floats, 1.5), NDArray[np.float32])
     vector = np.ones(3, dtype=np.float32)
-    assert_type(multiply_by_vector(floats, vector), NDArray[np.float32])
-    assert_type(multiply_by_array(floats, floats), NDArray[np.float32])
-    assert_type(add_constant(floats, 0.5), NDArray[np.float32])
-    assert_type(add_vector(floats, vector), NDArray[np.float32])
-    assert_type(add_array(floats, floats), NDArray[np.float32])
+    assert_type(multiply(floats, vector), NDArray[np.float32])
+    assert_type(multiply(floats, floats), NDArray[np.float32])
+    assert_type(add(floats, 0.5), NDArray[np.float32])
+    assert_type(add(floats, vector), NDArray[np.float32])
+    assert_type(add(floats, floats), NDArray[np.float32])
 
 
 @clipped
@@ -218,3 +212,4 @@ def check_invalid_decorator_calls(floats: NDArray[np.float32], tensor: torch.Ten
     clipping_outside_float(img=floats, amount="invalid")  # type: ignore[arg-type]
     clipping_outside_float.with_layout("CHW")(tensor, amount="invalid")  # type: ignore[arg-type]
     clipping_inside_integer.with_layout("CHW")(tensor, mask=1)  # type: ignore[arg-type]
+    clipping_outside_float(tensor, 1.5, layout="CHW")  # type: ignore[call-arg, type-var]

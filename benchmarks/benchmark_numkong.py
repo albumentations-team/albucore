@@ -208,7 +208,7 @@ def bench_cdist_sweep(repeats: int, warmup: int) -> list[BenchRow]:
                 f"n={n}, m={m}, d={d} → n*m={prod}; {route}",
                 winner,
                 {"numkong_cdist": t_nk, "numpy_formula": t_np},
-                note="Threshold 1000 matches albucore.functions.pairwise_distances_squared.",
+                note="Threshold 1000 matches albucore.pairwise_distances_squared.",
             ),
         )
 

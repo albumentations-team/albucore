@@ -49,6 +49,9 @@ Count full-array reads and writes, not only Python statements. Image kernels are
 
 Measure peak memory or allocation counts when the change targets allocations. A lower wall time with much higher peak
 memory is not an unconditional win.
+For architecture acceptance, compare live buffers and fresh-process peak/steady RSS. Report fixed resident library-code
+pages separately when a memory map proves their origin; inputs, outputs, workspace, backend heap, and retained arrays
+must still satisfy the no-growth condition. A small RSS increment alone does not establish that it is code.
 
 ### 3. Vectorize the right dimension
 
@@ -156,10 +159,13 @@ globally fastest:
 - OpenCV wins many dense image operations but has channel and layout constraints;
 - StringZilla is competitive for selected uint8 translation paths.
 - CPU PyTorch is competitive for selected eager 3D volume operations when the complete interop route wins.
-- Float16 is not automatically faster than float32 on CPU. Keep support in every documented operation and compare its
-  full public path with float32, including native-half kernels, float32 working buffers, bridges, and output casts. The
-  float16 route must meet the no-slower-than-float32 release gate; if no local candidate does, pursue the missing
-  upstream kernel rather than deleting dtype support or hiding the slowdown behind a microbenchmark.
+- Preserve float16 support in every documented operation. Compare baseline and candidate at the same dtype,
+  including dispatch, bridges, allocations, casts, and output restoration. Float16-versus-float32 comparisons are
+  mandatory diagnostics, not an independent migration blocker. Pursue missing upstream kernels when useful; do not
+  remove dtype support or hide a slow route behind a kernel-only benchmark.
+- A substantial simplification may cost at most 5% on an individual public operation only when accuracy is preserved,
+  memory does not grow, and the complete AlbumentationsX path has no sustained slowdown. Verify these conditions
+  independently on Linux x86-64 and macOS ARM64; gains on one platform cannot compensate for regressions on another.
 
 ### 6a. Escalate missing backend capabilities
 
@@ -248,7 +254,7 @@ For Albucore, benchmark the public router, not only its private backend. Include
 
 Check these shared entry points before writing a local kernel:
 
-- `albucore.apply_uint8_lut` and `albucore.sz_lut` for benchmark-routed uint8 tables;
+- `albucore.apply_uint8_lut` for benchmark-routed uint8 tables;
 - `albucore.stats` for `sum`, `mean`, `std`, and `mean_std` across supported array ranks;
 - Albucore arithmetic and weighted routers for add, multiply, normalize, power, blend, and fused multiply-add;
 - Albucore geometric and resize functions for channel-safe OpenCV routing;
@@ -289,6 +295,13 @@ inter-op threads to one before work starts. Set `OMP_NUM_THREADS`, `OPENBLAS_NUM
 `VECLIB_MAXIMUM_THREADS`, and `NUMEXPR_NUM_THREADS` to `1` before importing numerical libraries. Record effective
 library thread settings; do not rely on environment variables alone. Benchmark additional thread counts only when the
 user explicitly requests a thread-scaling experiment.
+
+Record the CPU model and enabled backend capabilities, including `nk.get_capabilities()` when NumKong is used.
+Check that these flags match the intended host profile before accepting timings. A restricted macOS process can deny
+`sysctl` and silently disable NEON in NumKong ([#407](https://github.com/ashvardanian/NumKong/issues/407)). Measurements
+under that restricted profile do not establish native-host performance. Keep them as separate diagnostics and rerun
+affected comparisons in an authorized environment where the hardware probe succeeds. Do not force global backend
+capabilities just to obtain faster results.
 
 At minimum:
 

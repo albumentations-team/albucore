@@ -11,7 +11,9 @@ import torch
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from albucore.utils import ImageInput, TensorLayout, _DtypePreservingFunction, _LayoutBoundFunction
+    from albucore.utils import _DtypePreservingFunction, _LayoutBoundFunction
+
+from albucore._types import ImageInput, TensorLayout
 
 __all__ = ["TensorLayout"]
 

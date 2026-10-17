@@ -3,7 +3,7 @@
 
 The standard matrix uses the canonical non-square HWC and DHWC shapes.
 Additional sweeps cover tiny dispatch, Python ``math`` loops, strided inputs,
-safe in-place calls, and NumKong ``minmax`` as an OpenCV-log correctness guard.
+safe output reuse calls, and NumKong ``minmax`` as an OpenCV-log correctness guard.
 
 Run from the repository root::
 
@@ -19,6 +19,7 @@ import math
 import platform
 import time
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 import cv2
@@ -27,14 +28,7 @@ import numpy as np
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore as ac
-from albucore.elementwise import (
-    exp_numpy,
-    exp_opencv,
-    log_numpy,
-    log_opencv,
-    sqrt_numpy,
-    sqrt_opencv,
-)
+from albucore.elementwise import _log_opencv, _numpy_unary, _opencv_unary
 
 Unary = Callable[..., np.ndarray]
 HWC_SHAPES: tuple[tuple[int, int, int], ...] = tuple(
@@ -88,21 +82,21 @@ def _samples_to_timing(samples_ms: list[float]) -> WallTimingMs:
     )
 
 
-def _bench_inplace(fn: Unary, source: np.ndarray, repeats: int, warmup: int) -> WallTimingMs:
-    """Time only the in-place call; reset the owned work buffer outside the timer."""
+def _bench_out(fn: Unary, source: np.ndarray, repeats: int, warmup: int) -> WallTimingMs:
+    """Time output reuse; reset the owned work buffer outside the timer."""
     work = source.copy()
     for _ in range(warmup):
         np.copyto(work, source)
-        fn(work, inplace=True)
+        fn(work, out=work)
 
     samples_ms: list[float] = []
     for _ in range(repeats):
         np.copyto(work, source)
         started = time.perf_counter()
-        result = fn(work, inplace=True)
+        result = fn(work, out=work)
         samples_ms.append((time.perf_counter() - started) * 1_000.0)
         if result is not work:
-            msg = f"{fn.__name__} did not preserve aliasing for an owned writable array"
+            msg = f"{fn} did not preserve aliasing for an owned writable array"
             raise RuntimeError(msg)
     return _samples_to_timing(samples_ms)
 
@@ -118,9 +112,9 @@ def _input(operation: str, shape: tuple[int, ...]) -> np.ndarray:
 
 def _operations() -> dict[str, tuple[Unary, Unary, Unary]]:
     return {
-        "exp": (ac.exp, exp_numpy, exp_opencv),
-        "log": (ac.log, log_numpy, log_opencv),
-        "sqrt": (ac.sqrt, sqrt_numpy, sqrt_opencv),
+        "exp": (ac.exp, partial(_numpy_unary, operation=np.exp), partial(_opencv_unary, operation=cv2.exp)),
+        "log": (ac.log, partial(_numpy_unary, operation=np.log), _log_opencv),
+        "sqrt": (ac.sqrt, partial(_numpy_unary, operation=np.sqrt), partial(_opencv_unary, operation=cv2.sqrt)),
     }
 
 
@@ -128,7 +122,7 @@ def _format_timing(timing: WallTimingMs) -> str:
     return f"{timing.median:.4f} ± {timing.mad:.4f}"
 
 
-def _benchmark_standard(repeats: int, warmup: int, *, inplace: bool) -> list[str]:
+def _benchmark_standard(repeats: int, warmup: int, *, reuse_output: bool) -> list[str]:
     rows = [
         "| operation | layout | shape | public ms | NumPy ms | OpenCV-safe ms | public / fastest |",
         "|---|---|---:|---:|---:|---:|---:|",
@@ -136,10 +130,10 @@ def _benchmark_standard(repeats: int, warmup: int, *, inplace: bool) -> list[str
     for name, (public, numpy_fn, opencv_fn) in _operations().items():
         for layout, shape in STANDARD_SHAPES:
             array = _input(name, shape)
-            if inplace:
-                public_t = _bench_inplace(public, array, repeats, warmup)
-                numpy_t = _bench_inplace(numpy_fn, array, repeats, warmup)
-                opencv_t = _bench_inplace(opencv_fn, array, repeats, warmup)
+            if reuse_output:
+                public_t = _bench_out(public, array, repeats, warmup)
+                numpy_t = _bench_out(numpy_fn, array, repeats, warmup)
+                opencv_t = _bench_out(opencv_fn, array, repeats, warmup)
             else:
                 public_t = bench_wall_ms(lambda: public(array), repeats, warmup)
                 numpy_t = bench_wall_ms(lambda: numpy_fn(array), repeats, warmup)
@@ -206,8 +200,8 @@ def _benchmark_log_strided_channels(repeats: int, warmup: int) -> list[str]:
     for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024)):
         for channels in STRIDED_LOG_CHANNELS:
             array = _input("log", (height, width * 2, channels))[:, ::2, :]
-            numpy_t = bench_wall_ms(lambda: log_numpy(array), repeats, warmup)
-            opencv_t = bench_wall_ms(lambda: log_opencv(array), repeats, warmup)
+            numpy_t = bench_wall_ms(lambda: _numpy_unary(array, np.log), repeats, warmup)
+            opencv_t = bench_wall_ms(lambda: _log_opencv(array), repeats, warmup)
             fastest = "OpenCV-safe" if opencv_t.median < numpy_t.median else "NumPy"
             rows.append(
                 f"| {height}x{width} | {channels} | {array.size} | {_format_timing(numpy_t)} | "
@@ -224,8 +218,8 @@ def _benchmark_log_strided_sizes(repeats: int, warmup: int) -> list[str]:
     for channels in (1, 8):
         for height, width in STRIDED_LOG_SIZE_HW:
             array = _input("log", (height, width * 2, channels))[:, ::2, :]
-            numpy_t = bench_wall_ms(lambda: log_numpy(array), repeats, warmup)
-            opencv_t = bench_wall_ms(lambda: log_opencv(array), repeats, warmup)
+            numpy_t = bench_wall_ms(lambda: _numpy_unary(array, np.log), repeats, warmup)
+            opencv_t = bench_wall_ms(lambda: _log_opencv(array), repeats, warmup)
             fastest = "OpenCV-safe" if opencv_t.median < numpy_t.median else "NumPy"
             rows.append(
                 f"| {height}x{width}x{channels} | {array.size} | {numpy_t.median * 1_000:.3f} | "
@@ -234,13 +228,13 @@ def _benchmark_log_strided_sizes(repeats: int, warmup: int) -> list[str]:
     return rows
 
 
-def _log_numkong_guard(array: np.ndarray, *, inplace: bool = False) -> np.ndarray:
+def _log_numkong_guard(array: np.ndarray, *, out: np.ndarray | None = None) -> np.ndarray:
     minimum, _, maximum, _ = nk.minmax(array)
     safe = minimum >= FLOAT32_TINY and np.isfinite(minimum) and np.isfinite(maximum) and not np.isnan(array).any()
     if not safe:
-        return np.log(array, out=array if inplace else None)
-    result = cv2.log(array, dst=array if inplace else None)
-    return array if inplace else result.reshape(array.shape)
+        return np.log(array, out=out)
+    result = cv2.log(array, dst=out)
+    return result.reshape(array.shape) if out is None else out
 
 
 def _benchmark_log_guards(repeats: int, warmup: int) -> list[str]:
@@ -250,8 +244,8 @@ def _benchmark_log_guards(repeats: int, warmup: int) -> list[str]:
     ]
     for shape in HWC_SHAPES:
         array = _input("log", shape)
-        numpy_t = bench_wall_ms(lambda: log_numpy(array), repeats, warmup)
-        production_t = bench_wall_ms(lambda: log_opencv(array), repeats, warmup)
+        numpy_t = bench_wall_ms(lambda: _numpy_unary(array, np.log), repeats, warmup)
+        production_t = bench_wall_ms(lambda: _log_opencv(array), repeats, warmup)
         numkong_t = bench_wall_ms(lambda: _log_numkong_guard(array), repeats, warmup)
         rows.append(
             f"| {'×'.join(map(str, shape))} | {_format_timing(numpy_t)} | {_format_timing(production_t)} | "
@@ -271,7 +265,7 @@ def _report(repeats: int, warmup: int) -> str:
         "",
         "- `exp`: OpenCV at 4,096 elements for C-contiguous arrays and 65,536 elements for strided arrays; NumPy below those thresholds.",
         "- `log`: OpenCV at 4,096 elements for C-contiguous arrays, at 8,192 elements for strided single-channel arrays, and at 65,536 elements for strided arrays with C>=8. Inputs must be positive, finite, and normal float32 values. Two NumPy reductions guard the call; other inputs use NumPy.",
-        "- `sqrt`: NumPy for every layout. `np.sqrt(..., out=array)` avoids allocation for safe in-place calls, and OpenCV showed no durable win.",
+        "- `sqrt`: NumPy for every layout. `np.sqrt(..., out=array)` avoids allocation for safe output reuse calls, and OpenCV showed no durable win.",
         "- NumKong: the installed Python API exposes none of `exp`, `log`, or `sqrt`. Its `minmax` primitive was tested as the `log` guard; the required NaN scan made it slower than NumPy `min`/`max`.",
         "- Python `math`: a per-element loop was tested on the tiny sweep and lost even at one element once array conversion and output allocation were included.",
         "",
@@ -282,7 +276,7 @@ def _report(repeats: int, warmup: int) -> str:
         "- Grouped reductions and randomness: `bincount` and random generators do not apply to deterministic pointwise float32 transforms.",
         "- LUT and StringZilla: neither applies to a continuous float32 domain. A finite uint8 table would change the requested dtype and semantics.",
         "- Backends: complete public, NumPy, and OpenCV paths are timed. NumKong has no direct primitives; its relevant `minmax` guard loses. Python `math` loses on tiny arrays.",
-        "- Safe in-place: only owned writable arrays may alias the result. Views and read-only buffers allocate; strided owned buffers stay on NumPy where OpenCV cannot safely reuse them.",
+        "- Safe output reuse: only owned writable arrays may alias the result. Views and read-only buffers allocate; strided owned buffers stay on NumPy where OpenCV cannot safely reuse them.",
         "- Reuse: the new atoms can replace local OpenCV/NumPy calls in AlbumentationsX histology and illumination helpers in a downstream follow-up.",
         "",
         "## Environment and method",
@@ -291,15 +285,15 @@ def _report(repeats: int, warmup: int) -> str:
         "",
         f"Versions: NumPy `{np.__version__}`, OpenCV `{cv2.__version__}`, NumKong `{getattr(nk, '__version__', 'unknown')}`. NumKong direct elementwise matches found: `{numkong_elementwise or 'none'}`.",
         "",
-        "Each table reports median ± median absolute deviation. The standard matrix uses the canonical non-square HWC grid with C=1/3/9 plus DHWC layouts. Allocating tables time the complete callable. In-place tables reset one owned writable buffer outside the timer, then time only the public or backend call.",
+        "Each table reports median ± median absolute deviation. The standard matrix uses the canonical non-square HWC grid with C=1/3/9 plus DHWC layouts. Allocating tables time the complete callable. Output reuse tables reset one owned writable buffer outside the timer, then time only the public or backend call.",
         "",
         "## Standard allocating matrix",
         "",
-        *_benchmark_standard(repeats, warmup, inplace=False),
+        *_benchmark_standard(repeats, warmup, reuse_output=False),
         "",
-        "## Standard safe in-place matrix",
+        "## Standard safe output reuse matrix",
         "",
-        *_benchmark_standard(repeats, warmup, inplace=True),
+        *_benchmark_standard(repeats, warmup, reuse_output=True),
         "",
         "## Strided allocating matrix",
         "",

@@ -63,18 +63,20 @@ precondition boundary in public-router docstrings.
 ### 2. Supported Dtypes
 
 Image routers support `uint8`, `float16`, and `float32`; image inputs do not include `float64`. Statistics may return
-wide `float64` or integer results. `apply_uint8_lut` and `sz_lut` remain `uint8`-only. Callers reject unsupported
+wide `float64` or integer results. `apply_uint8_lut` remains `uint8`-only. Callers reject unsupported
 dtypes before dispatch; runtime kernels may rely on each router's documented dtype contract.
 
 ### 3. Backend Routing - Benchmark-Driven Only
 
+- Compare old/new implementations at the same dtype on Linux x86-64 and macOS ARM64 independently, following
+  `docs/performance-optimization.md`. Float16/float32 timing is required diagnostics rather than a migration blocker.
 - Do not assume LUT is fastest for uint8; benchmark.
 - NumKong is used where benchmarks win (`blend`, `moments`, `scale`, `cdist`, etc.); see `docs/numkong-performance.md`.
 - The runtime minimum is `numkong>=7.8.5`. Albucore reads `nk.get_capabilities()["neonhalf"]` once and uses NumKong float16 elementwise kernels only in measured regions: contiguous `add_weighted` with weights `0.5, 0.5`, and scalar `multiply_add` with half-exact controls, both above 20,480 elements. Other controls keep their measured NumPy/Torch/OpenCV routes. PR [#398](https://github.com/ashvardanian/NumKong/pull/398) remains an upstream widening improvement for broader controls; Issues [#395](https://github.com/ashvardanian/NumKong/issues/395), [#396](https://github.com/ashvardanian/NumKong/issues/396), and [#397](https://github.com/ashvardanian/NumKong/issues/397) track the related performance and precision work.
-- NumPy HWC float16 `add_vector` and `multiply_by_vector` use `nk.scale` for contiguous writable C=1 inputs from 20,480 elements when the one-element control is exactly representable in float16. Multiplication uses a negative-zero bias to preserve signed-zero semantics. The selected region matched the float32 reference rounded to half across exhaustive binary16 tests and had no robust slow pair in the measured grid; other layouts, channel counts, sizes, and controls keep their current measured routes.
-- NumPy HWC float16 `add_vector` and `multiply_by_vector` use direct OpenCV CV16F scalar operations for contiguous writable C=3 inputs from 61,440 elements when all three controls are exactly representable in float16. Exhaustive binary16 outputs match the float32-rounded-half reference; the full public 101-sample grid has no robust slow pair. OpenCV C1 scalar candidates were rejected for speed; see `docs/numkong-performance.md` and [#25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769).
+- NumPy HWC float16 `add(..., channel_vector)` and `multiply(..., channel_vector)` use `nk.scale` for contiguous writable C=1 inputs from 20,480 elements when the one-element control is exactly representable in float16. Multiplication uses a negative-zero bias to preserve signed-zero semantics. The selected region matched the float32 reference rounded to half across exhaustive binary16 tests and had no robust slow pair in the measured grid; other layouts, channel counts, sizes, and controls keep their current measured routes.
+- NumPy HWC float16 `add(..., channel_vector)` and `multiply(..., channel_vector)` use direct OpenCV CV16F scalar operations for contiguous writable C=3 inputs from 61,440 elements when all three controls are exactly representable in float16. Exhaustive binary16 outputs match the float32-rounded-half reference; the full public 101-sample grid has no robust slow pair. OpenCV C1 scalar candidates were rejected for speed; see `docs/numkong-performance.md` and [#25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769).
 - NumKong float16 `moments` can lose subnormal contributions even with `neonhalf=true`. Albucore currently scans for subnormals, widens those inputs, and mirrors the float32 backend; near-constant data keeps a float64 fallback. This still leaves robust slow cells and is tracked in [NumKong #399](https://github.com/ashvardanian/NumKong/issues/399). PR [#400](https://github.com/ashvardanian/NumKong/pull/400) adds F64 NEON accumulation and an unaligned-byte fallback; its 3-byte, 1M-value case measured 0.812× the F16→F32 bridge. A temporary Albucore public-route probe using that wheel and bypassing only the subnormal scan measured all 32 HWC C=1/2/3/4 `std`/`mean_std` cells at 0.27–0.86× float32, with maximum float64-reference errors of 1.37e-10 for mean and 1.67e-8 for std. A separate positive-range `[0.1,0.9]` screen passed mean `rtol=1e-7` in 16 cells and stayed within the current `mean_std` test tolerances. Keep the current guard until PR #400 is merged and released; see [the consolidated benchmark](https://github.com/ashvardanian/NumKong/issues/399).
-- HWC float16 per-channel `mean` remains on CV32F/OpenCV until NumKong PR #400 is released. A temporary direct-moments candidate with the subnormal scan bypassed measured C1 at 0.93–1.02× float32, C3 strided at 1.15–1.17×, and C9 at 4.85–5.00×; C9 `nk.sum(axis=(0,1))` was 4.82–4.93× and a C3 planar copy was 3.03–3.33×. All candidates met `rtol=1e-7`, but only C1 meets the speed gate. Track grouped axis-aware `moments` in [NumKong #311](https://github.com/ashvardanian/NumKong/issues/311#issuecomment-6112109242).
+- HWC float16 per-channel `mean` remains on CV32F/OpenCV until NumKong PR #400 is released. A temporary direct-moments candidate with the subnormal scan bypassed measured C1 at 0.93–1.02× float32, C3 strided at 1.15–1.17×, and C9 at 4.85–5.00×; C9 `nk.sum(axis=(0,1))` was 4.82–4.93× and a C3 planar copy was 3.03–3.33×. All candidates met `rtol=1e-7`, but only C1 matched float32 timing in that historical screen. Track grouped axis-aware `moments` in [NumKong #311](https://github.com/ashvardanian/NumKong/issues/311#issuecomment-6112109242).
 - For NumPy float16 C=9 `reduce_sum`, keep the measured Torch window and widened CV_64F reduction route explicit; the current C=9 public bridge is 1.21–1.30× float32 time, while tested direct Torch/NumKong/NumPy routes were slower. OpenCV rejects CV_16F input in `reduce`; see [#25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769).
 - Contiguous float16 Tensor `reduce_sum` at 16,384+ elements uses direct Torch `sum(dtype=float64)` for global, per-channel, and explicit axes. It preserves the wide output and avoids channel-last bridge costs.
 - Contiguous NumPy float16 global `reduce_sum` at 20,480+ elements with `keepdims=False` uses Torch `sum(dtype=float64)` through a zero-copy view; the full 101-sample HWC/NHWC grid matched NumPy float64 bitwise and had no robust slow cell (0.968–1.106× float32 time).
@@ -84,7 +86,7 @@ dtypes before dispatch; runtime kernels may rely on each router's documented dty
 - Contiguous NumPy float16 `warp_perspective(..., INTER_NEAREST)` with a float32 matrix and the default zero border uses the shared bit-preserving integer view: CV_16U for C=1/3 and CV_8U bytes for C=9. Other matrices, borders, strides, dst outputs, and interpolation regions keep the float32 route.
 - Contiguous NumPy float16 `remap(..., INTER_NEAREST)` with contiguous float32 maps and the default zero border converts maps to fixed-point, then uses CV_16U for C=1/3 and CV_8U bytes for C=9. Direct float maps with a CV_16U single-channel source can change tie rounding, so the fixed-point map is used for every selected channel count. Other channels, borders, strides, dst outputs, and interpolation modes use the float32 route.
 - NumPy float16 `median_blur` uses ordered CV_16U keys for HWC C=1, `ksize=5`, and at least 76,800 elements; NaNs and zero medians with mixed signed-zero inputs use the float32 route, and other channel/kernel regions keep existing routes. The bridge exposes the same path to CHW/NCHW Tensor calls. See the measured matrix and rejected multi-channel candidate in `docs/numkong-performance.md` and OpenCV [#30217](https://github.com/opencv/opencv/issues/30217).
-- For NumPy HWC float16 C=1, `add_vector` and `multiply_by_vector` use the scalar Torch path only when the one-element control is exactly representable in float16; nonrepresentable controls retain the float32-working route.
+- For NumPy HWC float16 C=1, `add(..., channel_vector)` and `multiply(..., channel_vector)` use the scalar Torch path only when the one-element control is exactly representable in float16; nonrepresentable controls retain the float32-working route.
 - Global float16 Tensor `mean` uses a float32 Torch accumulator and returns float64 for C>1 at 40,960 elements or larger. Global Tensor `std` at 40,960+ elements uses a float32 NumPy accumulator only for contiguous input within [-1, 1] with std>1e-3, and a two-pass Torch float64 fallback outside that region; non-contiguous inputs retain the wide NumPy route. Global Tensor `mean_std` may use zero-copy scalar-view CV16F `meanStdDev` at 20,480 elements or larger, with wide fallback for near-constant/non-finite inputs. PyTorch CPU half `std` cannot select an output dtype; see [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
 - Contiguous float16 Tensor `mean(..., axis="per_channel")` at 40,960+ elements uses a Torch float64 accumulator over every axis except the declared channel axis for batch and volume layouts and multi-channel CHW. Single-channel CHW keeps its faster OpenCV route. Preserve `keepdims` layout and compare to a float64 reference.
 - Global contiguous NumPy float16 `mean` at 4,096+ elements widens once to float32 before OpenCV `mean`; direct CV16F mean can lose low-order subnormal contributions. The complete 21-cell HWC/NHWC matrix matched the float64 reference and ran at 0.696–0.876× float32 time. Small or non-contiguous inputs keep the NumPy float64 reduction. See [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769).
@@ -129,8 +131,19 @@ write the final half output directly.
 
 ### 7. Utilities and Decorators
 
+- Type definitions have one owner, `albucore._types`; consumers use the public types exported by `albucore`.
 - Utilities: `get_num_channels`, `convert_value`, `clip`, etc. in `albucore.utils`.
-- Decorators: `@preserve_channel_dim`, `@clipped`, etc. in `albucore.decorators`.
+- `clip` infers dtype from the output buffer or input; an explicit dtype must match a supplied output. It uses
+  keyword-only `out`, returns that object, and never scales intensities. Without output, input remains unchanged.
+  AX validates metadata/overlap and protects input aliases before requesting mutation, including identity results.
+- Contiguous NumPy half-to-half `clip` from 16,384 elements uses a flattened OpenCV integer view. Preserve the NaN/negative-zero guard and NumPy stride route; widening or a full-array mask would change its memory contract. Exhaustive finite-domain and all-encoding tests cover the two numerical paths; see `docs/numkong-performance.md` for two-platform evidence.
+- `multiply_add` also uses dtype/container-matching `out` and required Tensor layout. Preserve the selected fused/two-rounding policy. Exact image and full-field coefficient aliases are supported; writing the product over a still-needed bias is invalid. NumPy half output reuse is safe only after proving the later bias stage is supported.
+- Decorators: `@preserve_channel_dim` in `albucore.decorators`; `@clipped` in `albucore.utils`.
+
+- `add_weighted` is owned by `albucore.weighted`. Its explicit output may alias either input; other overlaps are
+  prevalidated by AX. Keep the measured NumKong/OpenCV regions and native rounding/non-finite behavior. Tensor
+  batches retain per-item routing outside the whole-contiguous-half average region and fill one final output instead
+  of retaining per-item results and stacking them. Scalar NumKong scale is private to arithmetic.
 
 ### 8. Tests
 
@@ -157,3 +170,13 @@ write the final half output directly.
 | Torch Tensor route | Explicit layout; AlbumentationsX prevalidates CPU/strides/autograd before `warp_affine3d` |
 | Benchmarks | `benchmarks/` and `docs/numkong-performance.md` |
 | Lockfile | Keep `uv.lock` in sync with `pyproject.toml` |
+
+Fixed-statistics `normalize` uses explicit result-dtype `out` and required Tensor layout. Uint8/float32 results are
+float32; half results are half. Exact floating source aliases are supported. Keep the existing approximate identity
+policy and backend arithmetic order; a strided output may need a temporary. Do not route to different arithmetic
+because the destination cannot be wrapped by Torch or written by OpenCV.
+
+Adaptive `normalize_per_image` has result-dtype output and explicit Tensor layout. Preserve whole-array NumPy versus
+per-item Tensor batch statistics. Its epsilon differs for global min/max and C=1 dtype regions; use the public API
+table. Compute statistics before mutation, reuse only newly owned working storage, and avoid image-sized replicated
+extrema. Its former unprefixed backend functions and shape decorators are retired.

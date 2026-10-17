@@ -21,10 +21,10 @@ import numpy as np
 from shape_grids import ROUTER_HWC_FULL_HW
 from timing import WallTimingMs, bench_wall_ms
 
-from albucore.convert import _from_float_uint8_numkong, from_float_opencv
+from albucore.convert import _from_float_uint8_numkong
 
 if TYPE_CHECKING:
-    from albucore.utils import ImageFloat32, ImageUInt8
+    from numpy.typing import NDArray
 
 HWC_SHAPES: tuple[tuple[int, int, int], ...] = tuple(
     (height, width, channels) for height, width in ROUTER_HWC_FULL_HW for channels in (1, 3, 5, 9)
@@ -39,23 +39,23 @@ XHWC_SHAPES: tuple[tuple[int, int, int, int], ...] = (
 )
 
 
-def _numkong_direct_cast(rounded: ImageFloat32) -> ImageUInt8:
+def _numkong_direct_cast(rounded: NDArray[np.float32]) -> NDArray[np.uint8]:
     """Cast a pre-rounded, in-range float32 buffer through NumKong."""
     result = np.empty(rounded.shape, dtype=np.uint8)
     nk.astype(rounded, "uint8", out=result)
-    return cast("ImageUInt8", result)
+    return cast("NDArray[np.uint8]", result)
 
 
-def _numpy_direct_cast(rounded: ImageFloat32) -> ImageUInt8:
+def _numpy_direct_cast(rounded: NDArray[np.float32]) -> NDArray[np.uint8]:
     """Reference cast for already rounded values in the uint8 range."""
-    return cast("ImageUInt8", rounded.astype(np.uint8))
+    return cast("NDArray[np.uint8]", rounded.astype(np.uint8))
 
 
-def _strided(image: ImageFloat32) -> ImageFloat32:
+def _strided(image: NDArray[np.float32]) -> NDArray[np.float32]:
     expanded = np.empty((image.shape[0], image.shape[1] * 2, *image.shape[2:]), dtype=np.float32)
     expanded[:, ::2, ...] = image
     expanded[:, 1::2, ...] = image
-    return cast("ImageFloat32", expanded[:, ::2, ...])
+    return cast("NDArray[np.float32]", expanded[:, ::2, ...])
 
 
 def _format(timing: WallTimingMs) -> str:
@@ -64,11 +64,11 @@ def _format(timing: WallTimingMs) -> str:
 
 def _row(
     layout: str,
-    image: ImageFloat32,
+    image: NDArray[np.float32],
     repeats: int,
     warmup: int,
 ) -> str:
-    expected = from_float_opencv(image, np.dtype(np.uint8), 255.0)
+    expected = np.clip(np.rint(image * np.float32(255)), 0, 255).astype(np.uint8)
     candidate = _from_float_uint8_numkong(image, 255.0)
     np.testing.assert_array_equal(candidate, expected, strict=True)
 
@@ -77,7 +77,7 @@ def _row(
     np.testing.assert_array_equal(_numkong_direct_cast(rounded), _numpy_direct_cast(rounded), strict=True)
 
     numpy_full = bench_wall_ms(
-        lambda: from_float_opencv(image, np.dtype(np.uint8), 255.0),
+        lambda: np.clip(np.rint(image * np.float32(255)), 0, 255).astype(np.uint8),
         repeats=repeats,
         warmup=warmup,
     )

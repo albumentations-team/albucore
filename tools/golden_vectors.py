@@ -98,9 +98,9 @@ def _case_apply_uint8_lut_per_channel() -> ArrayOutputs:
     return {"result": ac.apply_uint8_lut(img, _lut_per_channel(9))}
 
 
-def _case_sz_lut_shared() -> ArrayOutputs:
+def _case_uint8_lut_shared_single_channel() -> ArrayOutputs:
     img = uint8_image((8, 9, 1))
-    return {"result": ac.sz_lut(img.copy(), _lut_shared(), inplace=False)}
+    return {"result": ac.apply_uint8_lut(img, _lut_shared())}
 
 
 def _case_flips_float32() -> ArrayOutputs:
@@ -131,7 +131,7 @@ GOLDEN_CASES: tuple[GoldenCase, ...] = (
     GoldenCase("to_from_float_uint8_hwc1", _case_to_from_float_roundtrip, rtol=1e-6, atol=1e-6),
     GoldenCase("apply_uint8_lut_shared_hwc", _case_apply_uint8_lut_shared),
     GoldenCase("apply_uint8_lut_per_channel_hwc9", _case_apply_uint8_lut_per_channel),
-    GoldenCase("sz_lut_shared_hwc1", _case_sz_lut_shared),
+    GoldenCase("sz_lut_shared_hwc1", _case_uint8_lut_shared_single_channel),
     GoldenCase("flips_float32_hwc", _case_flips_float32),
     GoldenCase("resize_nearest_uint8_hwc1", _case_resize_nearest_uint8),
     GoldenCase("stats_uint8_per_channel_hwc", _case_stats_uint8_per_channel, rtol=1e-12, atol=1e-12),

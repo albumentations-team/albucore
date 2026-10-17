@@ -10,8 +10,6 @@ import torch
 
 from albucore import (
     add,
-    add_array,
-    add_vector,
     apply_uint8_lut,
     clip,
     clipped,
@@ -27,21 +25,18 @@ from albucore import (
     mean,
     mean_std,
     multiply,
-    multiply_by_vector,
     multiply_add,
-    multiply_by_array,
     pairwise_distances_squared,
     reduce_sum,
     resize3d,
     separable_filter3d,
     std,
-    sz_lut,
     to_float,
     uint8_io,
     vflip,
 )
+from albucore._types import TensorLayout
 from albucore.tensor_bridge import dispatch_tensor_image, numpy_to_tensor_layout, tensor_to_numpy_channel_last
-from albucore.utils import TensorLayout
 
 
 @pytest.mark.parametrize(
@@ -165,12 +160,12 @@ def test_clipped_tensor_restores_dtype_for_promoted_results() -> None:
     torch.testing.assert_close(result, torch.tensor([[[0, 254, 255]]], dtype=torch.uint8))
 
 
-def test_tensor_inplace_unary_mutates_leaf_view_and_its_alias() -> None:
+def test_tensor_unary_output_mutates_leaf_view_and_its_alias() -> None:
     base = torch.linspace(0.1, 0.9, steps=12, dtype=torch.float16)
     view = base.view(3, 4)
     original = base.clone()
 
-    result = exp(view, inplace=True)
+    result = exp(view, out=view)
 
     assert result is view
     torch.testing.assert_close(base, torch.exp(original))
@@ -236,8 +231,8 @@ def test_dtype_io_decorators_restore_half_and_tensor_layout() -> None:
         return np.subtract(np.uint8(255), image, dtype=np.uint8)
 
     image = torch.linspace(0.0, 1.0, steps=3 * 5 * 7, dtype=torch.float16).reshape(3, 5, 7)
-    result_float = twice(image, layout="CHW")
-    result_uint8 = invert(image, layout="CHW")
+    result_float = twice.with_layout("CHW")(image)
+    result_uint8 = invert.with_layout("CHW")(image)
     quantized = np.rint(image.permute(1, 2, 0).numpy().astype(np.float32) * 255.0).astype(np.uint8)
     expected_uint8 = ((255 - quantized).astype(np.float32) / 255.0).astype(np.float16)
 
@@ -325,7 +320,7 @@ def test_matrix_routers_accept_tensor_inputs_and_preserve_output_policy(dtype: t
 )
 @pytest.mark.parametrize("image_dtype", [torch.float16, torch.float32])
 @pytest.mark.parametrize("operand_dtype", [torch.float16, torch.float32])
-def test_tensor_add_array_preserves_input_dtype_and_layout(
+def test_tensor_add_field_preserves_input_dtype_and_layout(
     layout: str,
     shape: tuple[int, ...],
     image_dtype: torch.dtype,
@@ -335,7 +330,7 @@ def test_tensor_add_array_preserves_input_dtype_and_layout(
     operand = torch.full(shape, 0.015625, dtype=operand_dtype)
     expected = (image.to(torch.float32) + operand.to(torch.float32)).to(image_dtype)
 
-    result = add_array(image, operand, layout=layout)
+    result = add(image, operand, layout=layout)
 
     assert result.dtype == image_dtype
     assert result.shape == image.shape
@@ -353,7 +348,7 @@ def test_tensor_add_array_preserves_input_dtype_and_layout(
     ],
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
-def test_tensor_multiply_by_array_preserves_input_dtype_and_layout(
+def test_tensor_multiply_field_preserves_input_dtype_and_layout(
     layout: str,
     shape: tuple[int, ...],
     dtype: torch.dtype,
@@ -362,7 +357,7 @@ def test_tensor_multiply_by_array_preserves_input_dtype_and_layout(
     factor = torch.full(shape, 1.015625, dtype=dtype)
     expected = (image.to(torch.float32) * factor.to(torch.float32)).to(dtype)
 
-    result = multiply_by_array(image, factor, layout=layout)
+    result = multiply(image, factor, layout=layout)
 
     assert result.dtype == dtype
     assert result.shape == image.shape
@@ -400,20 +395,18 @@ def test_tensor_multiply_add_preserves_two_step_half_rounding(
     torch.testing.assert_close(result, expected, rtol=0.0, atol=0.0)
 
 
-def test_uint8_lut_routers_accept_tensors_and_preserve_inplace_contract() -> None:
+def test_uint8_lut_accepts_tensors_and_returns_supplied_output() -> None:
     image = torch.arange(3 * 7 * 9, dtype=torch.uint8).reshape(3, 7, 9)
     shared_lut = (255 - np.arange(256, dtype=np.uint16)).astype(np.uint8)
     expected = torch.from_numpy(shared_lut[image.numpy()])
 
-    result = sz_lut(image, shared_lut, inplace=False)
+    result = apply_uint8_lut(image, shared_lut)
     assert result.dtype == torch.uint8
     torch.testing.assert_close(result, expected)
     inplace = image.clone()
-    returned = sz_lut(inplace, shared_lut, inplace=True)
+    returned = apply_uint8_lut(inplace, shared_lut, out=inplace)
     assert returned is inplace
     torch.testing.assert_close(inplace, expected)
-    routed = apply_uint8_lut(image, shared_lut)
-    torch.testing.assert_close(routed, expected)
 
     channel_luts = np.stack([(np.arange(256, dtype=np.uint16) + index * 13) % 256 for index in range(3)], axis=-1)
     channel_luts = channel_luts.astype(np.uint8)[:, None, :]
@@ -748,10 +741,10 @@ def test_float16_tensor_vector_arithmetic_uses_declared_channel_axis(
     control = np.asarray(values, dtype=np.float32)
 
     if operation == "add":
-        result = add_vector(image, control, layout=layout)
+        result = add(image, control, layout=layout)
         expected = image + parameter
     else:
-        result = multiply_by_vector(image, control, layout=layout)
+        result = multiply(image, control, layout=layout)
         expected = image * parameter
 
     torch.testing.assert_close(result, expected, rtol=0, atol=0)
@@ -782,12 +775,10 @@ def test_float16_tensor_pointwise_unrepresentable_vector_uses_wide_path(operatio
     values = np.array([0.1, 0.2, 0.3], dtype=np.float32)
     control = torch.from_numpy(values).reshape(3, 1, 1)
 
-    actual = add_vector(image, values, layout="CHW") if operation == "add" else multiply_by_vector(image, values, layout="CHW")
-    expected = (
-        image.to(torch.float32) + control
-        if operation == "add"
-        else image.to(torch.float32) * control
-    ).to(torch.float16)
+    actual = add(image, values, layout="CHW") if operation == "add" else multiply(image, values, layout="CHW")
+    expected = (image.to(torch.float32) + control if operation == "add" else image.to(torch.float32) * control).to(
+        torch.float16
+    )
 
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 

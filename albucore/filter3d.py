@@ -11,7 +11,7 @@ import torch.nn.functional as torch_f
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from albucore.utils import ImageArrayT
+    from albucore._types import ImageArrayT
 
 __all__ = ["gaussian_blur3d", "separable_filter3d"]
 

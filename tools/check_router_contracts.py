@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tests.router_contracts import FUNCTION_CONTRACTS, GEOMETRIC_CONTRACTS, ROUTER_CONTRACTS, RouterContract
+from tests.router_contracts import ROUTER_CONTRACTS, RouterContract
 from tests.verification_constants import ALL_CHANNEL_SPECS, ALL_DTYPE_NAMES, ALL_LAYOUT_NAMES, ALL_VALUE_KINDS
 
 if TYPE_CHECKING:
@@ -15,8 +15,7 @@ if TYPE_CHECKING:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-FUNCTIONS_PATH = REPO_ROOT / "albucore" / "functions.py"
-GEOMETRIC_PATH = REPO_ROOT / "albucore" / "geometric.py"
+PUBLIC_API_PATH = REPO_ROOT / "albucore" / "__init__.py"
 BENCHMARK_ROUTER_PATH = REPO_ROOT / "benchmarks" / "benchmark_router_synthetic.py"
 
 
@@ -27,9 +26,12 @@ def _parse_module(path: Path) -> ast.Module:
 def _string_list_from_node(node: ast.AST) -> set[str]:
     if not isinstance(node, (ast.List, ast.Tuple)):
         return set()
-    return {
+    names = [
         element.value for element in node.elts if isinstance(element, ast.Constant) and isinstance(element.value, str)
-    }
+    ]
+    if len(names) != len(set(names)):
+        raise RuntimeError("Duplicate names in export list")
+    return set(names)
 
 
 def _read_all(path: Path) -> set[str]:
@@ -85,25 +87,17 @@ def _format_names(names: Iterable[str]) -> str:
 
 
 def _check_exports(errors: list[str]) -> None:
-    function_exports = _read_all(FUNCTIONS_PATH)
-    function_contracts = set(FUNCTION_CONTRACTS)
-    missing_function_contracts = function_exports - function_contracts
-    extra_function_contracts = function_contracts - function_exports
-
-    if missing_function_contracts:
-        errors.append(f"Missing function contracts: {_format_names(missing_function_contracts)}")
-    if extra_function_contracts:
-        errors.append(f"Function contracts for non-exported names: {_format_names(extra_function_contracts)}")
-
-    geometric_exports = _read_all(GEOMETRIC_PATH)
-    geometric_contracts = set(GEOMETRIC_CONTRACTS)
-    missing_geometric_contracts = geometric_exports - geometric_contracts
-    extra_geometric_contracts = geometric_contracts - geometric_exports
-
-    if missing_geometric_contracts:
-        errors.append(f"Missing geometric contracts: {_format_names(missing_geometric_contracts)}")
-    if extra_geometric_contracts:
-        errors.append(f"Geometric contracts for non-exported names: {_format_names(extra_geometric_contracts)}")
+    exports = _read_all(PUBLIC_API_PATH)
+    shared_exports = {"__version__", "__author__", "__maintainer__"}
+    for module in ("_types", "utils", "decorators"):
+        shared_exports.update(_read_all(REPO_ROOT / "albucore" / f"{module}.py"))
+    routers = exports - (shared_exports - ROUTER_CONTRACTS.keys())
+    missing = routers - ROUTER_CONTRACTS.keys()
+    extra = ROUTER_CONTRACTS.keys() - exports
+    if missing:
+        errors.append(f"Missing router contracts: {_format_names(missing)}")
+    if extra:
+        errors.append(f"Router contracts for non-exported names: {_format_names(extra)}")
 
 
 def _contracts_requiring_benchmarks() -> dict[str, RouterContract]:

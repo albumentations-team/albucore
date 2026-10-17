@@ -1,41 +1,42 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Literal, ParamSpec, Protocol, TypeAlias, TypeVar, cast, overload
+from typing import Any, Concatenate, Protocol, TypeVar, cast, overload
 
 import cv2
 import numpy as np
 import torch
-from numpy import float16, float32, uint8
 from numpy.typing import NDArray
+
+from albucore._types import ImageArrayT, ImageInput, ImageType, P, SupportedDType, TensorLayout, ValueType
+
+_FLOAT32_MAX = float(np.finfo(np.float32).max)
+
+
+def _broadcast_channel_vector(x: ValueType | np.floating[Any], n_dim: int, c: int) -> ValueType | np.floating[Any]:
+    if isinstance(x, np.ndarray) and x.shape == (c,):
+        return x.reshape((1,) * (n_dim - 1) + (c,))
+    return x
+
+
+def _batch_operand(value: float | np.ndarray, image: np.ndarray, index: int) -> float | np.ndarray:
+    if isinstance(value, np.ndarray) and value.ndim == image.ndim and value.shape[0] == image.shape[0]:
+        return cast("np.ndarray", value[index])
+    return value
+
 
 NUM_RGB_CHANNELS = 3
 TWO = 2
 
 MAX_OPENCV_WORKING_CHANNELS = 4
 
-NormalizationType = Literal["image", "image_per_channel", "min_max", "min_max_per_channel"]
-
-P = ParamSpec("P")
-
-ImageUInt8: TypeAlias = NDArray[uint8]
-ImageFloat16: TypeAlias = NDArray[float16]
-ImageFloat32: TypeAlias = NDArray[float32]
-ImageType: TypeAlias = ImageUInt8 | ImageFloat16 | ImageFloat32
-ImageInput: TypeAlias = ImageType | torch.Tensor
-ImageArrayT = TypeVar("ImageArrayT", bound=ImageType)
 _ImageInputT = TypeVar("_ImageInputT", bound=ImageInput)
 _InputImageT_contra = TypeVar("_InputImageT_contra", bound=ImageInput, contravariant=True)
 _OutputImageT_co = TypeVar("_OutputImageT_co", bound=ImageInput, covariant=True)
-ArrayT = TypeVar("ArrayT", bound=np.ndarray)
 _ImageDTypeT = TypeVar("_ImageDTypeT", bound=np.uint8 | np.float16 | np.float32)
 
 
 class _ClippedFunction(Protocol[_InputImageT_contra, P, _OutputImageT_co]):
     def __call__(self, img: _InputImageT_contra, *args: P.args, **kwargs: P.kwargs) -> _OutputImageT_co: ...
-
-
-TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
-TensorImageLayout: TypeAlias = Literal["CHW", "NCHW"]
 
 
 class _LayoutBoundFunction(Protocol[P]):
@@ -47,9 +48,6 @@ class _DtypePreservingFunction(Protocol[P]):
 
     def __call__(self, img: ImageArrayT, *args: P.args, **kwargs: P.kwargs) -> ImageArrayT: ...
 
-
-# Supported storage dtypes. Statistics and matrix operations may return wider results.
-SupportedDType: TypeAlias = np.dtype[np.uint8 | np.float16 | np.float32] | type[np.uint8 | np.float16 | np.float32]
 
 MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
     np.dtype("uint8"): 255,
@@ -156,52 +154,160 @@ def maybe_process_in_chunks(
     return __process_fn
 
 
-@overload
-def clip(img: np.ndarray, dtype: np.dtype[np.uint8] | type[np.uint8], inplace: bool = False) -> ImageUInt8: ...
+def _clip_float16_opencv(
+    array: NDArray[np.float16],
+    *,
+    out: NDArray[np.float16] | None,
+) -> NDArray[np.float16] | None:
+    if (
+        not 16_384 <= array.size <= 2_147_483_647
+        or not array.flags.c_contiguous
+        or (out is not None and not out.flags.c_contiguous)
+    ):
+        return None
+    # Preserve NaN payloads and negative zero through the NumPy route.
+    bits = array.view(np.uint16)
+    largest_bits = bits.max()
+    signed_bits = bits.view(np.int16)
+    if largest_bits > 0x7C00 and (largest_bits > 0xFC00 or signed_bits.min() == -32768 or signed_bits.max() > 0x7C00):
+        return None
+    result = np.empty_like(array) if out is None else out
+    if largest_bits <= 0x7C00:
+        cv2.min(bits.reshape(1, -1), 0x3C00, dst=result.view(np.uint16).reshape(1, -1))
+    else:
+        destination = result.view(np.int16).reshape(1, -1)
+        cv2.max(signed_bits.reshape(1, -1), 0, dst=destination)
+        cv2.min(destination, 0x3C00, dst=destination)
+    return result
 
 
 @overload
-def clip(img: np.ndarray, dtype: np.dtype[np.float16] | type[np.float16], inplace: bool = False) -> ImageFloat16: ...
+def clip(img: np.ndarray, dtype: None = None, *, out: ImageArrayT) -> ImageArrayT: ...
 
 
 @overload
-def clip(img: np.ndarray, dtype: np.dtype[np.float32] | type[np.float32], inplace: bool = False) -> ImageFloat32: ...
+def clip(img: ImageArrayT, dtype: None = None, *, out: None = None) -> ImageArrayT: ...
+
+
+@overload
+def clip(img: NDArray[_ImageDTypeT], dtype: None = None, *, out: None = None) -> NDArray[_ImageDTypeT]: ...
 
 
 @overload
 def clip(
     img: np.ndarray,
-    dtype: np.dtype[np.uint8 | np.float32] | type[np.uint8] | type[np.float32],
-    inplace: bool = False,
-) -> ImageUInt8 | ImageFloat32: ...
+    dtype: np.dtype[np.uint8] | type[np.uint8],
+    *,
+    out: NDArray[np.uint8] | None = None,
+) -> NDArray[np.uint8]: ...
+
+
+@overload
+def clip(
+    img: np.ndarray,
+    dtype: np.dtype[np.float16] | type[np.float16],
+    *,
+    out: NDArray[np.float16] | None = None,
+) -> NDArray[np.float16]: ...
+
+
+@overload
+def clip(
+    img: np.ndarray,
+    dtype: np.dtype[np.float32] | type[np.float32],
+    *,
+    out: NDArray[np.float32] | None = None,
+) -> NDArray[np.float32]: ...
+
+
+@overload
+def clip(
+    img: np.ndarray,
+    dtype: np.dtype[np.uint8] | np.dtype[np.float32] | type[np.uint8] | type[np.float32],
+    *,
+    out: None = None,
+) -> NDArray[np.uint8] | NDArray[np.float32]: ...
+
+
+@overload
+def clip(
+    img: np.ndarray,
+    dtype: SupportedDType,
+    *,
+    out: None = None,
+) -> ImageType: ...
 
 
 @overload
 def clip(
     img: np.ndarray,
     dtype: np.dtype[_ImageDTypeT] | type[_ImageDTypeT],
-    inplace: bool = False,
+    *,
+    out: None = None,
 ) -> NDArray[_ImageDTypeT]: ...
 
 
 @overload
-def clip(img: torch.Tensor, dtype: SupportedDType, inplace: bool = False) -> torch.Tensor: ...
+def clip(
+    img: torch.Tensor,
+    dtype: SupportedDType | None = None,
+    *,
+    out: torch.Tensor | None = None,
+) -> torch.Tensor: ...
 
 
 def clip(
     img: np.ndarray | torch.Tensor,
-    dtype: np.dtype | type[np.generic],
-    inplace: bool = False,
+    dtype: np.dtype | type[np.generic] | None = None,
+    *,
+    out: np.ndarray | torch.Tensor | None = None,
 ) -> np.ndarray | torch.Tensor:
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
+    """Saturate to the image dtype range and write only to an explicit output.
+
+    Dtype defaults to the destination dtype, or the input dtype without output.
+    The caller validates output shape, dtype, device, writeability, and overlap.
+    Without ``out``, the input remains unchanged. ``out=img`` permits mutation
+    when the input already has the requested output dtype.
+    """
     if isinstance(img, torch.Tensor):
-        torch_dtype = _TORCH_DTYPES[dtype]
-        if inplace and img.dtype == torch_dtype:
-            return img.clamp_(0, max_value)
-        return img.clamp(0, max_value).to(dtype=torch_dtype)
-    if inplace and img.dtype == dtype:
-        return cast("ImageType", np.clip(img, 0, max_value, out=img).astype(dtype, copy=False))
-    return cast("ImageType", np.clip(img, 0, max_value).astype(dtype, copy=False))
+        # Uint8 is the only supported one-byte image dtype.
+        if out is img:
+            max_value = MAX_VALUES_BY_DTYPE[dtype] if dtype is not None else 255 if img.element_size() == 1 else 1.0
+            img.clamp_(0, max_value)
+            return img
+        tensor_out = None if out is None else cast("torch.Tensor", out)
+        if dtype is None:
+            target = img if tensor_out is None else tensor_out
+            max_value = 255 if target.element_size() == 1 else 1.0
+        else:
+            max_value = MAX_VALUES_BY_DTYPE[dtype]
+        if tensor_out is None:
+            tensor_result = img.clamp(0, max_value)
+            return tensor_result if dtype is None else tensor_result.to(dtype=_TORCH_DTYPES[dtype])
+        if tensor_out.dtype == img.dtype:
+            torch.clamp(img, 0, max_value, out=tensor_out)
+        else:
+            tensor_out.copy_(img.clamp(0, max_value))
+        return tensor_out
+    numpy_out = None if out is None else cast("np.ndarray", out)
+    if dtype is None:
+        inferred_dtype = img.dtype if numpy_out is None else numpy_out.dtype
+        max_value = MAX_VALUES_BY_DTYPE[inferred_dtype.type]
+        dtype = inferred_dtype
+    else:
+        max_value = MAX_VALUES_BY_DTYPE[dtype]
+    if img.dtype == np.float16 and dtype == np.float16:
+        result = _clip_float16_opencv(
+            cast("NDArray[np.float16]", img),
+            out=cast("NDArray[np.float16] | None", numpy_out),
+        )
+        if result is not None:
+            return result
+    if numpy_out is None:
+        clipped_array: np.ndarray = np.clip(img, 0, max_value)
+        return clipped_array if clipped_array.dtype == dtype else clipped_array.astype(dtype, copy=False)
+    np.clip(img, 0, max_value, out=numpy_out, casting="unsafe")
+    return numpy_out
 
 
 @overload
@@ -214,20 +320,20 @@ def clipped(func: _LayoutBoundFunction[P]) -> _LayoutBoundFunction[P]: ...
 
 @overload
 def clipped(
-    func: Callable[Concatenate[ImageArrayT, P], ImageUInt8],
-) -> _ClippedFunction[ImageArrayT, P, ImageUInt8]: ...
+    func: Callable[Concatenate[ImageArrayT, P], NDArray[np.uint8]],
+) -> _ClippedFunction[ImageArrayT, P, NDArray[np.uint8]]: ...
 
 
 @overload
 def clipped(
-    func: Callable[Concatenate[ImageArrayT, P], ImageFloat16 | ImageFloat32],
+    func: Callable[Concatenate[ImageArrayT, P], NDArray[np.float16] | NDArray[np.float32]],
 ) -> _ClippedFunction[ImageArrayT, P, ImageArrayT]: ...
 
 
 @overload
 def clipped(
     func: Callable[Concatenate[ImageArrayT, P], np.ndarray],
-) -> _ClippedFunction[ImageArrayT, P, ImageArrayT | ImageUInt8]: ...
+) -> _ClippedFunction[ImageArrayT, P, ImageArrayT | NDArray[np.uint8]]: ...
 
 
 @overload
@@ -253,7 +359,7 @@ def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:
 
         result = cast("ImageType", result)
         numpy_dtype = cast("SupportedDType", dtype)
-        return cast("ImageType", clip(result, numpy_dtype))
+        return clip(result, numpy_dtype)
 
     bind_layout = getattr(func, "with_layout", None)
     if bind_layout is not None:
@@ -342,9 +448,6 @@ def convert_value(value: object, num_channels: int) -> float | np.ndarray:
     return cast("float | np.ndarray", value)
 
 
-ValueType = np.ndarray | float | int
-
-
 def get_max_value(dtype: np.dtype | type[np.generic] | torch.dtype) -> float:
     if isinstance(dtype, torch.dtype):
         dtype = _NUMPY_DTYPES[dtype]
@@ -402,17 +505,6 @@ __all__ = [
     "NPDTYPE_TO_OPENCV_DTYPE",
     "NUM_RGB_CHANNELS",
     "TWO",
-    "ImageFloat16",
-    "ImageFloat32",
-    "ImageInput",
-    "ImageType",
-    "ImageUInt8",
-    "NormalizationType",
-    "P",
-    "SupportedDType",
-    "TensorImageLayout",
-    "TensorLayout",
-    "ValueType",
     "clip",
     "clipped",
     "convert_value",

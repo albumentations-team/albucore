@@ -2,7 +2,7 @@
 """
 Grayscale / small-C sanity: where **LUT vs OpenCV** and **NumPy vs cv2.multiply** win.
 
-- **uint8 ``multiply_by_vector``**: production uses **LUT**; OpenCV (float multiply + clip) is correct but slower here.
+- **uint8 ``multiply``**: production uses **LUT**; OpenCV (float multiply + clip) is correct but slower here.
 - **``from_float`` (float32 → uint8, C≤4)**: production uses **NumPy** ``rint(img * max_value)``; ``cv2.multiply`` on
   **(H, W, 1)** float tensors does **not** match NumPy elementwise multiply (OpenCV quirk); squeezed 2D ``cv2`` still
   loses to NumPy on tested sizes.
@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 
 from shape_grids import GRAYSCALE_MULTIPLY_SHAPES, LARGE_SQUARE_HW
-from albucore.arithmetic import multiply_lut, multiply_opencv
+from albucore.arithmetic import _apply_lut, _multiply_uint8_opencv
 from albucore.utils import clip, get_max_value
 from timing import bench_wall_ms
 
@@ -35,7 +35,7 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
     mv = float(get_max_value(np.uint8))
 
-    print("## 1) uint8 per-channel multiply: `multiply_lut` vs `multiply_opencv` + clip\n")
+    print("## 1) uint8 per-channel multiply: LUT vs OpenCV with saturation\n")
     print("| shape | LUT ms | OpenCV ms | faster |")
     print("|-------|-------:|-----------:|--------|")
     for (h, w), c in GRAYSCALE_MULTIPLY_SHAPES:
@@ -43,10 +43,10 @@ def main() -> None:
         vec = rng.random(c, dtype=np.float32) * 0.5 + 0.5
 
         def run_lut() -> None:
-            multiply_lut(np.ascontiguousarray(img.copy()), vec)
+            _apply_lut(np.ascontiguousarray(img.copy()), vec, 'multiply')
 
         def run_cv() -> None:
-            clip(multiply_opencv(np.ascontiguousarray(img.copy()), vec), np.uint8)
+            _multiply_uint8_opencv(np.ascontiguousarray(img.copy()), vec)
 
         t_l = bench_wall_ms(run_lut, repeats=args.repeats, warmup=args.warmup).median
         t_c = bench_wall_ms(run_cv, repeats=args.repeats, warmup=args.warmup).median
