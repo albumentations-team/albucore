@@ -24,6 +24,8 @@ from albucore.utils import (
 
 
 def _restore_float_image_dtype(image: ImageType, result: ImageFloat32) -> ImageFloat16 | ImageFloat32:
+    if not image.dtype.isnative:
+        return cast("ImageFloat16 | ImageFloat32", result.astype(image.dtype))
     return _cast_float_numpy(result, np.float16) if image.dtype == np.float16 else result
 
 
@@ -111,14 +113,15 @@ def normalize_per_image_opencv(
 
     Mean/std modes clip to [-20, 20]; min/max modes scale to [0, 1].
     Float16 inputs compute in float32 and return float16; uint8 and float32
-    inputs return float32. Single-channel per-channel modes use global statistics.
+    inputs return float32. Floating inputs retain their byte order. Single-channel
+    per-channel modes use global statistics.
 
     Raises:
         ValueError: If the normalization mode is unknown.
     """
-    if img.dtype == np.float16:
+    if img.dtype == np.float16 or not img.dtype.isnative:
         result = normalize_per_image_opencv(_cast_float_numpy(img, np.float32), normalization)
-        return _cast_float_numpy(result, np.float16)
+        return _restore_float_image_dtype(img, result)
 
     if img.shape[-1] == 1 and normalization == "image_per_channel":
         normalization = "image"
@@ -164,6 +167,7 @@ def normalize_per_image_numpy(
     Mean/std modes clip to [-20, 20]; min/max modes scale to [0, 1].
     Computation uses float32 with epsilon 1e-4 in the denominator.
     Float16 input returns float16; uint8 and float32 inputs return float32.
+    Floating inputs retain their byte order.
 
     Raises:
         ValueError: If the normalization mode is unknown.
@@ -356,7 +360,7 @@ def normalize_per_image(
         layout: Required for channel-first Tensor inputs; selects CHW, NCHW, CDHW, or NCDHW.
 
     Returns:
-        Floating image with the same dtype and spatial shape as ``img``. Uint8 input returns float32.
+        Floating image with the same dtype, byte order and spatial shape as ``img``. Uint8 input returns float32.
     """
     result: ImageFloat16 | ImageFloat32
     if isinstance(img, torch.Tensor):
@@ -367,18 +371,18 @@ def normalize_per_image(
             result = normalize_per_image_opencv(cast("ImageUInt8", img), normalization)
         else:
             result = normalize_per_image_lut(cast("ImageUInt8", img), normalization)
-    elif img.dtype == np.float32:
+    elif img.dtype.type is np.float32:
         if normalization == "image":
             result = normalize_per_image_numpy(cast("ImageFloat32", img), normalization)
         else:
             result = normalize_per_image_opencv(cast("ImageFloat32", img), normalization)
-    elif img.dtype == np.float16:
+    elif img.dtype.type is np.float16:
         float32_img = _cast_float_numpy(img, np.float32)
         if normalization == "image":
             float32_result = normalize_per_image_numpy(float32_img, normalization)
         else:
             float32_result = normalize_per_image_opencv(float32_img, normalization)
-        result = _cast_float_numpy(float32_result, np.float16)
+        result = _restore_float_image_dtype(img, float32_result)
     elif img.ndim > 3:
         result = normalize_per_image_numpy(img, normalization)
     else:

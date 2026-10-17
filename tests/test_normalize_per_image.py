@@ -296,3 +296,28 @@ def test_normalize_per_image_preserves_original(dtype, shape, normalization):
         np.testing.assert_array_equal(
             original_img, img_copy, err_msg=f"normalize_per_image_lut('{normalization}') modified the original image"
         )
+
+
+@pytest.mark.parametrize("operation", [normalize_per_image, normalize_per_image_numpy, normalize_per_image_opencv])
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("normalization", ["image", "image_per_channel", "min_max", "min_max_per_channel"])
+@pytest.mark.parametrize("shape", [(11, 13, 1), (11, 13, 3), (11, 13, 9), (2, 5, 11, 13, 3)])
+@pytest.mark.parametrize("strided", [False, True])
+def test_normalize_non_native_byte_order(operation, dtype, normalization, shape, strided):
+    native = np.linspace(0.125, 0.875, num=np.prod(shape), dtype=dtype).reshape(shape)
+    foreign = native.astype(np.dtype(dtype).newbyteorder("S"))
+    if strided:
+        native = native[..., ::2, :]
+        foreign = foreign[..., ::2, :]
+    foreign.setflags(write=False)
+    source_bytes = foreign.tobytes()
+    expected = operation(native, normalization)
+
+    result = operation(foreign, normalization)
+
+    assert result.shape == foreign.shape
+    assert result.dtype == foreign.dtype
+    assert np.isfinite(result).all()
+    np.testing.assert_array_equal(result, expected)
+    assert foreign.tobytes() == source_bytes
+    assert not np.shares_memory(result, foreign)
