@@ -23,6 +23,7 @@ ImageFloat32: TypeAlias = NDArray[float32]
 ImageType: TypeAlias = ImageUInt8 | ImageFloat16 | ImageFloat32
 ImageInput: TypeAlias = ImageType | torch.Tensor
 ImageArrayT = TypeVar("ImageArrayT", bound=ImageType)
+_ImageInputT = TypeVar("_ImageInputT", bound=ImageInput)
 _InputImageT_contra = TypeVar("_InputImageT_contra", bound=ImageInput, contravariant=True)
 _OutputImageT_co = TypeVar("_OutputImageT_co", bound=ImageInput, covariant=True)
 ArrayT = TypeVar("ArrayT", bound=np.ndarray)
@@ -35,6 +36,17 @@ class _ClippedFunction(Protocol[_InputImageT_contra, P, _OutputImageT_co]):
 
 TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
 TensorImageLayout: TypeAlias = Literal["CHW", "NCHW"]
+
+
+class _LayoutBoundFunction(Protocol[P]):
+    def __call__(self, img: _ImageInputT, *args: P.args, **kwargs: P.kwargs) -> _ImageInputT: ...
+
+
+class _DtypePreservingFunction(Protocol[P]):
+    with_layout: Callable[[TensorLayout], _LayoutBoundFunction[P]]
+
+    def __call__(self, img: ImageArrayT, *args: P.args, **kwargs: P.kwargs) -> ImageArrayT: ...
+
 
 # Supported storage dtypes. Statistics and matrix operations may return wider results.
 SupportedDType: TypeAlias = np.dtype[np.uint8 | np.float16 | np.float32] | type[np.uint8 | np.float16 | np.float32]
@@ -193,6 +205,14 @@ def clip(
 
 
 @overload
+def clipped(func: _DtypePreservingFunction[P]) -> _DtypePreservingFunction[P]: ...
+
+
+@overload
+def clipped(func: _LayoutBoundFunction[P]) -> _LayoutBoundFunction[P]: ...
+
+
+@overload
 def clipped(
     func: Callable[Concatenate[ImageArrayT, P], ImageUInt8],
 ) -> _ClippedFunction[ImageArrayT, P, ImageUInt8]: ...
@@ -235,6 +255,10 @@ def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:
         numpy_dtype = cast("SupportedDType", dtype)
         return cast("ImageType", clip(result, numpy_dtype))
 
+    bind_layout = getattr(func, "with_layout", None)
+    if bind_layout is not None:
+        preserving_function = cast("_DtypePreservingFunction[Any]", wrapped_function)
+        preserving_function.with_layout = lambda layout: clipped(bind_layout(layout))
     return wrapped_function
 
 

@@ -4,7 +4,7 @@ import platform
 import sys
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Protocol, cast, overload
+from typing import Any, Concatenate, cast, overload
 
 import cv2
 import numkong as nk
@@ -14,7 +14,7 @@ import torch
 from albucore._float_cast import _cast_float_numpy
 from albucore.convert import from_float, to_float
 from albucore.decorators import preserve_channel_dim
-from albucore.tensor_bridge import dispatch_tensor_image
+from albucore.tensor_bridge import _with_tensor_layout, dispatch_tensor_image
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ArrayT,
@@ -25,32 +25,11 @@ from albucore.utils import (
     ImageUInt8,
     P,
     TensorImageLayout,
-    TensorLayout,
+    _DtypePreservingFunction,
     get_num_channels,
     get_opencv_max_channels,
     maybe_process_in_chunks,
 )
-
-
-class _DtypePreservingFunction(Protocol[P]):
-    @overload
-    def __call__(self, img: ImageArrayT, *args: P.args, **kwargs: P.kwargs) -> ImageArrayT: ...
-
-    @overload
-    def __call__(self, img: ImageArrayT, *args: Any, layout: TensorLayout | None, **kwargs: Any) -> ImageArrayT: ...
-
-    @overload
-    def __call__(self, *, img: ImageArrayT, **kwargs: Any) -> ImageArrayT: ...
-
-    @overload
-    def __call__(
-        self,
-        img: torch.Tensor,
-        *args: Any,
-        layout: TensorLayout | None = None,
-        **kwargs: Any,
-    ) -> torch.Tensor: ...
-
 
 MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
 _IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
@@ -206,17 +185,17 @@ def float32_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
         func: Image processing function whose first argument is an ``(H, W, C)`` float32 image.
 
     Returns:
-        Wrapped function that accepts any dtype and returns the original dtype.
+        Wrapped NumPy function that preserves dtype. Bind Tensor layouts with ``wrapped.with_layout("CHW")``.
     """
 
     @wraps(func)
     def float32_wrapper(
         img: ImageType | torch.Tensor,
         *args: Any,
-        layout: TensorLayout | None = None,
         **kwargs: Any,
     ) -> ImageType | torch.Tensor:
         if isinstance(img, torch.Tensor):
+            layout = kwargs.pop("layout", None)
             return dispatch_tensor_image(img, layout, float32_wrapper, *args, **kwargs)
         input_dtype = img.dtype
         if input_dtype == np.float16:
@@ -229,7 +208,7 @@ def float32_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
             return cast("ImageType", from_float(cast("ImageFloat32", result), target_dtype=input_dtype))
         return result
 
-    return cast("_DtypePreservingFunction[Any]", float32_wrapper)
+    return _with_tensor_layout(float32_wrapper)
 
 
 @overload
@@ -257,17 +236,17 @@ def uint8_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
         func: Image processing function whose first argument is a uint8 ``(H, W, C)`` image.
 
     Returns:
-        Wrapped function that accepts uint8, float16, or float32 and returns the original dtype.
+        Wrapped NumPy function that preserves dtype. Bind Tensor layouts with ``wrapped.with_layout("CHW")``.
     """
 
     @wraps(func)
     def uint8_wrapper(
         img: ImageType | torch.Tensor,
         *args: Any,
-        layout: TensorLayout | None = None,
         **kwargs: Any,
     ) -> ImageType | torch.Tensor:
         if isinstance(img, torch.Tensor):
+            layout = kwargs.pop("layout", None)
             return dispatch_tensor_image(img, layout, uint8_wrapper, *args, **kwargs)
         input_dtype = img.dtype
 
@@ -281,7 +260,7 @@ def uint8_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
         restored = to_float(result)
         return _cast_float_numpy(restored, np.float16) if input_dtype == np.float16 else restored
 
-    return cast("_DtypePreservingFunction[Any]", uint8_wrapper)
+    return _with_tensor_layout(uint8_wrapper)
 
 
 def _median_blur_uint8(img: ImageUInt8, ksize: int) -> ImageUInt8:
