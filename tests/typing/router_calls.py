@@ -138,11 +138,12 @@ def check_tensor(image: torch.Tensor, matrix: NDArray[np.float32], lut: NDArray[
     assert_type(resize(image, (11, 13), layout="CHW"), torch.Tensor)
     assert_type(warp_affine(image, matrix, (11, 13), layout="CHW"), torch.Tensor)
     assert_type(apply_uint8_lut(image, lut, layout="CHW"), torch.Tensor)
-    assert_type(floating_kernel(image, amount=1.5, layout="CHW"), torch.Tensor)
+    assert_type(floating_kernel.with_layout("CHW")(image, amount=1.5), torch.Tensor)
 
 
 def check_union_inputs(image: ConsumerImage | torch.Tensor, floats: NDArray[np.float32]) -> None:
-    assert_type(floating_kernel(image, amount=1.5, layout="CHW"), ConsumerImage | torch.Tensor)
+    assert_type(floating_kernel.with_layout("CHW")(image, amount=1.5), ConsumerImage | torch.Tensor)
+    assert_type(floating_kernel.with_layout("CHW")(img=image, amount=1.5), ConsumerImage | torch.Tensor)
     assert_type(multiply(image, 1.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(add(image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(add_weighted(image, 0.5, image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
@@ -156,3 +157,64 @@ def check_union_inputs(image: ConsumerImage | torch.Tensor, floats: NDArray[np.f
     assert_type(add_constant(floats, 0.5), NDArray[np.float32])
     assert_type(add_vector(floats, vector), NDArray[np.float32])
     assert_type(add_array(floats, floats), NDArray[np.float32])
+
+
+@clipped
+@float32_io
+def clipping_outside_float(img: NDArray[np.float32], amount: float) -> NDArray[np.float32]:
+    return img * amount
+
+
+@clipped
+@uint8_io
+def clipping_outside_integer(img: NDArray[np.uint8], *, mask: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    return np.bitwise_and(img, mask)
+
+
+@uint8_io
+@clipped
+def clipping_inside_integer(image: NDArray[np.uint8], *, mask: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    return np.bitwise_and(image, mask)
+
+
+@float32_io
+def kernel_with_layout_argument(img: NDArray[np.float32], *, layout: float) -> NDArray[np.float32]:
+    return img * layout
+
+
+def check_outer_clipping(
+    image: ConsumerImage,
+    half: NDArray[np.float16],
+    floats: NDArray[np.float32],
+    bytes_image: NDArray[np.uint8],
+    tensor: torch.Tensor,
+) -> None:
+    assert_type(clipping_outside_float(image, 1.5), ConsumerImage)
+    assert_type(clipping_outside_float(img=image, amount=1.5), ConsumerImage)
+    assert_type(clipping_outside_float(half, 1.5), NDArray[np.float16])
+    assert_type(clipping_outside_float(floats, 1.5), NDArray[np.float32])
+    assert_type(clipping_outside_float(bytes_image, 1.5), NDArray[np.uint8])
+    assert_type(clipping_outside_float.with_layout("CHW")(tensor, 1.5), torch.Tensor)
+    assert_type(clipping_outside_float.with_layout("CHW")(img=tensor, amount=1.5), torch.Tensor)
+    assert_type(clipping_outside_integer(image, mask=bytes_image), ConsumerImage)
+    assert_type(clipping_outside_integer(img=half, mask=bytes_image), NDArray[np.float16])
+    assert_type(clipping_outside_integer.with_layout("CHW")(tensor, mask=bytes_image), torch.Tensor)
+    assert_type(clipping_inside_integer(bytes_image, mask=bytes_image), NDArray[np.uint8])
+    assert_type(clipping_inside_integer(half, mask=bytes_image), NDArray[np.float16])
+    assert_type(clipping_inside_integer(floats, mask=bytes_image), NDArray[np.float32])
+    assert_type(clipping_inside_integer(image, mask=bytes_image), ConsumerImage)
+    assert_type(clipping_inside_integer(img=half, mask=bytes_image), NDArray[np.float16])
+    assert_type(clipping_inside_integer.with_layout("CHW")(tensor, mask=bytes_image), torch.Tensor)
+    assert_type(kernel_with_layout_argument.with_layout("CHW")(tensor, layout=1.5), torch.Tensor)
+
+
+def check_invalid_decorator_calls(floats: NDArray[np.float32], tensor: torch.Tensor) -> None:
+    # warn_unused_ignores makes these checks fail if an invalid call becomes accepted.
+    clipping_outside_float(img=floats)  # type: ignore[call-arg]
+    clipping_outside_integer(img=floats)  # type: ignore[call-arg]
+    clipping_outside_float.with_layout("CHW")(tensor)  # type: ignore[call-arg]
+    clipping_inside_integer.with_layout("CHW")(tensor)  # type: ignore[call-arg]
+    clipping_outside_float.with_layout(None)  # type: ignore[arg-type]
+    clipping_outside_float(img=floats, amount="invalid")  # type: ignore[arg-type]
+    clipping_outside_float.with_layout("CHW")(tensor, amount="invalid")  # type: ignore[arg-type]
+    clipping_inside_integer.with_layout("CHW")(tensor, mask=1)  # type: ignore[arg-type]

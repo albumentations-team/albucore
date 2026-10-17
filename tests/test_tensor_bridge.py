@@ -250,6 +250,54 @@ def test_dtype_io_decorators_restore_half_and_tensor_layout() -> None:
     np.testing.assert_array_equal(result_uint8.permute(1, 2, 0).numpy(), expected_uint8)
 
 
+@pytest.mark.parametrize("wrapper", [float32_io, uint8_io])
+@pytest.mark.parametrize("outer_clipping", [False, True])
+@pytest.mark.parametrize("layout", ["CHW", "NCHW", "CDHW", "NCDHW"])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32])
+@pytest.mark.parametrize("channels", [1, 9])
+def test_bound_io_layout_preserves_clipping_and_callback_arguments(wrapper, outer_clipping, layout, dtype, channels):
+    def kernel(image: np.ndarray, *, layout: int) -> np.ndarray:
+        if wrapper is uint8_io:
+            return np.bitwise_xor(image, np.uint8(layout))
+        return image * np.float32(layout)
+
+    operation = clipped(wrapper(kernel)) if outer_clipping else wrapper(clipped(kernel))
+    bound = operation.with_layout(layout)
+    shape = {
+        "CHW": (channels, 3, 5),
+        "NCHW": (2, channels, 3, 5),
+        "CDHW": (channels, 2, 3, 5),
+        "NCDHW": (2, channels, 2, 3, 5),
+    }[layout]
+    image = torch.linspace(0.0, 1.0, steps=np.prod(shape)).reshape(shape)
+    image = (image * 255).to(dtype) if dtype == torch.uint8 else image.to(dtype)
+    original = image.clone()
+    array = tensor_to_numpy_channel_last(image, layout)
+    expected = operation(array, layout=3)
+
+    result = bound(img=image, layout=3)
+
+    torch.testing.assert_close(result, numpy_to_tensor_layout(expected, layout), rtol=0, atol=0)
+    torch.testing.assert_close(image, original, rtol=0, atol=0)
+    np.testing.assert_array_equal(bound(img=array, layout=3), expected)
+
+
+@pytest.mark.parametrize("wrapper,dtype", [(float32_io, torch.float32), (uint8_io, torch.uint8)])
+@pytest.mark.parametrize("layout", ["CHW", "NCHW", "CDHW", "NCDHW"])
+def test_bound_io_layout_preserves_identity(wrapper, dtype, layout):
+    @wrapper
+    def identity(image: np.ndarray) -> np.ndarray:
+        return image
+
+    shape = {"CHW": (3, 5, 7), "NCHW": (2, 3, 5, 7), "CDHW": (3, 2, 5, 7), "NCDHW": (2, 3, 2, 5, 7)}[layout]
+    image = torch.zeros(shape, dtype=dtype)
+    array = tensor_to_numpy_channel_last(image, layout)
+    bound = identity.with_layout(layout)
+
+    assert bound(image) is image
+    assert bound(img=array) is array
+
+
 @pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32])
 def test_matrix_routers_accept_tensor_inputs_and_preserve_output_policy(dtype: torch.dtype) -> None:
     first = torch.arange(15, dtype=torch.float32).reshape(5, 3).to(dtype)

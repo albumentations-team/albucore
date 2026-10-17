@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial, wraps
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import numpy as np
@@ -10,7 +11,7 @@ import torch
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from albucore.utils import TensorLayout
+from albucore.utils import ImageInput, TensorLayout, _DtypePreservingFunction, _LayoutBoundFunction
 
 __all__ = ["TensorLayout"]
 
@@ -63,6 +64,7 @@ def dispatch_tensor_image(
     image: torch.Tensor,
     layout: TensorLayout | None,
     numpy_router: Callable[..., Any],
+    /,
     *args: Any,
     **kwargs: Any,
 ) -> torch.Tensor:
@@ -124,6 +126,22 @@ def dispatch_tensor_image(
         msg = "An image Tensor router must return an ndarray."
         raise TypeError(msg)
     return numpy_to_tensor_layout(result, cast("TensorLayout", layout))
+
+
+def _bind_tensor_layout(numpy_router: Callable[..., ImageInput], layout: TensorLayout) -> _LayoutBoundFunction[Any]:
+    @wraps(numpy_router, updated=())
+    def wrapped(img: ImageInput, *args: Any, **kwargs: Any) -> ImageInput:
+        if isinstance(img, torch.Tensor):
+            return dispatch_tensor_image(img, layout, numpy_router, *args, **kwargs)
+        return numpy_router(img, *args, **kwargs)
+
+    return cast("_LayoutBoundFunction[Any]", wrapped)
+
+
+def _with_tensor_layout(func: Callable[..., ImageInput]) -> _DtypePreservingFunction[Any]:
+    wrapped = cast("_DtypePreservingFunction[Any]", func)
+    wrapped.with_layout = partial(_bind_tensor_layout, func)
+    return wrapped
 
 
 def _tensor_reduction_axes_to_numpy(axis: Any, layout: TensorLayout) -> Any:

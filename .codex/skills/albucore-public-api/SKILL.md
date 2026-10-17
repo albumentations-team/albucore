@@ -24,6 +24,14 @@ If Albumentations or another downstream package imports a symbol, it must be eit
 
 Example: `sz_lut` and `apply_uint8_lut` are public routers on `__all__` and are implemented in `albucore/lut.py`.
 
+## Input/output type relationships
+
+When changing public annotations, preserve input-dependent return types across decorator composition. Use the
+[static return-type contract](../../../docs/public-api.md#static-return-types) and extend its checked consumer cases
+for the affected container, dtype, and decorator order. Keep broad implementation annotations distinct from the
+precise overloads callers see. For I/O decorators, bind Tensor layouts with `.with_layout()` so callback arguments
+remain checked; do not replace their `ParamSpec` with permissive `Any` overloads.
+
 ## Adding an Export
 
 1. Implement in the appropriate submodule (`arithmetic.py`, `lut.py`, `geometric.py`, etc.).
