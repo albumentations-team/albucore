@@ -1,323 +1,138 @@
 import numpy as np
 import pytest
 
-from albucore.functions import (
-    normalize_per_image,
-    normalize_per_image_lut,
-    normalize_per_image_numpy,
-    normalize_per_image_opencv,
-)
+from albucore import normalize_per_image
+
+MODES = ("image", "image_per_channel", "min_max", "min_max_per_channel")
 
 
-@pytest.mark.parametrize(
-    "img, normalization, expected",
-    [
-        (np.array([[1, 2], [3, 4]]), "min_max", np.array([[0, 1 / 3], [2 / 3, 1]], dtype=np.float32)),
-        (
-            np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]),
-            "min_max_per_channel",
-            np.array([[[0, 0], [1 / 3, 1 / 3]], [[2 / 3, 2 / 3], [1, 1]]], dtype=np.float32),
-        ),
-        (
-            np.array([[1, 2], [3, 4]]),
-            "image",
-            np.array([[-1.34164079, -0.4472136], [0.4472136, 1.34164079]], dtype=np.float32),
-        ),
-        (
-            np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]),
-            "image_per_channel",
-            np.array(
-                [
-                    [[-1.34164079, -1.34164079], [-0.4472136, -0.4472136]],
-                    [[0.4472136, 0.4472136], [1.34164079, 1.34164079]],
-                ],
-                dtype=np.float32,
-            ),
-        ),
-    ],
-)
-@pytest.mark.parametrize("dtype", [np.float32, np.uint8])
-def test_normalize_per_image(img, normalization, expected, dtype):
-    img = img.astype(dtype)
-    result = normalize_per_image(img, normalization)
-    result_np = normalize_per_image_numpy(img, normalization)
-    result_cv2 = normalize_per_image_opencv(img, normalization)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("channels", [1, 2])
+def test_adaptive_small_values(dtype, mode, channels):
+    image = np.arange(1, 4 * channels + 1, dtype=dtype).reshape(2, 2, channels)
+    wide = image.astype(np.float64)
+    axes = (0, 1) if mode.endswith("per_channel") else None
+    if mode in ("image", "image_per_channel"):
+        expected = (wide - wide.mean(axis=axes)) / (wide.std(axis=axes) + 1e-4)
+    else:
+        epsilon = 1e-4 if mode == "min_max_per_channel" and (dtype == np.uint8 or channels > 1) else 0
+        expected = (wide - wide.min(axis=axes)) / (wide.max(axis=axes) - wide.min(axis=axes) + epsilon)
 
-    np.testing.assert_array_equal(result_np, expected)
-    np.testing.assert_array_equal(result_cv2, expected)
-    np.testing.assert_array_equal(result, expected)
+    result = normalize_per_image(image, mode)
 
-    if img.dtype == np.uint8:
-        result_lut = normalize_per_image_lut(img, normalization)
-        np.testing.assert_array_equal(result_lut, expected)
+    assert result.shape == image.shape
+    assert result.dtype == (np.float16 if dtype == np.float16 else np.float32)
+    if dtype == np.float16:
+        np.testing.assert_array_max_ulp(result, expected.astype(np.float16), maxulp=1)
+    else:
+        np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
 
 
-@pytest.mark.parametrize(
-    ["image", "normalization"],
-    [
-        [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), "image"],
-        [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), "image_per_channel"],
-        [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), "min_max"],
-        [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), "min_max_per_channel"],
-    ],
-)
-def test_normalize_np_cv_equal(image, normalization):
-    np.random.seed(0)
-    res1 = normalize_per_image_numpy(image, normalization)
-    res1_float = normalize_per_image_numpy(image.astype(np.float32), normalization)
-
-    res2 = normalize_per_image_opencv(image, normalization)
-    res2_float = normalize_per_image_opencv(image.astype(np.float32), normalization)
-
-    res3 = normalize_per_image_lut(image, normalization)
-
-    assert image.shape == res1.shape
-    assert image.shape == res2.shape
-    assert image.shape == res3.shape
-
-    np.testing.assert_allclose(res1, res2, atol=1e-4)
-    np.testing.assert_allclose(res1, res1_float, atol=1e-4)
-    np.testing.assert_allclose(res2, res2_float, atol=1e-4)
-
-    np.testing.assert_allclose(res1, res3, atol=1e-4)
-
-
-@pytest.mark.parametrize("normalization", ["image_per_channel", "min_max_per_channel"])
+@pytest.mark.parametrize("mode", ["image_per_channel", "min_max_per_channel"])
 @pytest.mark.parametrize("shape", [(17, 19, 9), (2, 5, 7, 9)])
-def test_normalize_per_image_lut_per_channel_many_channels_matches_numpy(shape, normalization):
-    rng = np.random.default_rng(123)
-    image = rng.integers(0, 256, size=shape, dtype=np.uint8)
+def test_adaptive_uint8_many_channels(shape, mode):
+    image = np.random.default_rng(137).integers(0, 256, size=shape, dtype=np.uint8)
+    wide = image.astype(np.float64)
+    axes = tuple(range(image.ndim - 1))
+    if mode == "image_per_channel":
+        expected = (wide - wide.mean(axis=axes)) / (wide.std(axis=axes) + 1e-4)
+    else:
+        expected = (wide - wide.min(axis=axes)) / (wide.max(axis=axes) - wide.min(axis=axes) + 1e-4)
 
-    result = normalize_per_image_lut(image, normalization)
-    expected = normalize_per_image_numpy(image, normalization)
+    result = normalize_per_image(image, mode)
 
     assert result.shape == image.shape
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
 
 
-@pytest.mark.parametrize("normalization", ["image_per_channel", "min_max_per_channel"])
-def test_normalize_per_image_lut_single_channel_preserves_channel_dim(normalization):
-    image = np.arange(24, dtype=np.uint8).reshape(4, 6, 1)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("shape", [(99, 101, 1), (99, 101, 3), (99, 101, 7)])
+def test_adaptive_moments_range_and_source_preservation(dtype, mode, shape):
+    rng = np.random.default_rng(137)
+    image = (
+        rng.integers(0, 256, size=shape, dtype=dtype)
+        if dtype == np.uint8
+        else (rng.random(shape, dtype=np.float32) * 255).astype(dtype)
+    )
+    original = image.copy()
 
-    result = normalize_per_image_lut(image, normalization)
+    result = normalize_per_image(image, mode)
 
-    assert result.shape == image.shape
-    assert result.dtype == np.float32
-
-
-@pytest.mark.parametrize(
-    "shape",
-    [
-        (100, 100, 1),  # height, width, 1 channel (grayscale)
-        (100, 100, 3),  # height, width, 3 channels
-        (100, 100, 7),  # height, width, 7 channels
-    ],
-)
-@pytest.mark.parametrize(
-    "normalization",
-    [
-        "image",
-        "image_per_channel",
-        "min_max",
-        "min_max_per_channel",
-    ],
-)
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        np.uint8,
-        np.float32,
-    ],
-)
-def test_normalize_per_image(shape, normalization, dtype):
-    # Generate a random image of the specified shape and dtype
-    if dtype is np.uint8:
-        img = np.random.randint(0, 256, size=shape, dtype=dtype)
-    else:  # float32
-        img = np.random.random(size=shape).astype(dtype) * 255
-
-    normalized_img = normalize_per_image(img, normalization)
-
-    assert normalized_img.dtype == np.float32, "Output dtype should be float32"
-    assert normalized_img.shape == img.shape, "Output shape should match input shape"
-
-    assert normalized_img.shape == img.shape, "Output shape should match input shape"
-    assert normalized_img.dtype == np.float32, "Output dtype should be float32"
-
-    if normalization in ["min_max", "min_max_per_channel"]:
-        # For min-max normalization, values should be in [0, 1]
-        assert abs(normalized_img.min()) < 1e-6, "Min value should be >= 0"
-        assert abs(normalized_img.max() - 1) < 1e-6, "Max value should be == 1"
-    elif normalization in ["image", "image_per_channel"]:
-        # For other normalizations, just ensure output dtype is float32
-        # and check for expected normalization effects
-        assert normalized_img.dtype == np.float32, "Output dtype should be float32"
-        if normalization == "image":
-            assert np.isclose(normalized_img.mean(), 0, atol=1e-3), (
-                "Mean should be close to 0 for 'image' normalization"
-            )
-            assert np.isclose(normalized_img.std(), 1, atol=1e-3), "STD should be close to 1 for 'image' normalization"
-        elif normalization == "image_per_channel":
-            if len(shape) == 3 and shape[2] > 1:
-                for c in range(shape[2]):
-                    channel_mean = normalized_img[:, :, c].mean()
-                    channel_std = normalized_img[:, :, c].std()
-                    assert np.isclose(channel_mean, 0, atol=1e-3), f"Mean for channel {c} should be close to 0"
-                    assert np.isclose(channel_std, 1, atol=1e-3), f"STD for channel {c} should be close to 1"
-
-
-# Check that for constant array min max and min max per channel give 0
-@pytest.mark.parametrize(
-    "shape",
-    [
-        (100, 100, 1),  # height, width, 1 channel (grayscale)
-        (100, 100, 3),  # height, width, 3 channels
-        (100, 100, 7),  # height, width, 7 channels
-    ],
-)
-@pytest.mark.parametrize(
-    "normalization",
-    [
-        "min_max",
-        "min_max_per_channel",
-    ],
-)
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        np.uint8,
-        np.float32,
-    ],
-)
-def test_normalize_per_image_constant(shape, normalization, dtype):
-    img = np.ones(shape).astype(dtype)
-
-    normalized_img = normalize_per_image(img, normalization)
-    np.testing.assert_array_equal(normalized_img, np.zeros_like(normalized_img))
-
-
-@pytest.mark.parametrize(
-    "normalization",
-    [
-        "image",
-        "image_per_channel",
-        "min_max",
-        "min_max_per_channel",
-    ],
-)
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_normalize_consistency_across_shapes(normalization, dtype):
-    """Test that normalization is consistent across different tensor shapes.
-
-    Verifies that:
-    - normalized_image == normalized_images[0] (for batch of identical images)
-    """
-    np.random.seed(42)
-
-    H, W, C = 64, 64, 3
-    if dtype == np.uint8:
-        image = np.random.randint(0, 256, size=(H, W, C), dtype=dtype)
+    assert result.shape == shape
+    assert result.dtype == (np.float16 if dtype == np.float16 else np.float32)
+    np.testing.assert_array_equal(image, original)
+    wide_result = result.astype(np.float64)
+    if mode.startswith("min_max"):
+        assert abs(wide_result.min()) < 1e-6
+        assert abs(wide_result.max() - 1) < 1e-6
     else:
-        image = np.random.randn(H, W, C).astype(dtype)
+        axes = tuple(range(image.ndim - 1)) if mode.endswith("per_channel") else None
+        np.testing.assert_allclose(wide_result.mean(axis=axes), 0, atol=1e-3)
+        np.testing.assert_allclose(wide_result.std(axis=axes), 1, atol=1e-3)
 
-    N = 4
-    images = np.stack([image] * N, axis=0)  # (N, H, W, C)
 
-    normalized_image = normalize_per_image(image, normalization)
-    normalized_images = normalize_per_image(images, normalization)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("channels", [1, 3, 7])
+def test_adaptive_constant_channels(dtype, mode, channels):
+    image = np.full((99, 101, channels), 1 if dtype == np.uint8 else 0.5, dtype=dtype)
 
-    assert normalized_image.shape == image.shape, "Single image shape mismatch"
-    assert normalized_images.shape == images.shape, "Batch shape mismatch"
+    result = normalize_per_image(image, mode)
 
-    # normalized_image should equal normalized_images[0]
-    # For image_per_channel, we need slightly higher tolerance due to
-    # differences between OpenCV and numpy implementations
-    tolerance = 1e-3 if (normalization == "image_per_channel") else 1e-5
+    np.testing.assert_array_equal(result, np.zeros_like(image, dtype=np.float16 if dtype == np.float16 else np.float32))
 
-    np.testing.assert_allclose(
-        normalized_image,
-        normalized_images[0],
-        rtol=tolerance,
-        atol=tolerance,
-        err_msg=f"Normalization inconsistent between single image and batch for {normalization}",
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("mode", MODES)
+def test_adaptive_repeated_images_preserve_statistics(dtype, mode):
+    rng = np.random.default_rng(137)
+    image = (
+        rng.integers(0, 256, size=(64, 80, 3), dtype=dtype)
+        if dtype == np.uint8
+        else rng.standard_normal((64, 80, 3)).astype(dtype)
     )
+    batch = np.stack([image] * 4)
 
-    # Also verify all images in batch are identical (since input was identical)
-    for i in range(N):
-        np.testing.assert_allclose(
-            normalized_images[i],
-            normalized_image,
-            rtol=tolerance,
-            atol=tolerance,
-            err_msg=f"Batch image {i} differs from expected normalized image",
-        )
+    single = normalize_per_image(image, mode)
+    result = normalize_per_image(batch, mode)
 
-
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-@pytest.mark.parametrize("shape", [(100, 100, 1), (100, 100, 3)])
-@pytest.mark.parametrize(
-    "normalization",
-    [
-        "image",
-        "image_per_channel",
-        "min_max",
-        "min_max_per_channel",
-    ],
-)
-def test_normalize_per_image_preserves_original(dtype, shape, normalization):
-    if dtype == np.uint8:
-        original_img = np.random.randint(0, 256, size=shape, dtype=dtype)
-    else:
-        original_img = np.random.randn(*shape).astype(dtype)
-
-    img_copy = original_img.copy()
-
-    _ = normalize_per_image(original_img, normalization)
-    np.testing.assert_array_equal(
-        original_img, img_copy, err_msg=f"normalize_per_image('{normalization}') modified the original image"
-    )
-
-    original_img = img_copy.copy()
-    _ = normalize_per_image_numpy(original_img, normalization)
-    np.testing.assert_array_equal(
-        original_img, img_copy, err_msg=f"normalize_per_image_numpy('{normalization}') modified the original image"
-    )
-
-    original_img = img_copy.copy()
-    _ = normalize_per_image_opencv(original_img, normalization)
-    np.testing.assert_array_equal(
-        original_img, img_copy, err_msg=f"normalize_per_image_opencv('{normalization}') modified the original image"
-    )
-
-    if dtype == np.uint8:
-        original_img = img_copy.copy()
-        _ = normalize_per_image_lut(original_img, normalization)
-        np.testing.assert_array_equal(
-            original_img, img_copy, err_msg=f"normalize_per_image_lut('{normalization}') modified the original image"
-        )
+    assert result.shape == batch.shape
+    for item in result:
+        if dtype == np.float16:
+            np.testing.assert_array_max_ulp(item, single, maxulp=1)
+        else:
+            tolerance = 1e-3 if mode == "image_per_channel" else 1e-5
+            np.testing.assert_allclose(item, single, rtol=tolerance, atol=tolerance)
 
 
-@pytest.mark.parametrize("operation", [normalize_per_image, normalize_per_image_numpy, normalize_per_image_opencv])
+@pytest.mark.parametrize("output_mode", ["allocate", "output", "alias"])
 @pytest.mark.parametrize("dtype", [np.float16, np.float32])
 @pytest.mark.parametrize("normalization", ["image", "image_per_channel", "min_max", "min_max_per_channel"])
 @pytest.mark.parametrize("shape", [(11, 13, 1), (11, 13, 3), (11, 13, 9), (2, 5, 11, 13, 3)])
 @pytest.mark.parametrize("strided", [False, True])
-def test_normalize_non_native_byte_order(operation, dtype, normalization, shape, strided):
+def test_normalize_non_native_byte_order(output_mode, dtype, normalization, shape, strided):
     native = np.linspace(0.125, 0.875, num=np.prod(shape), dtype=dtype).reshape(shape)
     foreign = native.astype(np.dtype(dtype).newbyteorder("S"))
     if strided:
         native = native[..., ::2, :]
         foreign = foreign[..., ::2, :]
-    foreign.setflags(write=False)
+    if output_mode != "alias":
+        foreign.setflags(write=False)
     source_bytes = foreign.tobytes()
-    expected = operation(native, normalization)
+    expected = normalize_per_image(native, normalization)
+    output = foreign if output_mode == "alias" else np.empty_like(foreign) if output_mode == "output" else None
 
-    result = operation(foreign, normalization)
+    result = normalize_per_image(foreign, normalization, out=output)
 
     assert result.shape == foreign.shape
     assert result.dtype == foreign.dtype
     assert np.isfinite(result).all()
     np.testing.assert_array_equal(result, expected)
-    assert foreign.tobytes() == source_bytes
-    assert not np.shares_memory(result, foreign)
+    if output is not None:
+        assert result is output
+    if output_mode != "alias":
+        assert foreign.tobytes() == source_bytes
+        assert not np.shares_memory(result, foreign)

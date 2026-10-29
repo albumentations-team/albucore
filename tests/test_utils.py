@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from albucore.functions import float32_io, from_float, to_float, uint8_io
+from albucore import float32_io, from_float, to_float, uint8_io
 from albucore.utils import (
     NPDTYPE_TO_OPENCV_DTYPE,
     clip,
@@ -34,11 +34,16 @@ from albucore.utils import (
         ),
     ],
 )
-@pytest.mark.parametrize("inplace", [False, True])
-def test_clip(input_img, dtype, expected, inplace):
-    clipped = clip(input_img, dtype=dtype, inplace=inplace)
+@pytest.mark.parametrize("provided_output", [False, True])
+def test_clip(input_img, dtype, expected, provided_output):
+    original = input_img.copy()
+    destination = np.empty_like(input_img, dtype=dtype) if provided_output else None
+    clipped = clip(input_img, dtype=dtype, out=destination)
     np.testing.assert_array_equal(clipped, expected)
     assert clipped.dtype == dtype
+    np.testing.assert_array_equal(input_img, original)
+    if destination is not None:
+        assert clipped is destination
 
 
 valid_cv2_types = {

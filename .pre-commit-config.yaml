@@ -72,7 +72,7 @@ repos:
     hooks:
       - id: codespell
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.0
+    rev: v0.17.3
     hooks:
       - id: ruff-check
         exclude: '__pycache__/'
@@ -97,8 +97,12 @@ repos:
     hooks:
       - id: mypy
         files: ^(albucore|benchmark|tests/typing)/
-        # Pin NumPy typing behavior in the hook env: numpy 1.24 stubs trigger
-        # widespread "Missing type arguments" with disallow_any_generics=true.
-        additional_dependencies: ["numpy==2.2.6", "numkong>=7.4.5"]
+        # Missing Torch stubs make Tensor overloads accept invalid NumPy outputs as Any.
+        additional_dependencies:
+          - numpy==2.2.6
+          - numkong>=7.8.5
+          - --extra-index-url=https://download.pytorch.org/whl/cpu
+          - "torch==2.14.1; sys_platform == 'darwin'"
+          - "torch==2.14.1+cpu; sys_platform != 'darwin'"
         args:
           [ --config-file=pyproject.toml ]

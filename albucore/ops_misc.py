@@ -10,21 +10,15 @@ import cv2
 import numkong as nk
 import numpy as np
 import torch
+from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
+from albucore._types import ArrayT, ImageArrayT, ImageType, P, TensorImageLayout
 from albucore.convert import from_float, to_float
 from albucore.decorators import preserve_channel_dim
 from albucore.tensor_bridge import _with_tensor_layout, dispatch_tensor_image
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
-    ArrayT,
-    ImageArrayT,
-    ImageFloat16,
-    ImageFloat32,
-    ImageType,
-    ImageUInt8,
-    P,
-    TensorImageLayout,
     _DtypePreservingFunction,
     get_num_channels,
     get_opencv_max_channels,
@@ -158,7 +152,9 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
 
 
 @overload
-def float32_io(func: Callable[Concatenate[ImageFloat32, P], ImageFloat32]) -> _DtypePreservingFunction[P]: ...
+def float32_io(
+    func: Callable[Concatenate[NDArray[np.float32], P], NDArray[np.float32]],
+) -> _DtypePreservingFunction[P]: ...
 
 
 @overload
@@ -190,13 +186,10 @@ def float32_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
 
     @wraps(func)
     def float32_wrapper(
-        img: ImageType | torch.Tensor,
+        img: ImageType,
         *args: Any,
         **kwargs: Any,
-    ) -> ImageType | torch.Tensor:
-        if isinstance(img, torch.Tensor):
-            layout = kwargs.pop("layout", None)
-            return dispatch_tensor_image(img, layout, float32_wrapper, *args, **kwargs)
+    ) -> ImageType:
         input_dtype = img.dtype
         if input_dtype == np.float16:
             img = _cast_float_numpy(img, np.float32)
@@ -205,14 +198,14 @@ def float32_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
         result = func(img, *args, **kwargs)
 
         if input_dtype != np.float32:
-            return cast("ImageType", from_float(cast("ImageFloat32", result), target_dtype=input_dtype))
+            return from_float(cast("NDArray[np.float32]", result), target_dtype=input_dtype)
         return result
 
     return _with_tensor_layout(float32_wrapper)
 
 
 @overload
-def uint8_io(func: Callable[Concatenate[ImageUInt8, P], ImageUInt8]) -> _DtypePreservingFunction[P]: ...
+def uint8_io(func: Callable[Concatenate[NDArray[np.uint8], P], NDArray[np.uint8]]) -> _DtypePreservingFunction[P]: ...
 
 
 @overload
@@ -241,17 +234,14 @@ def uint8_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
 
     @wraps(func)
     def uint8_wrapper(
-        img: ImageType | torch.Tensor,
+        img: ImageType,
         *args: Any,
         **kwargs: Any,
-    ) -> ImageType | torch.Tensor:
-        if isinstance(img, torch.Tensor):
-            layout = kwargs.pop("layout", None)
-            return dispatch_tensor_image(img, layout, uint8_wrapper, *args, **kwargs)
+    ) -> ImageType:
         input_dtype = img.dtype
 
         if input_dtype != np.uint8:
-            img = from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8))
+            img = from_float(cast("NDArray[np.float32]", img), target_dtype=np.dtype(np.uint8))
 
         result = func(img, *args, **kwargs)
 
@@ -263,20 +253,20 @@ def uint8_io(func: Callable[..., ImageType]) -> _DtypePreservingFunction[Any]:
     return _with_tensor_layout(uint8_wrapper)
 
 
-def _median_blur_uint8(img: ImageUInt8, ksize: int) -> ImageUInt8:
+def _median_blur_uint8(img: NDArray[np.uint8], ksize: int) -> NDArray[np.uint8]:
     """Apply the shared direct or chunked uint8 OpenCV route."""
     if ksize in (3, 5) or get_num_channels(img) <= MAX_OPENCV_WORKING_CHANNELS:
-        return cast("ImageUInt8", cv2.medianBlur(img, ksize))
-    return cast("ImageUInt8", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
+        return cast("NDArray[np.uint8]", cv2.medianBlur(img, ksize))
+    return cast("NDArray[np.uint8]", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
 
 
-def _median_blur_float16_single_channel_5(img: ImageFloat16) -> ImageFloat16:
+def _median_blur_float16_single_channel_5(img: NDArray[np.float16]) -> NDArray[np.float16]:
     """Use ordered CV_16U keys while preserving float32 NaN and signed-zero behavior."""
     bits = img.view(np.uint16)
     # The ordered keys distinguish signed zeros, while the float32 median treats them as equal.
     if np.isnan(img).any() or (np.any(bits == 0) and np.any(bits == np.uint16(0x8000))):
         return _cast_float_numpy(
-            cast("ImageFloat32", cv2.medianBlur(_cast_float_numpy(img, np.float32), 5)),
+            cast("NDArray[np.float32]", cv2.medianBlur(_cast_float_numpy(img, np.float32), 5)),
             np.float16,
         )
 
@@ -290,7 +280,7 @@ def _median_blur_float16_single_channel_5(img: ImageFloat16) -> ImageFloat16:
     result = np.empty_like(filtered)
     np.bitwise_xor(filtered, np.uint16(0x8000), out=result)
     np.bitwise_not(filtered, out=result, where=~positive)
-    return cast("ImageFloat16", result.view(np.float16))
+    return cast("NDArray[np.float16]", result.view(np.float16))
 
 
 @overload
@@ -332,11 +322,11 @@ def median_blur(
 
     result: ImageType
     if img.dtype == np.uint8:
-        result = _median_blur_uint8(cast("ImageUInt8", img), ksize)
+        result = _median_blur_uint8(cast("NDArray[np.uint8]", img), ksize)
     elif img.dtype == np.float32 and ksize in (3, 5):
         result = cast("ImageType", cv2.medianBlur(img, ksize))
     elif img.dtype == np.float32:
-        quantized = from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8))
+        quantized = from_float(cast("NDArray[np.float32]", img), target_dtype=np.dtype(np.uint8))
         result = to_float(_median_blur_uint8(quantized, ksize))
     elif (
         img.dtype == np.float16
@@ -344,16 +334,16 @@ def median_blur(
         and img.shape[-1] == 1
         and img.size >= _MEDIAN_BLUR_FLOAT16_ORDERED_U16_MIN_ELEMENTS
     ):
-        result = _median_blur_float16_single_channel_5(cast("ImageFloat16", img))
+        result = _median_blur_float16_single_channel_5(cast("NDArray[np.float16]", img))
     elif img.dtype == np.float16 and ksize in (3, 5):
-        result = cast("ImageFloat32", cv2.medianBlur(_cast_float_numpy(img, np.float32), ksize))
+        result = cast("NDArray[np.float32]", cv2.medianBlur(_cast_float_numpy(img, np.float32), ksize))
         result = _cast_float_numpy(result, np.float16)
     elif img.dtype == np.float16:
         quantized = from_float(_cast_float_numpy(img, np.float32), np.dtype(np.uint8))
         filtered = to_float(_median_blur_uint8(quantized, ksize))
         result = _cast_float_numpy(filtered, np.float16)
     else:
-        uint8_img = from_float(cast("ImageFloat32", img), np.dtype(np.uint8))
+        uint8_img = from_float(cast("NDArray[np.float32]", img), np.dtype(np.uint8))
         result = to_float(_median_blur_uint8(uint8_img, ksize))
     return result
 
@@ -413,7 +403,7 @@ def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.nda
 
 
 @overload
-def pairwise_distances_squared(points1: np.ndarray, points2: np.ndarray | torch.Tensor) -> ImageFloat32: ...
+def pairwise_distances_squared(points1: np.ndarray, points2: np.ndarray | torch.Tensor) -> NDArray[np.float32]: ...
 
 
 @overload

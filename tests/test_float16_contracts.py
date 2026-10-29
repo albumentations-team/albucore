@@ -9,14 +9,12 @@ import numpy as np
 import pytest
 import torch
 
+
 import albucore.geometric as geometric_mod
 import albucore.stats as stats_mod
-import albucore.torch_backend as torch_backend
 from albucore import (
     add,
-    add_constant,
     add_weighted,
-    add_vector,
     arithmetic,
     copy_make_border,
     exp,
@@ -27,9 +25,7 @@ from albucore import (
     mean,
     mean_std,
     multiply,
-    multiply_by_constant,
     multiply_add,
-    multiply_by_vector,
     normalize,
     normalize_per_image,
     pad3d,
@@ -41,15 +37,17 @@ from albucore import (
     resize3d,
     rot90_volume,
     separable_filter3d,
-    std,
     sqrt,
+    std,
+    torch_backend,
     transpose_volume,
     warp_affine,
     warp_affine3d,
     warp_perspective,
+    weighted,
 )
+from albucore._types import TensorLayout
 from albucore.tensor_bridge import tensor_to_numpy_channel_last
-from albucore.utils import TensorLayout
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -60,23 +58,13 @@ if TYPE_CHECKING:
     [
         ("add_scalar", lambda image, _other: add(image, 0.125), lambda image, _other: image + np.float32(0.125)),
         (
-            "add_constant",
-            lambda image, _other: add_constant(image, 0.125),
-            lambda image, _other: image + np.float32(0.125),
-        ),
-        (
-            "add_vector",
+            "add",
             lambda image, _other: add(image, np.array([0.125, 0.25, 0.375], dtype=np.float32)),
             lambda image, _other: image + np.array([0.125, 0.25, 0.375], dtype=np.float32),
         ),
         (
             "multiply_scalar",
             lambda image, _other: multiply(image, 1.125),
-            lambda image, _other: image * np.float32(1.125),
-        ),
-        (
-            "multiply_by_constant",
-            lambda image, _other: multiply_by_constant(image, 1.125),
             lambda image, _other: image * np.float32(1.125),
         ),
         (
@@ -99,10 +87,8 @@ if TYPE_CHECKING:
     ],
     ids=(
         "add-scalar",
-        "add-constant",
         "add-vector",
         "multiply-scalar",
-        "multiply-by-constant",
         "multiply-vector",
         "multiply-array",
         "multiply-add",
@@ -118,13 +104,17 @@ def test_float16_pointwise_operations_preserve_dtype_and_match_float32_rounded_o
 ) -> None:
     monkeypatch.setattr(arithmetic, "_TORCH_FLOAT16_MIN_ELEMENTS", 1)
     monkeypatch.setattr(arithmetic, "_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS", 1)
-    fallbacks = ("add_numpy", "multiply_numpy", "multiply_add_numpy", "add_weighted_numpy", "power_numpy")
+    fallbacks = ("_numpy_pointwise", "_multiply_add_numpy")
     for fallback in fallbacks:
         monkeypatch.setattr(
             arithmetic,
             fallback,
             lambda *_args, _name=fallback, **_kwargs: pytest.fail(f"{name} took the {_name} float32 fallback"),
         )
+
+    monkeypatch.setattr(
+        weighted, "_blend_numpy", lambda *_args, **_kwargs: pytest.fail("Unexpected weighted float32 fallback")
+    )
 
     source = np.linspace(0.0625, 0.875, num=19 * 23 * 3, dtype=np.float32).reshape(19, 23, 3).astype(np.float16)
     other = np.linspace(0.25, 0.75, num=source.size, dtype=np.float32).reshape(source.shape).astype(np.float16)
@@ -141,8 +131,8 @@ def test_float16_pointwise_operations_preserve_dtype_and_match_float32_rounded_o
 @pytest.mark.parametrize(
     ("operation", "control", "reference"),
     [
-        (add_constant, 0.125, np.add),
-        (multiply_by_constant, 1.125, np.multiply),
+        (add, 0.125, np.add),
+        (multiply, 1.125, np.multiply),
     ],
 )
 @pytest.mark.parametrize(
@@ -177,8 +167,8 @@ def test_float16_tensor_scalar_operations_preserve_layout_and_dtype(
 @pytest.mark.parametrize(
     ("operation", "control", "reference"),
     [
-        (add_vector, 0.125, np.add),
-        (multiply_by_vector, 1.125, np.multiply),
+        (add, 0.125, np.add),
+        (multiply, 1.125, np.multiply),
     ],
 )
 def test_float16_single_channel_vector_controls_use_scalar_torch_parameter(
@@ -210,20 +200,20 @@ def test_float16_single_channel_vector_controls_use_scalar_torch_parameter(
 @pytest.mark.parametrize(
     ("operation", "control", "alpha", "beta", "reference"),
     [
-        (add_vector, 0.0, 1.0, 0.0, np.add),
-        (add_vector, -0.0, 1.0, -0.0, np.add),
-        (add_vector, 0.5, 1.0, 0.5, np.add),
-        (add_vector, -0.5, 1.0, -0.5, np.add),
-        (add_vector, 0.875, 1.0, 0.875, np.add),
-        (add_vector, -1.25, 1.0, -1.25, np.add),
-        (add_vector, 1.0, 1.0, 1.0, np.add),
-        (multiply_by_vector, 0.0, 0.0, -0.0, np.multiply),
-        (multiply_by_vector, -0.0, -0.0, -0.0, np.multiply),
-        (multiply_by_vector, 0.5, 0.5, -0.0, np.multiply),
-        (multiply_by_vector, -0.5, -0.5, -0.0, np.multiply),
-        (multiply_by_vector, 0.875, 0.875, -0.0, np.multiply),
-        (multiply_by_vector, -1.25, -1.25, -0.0, np.multiply),
-        (multiply_by_vector, 1.0, 1.0, -0.0, np.multiply),
+        (add, 0.0, 1.0, 0.0, np.add),
+        (add, -0.0, 1.0, -0.0, np.add),
+        (add, 0.5, 1.0, 0.5, np.add),
+        (add, -0.5, 1.0, -0.5, np.add),
+        (add, 0.875, 1.0, 0.875, np.add),
+        (add, -1.25, 1.0, -1.25, np.add),
+        (add, 1.0, 1.0, 1.0, np.add),
+        (multiply, 0.0, 0.0, -0.0, np.multiply),
+        (multiply, -0.0, -0.0, -0.0, np.multiply),
+        (multiply, 0.5, 0.5, -0.0, np.multiply),
+        (multiply, -0.5, -0.5, -0.0, np.multiply),
+        (multiply, 0.875, 0.875, -0.0, np.multiply),
+        (multiply, -1.25, -1.25, -0.0, np.multiply),
+        (multiply, 1.0, 1.0, -0.0, np.multiply),
     ],
 )
 def test_float16_single_channel_vector_uses_numkong_scale_for_exact_half_controls(
@@ -263,12 +253,12 @@ def test_float16_single_channel_vector_uses_numkong_scale_for_exact_half_control
 @pytest.mark.parametrize(
     ("operation", "shape", "control", "reference"),
     [
-        (add_vector, (128, 160, 1), 0.1, np.add),
-        (multiply_by_vector, (128, 160, 1), 0.1, np.multiply),
-        (add_vector, (127, 160, 1), 0.5, np.add),
-        (multiply_by_vector, (127, 160, 1), 0.875, np.multiply),
-        (add_vector, (128, 160, 3), 0.5, np.add),
-        (multiply_by_vector, (128, 160, 3), 0.875, np.multiply),
+        (add, (128, 160, 1), 0.1, np.add),
+        (multiply, (128, 160, 1), 0.1, np.multiply),
+        (add, (127, 160, 1), 0.5, np.add),
+        (multiply, (127, 160, 1), 0.875, np.multiply),
+        (add, (128, 160, 3), 0.5, np.add),
+        (multiply, (128, 160, 3), 0.875, np.multiply),
     ],
 )
 def test_float16_single_channel_numkong_vector_route_keeps_measurement_gates(
@@ -297,8 +287,8 @@ def test_float16_single_channel_numkong_vector_route_keeps_measurement_gates(
 @pytest.mark.parametrize(
     ("operation", "opencv_name", "controls", "reference"),
     [
-        (add_vector, "add", (0.5, 0.25, -0.5), np.add),
-        (multiply_by_vector, "multiply", (0.875, 0.5, -0.75), np.multiply),
+        (add, "add", (0.5, 0.25, -0.5), np.add),
+        (multiply, "multiply", (0.875, 0.5, -0.75), np.multiply),
     ],
 )
 def test_float16_hwc_c3_vector_uses_cv16f_for_exact_controls(
@@ -338,12 +328,12 @@ def test_float16_hwc_c3_vector_uses_cv16f_for_exact_controls(
 @pytest.mark.parametrize(
     ("operation", "opencv_name", "control", "shape", "non_contiguous", "reference"),
     [
-        (add_vector, "add", (0.5, 0.25, -0.5), (127, 160, 3), False, np.add),
-        (multiply_by_vector, "multiply", (0.875, 0.5, -0.75), (127, 160, 3), False, np.multiply),
-        (add_vector, "add", (0.1, 0.25, -0.5), (128, 160, 3), False, np.add),
-        (multiply_by_vector, "multiply", (0.875, 0.1, -0.75), (128, 160, 3), False, np.multiply),
-        (add_vector, "add", (0.5, 0.25, -0.5), (128, 160, 3), True, np.add),
-        (multiply_by_vector, "multiply", (0.875, 0.5, -0.75), (128, 160, 3), True, np.multiply),
+        (add, "add", (0.5, 0.25, -0.5), (127, 160, 3), False, np.add),
+        (multiply, "multiply", (0.875, 0.5, -0.75), (127, 160, 3), False, np.multiply),
+        (add, "add", (0.1, 0.25, -0.5), (128, 160, 3), False, np.add),
+        (multiply, "multiply", (0.875, 0.1, -0.75), (128, 160, 3), False, np.multiply),
+        (add, "add", (0.5, 0.25, -0.5), (128, 160, 3), True, np.add),
+        (multiply, "multiply", (0.875, 0.5, -0.75), (128, 160, 3), True, np.multiply),
     ],
 )
 def test_float16_hwc_c3_vector_cv16f_route_keeps_measurement_gates(
@@ -391,7 +381,7 @@ def test_float16_hwc_c9_multiply_uses_cv16f_broadcast_controls(
     with np.errstate(over="ignore", invalid="ignore"):
         expected = np.multiply(image.astype(np.float32), vector).astype(np.float16)
 
-    result = multiply_by_vector(image, vector)
+    result = multiply(image, vector)
 
     assert calls == [((0, 0, 2), False, cv2.CV_16F)]
     assert result.shape == image.shape
@@ -419,7 +409,7 @@ def test_float16_hwc_c9_multiply_allows_safe_inexact_controls(monkeypatch: pytes
     with np.errstate(over="ignore", invalid="ignore"):
         expected = np.multiply(image.astype(np.float32), vector).astype(np.float16)
 
-    result = multiply_by_vector(image, vector)
+    result = multiply(image, vector)
 
     assert calls == [((0, 0, 2), cv2.CV_16F)]
     assert result.shape == image.shape
@@ -434,10 +424,15 @@ def test_float16_hwc_c9_multiply_allows_safe_inexact_controls(monkeypatch: pytes
 @pytest.mark.parametrize(
     ("operation", "numpy_helper", "control", "reference"),
     [
-        (add_vector, "add_numpy", np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.25], np.float32), np.add),
         (
-            multiply_by_vector,
-            "multiply_numpy",
+            add,
+            "_numpy_pointwise",
+            np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.25], np.float32),
+            np.add,
+        ),
+        (
+            multiply,
+            "_numpy_pointwise",
             np.array([0.875, 1.125, 0.5, -0.75, 1.25, 0.625, 0.25, -1.0, 1.1], np.float32),
             np.multiply,
         ),
@@ -454,9 +449,9 @@ def test_float16_hwc_c9_vector_uses_float32_ufunc_loop(
     calls: list[tuple[tuple[int, ...], bool]] = []
     original_numpy = getattr(arithmetic, numpy_helper)
 
-    def record_numpy(img: np.ndarray, value: np.ndarray, *, inplace: bool = False) -> np.ndarray:
-        calls.append((img.shape, inplace))
-        return original_numpy(img, value, inplace=inplace)
+    def record_numpy(img: np.ndarray, value: np.ndarray, op: str, *, out: np.ndarray | None = None) -> np.ndarray:
+        calls.append((img.shape, out is not None))
+        return original_numpy(img, value, op, out=out)
 
     def fail_torch(*args: object, **kwargs: object) -> np.ndarray | None:
         msg = "the measured contiguous HWC C=9 vector route uses the float32 NumPy ufunc loop"
@@ -477,7 +472,7 @@ def test_float16_hwc_c9_vector_uses_float32_ufunc_loop(
 @pytest.mark.parametrize(
     ("operation", "numkong_name", "controls", "reference"),
     [
-        (add_vector, "add", (0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, -0.0), np.add),
+        (add, "add", (0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, -0.0), np.add),
     ],
 )
 def test_float16_hwc_c9_vector_uses_numkong_broadcast_controls(
@@ -527,7 +522,7 @@ def test_float16_hwc_c9_multiply_zero_control_preserves_negative_zero(monkeypatc
     vector = np.array([0.875, 1.125, 0.5, -0.75, 1.25, 0.625, 0.25, -1.0, 0.0], dtype=np.float32)
     expected = np.multiply(image.astype(np.float32), vector).astype(np.float16)
 
-    result = multiply_by_vector(image, vector)
+    result = multiply(image, vector)
 
     np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
     assert np.all(np.signbit(result[..., -1]))
@@ -536,23 +531,23 @@ def test_float16_hwc_c9_multiply_zero_control_preserves_negative_zero(monkeypatc
 def test_float16_hwc_c9_multiply_keeps_numpy_route_with_neonhalf(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
     calls: list[tuple[int, ...]] = []
-    original_numpy = arithmetic.multiply_numpy
+    original_numpy = arithmetic._numpy_pointwise
 
-    def record_numpy(img: np.ndarray, value: np.ndarray, *, inplace: bool = False) -> np.ndarray:
+    def record_numpy(img: np.ndarray, value: np.ndarray, op: str, *, out: np.ndarray | None = None) -> np.ndarray:
         calls.append(img.shape)
-        return original_numpy(img, value, inplace=inplace)
+        return original_numpy(img, value, op, out=out)
 
     def fail_torch(*args: object, **kwargs: object) -> np.ndarray | None:
         raise AssertionError("C9 float32 ufunc output path should be selected before Torch half")
 
-    monkeypatch.setattr(arithmetic, "multiply_numpy", record_numpy)
+    monkeypatch.setattr(arithmetic, "_numpy_pointwise", record_numpy)
     monkeypatch.setattr(arithmetic, "float16_pointwise_torch", fail_torch)
     monkeypatch.setattr(arithmetic.nk, "multiply", fail_torch)
     image = np.random.default_rng(632).uniform(-0.75, 0.75, size=(480, 640, 9)).astype(np.float16)
     vector = np.array([0.875, 1.125, 0.5, -0.75, 1.25, 0.625, 0.25, -1.0, 1.1], dtype=np.float32)
     expected = np.multiply(image.astype(np.float32), vector).astype(np.float16)
 
-    result = multiply_by_vector(image, vector)
+    result = multiply(image, vector)
 
     np.testing.assert_array_equal(result, expected)
     assert calls == [image.shape]
@@ -562,22 +557,22 @@ def test_float16_hwc_c9_multiply_falls_back_for_inexact_subnormal_control(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[int, ...]] = []
-    original_numpy = arithmetic.multiply_numpy
+    original_numpy = arithmetic._numpy_pointwise
 
     def fail_cv16f(*args: object, **kwargs: object) -> np.ndarray:
         raise AssertionError("an inexact half-subnormal control must keep the float32 working path")
 
-    def record_numpy(img: np.ndarray, value: np.ndarray, *, inplace: bool = False) -> np.ndarray:
+    def record_numpy(img: np.ndarray, value: np.ndarray, op: str, *, out: np.ndarray | None = None) -> np.ndarray:
         calls.append(img.shape)
-        return original_numpy(img, value, inplace=inplace)
+        return original_numpy(img, value, op, out=out)
 
     monkeypatch.setattr(arithmetic.cv2, "multiply", fail_cv16f)
-    monkeypatch.setattr(arithmetic, "multiply_numpy", record_numpy)
+    monkeypatch.setattr(arithmetic, "_numpy_pointwise", record_numpy)
     image = np.random.default_rng(633).uniform(-0.75, 0.75, size=(128, 160, 9)).astype(np.float16)
     vector = np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.00006], dtype=np.float32)
     expected = np.multiply(image.astype(np.float32), vector).astype(np.float16)
 
-    result = multiply_by_vector(image, vector)
+    result = multiply(image, vector)
 
     np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
     assert calls == [image.shape]
@@ -586,9 +581,9 @@ def test_float16_hwc_c9_multiply_falls_back_for_inexact_subnormal_control(
 @pytest.mark.parametrize(
     ("operation", "control", "reference"),
     [
-        (add_vector, np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.25], np.float32), np.add),
+        (add, np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.25], np.float32), np.add),
         (
-            multiply_by_vector,
+            multiply,
             np.array([0.875, 1.125, 0.5, -0.75, 1.25, 0.625, 0.25, -1.0, 1.5], np.float32),
             np.multiply,
         ),
@@ -603,9 +598,16 @@ def test_float16_hwc_c9_vector_keeps_torch_path_below_numpy_threshold(
     calls: list[str] = []
     original_torch = arithmetic.float16_pointwise_torch
 
-    def record_torch(img: np.ndarray, operation_name: str, value: float | np.ndarray, *, minimum_elements: int) -> np.ndarray | None:
+    def record_torch(
+        img: np.ndarray,
+        operation_name: str,
+        value: float | np.ndarray,
+        *,
+        minimum_elements: int,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray | None:
         calls.append(operation_name)
-        return original_torch(img, operation_name, value, minimum_elements=minimum_elements)
+        return original_torch(img, operation_name, value, minimum_elements=minimum_elements, out=out)
 
     monkeypatch.setattr(arithmetic, "float16_pointwise_torch", record_torch)
     image = np.random.default_rng(630).uniform(-0.75, 0.75, size=(127, 160, 9)).astype(np.float16)
@@ -615,14 +617,14 @@ def test_float16_hwc_c9_vector_keeps_torch_path_below_numpy_threshold(
     result = operation(image, control)
 
     np.testing.assert_array_equal(result, expected)
-    assert calls == ["add" if operation is add_vector else "multiply"]
+    assert calls == ["add" if operation is add else "multiply"]
 
 
 def test_float16_single_channel_nonrepresentable_vector_matches_wide_result() -> None:
     source = np.random.default_rng(610140).random((128, 160, 1), dtype=np.float32).astype(np.float16)
     vector = np.array([0.1], dtype=np.float32)
 
-    result = add_vector(source, vector)
+    result = add(source, vector)
     expected = np.add(source.astype(np.float32), vector).astype(np.float16)
 
     np.testing.assert_array_equal(result, expected)
@@ -805,7 +807,8 @@ def test_float16_channel_first_normalize_scalar_controls_match_wide_result() -> 
     np.testing.assert_array_max_ulp(result.numpy(), expected.numpy(), maxulp=1)
 
 
-def test_float16_channel_first_normalize_preserves_binary16_values() -> None:
+@pytest.mark.parametrize("output_mode", ["allocate", "alias", "output", "strided"])
+def test_float16_channel_first_normalize_preserves_binary16_values(output_mode: str) -> None:
     bits = np.arange(65_536, dtype=np.uint16).reshape(256, 256)
     source = np.stack(
         (
@@ -816,12 +819,19 @@ def test_float16_channel_first_normalize_preserves_binary16_values() -> None:
         axis=0,
     )[None].copy()
     tensor = torch.from_numpy(source)
+    output = tensor if output_mode == "alias" else torch.empty_like(tensor) if output_mode == "output" else None
+    if output_mode == "strided":
+        output = torch.full((*tensor.shape[:-1], tensor.shape[-1] * 2), 137, dtype=tensor.dtype)[..., ::2]
     mean = np.array([0.375, 0.5, 0.625], dtype=np.float32)
     denominator = np.array([1.5, 1.75, 2.0], dtype=np.float32)
 
     with np.errstate(invalid="ignore", over="ignore"):
         expected = normalize(tensor.to(torch.float32), mean, denominator, layout="NCHW").to(torch.float16).numpy()
-        actual = normalize(tensor, mean, denominator, layout="NCHW").numpy()
+        result = normalize(tensor, mean, denominator, out=output, layout="NCHW")
+        actual = result.numpy()
+
+    if output is not None:
+        assert result is output
 
     finite = np.isfinite(expected) & np.isfinite(actual)
     np.testing.assert_array_equal(actual[finite].view(np.uint16), expected[finite].view(np.uint16))
@@ -1008,7 +1018,9 @@ def test_float16_rank4_c3_per_channel_sum_uses_wide_torch_accumulator(
     keepdims: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source = np.random.default_rng(75 + batch_size).random((batch_size, 128, 160, 3), dtype=np.float32).astype(np.float16)
+    source = (
+        np.random.default_rng(75 + batch_size).random((batch_size, 128, 160, 3), dtype=np.float32).astype(np.float16)
+    )
     axes = (0, 1, 2)
     expected = np.sum(source, axis=axes, dtype=np.float64, keepdims=keepdims)
     original = stats_mod.reduce_sum_torch
@@ -1042,10 +1054,14 @@ def test_float16_rank4_c1_per_channel_sum_uses_measured_torch_window(
     keepdims: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source = np.random.default_rng(80 + batch_size + height).random(
-        (batch_size, height, width, 1),
-        dtype=np.float32,
-    ).astype(np.float16)
+    source = (
+        np.random.default_rng(80 + batch_size + height)
+        .random(
+            (batch_size, height, width, 1),
+            dtype=np.float32,
+        )
+        .astype(np.float16)
+    )
     axes = (0, 1, 2)
     expected = np.sum(source, axis=axes, dtype=np.float64, keepdims=keepdims)
     original = stats_mod.torch.sum
@@ -1119,7 +1135,9 @@ def test_float16_tensor_nearest_resize_uses_native_half_kernel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     if layout == "CHW":
-        image = torch.from_numpy(np.linspace(-1.0, 1.0, 3 * 128 * 160, dtype=np.float32).reshape(3, 128, 160).astype(np.float16))
+        image = torch.from_numpy(
+            np.linspace(-1.0, 1.0, 3 * 128 * 160, dtype=np.float32).reshape(3, 128, 160).astype(np.float16),
+        )
         dsize = (80, 64)
     else:
         bits = np.arange(65_536, dtype=np.uint16).reshape(1, 1, 256, 256)
@@ -1128,7 +1146,9 @@ def test_float16_tensor_nearest_resize_uses_native_half_kernel(
 
     layout_before = image.clone()
     with torch.no_grad():
-        expected = resize(image.to(torch.float32), dsize, interpolation=cv2.INTER_NEAREST, layout=layout).to(torch.float16)
+        expected = resize(image.to(torch.float32), dsize, interpolation=cv2.INTER_NEAREST, layout=layout).to(
+            torch.float16,
+        )
 
     interpolate = geometric_mod.torch_f.interpolate
     input_dtypes: list[torch.dtype] = []
@@ -1392,8 +1412,12 @@ def test_float16_contiguous_tensor_resize_matches_float32_reference(
     dsize: tuple[int, int],
 ) -> None:
     batch_size = 2 if layout == "NCHW" else 1
-    source = np.random.default_rng(height + channels).random((batch_size, height, width, channels), dtype=np.float32).astype(
-        np.float16,
+    source = (
+        np.random.default_rng(height + channels)
+        .random((batch_size, height, width, channels), dtype=np.float32)
+        .astype(
+            np.float16,
+        )
     )
     tensor = (
         torch.from_numpy(source).permute(0, 3, 1, 2).contiguous()
@@ -1404,11 +1428,21 @@ def test_float16_contiguous_tensor_resize_matches_float32_reference(
 
     result = resize(tensor, dsize, layout=layout)
 
-    actual = (
-        result.permute(0, 2, 3, 1).numpy()
-        if layout == "NCHW"
-        else result.permute(1, 2, 0).numpy()[None]
-    )
+    actual = result.permute(0, 2, 3, 1).numpy() if layout == "NCHW" else result.permute(1, 2, 0).numpy()[None]
     assert result.dtype == torch.float16
     # OpenCV and Torch bilinear weights differ slightly; bound drift at unit image scale.
     np.testing.assert_allclose(actual, expected, rtol=0.0, atol=float(np.finfo(np.float16).eps / 2))
+
+
+@pytest.mark.parametrize("container", ["numpy", "tensor"])
+@pytest.mark.parametrize("offset", [-0.8, 0.8, 1.1])
+def test_single_channel_add_keeps_inexact_vector_control_precision(container, offset):
+    source = np.linspace(-1.5, 1.5, 128 * 160, dtype=np.float16).reshape(128, 160, 1)
+    control = np.array([offset], dtype=np.float32)
+    expected = (source.astype(np.float32) + control).astype(np.float16)
+    image = torch.from_numpy(source).permute(2, 0, 1) if container == "tensor" else source
+
+    result = add(image, control, layout="CHW") if container == "tensor" else add(image, control)
+
+    actual = result.permute(1, 2, 0).numpy() if container == "tensor" else result
+    np.testing.assert_array_equal(actual, expected)

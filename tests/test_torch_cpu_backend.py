@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+from importlib import import_module
+
 import numpy as np
 import pytest
 
-from albucore import arithmetic, convert, stats, torch_backend
-from albucore.functions import from_float, multiply_add, normalize, reduce_sum
+from albucore import arithmetic, convert, from_float, multiply_add, normalize, reduce_sum, stats, torch_backend
 
 
 def _enable_torch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -19,9 +20,28 @@ def _strided(array: np.ndarray) -> np.ndarray:
     return array[:, ::2, ...]
 
 
+@pytest.mark.parametrize(
+    ("operation", "value", "reference"),
+    [("add", 0.125, np.add), ("multiply", 1.5, np.multiply), ("power", 1.5, np.power)],
+)
+def test_half_pointwise_writes_supplied_strided_output(operation, value, reference):
+    source = np.linspace(0.0625, 0.875, 2 * 11 * 3, dtype=np.float32).reshape(2, 11, 3).astype(np.float16)
+    original = source.copy()
+    backing = np.full((2, 22, 3), 137, dtype=np.float16)
+    output = backing[:, ::2]
+    expected = reference(source.astype(np.float32), np.float32(value)).astype(np.float16)
+
+    result = torch_backend.float16_pointwise_torch(source, operation, value, minimum_elements=1, out=output)
+
+    assert result is output
+    np.testing.assert_allclose(result, expected, rtol=np.finfo(np.float16).eps, atol=0)
+    np.testing.assert_array_equal(source, original)
+    np.testing.assert_array_equal(backing[:, 1::2], np.full((2, 11, 3), 137, dtype=np.float16))
+
+
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
 @pytest.mark.parametrize("max_value", [128.0, 255.0])
-def test_from_float_torch_matches_numpy_and_bypasses_opencv(
+def test_from_float_torch_matches_numpy_and_bypasses_numkong(
     monkeypatch: pytest.MonkeyPatch,
     layout: str,
     max_value: float,
@@ -36,13 +56,13 @@ def test_from_float_torch_matches_numpy_and_bypasses_opencv(
         "fortran": np.asfortranarray(source),
         "strided": _strided(np.repeat(source, 2, axis=1)),
     }[layout]
-    expected = convert.from_float_numpy(image, np.uint8, max_value)
+    expected = np.clip(np.rint(image * np.float32(max_value)), 0, 255).astype(np.uint8)
 
-    def fail_opencv(*args: object, **kwargs: object) -> np.ndarray:
-        msg = "Torch-compatible float32 input should not reach the NumPy/OpenCV fallback."
+    def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
+        msg = "Torch-compatible float32 input should not reach the NumKong fallback."
         raise AssertionError(msg)
 
-    monkeypatch.setattr(convert, "from_float_opencv", fail_opencv)
+    monkeypatch.setattr(convert, "_from_float_uint8_numkong", fail_numkong)
     result = from_float(image, np.uint8, max_value)
 
     np.testing.assert_array_equal(result, expected)
@@ -67,7 +87,7 @@ def test_multiply_add_scalar_torch_matches_current_float32_contract(
         msg = "Torch-compatible scalar float32 input should not reach NumKong."
         raise AssertionError(msg)
 
-    monkeypatch.setattr(arithmetic, "multiply_add_numkong", fail_numkong)
+    monkeypatch.setattr(arithmetic, "_scale_numkong", fail_numkong)
     result = multiply_add(image, 1.125, -0.05)
 
     np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-7)
@@ -91,10 +111,10 @@ def test_multichannel_normalize_torch_matches_numpy_and_bypasses_fallback(
     expected = image * denominator - mean * denominator
 
     def fail_numpy(*args: object, **kwargs: object) -> np.ndarray:
-        msg = "Large Torch-compatible multi-channel float32 input should not reach normalize_numpy."
+        msg = "Large Torch-compatible multi-channel float32 input should not reach _affine_numpy."
         raise AssertionError(msg)
 
-    monkeypatch.setattr(arithmetic, "normalize_numpy", fail_numpy)
+    monkeypatch.setattr(import_module("albucore.normalize"), "_affine_numpy", fail_numpy)
     result = normalize(image, mean, denominator)
 
     np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-7)

@@ -1,238 +1,200 @@
-"""Uint8 lookup tables: StringZilla ``translate`` and OpenCV ``LUT`` with size-based routing."""
+"""Uint8 shared and per-channel lookup tables with explicit output storage."""
 
 from __future__ import annotations
 
-from typing import Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import cv2
 import numpy as np
 import stringzilla as sz
 import torch
 
-from albucore.decorators import preserve_channel_dim
-from albucore.tensor_bridge import TensorLayout, dispatch_tensor_image, numpy_to_tensor_storage
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageUInt8
+from albucore.tensor_bridge import numpy_to_tensor_layout, numpy_to_tensor_storage, tensor_to_numpy_channel_last
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from albucore._types import TensorLayout
 
 
-@preserve_channel_dim
-def _cv2_lut_uint8(img: ImageUInt8, lut: ImageUInt8) -> ImageUInt8:
-    """``cv2.LUT`` on single-channel HWC returns ``(H, W)``; restore ``(H, W, 1)`` like other OpenCV paths."""
-    return cast("ImageUInt8", cv2.LUT(img, lut))
+__all__ = ["apply_uint8_lut"]
 
 
-def _cv2_lut_channel_last(img: ImageUInt8, lut: np.ndarray) -> np.ndarray:
+def _cv2_lut_channel_last(img: NDArray[np.uint8], lut: np.ndarray, *, out: np.ndarray | None = None) -> np.ndarray:
+    if out is not None and not out.flags.c_contiguous:
+        np.copyto(out, _cv2_lut_channel_last(img, lut))
+        return out
     num_channels = img.shape[-1]
-    if img.ndim == 3:
-        return cast("np.ndarray", cv2.LUT(img, lut))
+    source = img if img.ndim == 3 else np.ascontiguousarray(img).reshape(-1, img.shape[-2], num_channels)
+    result = np.empty(img.shape, dtype=lut.dtype) if out is None else out
+    # Flattening first removes zero strides on singleton axes without copying.
+    cv2.LUT(source, lut, dst=result.reshape(-1).reshape(source.shape))
+    return result
 
-    img_contiguous = np.ascontiguousarray(img)
-    flat = img_contiguous.reshape(-1, img_contiguous.shape[-2], num_channels)
-    return cast("np.ndarray", cv2.LUT(flat, lut).reshape(img_contiguous.shape))
 
-
-def _apply_float_lut_per_channel_loop(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
-    result = np.empty_like(img, dtype=np.float32)
+def _apply_float_lut_per_channel_loop(
+    img: NDArray[np.uint8],
+    lut: np.ndarray,
+    *,
+    out: NDArray[np.float32] | None = None,
+) -> NDArray[np.float32]:
+    result = np.empty_like(img, dtype=np.float32) if out is None else out
     for i in range(img.shape[-1]):
         result[..., i] = cv2.LUT(img[..., i], lut[:, 0, i])
     return result
 
 
-@preserve_channel_dim
-def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
-    """Apply uint8→float32 LUTs; channel-last per-channel tables use one OpenCV call when possible."""
+def _apply_float_lut(
+    img: NDArray[np.uint8],
+    lut: np.ndarray,
+    *,
+    out: NDArray[np.float32] | None = None,
+) -> NDArray[np.float32]:
+    """Apply uint8→float32 LUTs, retaining planar storage where the channel loop wins."""
     lut = lut.astype(np.float32, copy=False)
     if lut.ndim == 1:
-        return cast("ImageFloat32", cv2.LUT(img, lut))
+        if out is not None and out.flags.c_contiguous:
+            cv2.LUT(img, lut, dst=out.reshape(-1).reshape(img.shape))
+            return out
+        shared_result = cast("NDArray[np.float32]", cv2.LUT(img, lut).reshape(img.shape))
+        if out is not None:
+            np.copyto(out, shared_result)
+            return out
+        return shared_result
 
     num_channels = img.shape[-1]
     if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return cast("ImageFloat32", _cv2_lut_channel_last(img, lut))
+        return cast("NDArray[np.float32]", _cv2_lut_channel_last(img, lut, out=out))
 
-    return _apply_float_lut_per_channel_loop(img, lut)
-
-
-@overload
-def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8: ...
+    # CHW-derived views avoid interleaving the full input and float32 output.
+    return _apply_float_lut_per_channel_loop(img, lut, out=out)
 
 
-@overload
-def sz_lut(img: torch.Tensor, lut: ImageUInt8, inplace: bool = True) -> torch.Tensor: ...
+def _strided_uint8_lut_out(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    if img.flags.c_contiguous:
+        np.copyto(out, apply_uint8_lut(img, lut))
+    else:
+        working = np.ascontiguousarray(img)
+        apply_uint8_lut(working, lut, out=working)
+        np.copyto(out, working)
+    return out
 
 
-def sz_lut(
-    img: ImageUInt8 | torch.Tensor,
-    lut: ImageUInt8,
-    inplace: bool = True,
-) -> ImageUInt8 | torch.Tensor:
-    """Apply a shared 256-entry uint8→uint8 LUT using StringZilla ``translate``.
-
-    StringZilla operates on raw bytes without channel awareness, making it ideal for shared
-    (same table for every channel) transformations.  Faster than ``cv2.LUT`` for small images
-    and single-channel; ``apply_uint8_lut`` routes to ``cv2.LUT`` for large multi-channel images.
-
-    Alternative: ``apply_uint8_lut`` (auto-routes between this and OpenCV based on shape/size);
-    ``cv2.LUT`` directly for per-channel (256, 1, C) tables.
-
-    Args:
-        img: uint8 image, any shape. Strided inputs use a contiguous temporary for StringZilla.
-        lut: 1-D uint8 array of length 256.
-        inplace: If True, mutates ``img`` in-place and returns it. A strided input is copied
-                 back after StringZilla processes its contiguous temporary.
-                 If False, operates on a copy.
-
-    Returns:
-        uint8 image with each pixel value replaced by ``lut[pixel]``.
-    """
-    if isinstance(img, torch.Tensor):
-        image_view = img.numpy()
-        result = sz_lut(image_view, lut, inplace=inplace)
-        return img if result is image_view else numpy_to_tensor_storage(result)
-
-    original_img = img
-    if not img.flags["C_CONTIGUOUS"]:
-        img = np.ascontiguousarray(img)
-
-    img_view = memoryview(cast("Any", img))
-    lut_view = memoryview(cast("Any", lut))
-    if inplace:
-        sz.translate(img_view, lut_view, inplace=True)
-        if img is not original_img:
-            original_img[...] = img
-        return original_img
-
-    # sz.translate(inplace=False) allocates + writes in one pass — faster than copy + inplace.
-    raw = sz.translate(img_view, lut_view, inplace=False)
-    return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)
+def _translate_contiguous_uint8_lut(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: NDArray[np.uint8]) -> None:
+    sz.translate(
+        memoryview(cast("Any", img)),
+        memoryview(cast("Any", lut)),
+        out=memoryview(cast("Any", out)),
+    )
 
 
-def opencv_shared_uint8_lut_faster_hwc(shape: tuple[int, ...]) -> bool:
-    """Return True if OpenCV ``LUT`` is expected to beat StringZilla on shared ``(256,)`` HWC LUTs.
-
-    Only ``ndim == 3`` ``(H, W, C)`` is considered; other layouts are handled elsewhere.
-
-    Routing uses ``n = np.prod(shape)`` (total elements ``H*W*C``) and ``hw = n // C``.
-    **Rule:** ``C >= 2`` and (``hw >= 409600`` i.e. about ``640*640``, or
-    (``hw >= 307_200`` i.e. ``480*640`` and ``C >= 3``), or
-    (``hw >= 262_144`` i.e. ``512*512`` and ``n >= 1_220_000``)).
-    Single-channel stays on StringZilla.
-
-    Tuned against ``benchmarks/benchmark_lut_shared_routing.py``. Re-benchmark after OpenCV/SZ upgrades.
-    """
-    if len(shape) != 3:
-        return False
-    c = int(shape[-1])
-    if c < 2:
-        return False
-    n = int(np.prod(shape, dtype=np.int64))
-    hw = n // c
-    if hw >= 409600:  # ~640x640
-        return True
-    if hw >= 307_200 and c >= 3:  # 480x640 RGB and wider
-        return True
-    return hw >= 262_144 and n >= 1_220_000
-
-
-def _apply_shared_uint8_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool) -> ImageUInt8:
-    """One ``(256,)`` table for every byte; routes by layout and buffer size.
-
-    HWC contiguous: OpenCV for large multi-channel (``opencv_shared_uint8_lut_faster_hwc``),
-    StringZilla for the rest.
-    Four-dimensional channel-last input: ``sz_lut(inplace=False)`` (which uses ``sz.translate(inplace=False)``,
-    a single allocate+write pass) is faster than inplace for large buffers ≳500 KB.
-    Source: ``benchmarks/benchmark_scale_vs_lut.py``.
-    """
-    if img.ndim == 3 and img.flags["C_CONTIGUOUS"] and opencv_shared_uint8_lut_faster_hwc(img.shape):
-        out = _cv2_lut_uint8(img, lut)
-        if inplace:
-            np.copyto(img, out)
-            return img
-        return out
-    # Non-HWC large buffers: sz_lut(inplace=False) uses sz.translate(inplace=False) — one allocate+write
-    # pass vs copy+inplace. Wins at ≳2 MB; 1.5 MB shapes are anomalously faster with inplace (cache effect).
-    # Threshold from benchmarks/benchmark_scale_vs_lut.py (arm64); re-run after sz upgrades.
-    if img.ndim != 3 and img.nbytes >= 2_000_000:
-        return sz_lut(img, lut, inplace=False)
-    return sz_lut(img, lut, inplace)
-
-
-def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8) -> ImageUInt8:
-    """Apply ``(256, 1, C)`` uint8 tables out of place, matching vector ``apply_lut``."""
+def _apply_per_channel_uint8_luts(
+    img: NDArray[np.uint8],
+    luts: NDArray[np.uint8],
+    *,
+    out: NDArray[np.uint8] | None,
+) -> NDArray[np.uint8]:
+    """Apply ``(256, 1, C)`` tables without allocating a second result for contiguous outputs."""
     num_channels = img.shape[-1]
     if num_channels == 1:
-        return _apply_shared_uint8_lut(img, luts[:, 0, 0], inplace=False)
+        return apply_uint8_lut(img, luts[:, 0, 0], out=out)
 
     if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return cast("ImageUInt8", _cv2_lut_channel_last(img, luts))
+        return cast("NDArray[np.uint8]", _cv2_lut_channel_last(img, luts, out=out))
 
-    result = np.empty_like(img, dtype=img.dtype)
+    result = np.empty_like(img) if out is None else out
     for i in range(num_channels):
-        result[..., i] = sz_lut(img[..., i], np.ascontiguousarray(luts[:, 0, i]), inplace=False)
+        apply_uint8_lut(img[..., i], np.ascontiguousarray(luts[:, 0, i]), out=result[..., i])
     return result
+
+
+def _tensor_shared_uint8_lut(img: torch.Tensor, lut: NDArray[np.uint8], *, out: torch.Tensor | None) -> torch.Tensor:
+    if out is None:
+        result = np.array(img.numpy(), copy=True, order="C")
+        apply_uint8_lut(result, lut, out=result)
+        return torch.from_numpy(result)
+    if out is img:
+        view = img.numpy()
+        apply_uint8_lut(view, lut, out=view)
+        return img
+    if out.is_contiguous():
+        out.copy_(img)
+        view = out.numpy()
+        apply_uint8_lut(view, lut, out=view)
+    else:
+        source = img.numpy()
+        working = np.ascontiguousarray(source)
+        result = apply_uint8_lut(working, lut, out=working if working is not source else None)
+        out.copy_(numpy_to_tensor_storage(result))
+    return out
 
 
 @overload
 def apply_uint8_lut(
-    img: ImageUInt8,
-    lut: np.ndarray,
+    img: NDArray[np.uint8],
+    lut: NDArray[np.uint8],
     *,
-    inplace: bool = False,
+    out: NDArray[np.uint8] | None = None,
     layout: TensorLayout | None = None,
-) -> ImageUInt8: ...
+) -> NDArray[np.uint8]: ...
 
 
 @overload
 def apply_uint8_lut(
     img: torch.Tensor,
-    lut: np.ndarray,
+    lut: NDArray[np.uint8],
     *,
-    inplace: bool = False,
+    out: torch.Tensor | None = None,
     layout: TensorLayout | None = None,
 ) -> torch.Tensor: ...
 
 
 def apply_uint8_lut(
-    img: ImageUInt8 | torch.Tensor,
-    lut: np.ndarray,
+    img: NDArray[np.uint8] | torch.Tensor,
+    lut: NDArray[np.uint8],
     *,
-    inplace: bool = False,
+    out: NDArray[np.uint8] | torch.Tensor | None = None,
     layout: TensorLayout | None = None,
-) -> ImageUInt8 | torch.Tensor:
-    """Apply a uint8→uint8 LUT to an image.  Supports shared and per-channel tables.
+) -> NDArray[np.uint8] | torch.Tensor:
+    """Map uint8 values through a shared ``(256,)`` or per-channel ``(256, 1, C)`` table.
 
-    ``lut`` shapes:
+    Without ``out``, input storage is never written. A supplied output has the same shape,
+    uint8 dtype, container and logical layout as the input and is returned by identity.
+    Writable strided outputs and ``out=img`` are supported; other overlapping views and
+    overlap with the table are outside the contract. Strides may require a temporary.
 
-    - ``(256,)`` — one shared table applied to every byte regardless of channel.
-      Routes to ``cv2.LUT`` or ``sz_lut`` (StringZilla) based on image size and channel count
-      (see ``opencv_shared_uint8_lut_faster_hwc``).  ``inplace=True`` mutates ``img`` when
-      StringZilla wins, or copies the OpenCV result back when that path wins.
-
-    - ``(256, 1, C)`` — one table per channel.  Contiguous channel-last arrays use a single
-      ``cv2.LUT`` call with a ``(256, 1, C)`` table; batches and volumes are flattened to a
-      3D view first. Non-contiguous high-channel arrays copy to a contiguous buffer for the same
-      OpenCV path; low-channel arrays keep the per-channel StringZilla loop because it benchmarks
-      faster than copy + OpenCV. ``inplace`` is ignored for the per-channel path.
-
-    Alternative: ``sz_lut`` for the StringZilla path directly; ``cv2.LUT`` with a
-    ``(256, 1, C)``-shaped table for explicit per-channel OpenCV dispatch.
-
-    Args:
-        img: uint8 image, shape ``(H, W, C)`` or batch/volume.
-        lut: uint8 array, shape ``(256,)`` or ``(256, 1, C)``.
-        inplace: Reuse ``img`` buffer when the shared-LUT StringZilla path is chosen.
-        layout: Required for per-channel Tensor LUT calls; selects CHW, NCHW, CDHW, or NCDHW.
-
-    Returns:
-        uint8 image with pixel values remapped through the LUT.
-
-    The caller validates the uint8 image and LUT shapes before entering this low-level router.
+    NumPy uses channel-last images, batches and volumes. Per-channel Tensor calls require
+    an explicit ``layout``; shared tables operate on bytes independently of layout.
+    The caller validates images, outputs, layout, table shape and table contiguity.
     """
     if isinstance(img, torch.Tensor):
+        tensor_out = cast("torch.Tensor | None", out)
         if lut.ndim == 1:
-            image_view = img.numpy()
-            result = apply_uint8_lut(image_view, lut, inplace=inplace)
-            return img if result is image_view else numpy_to_tensor_storage(result)
-        return dispatch_tensor_image(img, layout, apply_uint8_lut, lut, inplace=inplace)
-
-    if lut.ndim == 1:
-        return _apply_shared_uint8_lut(img, lut, inplace)
-    return _apply_per_channel_uint8_luts(img, lut)
+            return _tensor_shared_uint8_lut(img, lut, out=tensor_out)
+        image_view = tensor_to_numpy_channel_last(img, layout)
+        output_view = None
+        if tensor_out is not None:
+            output_view = image_view if tensor_out is img else tensor_to_numpy_channel_last(tensor_out, layout)
+        result = _apply_per_channel_uint8_luts(
+            image_view,
+            lut,
+            out=output_view,
+        )
+        return numpy_to_tensor_layout(result, cast("TensorLayout", layout)) if tensor_out is None else tensor_out
+    if lut.ndim != 1:
+        return _apply_per_channel_uint8_luts(img, lut, out=cast("NDArray[np.uint8] | None", out))
+    if out is not None:
+        numpy_out = cast("NDArray[np.uint8]", out)
+        if not numpy_out.flags.c_contiguous:
+            return _strided_uint8_lut_out(img, lut, numpy_out)
+        if img is not numpy_out and img.flags.c_contiguous:
+            _translate_contiguous_uint8_lut(img, lut, numpy_out)
+        else:
+            if numpy_out is not img:
+                np.copyto(numpy_out, img)
+            sz.translate(memoryview(cast("Any", numpy_out)), memoryview(cast("Any", lut)), inplace=True)
+        return numpy_out
+    source = np.ascontiguousarray(img)
+    raw = sz.translate(memoryview(cast("Any", source)), memoryview(cast("Any", lut)), inplace=False)
+    return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)

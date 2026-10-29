@@ -31,7 +31,7 @@ Please familiarize yourself with these key documents:
    - Memory layout considerations
    - Benchmarking guidelines
 
-4. **[Public API](docs/public-api.md)** - Public routers, star exports, and `albucore.functions` compatibility shims
+4. **[Public API](docs/public-api.md)** - Public operations, explicit root exports, and owning modules
 
 5. **[PyTorch Optimization](docs/torch-performance-optimization.md)** - Eager CPU Torch contracts, full-path benchmarks,
    Tensor/NumPy bridge costs, profiling, allocation, layout, and threading decisions
@@ -63,6 +63,24 @@ explicit channel dimension, dtype, device, contiguity, autograd state, and opera
 before dispatch. Do not duplicate those checks in Albucore routers; keep only backend dispatch and kernel-required
 normalization. Invalid direct calls are outside the low-level contract.
 
+### Output ownership
+
+Operations with `out` write input storage only when the caller explicitly supplies it as output. Without `out`,
+do not write input data; returning a view or the input object is allowed. Return the supplied destination object
+when `out` is present. The caller validates its shape, dtype, device, strides, writeability, and supported overlap.
+
+AX owns reusable buffers and any protective copies needed before writing shared storage. Include those copies in
+full AX timing and memory measurements. Do not add hidden pools or caches of large arrays. `clip` follows this
+contract through keyword-only `out`; its former `inplace` argument is removed.
+`multiply_add` follows the same explicit output contract; Tensor calls require layout and compound control aliases must preserve read-before-write order.
+`normalize` writes result-dtype `out`: float16 for float16 input, float32 for uint8/float32. Exact floating source
+aliases are supported. Preserve its backend arithmetic order and approximate identity policy; destination strides
+must not select a different numerical kernel. Fixed and adaptive normalization share the normalize module.
+`normalize_per_image` also uses result-dtype `out` and required Tensor layout. Compute all statistics before an alias
+write. Preserve mode-specific epsilon/clipping and NumPy whole-array versus Tensor per-item batch statistics.
+
+
+
 ### 1. Image Shape Convention
 
 **This is the most important rule:**
@@ -92,7 +110,8 @@ Never infer `NCHW` versus `CDHW` from rank or axis sizes.
 ### 3. Type Safety
 
 - Use type hints consistently
-- Leverage the provided type aliases: `ImageType`, `ImageInput`, `ImageUInt8`, `ImageFloat16`, `ImageFloat32`, `ValueType`
+- Use `NDArray[np.uint8]`, `NDArray[np.float16]`, and `NDArray[np.float32]` for concrete NumPy dtypes.
+- Keep shared unions and TypeVars where they define supported inputs or preserve input/output type relationships.
 - Ensure dtype preservation or explicit conversion
 
 ### 4. Multiple Implementations Pattern
@@ -259,8 +278,9 @@ When implementing a new function, consider:
 
 ## Resources
 
-- Main implementation: `albucore/functions.py`
-- Utilities and types: `albucore/utils.py`
+- Operation owners: `albucore/arithmetic.py`, `convert.py`, `normalize.py`, `stats.py`, and geometric modules
+- Public exports: `albucore/__init__.py`
+- Utilities: `albucore/utils.py`; type definitions: `albucore/_types.py`
 - Decorators: `albucore/decorators.py`
 - Tests: `tests/`
 - Benchmarks: `./benchmark.sh` (dataset I/O); Python micro-benchmarks: [`benchmarks/README.md`](benchmarks/README.md)

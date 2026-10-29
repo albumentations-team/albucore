@@ -12,9 +12,19 @@ generation.
 
 Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
 performance guide. Benchmark additional thread counts only when the user explicitly requests thread scaling.
+Record enabled backend/ISA flags and verify the intended host profile before acceptance. A sandbox that denies
+`sysctl` can disable NumKong NEON; restricted-profile timings do not prove native-host performance.
 For dtype comparisons, use the same logical inputs and operation controls; choose floating controls exactly
 representable in float16 when the route is compared across float16 and float32. Do not benchmark an identity route for
 one dtype against real work in another.
+
+Restore the original logical source before each case and storage mode, as well as before every alias sample.
+Assert input preservation after ordinary and separate-output calls. Idempotent operations such as clipping can hide
+an already-mutated benchmark input even when the output comparison passes.
+
+Inspect the installed or selected source API before constructing a workload. Reject unknown or ignored transform
+arguments, verify effective controls, and name the actual caller branch being timed. Matching seeds do not prove that
+a library accepted the requested parameters. Preserve invalid runs as rejected evidence and rerun only affected rows.
 
 ## Layout
 

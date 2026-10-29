@@ -24,7 +24,7 @@ The full cast matrix covers the 16,383/16,384 and 61,439/61,440 boundaries, cano
 
 ## Complete image bridges
 
-The baseline explicitly widens with NumPy, invokes the same float32 operation, and casts back with NumPy. Every compared half output is bitwise identical. `power_opencv(value=1.3)` is the explicit backend used by scalar power consumers.
+The baseline explicitly widens with NumPy, invokes the same float32 operation, and casts back with NumPy. Every compared half output is bitwise identical. The scalar `power(exponent=1.3)` route uses the same OpenCV kernel.
 
 | Xeon operation, 768×1024×9 | NumPy bridge ms | Routed bridge ms | Speedup |
 |---|---:|---:|---:|
@@ -32,7 +32,7 @@ The baseline explicitly widens with NumPy, invokes the same float32 operation, a
 | median3 | 76.266 | 33.284 | 2.29× |
 | normalize_image | 82.283 | 44.068 | 1.87× |
 | exp | 73.869 | 30.912 | 2.39× |
-| power_opencv | 84.471 | 36.123 | 2.34× |
+| power | 84.471 | 36.123 | 2.34× |
 
 M4 keeps NumPy for these bridges; all measured public/baseline median ratios remain close to one. Faster storage conversion does not establish a native-half kernel win.
 

@@ -11,7 +11,7 @@ import torch
 from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu, _sample3d_torch_cpu_batch
 
 if TYPE_CHECKING:
-    from albucore.utils import ImageArrayT
+    from albucore._types import ImageArrayT
 
 __all__ = ["remap3d"]
 

@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from albucore.functions import hflip, hflip_cv2, hflip_numpy, vflip, vflip_cv2, vflip_numpy
+from albucore import hflip, vflip
+from albucore.ops_misc import hflip_cv2, hflip_numpy, vflip_cv2, vflip_numpy
 from albucore.ops_misc import _flip_multichannel
 
 

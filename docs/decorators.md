@@ -29,15 +29,13 @@ Clips the result to the valid range for the input dtype.
 **Use case**: After arithmetic operations that might produce out-of-range values.
 
 ```python
+from albucore import multiply
 from albucore.utils import clipped
 
 
 @clipped
-def multiply_by_constant(img: ImageType, value: float, inplace: bool) -> ImageType:
-    # Multiplication might produce values outside valid range
-    if img.dtype == np.uint8:
-        return multiply_lut(img, value, inplace)
-    return multiply_opencv(img, value)
+def scale_pixels(img: ImageType, value: float) -> ImageType:
+    return multiply(img, value)
 ```
 
 ## Type Conversion Decorators
@@ -51,7 +49,7 @@ Float16 inputs are widened without scaling and restored to float16; uint8 inputs
 Tensor calls preserve the container; bind their layout with `some_image_function.with_layout("CHW")` before calling.
 
 ```python
-from albucore.functions import float32_io
+from albucore import float32_io
 
 
 @float32_io
@@ -69,7 +67,7 @@ Converts input to uint8, processes it, and converts back to the original floatin
 and restored to the input floating dtype. Tensor calls preserve the container through a layout-bound callable.
 
 ```python
-from albucore.functions import uint8_io
+from albucore import uint8_io
 
 
 @uint8_io
@@ -105,14 +103,21 @@ result = scale_chw(img=torch.ones((3, 5, 7)), amount=1.5)
 `scale_chw(tensor)` is a static error because `amount` is required. Both decorator orders retain clipping and
 dtype restoration. NumPy calls can continue to use `scale(img=array, amount=1.5)`.
 
-Direct Tensor calls such as `scale(tensor, amount=1.5, layout="CHW")` remain available at runtime for compatibility;
-use `.with_layout()` for static argument checking.
+For these I/O decorators, replace `scale(tensor, amount=1.5, layout="CHW")` with
+`scale.with_layout("CHW")(tensor, amount=1.5)`. Direct calls accept NumPy arrays; Tensor dispatch belongs to the bound callable.
 
 ### Single-Channel Image Handling
 
 ```python
+import cv2
+import numpy as np
+from numpy.typing import NDArray
+
+from albucore.decorators import preserve_channel_dim
+
+
 @preserve_channel_dim
-def normalize_lut(img: ImageUInt8, mean: float, std: float) -> ImageFloat32:
+def standardize_uint8(img: NDArray[np.uint8], mean: float, std: float) -> NDArray[np.float32]:
     lut = ((np.arange(0, 256, dtype=np.float32) - mean) / std).astype(np.float32)
     # cv2.LUT might drop the channel dimension for single-channel images
     return cv2.LUT(img, lut)
@@ -121,11 +126,11 @@ def normalize_lut(img: ImageUInt8, mean: float, std: float) -> ImageFloat32:
 ### Type-Safe Operations
 
 ```python
-@clipped
-@preserve_channel_dim
-def add_opencv(img: ImageType, value: np.ndarray | float) -> ImageType:
-    prepared_value = prepare_value_opencv(img, value, "add")
-    return cv2.add(img, prepared_value)
+from albucore import add
+
+
+def brighten(img: NDArray[np.float32], value: float) -> NDArray[np.float32]:
+    return add(img, value)
 ```
 
 ### Views

@@ -13,8 +13,10 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
+from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
+from albucore._types import ArrayT, ImageType, TensorImageLayout
 from albucore.affine3d import warp_affine3d
 from albucore.decorators import preserve_channel_dim
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
@@ -23,10 +25,6 @@ from albucore.remap3d import remap3d
 from albucore.tensor_bridge import dispatch_tensor_image, tensor_operand_to_numpy, tensor_to_numpy_channel_last
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
-    ArrayT,
-    ImageFloat16,
-    ImageType,
-    TensorImageLayout,
     get_num_channels,
     get_opencv_max_channels,
     maybe_process_in_chunks,
@@ -272,7 +270,7 @@ def _warp_affine_chunked(
     )
 
 
-def _float16_nearest_integer_source(img: ImageFloat16) -> np.ndarray | None:
+def _float16_nearest_integer_source(img: NDArray[np.float16]) -> np.ndarray | None:
     channels = img.shape[-1]
     if channels == 9 and channels * 2 <= _MAX_OPENCV_CHANNELS:
         return img.view(np.uint8).reshape(*img.shape[:2], channels * 2)
@@ -282,7 +280,7 @@ def _float16_nearest_integer_source(img: ImageFloat16) -> np.ndarray | None:
 
 
 def _warp_affine_float16_nearest(
-    img: ImageFloat16,
+    img: NDArray[np.float16],
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
@@ -318,7 +316,7 @@ def _warp_affine_float16_nearest(
 
 
 def _warp_affine_float16(
-    img: ImageFloat16,
+    img: NDArray[np.float16],
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
@@ -432,7 +430,7 @@ def warp_affine(
     dst = cast("ImageType | None", dst)
 
     if img.dtype == np.float16:
-        return _warp_affine_float16(cast("ImageFloat16", img), m, dsize, flags, border_mode, border_value, dst)
+        return _warp_affine_float16(cast("NDArray[np.float16]", img), m, dsize, flags, border_mode, border_value, dst)
 
     m = np.asarray(m[:2, :], dtype=np.float32)
     num_channels = get_num_channels(img)
@@ -494,7 +492,7 @@ def _warp_perspective_chunked(
 
 
 def _warp_perspective_float16_nearest(
-    img: ImageFloat16,
+    img: NDArray[np.float16],
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
@@ -602,7 +600,7 @@ def warp_perspective(
     if img.dtype == np.float16:
         dst = cast("ImageType | None", dst)
         nearest_result = _warp_perspective_float16_nearest(
-            cast("ImageFloat16", img),
+            cast("NDArray[np.float16]", img),
             m,
             dsize,
             flags,
@@ -834,7 +832,7 @@ def _remap_chunked(
 
 
 def _remap_float16_nearest(
-    img: ImageFloat16,
+    img: NDArray[np.float16],
     map_x: np.ndarray,
     map_y: np.ndarray,
     interpolation: int,
@@ -958,7 +956,7 @@ def remap(
 
     if img.dtype == np.float16:
         nearest_result = _remap_float16_nearest(
-            cast("ImageFloat16", img),
+            cast("NDArray[np.float16]", img),
             map_x,
             map_y,
             interpolation,

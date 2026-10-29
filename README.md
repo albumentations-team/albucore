@@ -139,9 +139,8 @@ volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
 
 ## Functions
 
-The tables below highlight commonly used public routers. They are exported via `from albucore import *`. The
-compatibility shims in `albucore.functions` cover only the names documented in [docs/public-api.md](docs/public-api.md);
-`warp_affine3d` is intentionally public from `albucore` and `albucore.geometric` only.
+The tables below highlight public routers exported directly by `albucore`. Their implementations live in the
+operation modules listed in [docs/public-api.md](docs/public-api.md).
 
 NumPy image routers use channel-last inputs with an explicit channel dimension (`(H, W, C)`, never bare `(H, W)`). CPU Torch calls use channel-first layouts (`CHW`, `NCHW`, `CDHW`, `NCDHW`); pass `layout=` to common operations when channel semantics matter. Image routers support `uint8`, `float16`, and `float32`, except where a table states a narrower dtype contract.
 
@@ -166,11 +165,13 @@ contract requires clipping.
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `exp` | `(array, *, inplace=False)` | Elementwise exponential; float16/float32 preserve dtype, uint8 returns float32 | NumPy, OpenCV, or CPU Torch by dtype and measured region |
-| `log` | `(array, *, inplace=False)` | NumPy-compatible natural logarithm; float16/float32 preserve dtype, uint8 returns float32 | NumPy special values; guarded OpenCV or Torch paths for eligible regions |
-| `sqrt` | `(array, *, inplace=False)` | NumPy-compatible square root; float16/float32 preserve dtype, uint8 returns float32 | NumPy or CPU Torch by dtype and measured region |
+| `exp` | `(array, *, out=None)` | Elementwise exponential; float16/float32 preserve dtype, uint8 returns float32 | NumPy, OpenCV, or CPU Torch by dtype and measured region |
+| `log` | `(array, *, out=None)` | NumPy-compatible natural logarithm; float16/float32 preserve dtype, uint8 returns float32 | NumPy special values; guarded OpenCV or Torch paths for eligible regions |
+| `sqrt` | `(array, *, out=None)` | NumPy-compatible square root; float16/float32 preserve dtype, uint8 returns float32 | NumPy or CPU Torch by dtype and measured region |
 
-These functions preserve the input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
+These functions preserve the input shape. Without `out`, they leave input data unchanged. Supply `out=destination`
+to reuse a writable result buffer; floating inputs may use `out=array`, including supported views. Uint8 input
+requires a float32 destination. AX owns any protective copy needed before writing shared storage. See the [elementwise benchmark report](benchmarks/results/benchmark_elementwise.md) for routing thresholds, environment, and NumKong results.
 
 ### Normalization
 
@@ -198,8 +199,7 @@ These functions preserve the input shape. With `inplace=True`, an owned writable
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `apply_uint8_lut` | `(img, lut, *, inplace=False)` | Apply uint8→uint8 LUT; `lut` shape `(256,)` or `(C, 256)` | Shared `(256,)`: StringZilla or `cv2.LUT` by size heuristic. Per-channel `(C, 256)`: single `cv2.LUT` with `(256,1,C)` table on contiguous HWC; else StringZilla per channel |
-| `sz_lut` | `(img, lut, inplace=True)` | Apply shared `(256,)` uint8 LUT via StringZilla `translate` | Raw byte translation — channel-unaware, fastest for small images and single-channel |
+| `apply_uint8_lut` | `(img, lut, *, out=None, layout=None)` | Apply uint8→uint8 LUT; `lut` shape `(256,)` or `(256, 1, C)` | Shared `(256,)`: StringZilla byte translation. Per-channel `(256, 1, C)`: single `cv2.LUT` with `(256,1,C)` table on contiguous HWC; else StringZilla per channel |
 
 ### Geometric / spatial
 
@@ -253,7 +253,7 @@ Albucore uses a combination of techniques to achieve high performance:
 1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch when the documented contract permits it.
 2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
 3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
-4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add(..., field)`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 5. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
@@ -269,7 +269,7 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for the
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
 - [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) - Eager CPU PyTorch routing and benchmark guidance
 - [docs/numkong-performance.md](docs/numkong-performance.md) - Current NumKong routes and benchmark decisions
-- [docs/public-api.md](docs/public-api.md) - Star-exported routers vs `albucore.functions` shims
+- [docs/public-api.md](docs/public-api.md) - Public operations and their owning modules
 - [benchmarks/README.md](benchmarks/README.md) - Python micro-benchmarks (`uv run python benchmarks/…`)
 
 ## License

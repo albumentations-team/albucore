@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time routers listed in ``albucore.functions.__all__`` on synthetic arrays.
+"""Time public Albucore routers on synthetic arrays.
 
 Layouts:
 
@@ -10,8 +10,7 @@ The HWC grid intentionally uses non-square sizes so height/width swaps are visib
 
 Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``pad3d``, ``remap``, ``remap3d``,
 ``remap_nearest``, ``resize``, ``resize3d``, ``separable_filter3d``, ``warp_affine``, ``warp_affine3d``,
-``warp_perspective``, and ``warp_perspective_nearest`` (they live in ``albucore.geometric``, not
-``functions.__all__``).
+``warp_perspective``, and ``warp_perspective_nearest``.
 
 Run::
 
@@ -21,8 +20,7 @@ Run::
 those exports. Compare JSONs with ``compare_router_json.py`` (intersection = shared ``ok/ok`` cells).
 
 Reliability: default ``--repeats`` / ``--warmup`` are tuned for stable medians; JSON includes
-``ms_std`` / ``ms_mad`` (spread of timed runs). ``sz_lut`` runs on ``img.copy()`` so the shared
-bench image is not corrupted across iterations.
+``ms_std`` / ``ms_mad`` (spread of timed runs).
 
 Workload realism: thunks use non-identity parameters where it matters (e.g. ``multiply_add`` with
 per-channel factor/bias, ``normalize`` with ImageNet-scale mean/denom, ``power`` with exponents
@@ -59,48 +57,17 @@ from shape_grids import (
 )
 from timing import WallTimingMs, bench_wall_ms
 
+_OPERATION_API_NAMES = {"add_channel": "add", "add_field": "add", "multiply_channel": "multiply", "multiply_field": "multiply"}
+
+
+def _api_name(workload: str) -> str:
+    return _OPERATION_API_NAMES.get(workload, workload)
+
+
 _GEOMETRIC_API_ALIASES = {
     "remap_nearest": "remap",
     "warp_perspective_nearest": "warp_perspective",
 }
-
-# When ``albucore.functions`` has no ``__all__`` in a previous release, use this
-# so comparison runs time the same router names. Keep in sync with
-# ``albucore/functions.py`` ``__all__``.
-_FUNCTIONS_PUBLIC_ROUTERS_FALLBACK: tuple[str, ...] = (
-    "add",
-    "add_array",
-    "add_constant",
-    "add_vector",
-    "add_weighted",
-    "apply_uint8_lut",
-    "exp",
-    "float32_io",
-    "from_float",
-    "hflip",
-    "log",
-    "matmul",
-    "mean",
-    "mean_std",
-    "median_blur",
-    "multiply",
-    "multiply_add",
-    "multiply_by_array",
-    "multiply_by_constant",
-    "multiply_by_vector",
-    "normalize",
-    "normalize_per_image",
-    "pairwise_distances_squared",
-    "power",
-    "reduce_sum",
-    "std",
-    "sqrt",
-    "sz_lut",
-    "to_float",
-    "uint8_io",
-    "vflip",
-)
-
 
 @dataclass
 class BenchRow:
@@ -469,7 +436,7 @@ def _registry_volume_batches() -> list[tuple[str, Callable[[Any, np.ndarray], Ca
 
 
 def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callable[[], object]]]]:
-    """``albucore.functions.__all__`` routers (except decorators handled separately)."""
+    """Public non-geometric operation workloads."""
 
     def add_c(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = 3 if img.dtype == np.uint8 else 1.5
@@ -479,19 +446,21 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    def add_const(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        v = 3 if img.dtype == np.uint8 else 1.5
+    def saturate(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        values = img
+        if img.dtype != np.uint8:
+            values = np.empty_like(img)
+            values.flat[::3] = -0.25
+            values.flat[1::3] = 0.5
+            values.flat[2::3] = 1.25
+        return lambda: alb.clip(values, img.dtype)
 
-        def thunk() -> None:
-            alb.add_constant(img, v)
-
-        return thunk
 
     def add_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = _channel_vector(img)
 
         def thunk() -> None:
-            alb.add_vector(img, v)
+            alb.add(img, v)
 
         return thunk
 
@@ -499,7 +468,7 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         noise = np.full_like(img, 2 if img.dtype == np.uint8 else 0.015625)
 
         def thunk() -> None:
-            alb.add_array(img, noise)
+            alb.add(img, noise)
 
         return thunk
 
@@ -519,31 +488,24 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    def mul_const(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        v = 1.0625 if img.dtype in (np.float16, np.float32) else 2
-
-        def thunk() -> None:
-            alb.multiply_by_constant(img, v)
-
-        return thunk
 
     def mul_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = _channel_vector(img)
 
         def thunk() -> None:
-            alb.multiply_by_vector(img, v)
+            alb.multiply(img, v)
 
         return thunk
 
     def mul_arr(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        # ``multiply_opencv`` promotes uint8 image to float32; value must match OpenCV expectations.
+        # ``_multiply_uint8_opencv`` promotes uint8 image to float32; value must match OpenCV expectations.
         if img.dtype in (np.float16, np.float32):
             factor = np.full(img.shape, np.float32(1.015625), dtype=np.float32)
         else:
             factor = np.full(img.shape, np.float32(1.02), dtype=np.float32)
 
         def thunk() -> None:
-            alb.multiply_by_array(img, factor)
+            alb.multiply(img, factor)
 
         return thunk
 
@@ -655,15 +617,6 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    def lut(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        lut_u8 = np.arange(256, dtype=np.uint8)
-
-        def thunk() -> None:
-            # Copy: ``sz_lut`` defaults to in-place on its buffer; shared ``img`` must stay untouched.
-            alb.sz_lut(img.copy(), lut_u8)
-
-        return thunk
-
     def mn(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
             alb.mean(img, "global")
@@ -712,20 +665,18 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    # Order follows functions.__all__ (geometric optional elsewhere)
     return [
         ("add", add_c),
-        ("add_array", add_arr),
+        ("add_field", add_arr),
         ("apply_uint8_lut", apply_ul),
-        ("add_constant", add_const),
-        ("add_vector", add_vec),
+        ("add_channel", add_vec),
         ("add_weighted", aw),
+        ("clip", saturate),
         ("exp", exponential),
         ("multiply", mul_c),
         ("multiply_add", ma),
-        ("multiply_by_array", mul_arr),
-        ("multiply_by_constant", mul_const),
-        ("multiply_by_vector", mul_vec),
+        ("multiply_field", mul_arr),
+        ("multiply_channel", mul_vec),
         ("normalize", norm),
         ("normalize_per_image", npi),
         ("hflip", hf),
@@ -744,7 +695,6 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("std", st),
         ("std_per_channel", st_pc),
         ("sqrt", square_root),
-        ("sz_lut", lut),
         ("to_float", tf),
         ("from_float", ff),
     ]
@@ -827,7 +777,7 @@ def main() -> None:
     p.add_argument(
         "--with-geometric",
         action="store_true",
-        help="Also benchmark geometric routers (not in functions.__all__)",
+        help="Also benchmark geometric routers",
     )
     p.add_argument(
         "--repeats",
@@ -865,7 +815,6 @@ def main() -> None:
     skip_ops = _parse_skip_ops(args.skip_ops)
 
     import albucore as alb  # noqa: PLC0415
-    import albucore.functions as alb_fn  # noqa: PLC0415
 
     # Repo root of the albucore tree actually imported (main vs worktree).
     repo_root = Path(alb.__file__).resolve().parent.parent
@@ -891,16 +840,11 @@ def main() -> None:
         "mean_std_per_channel",
         "reduce_sum_per_channel",
     }
-    skip_uint8_only = {"apply_uint8_lut", "sz_lut"}
+    skip_uint8_only = {"apply_uint8_lut"}
     skip_float_only = {"from_float"}
 
-    declared = getattr(alb_fn, "__all__", None)
-    if declared is not None:
-        export_names = set(declared)
-        functions_all_meta: list[str] = list(declared)
-    else:
-        export_names = set(_FUNCTIONS_PUBLIC_ROUTERS_FALLBACK)
-        functions_all_meta = list(_FUNCTIONS_PUBLIC_ROUTERS_FALLBACK)
+    public_exports = list(alb.__all__)
+    export_names = set(public_exports)
 
     for name in sorted(export_names):
         if name in ("float32_io", "uint8_io"):
@@ -926,7 +870,7 @@ def main() -> None:
         half_img = paired_half_images.get(pair_key) if dtype == np.float32 else None
         if args.interleave_float16 and half_img is not None:
             for op_name, build in fn_reg:
-                if (op_name not in export_names and op_name not in stats_ops) or op_name in skip_ops:
+                if (_api_name(op_name) not in export_names and op_name not in stats_ops) or op_name in skip_ops:
                     continue
                 if op_name in skip_uint8_only:
                     for float_dtype in ("float16", "float32"):
@@ -952,7 +896,7 @@ def main() -> None:
                 )
             continue
         for op_name, build in fn_reg:
-            if op_name not in export_names and op_name not in stats_ops:
+            if _api_name(op_name) not in export_names and op_name not in stats_ops:
                 continue
             if op_name in skip_ops:
                 continue
@@ -1000,7 +944,7 @@ def main() -> None:
             for op_name, build in fn_reg:
                 if op_name not in stats_ops or op_name in skip_ops:
                     continue
-                if op_name not in export_names and not op_name.endswith("_per_channel"):
+                if _api_name(op_name) not in export_names and not op_name.endswith("_per_channel"):
                     continue
                 if not op_name.endswith("_per_channel") and not hasattr(alb, op_name):
                     for float_dtype in ("float16", "float32"):
@@ -1013,7 +957,7 @@ def main() -> None:
         for op_name, build in fn_reg:
             if op_name not in stats_ops:
                 continue
-            if op_name not in export_names and not op_name.endswith("_per_channel"):
+            if _api_name(op_name) not in export_names and not op_name.endswith("_per_channel"):
                 continue
             if op_name in skip_ops:
                 continue
@@ -1110,7 +1054,7 @@ def main() -> None:
         "quick": args.quick,
         "with_geometric": args.with_geometric,
         "interleave_float16": args.interleave_float16,
-        "functions_all": functions_all_meta,
+        "public_exports": public_exports,
         "repeats": args.repeats,
         "warmup": args.warmup,
         "torch_threads": torch.get_num_threads(),

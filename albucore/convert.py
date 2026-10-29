@@ -2,29 +2,20 @@
 
 import platform
 import sys
-from typing import Any, TypeVar, cast, overload
+from typing import TypeVar, cast, overload
 
-import cv2
 import numkong as nk
 import numpy as np
 import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore.decorators import preserve_channel_dim
+from albucore._types import ImageType, SupportedDType
+from albucore.lut import _cv2_lut_channel_last
 from albucore.torch_backend import from_float_uint8_torch
-from albucore.utils import (
-    MAX_OPENCV_WORKING_CHANNELS,
-    MAX_VALUES_BY_DTYPE,
-    ImageFloat16,
-    ImageFloat32,
-    ImageType,
-    ImageUInt8,
-    SupportedDType,
-    clip,
-    get_max_value,
-    get_num_channels,
-)
+from albucore.utils import MAX_VALUES_BY_DTYPE, get_max_value
+
+__all__ = ["from_float", "to_float"]
 
 _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.uint8 | np.float16 | np.float32)
 
@@ -38,157 +29,104 @@ _TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
 
 
 @overload
-def to_float_numpy(img: ImageFloat16, max_value: float | None = None) -> ImageFloat16: ...
+def to_float(
+    img: NDArray[np.float16],
+    max_value: float | None = None,
+    *,
+    out: NDArray[np.float16] | None = None,
+) -> NDArray[np.float16]: ...
 
 
 @overload
-def to_float_numpy(img: ImageUInt8 | ImageFloat32, max_value: float | None = None) -> ImageFloat32: ...
-
-
-def to_float_numpy(img: ImageType, max_value: float | None = None) -> ImageFloat16 | ImageFloat32:
-    if img.dtype == np.float16:
-        return cast("ImageFloat16", img)
-    if max_value is None:
-        max_value = get_max_value(img.dtype)
-    return (img / max_value).astype(np.float32, copy=False)
+def to_float(
+    img: NDArray[np.uint8] | NDArray[np.float32],
+    max_value: float | None = None,
+    *,
+    out: NDArray[np.float32] | None = None,
+) -> NDArray[np.float32]: ...
 
 
 @overload
-def to_float_opencv(img: ImageFloat16, max_value: float | None = None) -> ImageFloat16: ...
-
-
-@overload
-def to_float_opencv(img: ImageUInt8 | ImageFloat32, max_value: float | None = None) -> ImageFloat32: ...
-
-
-@preserve_channel_dim
-def to_float_opencv(img: ImageType, max_value: float | None = None) -> ImageFloat16 | ImageFloat32:
-    if img.dtype == np.float16:
-        return cast("ImageFloat16", img)
-    if max_value is None:
-        max_value = get_max_value(img.dtype)
-
-    img_float = img.astype(np.float32, copy=False)
-
-    if get_num_channels(img) > MAX_OPENCV_WORKING_CHANNELS:
-        max_value_array = np.full_like(img_float, max_value)
-        return cast("ImageFloat32", cv2.divide(img_float, max_value_array))
-
-    # Keep scalar fast path (no full-image temporary); typing narrowed via Any.
-    return cast("ImageFloat32", cv2.divide(img_float, cast("Any", max_value)))
-
-
-@preserve_channel_dim
-def to_float_lut(img: ImageUInt8, max_value: float | None = None) -> ImageFloat32:
-    if max_value is None:
-        max_value = MAX_VALUES_BY_DTYPE[img.dtype]
-    lut = (np.arange(256, dtype=np.float32) / max_value).astype(np.float32)
-    return cast("ImageFloat32", cv2.LUT(img, lut))
-
-
-@overload
-def to_float(img: ImageFloat16, max_value: float | None = None) -> ImageFloat16: ...
-
-
-@overload
-def to_float(img: ImageUInt8 | ImageFloat32, max_value: float | None = None) -> ImageFloat32: ...
-
-
-@overload
-def to_float(img: torch.Tensor, max_value: float | None = None) -> torch.Tensor: ...
+def to_float(
+    img: torch.Tensor,
+    max_value: float | None = None,
+    *,
+    out: torch.Tensor | None = None,
+) -> torch.Tensor: ...
 
 
 def to_float(
     img: ImageType | torch.Tensor,
     max_value: float | None = None,
-) -> ImageFloat16 | ImageFloat32 | torch.Tensor:
+    *,
+    out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
+) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Convert uint8 to normalized float32 and preserve floating inputs.
 
-    Routing:
-    - **float16/float32**: no-op (returned as-is).
-    - **uint8**: LUT via ``cv2.LUT`` — 256-element float32 lookup table; fastest path.
-    - **other dtypes**: NumPy division (``img / max_value``).
+    Uint8 input is divided by ``max_value`` (default 255); floating inputs ignore
+    the divisor and retain dtype and values. NumPy is channel-last; pointwise
+    Tensor conversion preserves any declared layout without an axis argument.
 
-    Alternative: ``to_float_lut``, ``to_float_opencv``, ``to_float_numpy`` for explicit backends.
-
-    Args:
-        img: Input image of any dtype, shape ``(H, W, C)`` or batch/volume.
-        max_value: Divisor. Defaults to dtype max (255 for uint8, 65535 for uint16, etc.).
-
-    Returns:
-        Float16 input remains float16; float32 and uint8 inputs return float32. Uint8 values are
-        divided by ``max_value``; floating inputs are returned unchanged.
+    Without ``out``, floating inputs return by identity and uint8 inputs allocate.
+    A supplied output has the same shape/container and the result dtype and is
+    returned by identity. Writable strided outputs are supported. Exact input
+    aliasing is allowed for floating inputs; other overlap is outside the contract.
+    The caller validates dtype, CPU placement, output metadata and overlap.
     """
     if isinstance(img, torch.Tensor):
-        if img.dtype in (torch.float16, torch.float32):
-            return img
+        if img.dtype != torch.uint8:
+            return img if out is None or out is img else cast("torch.Tensor", out).copy_(img)
+        tensor_out = cast("torch.Tensor | None", out)
         divisor = MAX_VALUES_BY_DTYPE[np.dtype(np.uint8)] if max_value is None else max_value
-        return img.to(torch.float32).div_(divisor)
+        result = img.to(torch.float32) if tensor_out is None else tensor_out.copy_(img)
+        return result.div_(divisor)
 
-    if img.dtype in (np.float16, np.float32):
-        return cast("ImageFloat16 | ImageFloat32", img)
-    if img.dtype == np.uint8:
-        return to_float_lut(cast("ImageUInt8", img), max_value)
-    return to_float_numpy(img, max_value)
-
-
-def from_float_numpy(
-    img: ImageFloat32,
-    target_dtype: np.dtype[_OutputDTypeT] | type[_OutputDTypeT],
-    max_value: float | None = None,
-) -> NDArray[_OutputDTypeT]:
-    if target_dtype in (np.dtype(np.float16), np.dtype(np.float32)):
-        return cast("NDArray[_OutputDTypeT]", img.astype(target_dtype, copy=False))
-    if max_value is None:
-        max_value = get_max_value(target_dtype)
-    return clip(np.rint(img * max_value), target_dtype, inplace=True)
+    if img.dtype.kind == "f":
+        if out is None or out is img:
+            return cast("NDArray[np.float16] | NDArray[np.float32]", img)
+        numpy_out = cast("NDArray[np.float16] | NDArray[np.float32]", out)
+        np.copyto(numpy_out, img)
+        return numpy_out
+    divisor = MAX_VALUES_BY_DTYPE[img.dtype] if max_value is None else max_value
+    lut = (np.arange(256, dtype=np.float32) / divisor).astype(np.float32)
+    return cast(
+        "NDArray[np.float32]",
+        _cv2_lut_channel_last(cast("NDArray[np.uint8]", img), lut, out=cast("NDArray[np.float32] | None", out)),
+    )
 
 
-def _from_float_uint8_numkong(img: ImageFloat32, max_value: float) -> ImageUInt8:
+def _from_float_uint8_numkong(
+    img: NDArray[np.float32],
+    max_value: float,
+    *,
+    out: NDArray[np.uint8] | None = None,
+) -> NDArray[np.uint8]:
     """Scale, round, and saturate float32 input with one float32 work buffer."""
     rounded = np.empty_like(img)
     np.multiply(img, max_value, out=rounded)
     np.rint(rounded, out=rounded)
-    result = np.empty(img.shape, dtype=np.uint8)
-    # NumKong's runtime API exposes ``astype``; its type stubs may lag the installed release.
-    cast("Any", nk).astype(rounded, "uint8", out=result)
+    result = np.empty(img.shape, dtype=np.uint8) if out is None or not out.flags.c_contiguous else out
+    nk.astype(rounded, "uint8", out=result)
+    if out is not None and result is not out:
+        np.copyto(out, result)
+        return out
     return result
-
-
-@preserve_channel_dim
-def from_float_opencv(
-    img: ImageFloat32,
-    target_dtype: np.dtype[_OutputDTypeT] | type[_OutputDTypeT],
-    max_value: float | None = None,
-) -> NDArray[_OutputDTypeT]:
-    if target_dtype in (np.dtype(np.float16), np.dtype(np.float32)):
-        return cast("NDArray[_OutputDTypeT]", img.astype(target_dtype, copy=False))
-    if max_value is None:
-        max_value = get_max_value(target_dtype)
-
-    img_float = img.astype(np.float32, copy=False)
-
-    num_channels = get_num_channels(img)
-
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        # NumPy rint beats ``cv2.multiply`` + clip on router (e.g. 128²x9 float32 → uint8).
-        return clip(np.rint(img_float * max_value), target_dtype, inplace=False)
-
-    # C<=4: NumPy multiply + rint (faster than cv2.multiply on typical sizes; cv2.multiply(float (H,W,1), scalar)
-    # does not match NumPy elementwise semantics).
-    return clip(np.rint(img * max_value), target_dtype, inplace=False)
 
 
 def _from_float_torch(
     img: torch.Tensor,
     target_dtype: np.dtype | type[np.generic] | torch.dtype,
     max_value: float | None,
+    *,
+    out: torch.Tensor | None,
 ) -> torch.Tensor:
     if target_dtype in (torch.uint8, torch.float16, torch.float32):
         torch_dtype = cast("torch.dtype", target_dtype)
     else:
         torch_dtype = _NUMPY_TO_TORCH_DTYPE[np.dtype(cast("SupportedDType", target_dtype))]
     if torch_dtype in (torch.float16, torch.float32):
+        if img.dtype == torch_dtype and (out is None or out is img):
+            return img
         if (
             _MACOS_ARM64
             and img.dtype != torch_dtype
@@ -197,56 +135,78 @@ def _from_float_torch(
         ):
             numpy_dtype = np.float32 if torch_dtype == torch.float32 else np.float16
             with np.errstate(all="ignore"):
-                result = _cast_float_numpy(img.numpy(), numpy_dtype)
-            return torch.from_numpy(result)
-        return img.to(dtype=torch_dtype)
+                result = _cast_float_numpy(img.numpy(), numpy_dtype, out=None if out is None else out.numpy())
+            return torch.from_numpy(result) if out is None else out
+        return img.to(dtype=torch_dtype) if out is None else out.copy_(img)
 
     scale = get_max_value(np.dtype(np.uint8)) if max_value is None else max_value
     if img.dtype == torch.float16 and img.is_contiguous():
         with np.errstate(over="ignore", invalid="ignore"):
             half_scale = np.float16(scale)
         if np.isfinite(half_scale) and float(half_scale) == float(scale):
-            return torch.round(img * float(half_scale)).clamp_(0.0, 255.0).to(torch.uint8)
-    return torch.round(img.to(torch.float32) * scale).clamp_(0.0, 255.0).to(torch.uint8)
+            rounded = torch.round(img * float(half_scale)).clamp_(0.0, 255.0)
+            return rounded.to(torch.uint8) if out is None else out.copy_(rounded)
+    rounded = torch.round(img.to(torch.float32) * scale).clamp_(0.0, 255.0)
+    return rounded.to(torch.uint8) if out is None else out.copy_(rounded)
 
 
 @overload
 def from_float(
-    img: np.ndarray,
+    img: NDArray[np.float16] | NDArray[np.float32],
     target_dtype: np.dtype[np.uint8] | type[np.uint8],
     max_value: float | None = None,
-) -> ImageUInt8: ...
+    *,
+    out: NDArray[np.uint8] | None = None,
+) -> NDArray[np.uint8]: ...
 
 
 @overload
 def from_float(
-    img: np.ndarray,
+    img: NDArray[np.float16] | NDArray[np.float32],
     target_dtype: np.dtype[np.float16] | type[np.float16],
     max_value: float | None = None,
-) -> ImageFloat16: ...
+    *,
+    out: NDArray[np.float16] | None = None,
+) -> NDArray[np.float16]: ...
 
 
 @overload
 def from_float(
-    img: np.ndarray,
+    img: NDArray[np.float16] | NDArray[np.float32],
     target_dtype: np.dtype[np.float32] | type[np.float32],
     max_value: float | None = None,
-) -> ImageFloat32: ...
+    *,
+    out: NDArray[np.float32] | None = None,
+) -> NDArray[np.float32]: ...
 
 
 @overload
 def from_float(
-    img: np.ndarray,
-    target_dtype: np.dtype[np.uint8 | np.float32] | type[np.uint8] | type[np.float32],
+    img: NDArray[np.float16] | NDArray[np.float32],
+    target_dtype: np.dtype[np.uint8] | np.dtype[np.float32] | type[np.uint8] | type[np.float32],
     max_value: float | None = None,
-) -> ImageUInt8 | ImageFloat32: ...
+    *,
+    out: None = None,
+) -> NDArray[np.uint8] | NDArray[np.float32]: ...
 
 
 @overload
 def from_float(
-    img: np.ndarray,
+    img: NDArray[np.float16] | NDArray[np.float32],
+    target_dtype: SupportedDType,
+    max_value: float | None = None,
+    *,
+    out: None = None,
+) -> ImageType: ...
+
+
+@overload
+def from_float(
+    img: NDArray[np.float16] | NDArray[np.float32],
     target_dtype: np.dtype[_OutputDTypeT] | type[_OutputDTypeT],
     max_value: float | None = None,
+    *,
+    out: None = None,
 ) -> NDArray[_OutputDTypeT]: ...
 
 
@@ -255,58 +215,50 @@ def from_float(
     img: torch.Tensor,
     target_dtype: np.dtype | type[np.generic] | torch.dtype,
     max_value: float | None = None,
+    *,
+    out: torch.Tensor | None = None,
 ) -> torch.Tensor: ...
 
 
 def from_float(
-    img: ImageFloat16 | ImageFloat32 | torch.Tensor,
+    img: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     target_dtype: np.dtype | type[np.generic] | torch.dtype,
     max_value: float | None = None,
+    *,
+    out: ImageType | torch.Tensor | None = None,
 ) -> np.ndarray | torch.Tensor:
     """Convert a floating image to the requested storage dtype.
 
-    Floating targets use a dtype cast. Integer targets multiply by ``max_value``, round with
-    ``np.rint``, and clip to the target dtype range.
+    Float16/float32 targets cast without intensity scaling or clipping. Uint8
+    targets scale by ``max_value`` (default 255), round ties to even, saturate to
+    [0, 255], and map NaN to zero. NumPy half input uses float32 arithmetic.
+    Contiguous half Tensors use half arithmetic for exactly half-representable
+    scales, differing from the wide result by at most one uint8 unit; other
+    Tensor quantization uses float32 arithmetic.
 
-    Routing:
-    - **target == float16/float32**: cast without scaling or clipping.
-    - **NumPy float16 → uint8**: widen to float32 before scale, rounding, and saturation to preserve the exact
-      float32 result.
-    - **contiguous float16 Tensor → uint8**: use half arithmetic when the scale is exactly representable; the result
-      differs from float32 rounding by at most one uint8 unit.
-    - **large float32 → uint8**: a zero-copy CPU Torch input wrapper, then Torch scale/round/clip/cast.
-    - **remaining float32 → uint8**: NumPy scale and round in one reusable float32 buffer, then NumKong's
-      saturating buffer-first cast. This removes the separate full-array clip and output cast.
-    - **other target dtypes**: use the existing NumPy/OpenCV scale, round, and clip route.
-
-    Alternative: ``from_float_numpy``, ``from_float_opencv`` for explicit backends.
-
-    Args:
-        img: Float16/float32 image, shape ``(H, W, C)`` or batch/volume.
-        target_dtype: Output dtype (e.g. ``np.uint8``).
-        max_value: Multiplier before rounding. Defaults to dtype max (255 for uint8, etc.).
-
-    Returns:
-        Image in ``target_dtype``, same spatial shape, values clipped to dtype range.
+    Without ``out``, input storage is not written; same-dtype casts may return
+    by identity. A supplied output matches the result dtype, input shape and
+    container and is returned by identity. Writable strides are supported and
+    may need a temporary. Exact input aliasing is allowed only for same-dtype
+    casts. The caller validates image/output metadata, CPU placement and overlap.
     """
     if isinstance(img, torch.Tensor):
-        return _from_float_torch(img, target_dtype, max_value)
+        return _from_float_torch(img, target_dtype, max_value, out=cast("torch.Tensor | None", out))
 
-    if target_dtype in (np.dtype(np.float16), np.dtype(np.float32), np.float16, np.float32):
-        numpy_dtype = cast("np.dtype[np.float16 | np.float32]", np.dtype(cast("SupportedDType", target_dtype)))
-        return _cast_float_numpy(img, numpy_dtype)
+    numpy_dtype = np.dtype(cast("SupportedDType", target_dtype))
+    if numpy_dtype.type in (np.float16, np.float32):
+        if img.dtype == numpy_dtype and (out is None or out is img):
+            return img
+        floating_dtype = cast("np.dtype[np.float16 | np.float32]", numpy_dtype)
+        if out is None:
+            return _cast_float_numpy(img, floating_dtype)
+        return _cast_float_numpy(img, floating_dtype, out=cast("NDArray[np.float16] | NDArray[np.float32] | None", out))
 
-    numpy_target_dtype = np.dtype(cast("SupportedDType", target_dtype))
-    if img.dtype in (np.float16, np.float32) and target_dtype == np.uint8:
-        resolved_max = get_max_value(numpy_target_dtype) if max_value is None else max_value
-        torch_result = from_float_uint8_torch(cast("ImageFloat32", img), resolved_max)
-        if torch_result is not None:
-            return torch_result
-        if img.dtype == np.float16:
-            img = cast("ImageFloat32", img.astype(np.float32))
-        return _from_float_uint8_numkong(cast("ImageFloat32", img), resolved_max)
-
+    resolved_max = MAX_VALUES_BY_DTYPE[np.dtype(np.uint8)] if max_value is None else max_value
+    numpy_out = cast("NDArray[np.uint8] | None", out)
+    torch_result = from_float_uint8_torch(img, resolved_max, out=numpy_out)
+    if torch_result is not None:
+        return torch_result
     if img.dtype == np.float16:
-        img = cast("ImageFloat32", img.astype(np.float32))
-
-    return from_float_opencv(cast("ImageFloat32", img), numpy_target_dtype, max_value)
+        img = cast("NDArray[np.float32]", img.astype(np.float32))
+    return _from_float_uint8_numkong(cast("NDArray[np.float32]", img), resolved_max, out=numpy_out)

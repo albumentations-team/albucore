@@ -50,13 +50,13 @@ def test_sqrt_preserves_singleton_channel_shape_and_float32_dtype() -> None:
     ("operation", "reference"),
     [(ac.exp, np.exp), (ac.log, np.log), (ac.sqrt, np.sqrt)],
 )
-def test_inplace_does_not_mutate_a_view(operation: Unary, reference: Unary) -> None:
+def test_no_output_does_not_mutate_a_view(operation: Unary, reference: Unary) -> None:
     base = np.linspace(0.1, 4.0, 256 * 512, dtype=np.float32).reshape(256, 512, 1)
     view = base[:, ::2]
     original = base.copy()
     expected = reference(view)
 
-    result = operation(view, inplace=True)
+    result = operation(view)
 
     assert not np.shares_memory(result, view)
     np.testing.assert_array_equal(base, original)
@@ -67,22 +67,22 @@ def test_inplace_does_not_mutate_a_view(operation: Unary, reference: Unary) -> N
     ("operation", "reference"),
     [(ac.exp, np.exp), (ac.log, np.log), (ac.sqrt, np.sqrt)],
 )
-def test_inplace_mutates_owned_writable_array(operation: Unary, reference: Unary) -> None:
+def test_explicit_output_mutates_owned_writable_array(operation: Unary, reference: Unary) -> None:
     array = np.linspace(0.1, 4.0, 64 * 64, dtype=np.float32).reshape(64, 64, 1).copy()
     expected = reference(array.copy())
 
-    result = operation(array, inplace=True)
+    result = operation(array, out=array)
 
     assert result is array
     np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-7)
 
 
 @pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
-def test_inplace_returns_new_array_for_read_only_input(operation: Unary) -> None:
+def test_no_output_returns_new_array_for_read_only_input(operation: Unary) -> None:
     array = np.linspace(0.1, 4.0, 105, dtype=np.float32).reshape(5, 7, 3).copy()
     array.flags.writeable = False
 
-    result = operation(array, inplace=True)
+    result = operation(array)
 
     assert not np.shares_memory(result, array)
     assert result.flags.writeable
@@ -144,12 +144,12 @@ def test_log_strided_routing_boundaries(
     array = base[:, ::2, :]
     called = False
 
-    def fake_log_opencv(value: np.ndarray, *, inplace: bool = False) -> np.ndarray:
+    def fake_log_opencv(value: np.ndarray, *, out: np.ndarray | None = None) -> np.ndarray:
         nonlocal called
         called = True
-        return np.log(value, out=value if inplace else None)
+        return np.log(value, out=out)
 
-    monkeypatch.setattr(elementwise, "log_opencv", fake_log_opencv)
+    monkeypatch.setattr(elementwise, "_log_opencv", fake_log_opencv)
 
     result = ac.log(array)
 
@@ -159,19 +159,19 @@ def test_log_strided_routing_boundaries(
 
 @pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
 @pytest.mark.parametrize("shape", [(0,), (0, 7), (0, 5, 7, 3)])
-@pytest.mark.parametrize("inplace", [False, True])
+@pytest.mark.parametrize("provided_output", [False, True])
 def test_elementwise_operations_support_empty_arrays(
     operation: Unary,
     shape: tuple[int, ...],
-    inplace: bool,
+    provided_output: bool,
 ) -> None:
     array = np.empty(shape, dtype=np.float32)
 
-    result = operation(array, inplace=inplace)
+    result = operation(array, out=array if provided_output else None)
 
     assert result.shape == shape
     assert result.dtype == np.float32
-    if inplace:
+    if provided_output:
         assert result is array
     else:
         assert not np.shares_memory(result, array)
@@ -229,20 +229,20 @@ def test_elementwise_operations_support_empty_arrays(
         ),
     ],
 )
-@pytest.mark.parametrize("inplace", [False, True])
+@pytest.mark.parametrize("provided_output", [False, True])
 def test_elementwise_operations_match_numpy_special_values(
     operation: Unary,
     reference: Unary,
     values: list[float],
-    inplace: bool,
+    provided_output: bool,
 ) -> None:
     array = np.resize(np.asarray(values, dtype=np.float32), 8192).copy()
 
     with np.errstate(all="ignore"):
         expected = reference(array)
-        result = operation(array, inplace=inplace)
+        result = operation(array, out=array if provided_output else None)
 
-    if inplace:
+    if provided_output:
         assert result is array
     else:
         assert not np.shares_memory(result, array)
