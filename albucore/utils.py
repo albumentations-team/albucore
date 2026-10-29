@@ -10,6 +10,11 @@ from numpy.typing import NDArray
 from albucore._types import ImageArrayT, ImageInput, ImageType, P, SupportedDType, TensorLayout, ValueType
 
 _FLOAT32_MAX = float(np.finfo(np.float32).max)
+_OpenCVScalarBinary = Callable[[np.ndarray, int, np.ndarray], np.ndarray]
+# OpenCV 5.0.0.93 predates the merged scalar stubs: https://github.com/opencv/opencv/issues/30354
+# and https://github.com/opencv/opencv/pull/30355. Review after the next wheel release or on 2026-11-30.
+_cv2_min_scalar = cast("_OpenCVScalarBinary", cv2.min)
+_cv2_max_scalar = cast("_OpenCVScalarBinary", cv2.max)
 
 
 def _broadcast_channel_vector(x: ValueType | np.floating[Any], n_dim: int, c: int) -> ValueType | np.floating[Any]:
@@ -173,11 +178,11 @@ def _clip_float16_opencv(
         return None
     result = np.empty_like(array) if out is None else out
     if largest_bits <= 0x7C00:
-        cv2.min(bits.reshape(1, -1), 0x3C00, dst=result.view(np.uint16).reshape(1, -1))
+        _cv2_min_scalar(bits.reshape(1, -1), 0x3C00, result.view(np.uint16).reshape(1, -1))
     else:
         destination = result.view(np.int16).reshape(1, -1)
-        cv2.max(signed_bits.reshape(1, -1), 0, dst=destination)
-        cv2.min(destination, 0x3C00, dst=destination)
+        _cv2_max_scalar(signed_bits.reshape(1, -1), 0, destination)
+        _cv2_min_scalar(destination, 0x3C00, destination)
     return result
 
 

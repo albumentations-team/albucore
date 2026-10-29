@@ -1,9 +1,12 @@
 """Shared lookup tables match independent OpenCV results."""
 
+from typing import cast
+
 import cv2
 import numpy as np
 import pytest
 
+import albucore.lut as lut_module
 from albucore import apply_uint8_lut
 
 
@@ -62,7 +65,7 @@ def test_shared_lut_out_alias_mutates_strided_input() -> None:
     out = apply_uint8_lut(img, lut, out=img)
 
     assert out is img  # noqa: S101
-    assert not img.flags["C_CONTIGUOUS"]
+    np.testing.assert_equal(img.flags["C_CONTIGUOUS"], False)
     np.testing.assert_array_equal(img, expected)
 
 
@@ -77,14 +80,45 @@ def test_apply_uint8_lut_preserves_hw1_shape() -> None:
     np.testing.assert_array_equal(out[..., 0], raw)
 
 
-def test_shared_lut_accepts_contiguous_singleton_stride_view():
+def test_shared_lut_accepts_contiguous_singleton_stride_view() -> None:
     backing = np.arange(99, dtype=np.uint8).reshape(1, 9, 11)
     image = backing.transpose(1, 2, 0)
     original = image.copy()
     lut = 255 - np.arange(256, dtype=np.uint8)
-    assert image.flags.c_contiguous
+    np.testing.assert_equal(image.flags.c_contiguous, True)
 
     result = apply_uint8_lut(image, lut)
 
     np.testing.assert_array_equal(result, lut[original])
+    np.testing.assert_array_equal(image, original)
+
+
+def test_shared_lut_uses_stringzilla_output_for_contiguous_destination(monkeypatch: pytest.MonkeyPatch) -> None:
+    image = np.arange(5 * 7 * 3, dtype=np.uint8).reshape(5, 7, 3)
+    original = image.copy()
+    lut = np.roll(np.arange(256, dtype=np.uint8), 17)
+    expected = lut[image]
+    out = np.empty_like(image)
+    calls: list[tuple[memoryview, memoryview, dict[str, object]]] = []
+    original_translate = lut_module.sz.translate
+
+    def translate(source: memoryview, table: memoryview, **kwargs: object) -> object:
+        calls.append((source, table, kwargs))
+        return original_translate(source, table, **kwargs)
+
+    monkeypatch.setattr(lut_module.sz, "translate", translate)
+
+    result = apply_uint8_lut(image, lut, out=out)
+
+    np.testing.assert_equal(len(calls), 1)
+    source, table, kwargs = calls[0]
+    np.testing.assert_equal(type(source), memoryview)
+    np.testing.assert_equal(type(table), memoryview)
+    np.testing.assert_equal(id(source.obj), id(image))
+    np.testing.assert_equal(id(table.obj), id(lut))
+    np.testing.assert_equal(set(kwargs), {"out"})
+    output_buffer = cast("memoryview", kwargs["out"])
+    np.testing.assert_equal(id(output_buffer.obj), id(result))
+    np.testing.assert_equal(id(result), id(out))
+    np.testing.assert_array_equal(result, expected)
     np.testing.assert_array_equal(image, original)

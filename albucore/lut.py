@@ -81,6 +81,14 @@ def _strided_uint8_lut_out(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: 
     return out
 
 
+def _translate_contiguous_uint8_lut(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: NDArray[np.uint8]) -> None:
+    sz.translate(
+        memoryview(cast("Any", img)),
+        memoryview(cast("Any", lut)),
+        out=memoryview(cast("Any", out)),
+    )
+
+
 def _apply_per_channel_uint8_luts(
     img: NDArray[np.uint8],
     luts: NDArray[np.uint8],
@@ -180,9 +188,12 @@ def apply_uint8_lut(
         numpy_out = cast("NDArray[np.uint8]", out)
         if not numpy_out.flags.c_contiguous:
             return _strided_uint8_lut_out(img, lut, numpy_out)
-        if numpy_out is not img:
-            np.copyto(numpy_out, img)
-        sz.translate(memoryview(cast("Any", numpy_out)), memoryview(cast("Any", lut)), inplace=True)
+        if img is not numpy_out and img.flags.c_contiguous:
+            _translate_contiguous_uint8_lut(img, lut, numpy_out)
+        else:
+            if numpy_out is not img:
+                np.copyto(numpy_out, img)
+            sz.translate(memoryview(cast("Any", numpy_out)), memoryview(cast("Any", lut)), inplace=True)
         return numpy_out
     source = np.ascontiguousarray(img)
     raw = sz.translate(memoryview(cast("Any", source)), memoryview(cast("Any", lut)), inplace=False)

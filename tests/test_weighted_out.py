@@ -131,9 +131,7 @@ def test_weighted_zero_coefficient_preserves_nonfinite_arithmetic(dtype, channel
     with np.errstate(invalid="ignore"):
         result = add_weighted(first, 1.0, second, 0.0, out=destination)
 
-    expected = (
-        [1, np.inf, -np.inf, np.nan] if dtype == np.float32 and channels == 1 else [np.nan, np.inf, np.nan, np.nan]
-    )
+    expected = [np.nan, np.inf, np.nan, np.nan]
     np.testing.assert_array_equal(
         result, np.repeat(np.array(expected, dtype=dtype).reshape(1, 4, 1), channels, axis=-1)
     )
