@@ -91,6 +91,8 @@ def _check_exports(errors: list[str]) -> None:
     shared_exports = {"__version__", "__author__", "__maintainer__"}
     for module in ("_types", "utils", "decorators"):
         shared_exports.update(_read_all(REPO_ROOT / "albucore" / f"{module}.py"))
+    # clip is also a public router, despite being re-exported from utils.
+    shared_exports.discard("clip")
     routers = exports - (shared_exports - ROUTER_CONTRACTS.keys())
     missing = routers - ROUTER_CONTRACTS.keys()
     extra = ROUTER_CONTRACTS.keys() - exports

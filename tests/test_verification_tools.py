@@ -69,6 +69,17 @@ def test_router_contract_check_passes() -> None:
     assert check_router_contracts.main() == 0
 
 
+def test_router_contract_check_requires_clip_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    contracts = dict(check_router_contracts.ROUTER_CONTRACTS)
+    del contracts["clip"]
+    monkeypatch.setattr(check_router_contracts, "ROUTER_CONTRACTS", contracts)
+    errors: list[str] = []
+
+    check_router_contracts._check_exports(errors)
+
+    assert errors == ["Missing router contracts: `clip`"]
+
+
 @pytest.mark.parametrize(
     "change, expected",
     [
