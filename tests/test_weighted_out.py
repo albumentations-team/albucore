@@ -1,4 +1,5 @@
 import numpy as np
+import numkong as nk
 import pytest
 import torch
 
@@ -124,6 +125,7 @@ def test_weighted_readonly_sources_and_strided_output(dtype, negative_output):
 def test_weighted_zero_coefficient_preserves_nonfinite_arithmetic(dtype, channels, output_mode):
     first = np.repeat(np.array([1, np.inf, -np.inf, np.nan], dtype=dtype).reshape(1, 4, 1), channels, axis=-1)
     second = np.repeat(np.array([np.inf, 1, np.inf, 1], dtype=dtype).reshape(1, 4, 1), channels, axis=-1)
+    original_first, original_second = first.copy(), second.copy()
     destination = {"allocate": None, "first": first, "second": second}.get(output_mode)
     if output_mode == "output":
         destination = np.empty_like(first)
@@ -131,9 +133,36 @@ def test_weighted_zero_coefficient_preserves_nonfinite_arithmetic(dtype, channel
     with np.errstate(invalid="ignore"):
         result = add_weighted(first, 1.0, second, 0.0, out=destination)
 
-    expected = [np.nan, np.inf, np.nan, np.nan]
+    if dtype == np.float32 and channels == 1:
+        reference_first = original_first.copy()
+        reference_second = original_second.copy()
+        reference_destination = {
+            "first": reference_first,
+            "second": reference_second,
+            "output": np.empty_like(reference_first),
+        }.get(output_mode)
+        with np.errstate(invalid="ignore"):
+            if reference_destination is None:
+                expected = np.asarray(
+                    nk.blend(reference_first.reshape(-1), reference_second.reshape(-1), alpha=1.0, beta=0.0),
+                    dtype=dtype,
+                ).reshape(first.shape)
+            else:
+                nk.blend(
+                    reference_first.reshape(-1),
+                    reference_second.reshape(-1),
+                    alpha=1.0,
+                    beta=0.0,
+                    out=reference_destination.reshape(-1),
+                )
+                expected = reference_destination
+    else:
+        expected = np.repeat(
+            np.array([np.nan, np.inf, np.nan, np.nan], dtype=dtype).reshape(1, 4, 1), channels, axis=-1
+        )
     np.testing.assert_array_equal(
-        result, np.repeat(np.array(expected, dtype=dtype).reshape(1, 4, 1), channels, axis=-1)
+        result,
+        expected,
     )
     if destination is not None:
         assert result is destination
