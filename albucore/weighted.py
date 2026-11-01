@@ -14,6 +14,7 @@ from albucore.tensor_bridge import _CHANNEL_LAST_TO_TENSOR, tensor_to_numpy_chan
 from albucore.utils import get_num_channels, get_opencv_max_channels
 
 _NUMKONG_NEON = bool(nk.get_capabilities().get("neon", False))
+_NUMKONG_NEON_HALF = bool(nk.get_capabilities().get("neonhalf", False))
 _NUMKONG_HALF_BLEND_MIN_ELEMENTS = 20_480
 _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 

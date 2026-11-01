@@ -298,7 +298,7 @@ def test_float16_hwc_c3_vector_uses_cv16f_for_exact_controls(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", False)
     calls: list[tuple[tuple[float, ...], object]] = []
     original = getattr(arithmetic.cv2, opencv_name)
 

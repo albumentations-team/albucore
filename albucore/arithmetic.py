@@ -35,6 +35,7 @@ from albucore.utils import (
 )
 from albucore.weighted import (
     _NUMKONG_NEON,
+    _NUMKONG_NEON_HALF,
     _blend_numkong,
 )
 
@@ -47,7 +48,6 @@ _FLOAT32_COMPATIBLE_OPERAND_DTYPES: frozenset[np.dtype[Any]] = frozenset(
 _TORCH_FLOAT16_MIN_ELEMENTS = 16_384
 _TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
-_NUMKONG_NEON_HALF = bool(nk.get_capabilities().get("neonhalf", False))
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)

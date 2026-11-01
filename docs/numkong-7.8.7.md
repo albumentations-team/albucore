@@ -56,8 +56,3 @@ checksums matched. These ARM-only gates do not change x86 routing.
 Validation: 6,658 tests passed and one skipped. A separate native process with
 NEON-half disabled passed 1,042 affected tests using baseline NEON. Full
 pre-commit, 37 public-router contracts, and the CI matrix check passed.
-
-No image-sized guard buffer, copy, conversion, or allocation is added by this
-upgrade. Existing output aliasing, thresholds, and numerical regions remain in
-place. Vectorization, LUT, grouped reduction, and random-generation changes are
-unnecessary for this dependency correction.
