@@ -377,19 +377,21 @@ def pairwise_distances_squared(
     points2_array = points2_array.astype(np.float32, copy=False)
 
     n1, n2 = points1_array.shape[0], points2_array.shape[0]
-    if n1 * n2 < 1000 or points1_array.shape[1] >= 9:
+    dimensions = points1_array.shape[1]
+    if dimensions == 0:
+        result = np.zeros((n1, n2), dtype=np.float32)
+    elif n1 * n2 < 1000 or dimensions >= 9:
         # nk.cdist requires contiguous inputs on some strided views.
         points1_array = np.ascontiguousarray(points1_array)
         points2_array = np.ascontiguousarray(points2_array)
         result = np.asarray(nk.cdist(points1_array, points2_array, metric="sqeuclidean"), dtype=np.float32)
-        return torch.from_numpy(result) if tensor_output else result
-
-    result = np.subtract(points1_array[:, :1], points2_array[None, :, 0])
-    np.square(result, out=result)
-    if points1_array.shape[1] > 1:
-        scratch = np.empty_like(result)
-        for coordinate in range(1, points1_array.shape[1]):
-            np.subtract(points1_array[:, coordinate, None], points2_array[None, :, coordinate], out=scratch)
-            np.square(scratch, out=scratch)
-            np.add(result, scratch, out=result)
+    else:
+        result = np.subtract(points1_array[:, :1], points2_array[None, :, 0])
+        np.square(result, out=result)
+        if dimensions > 1:
+            scratch = np.empty_like(result)
+            for coordinate in range(1, dimensions):
+                np.subtract(points1_array[:, coordinate, None], points2_array[None, :, coordinate], out=scratch)
+                np.square(scratch, out=scratch)
+                np.add(result, scratch, out=result)
     return torch.from_numpy(result) if tensor_output else result

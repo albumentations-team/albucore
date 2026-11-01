@@ -10,7 +10,8 @@ inputs need only the output. Both routes preserve inputs and return float32 in t
 The reported examples must return exactly `0`, `1`, and `0.03125`; distances beyond float32 range remain
 infinity. Tests cover 999/1,000/1,001 pairs, both containers, strided storage, and the high-dimensional route.
 Mixed-point tests compare with float64 coordinate differences across dimensions 1/2/3/5/8/9/64 and
-contiguous, strided, reversed, and read-only storage.
+contiguous, strided, reversed, and read-only storage. Zero-coordinate point sets return an all-zero
+matrix on both sides of the 1,000-pair boundary.
 
 ## Native macOS measurements
 

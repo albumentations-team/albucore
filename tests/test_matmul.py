@@ -181,6 +181,21 @@ class TestMatmul:
 class TestPairwiseDistancesSquared:
     """Test pairwise_distances_squared function."""
 
+    @pytest.mark.parametrize("n,m", [(1, 999), (1, 1000), (25, 40)])
+    @pytest.mark.parametrize("as_tensor", [False, True], ids=["numpy", "tensor"])
+    def test_zero_coordinates(self, n: int, m: int, as_tensor: bool) -> None:
+        points1 = np.empty((n, 0), dtype=np.float32)
+        points2 = np.empty((m, 0), dtype=np.float32)
+        result = pairwise_distances_squared(
+            torch.from_numpy(points1) if as_tensor else points1,
+            torch.from_numpy(points2) if as_tensor else points2,
+        )
+        assert isinstance(result, torch.Tensor if as_tensor else np.ndarray)
+        if as_tensor:
+            result = result.numpy()
+        assert result.dtype == np.float32
+        np.testing.assert_array_equal(result, np.zeros((n, m), dtype=np.float32))
+
     @pytest.mark.parametrize(
         "n,m,dimensions",
         [(31, 31, 2), (32, 32, 2), (25, 40, 2), (1, 999, 2), (1, 1000, 2), (1, 1001, 2), (32, 32, 9)],
