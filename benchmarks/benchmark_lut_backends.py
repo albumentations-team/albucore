@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""``sz_lut`` (StringZilla ``translate``) vs ``cv2.LUT`` on uint8 data — shared and per-channel LUTs.
+"""StringZilla ``translate`` vs ``cv2.LUT`` on uint8 data — shared and per-channel LUTs.
 
 Layouts (channel last, Albucore convention):
 
@@ -8,41 +8,49 @@ Layouts (channel last, Albucore convention):
 
 **Shared LUT** (length 256): one table for every byte.
 
-- **SZ full:** single ``sz.translate`` on ``img.ravel()`` (same semantics as scalar ``apply_lut`` on a contiguous buffer).
-- **SZ per-ch:** loop ``sz_lut`` on a **copy** of each channel plane (default in-place translate on that buffer).
+- **SZ full:** one allocating ``sz.translate`` call for the contiguous byte buffer.
+- **SZ per-ch:** copy and translate one channel plane at a time into the output.
 - **cv2:** one ``cv2.LUT(img, lut)`` on the full contiguous array (OpenCV accepts these ndims here).
 
 **Per-channel LUT** (different table per channel):
 
-- **SZ per-ch:** loop ``sz_lut`` per channel with ``lut_1d[c]``.
+- **SZ per-ch:** loop StringZilla translate per channel with ``lut_1d[c]``.
 - **cv2 loop:** ``C`` times ``cv2.LUT(img[..., c], lut_1d[c])``.
 - **cv2 flat:** ``(256, 1, C)`` one-shot on ``(H, W, C)``; for ``DHWC``, flatten
   the leading dimensions to a synthetic HWC view first.
 
-Non-uint8 / non-standard cases are not timed; production still routes those through OpenCV.
+This comparison covers uint8 images and tables only.
 
 **LUTs:** fixed-seed **permutations** of ``0..255`` (full ``uint8`` tables, non-identity / non-trivial remap).
 Same tables for SZ and OpenCV so timings reflect scatter-gather cost, not “no-op” identity.
 
 Run from repo root::
 
-    uv run python benchmarks/benchmark_sz_lut_vs_cv2_lut.py
+    uv run python benchmarks/benchmark_lut_backends.py
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import platform
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import cv2
 import numpy as np
 import stringzilla as sz
+import torch
 from shape_grids import SZ_LUT_BENCHMARK_SHAPES
 from timing import median_ms
 
-from albucore.lut import sz_lut
+from albucore import apply_uint8_lut
+from albucore.lut import _cv2_lut_channel_last
 
-# Reproducible non-trivial uint8 LUTs (not ``arange`` identity).
 _LUT_PERM_SEED = 42
 
 
@@ -63,28 +71,33 @@ def _lut_per_channel(c: int) -> tuple[np.ndarray, list[np.ndarray]]:
 
 def sz_lut_full_buffer(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
     """One StringZilla pass over all bytes (shared LUT only)."""
-    a = np.ascontiguousarray(img, dtype=np.uint8)
-    flat = a.reshape(-1)
-    out = flat.copy()
-    sz.translate(memoryview(out), memoryview(lut), inplace=True)
-    return out.reshape(a.shape)
+    source = np.ascontiguousarray(img)
+    raw = sz.translate(memoryview(source), memoryview(lut), inplace=False)
+    return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)
 
 
 def sz_lut_per_channel_loop(img: np.ndarray, lut_shared: np.ndarray) -> np.ndarray:
     out = np.empty_like(img, dtype=np.uint8)
     c = int(img.shape[-1])
     for i in range(c):
-        ch = np.ascontiguousarray(img[..., i], dtype=np.uint8).copy()
-        out[..., i] = sz_lut(ch, lut_shared)
+        plane = np.array(img[..., i], copy=True, order="C")
+        sz.translate(memoryview(plane), memoryview(lut_shared), inplace=True)
+        out[..., i] = plane
     return out
 
 
-def sz_lut_per_channel_distinct(img: np.ndarray, luts_1d: list[np.ndarray]) -> np.ndarray:
-    out = np.empty_like(img, dtype=np.uint8)
+def sz_lut_per_channel_distinct(
+    img: np.ndarray,
+    luts_1d: list[np.ndarray],
+    *,
+    out: np.ndarray | None = None,
+) -> np.ndarray:
+    out = np.empty_like(img, dtype=np.uint8) if out is None else out
     c = int(img.shape[-1])
     for i in range(c):
-        ch = np.ascontiguousarray(img[..., i], dtype=np.uint8).copy()
-        out[..., i] = sz_lut(ch, luts_1d[i])
+        plane = np.array(img[..., i], copy=True, order="C")
+        sz.translate(memoryview(plane), memoryview(luts_1d[i]), inplace=True)
+        out[..., i] = plane
     return out
 
 
@@ -94,17 +107,10 @@ def cv2_lut_full(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
 
 def cv2_lut_per_channel_distinct(
     img: np.ndarray,
-    lut_256_1_c: np.ndarray,
     luts_1d: list[np.ndarray],
 ) -> np.ndarray:
-    """OpenCV accepts ``(256, 1, C)`` only for **2-D** multi-channel images ``(H, W, C)``.
-
-    For ``(D, H, W, C)``, ``lut.cpp`` rejects multi-column LUTs; mirror
-    production by applying ``cv2.LUT`` per channel on ``img[..., c]`` with a length-256 table.
-    """
+    """Apply one OpenCV call per channel, preserving the source rank."""
     a = np.ascontiguousarray(img, dtype=np.uint8)
-    if a.ndim == 3 and a.shape[-1] > 1:
-        return cv2.LUT(a, lut_256_1_c)
     out = np.empty_like(a)
     c = int(a.shape[-1])
     for i in range(c):
@@ -126,8 +132,13 @@ def main() -> None:
     p.add_argument("--repeats", type=int, default=15)
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--quick", action="store_true")
     args = p.parse_args()
+    cv2.setNumThreads(0)
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
     rng = np.random.default_rng(args.seed)
+    shapes = ((128, 160, 1), (128, 160, 3), (4, 128, 160, 3)) if args.quick else SZ_LUT_BENCHMARK_SHAPES
 
     lut_s = _lut_shared()
 
@@ -144,11 +155,11 @@ def main() -> None:
     print("#### Shared LUT `(256,)` — same table for every byte")
     print()
     print(
-        "| layout | shape | pixels | SZ 1× full buffer | SZ loop C× `sz_lut` | cv2 1× `LUT` | fastest (shared) |",
+        "| layout | shape | pixels | SZ 1× full buffer | SZ loop C× `translate` | cv2 1× `LUT` | fastest (shared) |",
     )
     print("|--------|-------|-------:|--------------------:|--------------------:|-------------:|------------------|")
 
-    for sh in SZ_LUT_BENCHMARK_SHAPES:
+    for sh in shapes:
         img = rng.integers(0, 256, size=sh, dtype=np.uint8)
         npx = int(np.prod(sh))
 
@@ -172,11 +183,11 @@ def main() -> None:
     print("#### Per-channel LUT (different `256` table per channel)")
     print()
     print(
-        "| layout | shape | pixels | SZ loop C× `sz_lut` | cv2 loop C× `LUT` | cv2 flat 1× `(256,1,C)` | fastest |",
+        "| layout | shape | pixels | SZ loop C× `translate` | cv2 loop C× `LUT` | cv2 flat 1× `(256,1,C)` | fastest |",
     )
     print("|--------|-------|-------:|--------------------:|------------------:|--------------------------:|---------|")
 
-    for sh in SZ_LUT_BENCHMARK_SHAPES:
+    for sh in shapes:
         c = sh[-1]
         lut_cv2, luts_1d = _lut_per_channel(c)
         img = rng.integers(0, 256, size=sh, dtype=np.uint8)
@@ -184,7 +195,7 @@ def main() -> None:
 
         t_szc = median_ms(lambda: sz_lut_per_channel_distinct(img, luts_1d), args.repeats, args.warmup)
         t_cv2 = median_ms(
-            lambda: cv2_lut_per_channel_distinct(img, lut_cv2, luts_1d),
+            lambda: cv2_lut_per_channel_distinct(img, luts_1d),
             args.repeats,
             args.warmup,
         )
@@ -201,10 +212,32 @@ def main() -> None:
         print(f"| {layout} | {shape_str} | {npx} | {t_szc:.4f} | {t_cv2:.4f} | {t_cv2_flat:.4f} | {tag} |")
 
     print()
+    print("#### Supplied output (shared and per-channel tables)")
+    print()
+    print("| shape | public shared | shared CV | per-channel SZ | per-channel CV |")
+    print("|---|---:|---:|---:|---:|")
+    for shape in shapes:
+        image = rng.integers(0, 256, size=shape, dtype=np.uint8)
+        output = np.empty_like(image)
+        table, channel_tables = _lut_per_channel(shape[-1])
+        calls = (
+            lambda: apply_uint8_lut(image, lut_s, out=output),
+            lambda: _cv2_lut_channel_last(image, lut_s, out=output),
+            lambda: sz_lut_per_channel_distinct(image, channel_tables, out=output),
+            lambda: _cv2_lut_channel_last(image, table, out=output),
+        )
+        expected_channels = np.stack([channel_tables[c][image[..., c]] for c in range(shape[-1])], axis=-1)
+        for index, call in enumerate(calls):
+            assert call() is output
+            np.testing.assert_array_equal(output, lut_s[image] if index < 2 else expected_channels)
+        times = [median_ms(call, args.repeats, args.warmup) for call in calls]
+        print(f"| {'×'.join(map(str, shape))} | " + " | ".join(f"{value:.4f}" for value in times) + " |")
+
+    print()
     print(
         "**Notes:**\n"
-        "- **SZ full** is only valid when one LUT applies to every byte (scalar `apply_lut` path).\n"
-        "- **SZ loop** matches the non-contiguous multi-channel `apply_lut` fallback (`sz_lut` per channel).\n"
+        "- **SZ full** is only valid when one LUT applies to every byte (scalar `_apply_lut` path).\n"
+        "- **SZ loop** copies and translates one channel plane at a time.\n"
         "- **cv2** shared `(256,)`: contiguous `HWC` / `DHWC` work here. "
         "Per-channel distinct: direct `(256,1,C)` is **only** valid for `ndim==3`, but contiguous "
         "volumes/batches can be reshaped to HWC and use the same one-shot OpenCV path.\n"

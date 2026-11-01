@@ -47,17 +47,6 @@ STATS_NHWC_SHAPES: tuple[tuple[int, int, int, int], ...] = (
     (4, 240, 320, 9),
 )
 
-LUT_SHARED_ROUTING_HW: tuple[tuple[int, int], ...] = (
-    (240, 320),
-    (320, 480),
-    (384, 512),
-    (480, 640),
-    (640, 800),
-    (768, 1024),
-    (896, 1152),
-)
-LUT_SHARED_ROUTING_REPORT_HW: tuple[tuple[int, int], ...] = ((480, 640), (768, 1024))
-
 MEMORY_SMOKE_RGB_SHAPE: tuple[int, int, int] = (240, 320, 3)
 MEMORY_SMOKE_C9_SHAPE: tuple[int, int, int] = (128, 160, 9)
 

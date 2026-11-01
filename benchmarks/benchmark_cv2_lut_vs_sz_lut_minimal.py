@@ -5,7 +5,7 @@ LUT is a fixed-seed **permutation** of ``0..255`` (non-identity). Use this file 
 repro** for upstream issues; it has no ``albucore`` import.
 
 The full shape sweep (HWC / DHWC, per-channel LUTs, SZ full-buffer vs loop) lives in
-``benchmark_sz_lut_vs_cv2_lut.py``.
+``benchmark_lut_backends.py``.
 
 Run from anywhere with ``numpy``, ``opencv-python[-headless]``, ``stringzilla`` installed::
 

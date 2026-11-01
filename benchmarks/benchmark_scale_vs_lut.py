@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""``nk.scale`` vs ``sz_lut`` (SZ full-buffer) vs ``cv2.LUT`` on uint8 images.
+"""``nk.scale`` vs ``StringZilla translate`` (SZ full-buffer) vs ``cv2.LUT`` on uint8 images.
 
 Both LUT paths implement the same per-byte affine remap (shared table, one lookup per byte).
 ``nk.scale`` implements the same operation arithmetically (alpha*x + beta, saturated).
@@ -9,9 +9,9 @@ is cheapest?*
 Implementations compared
 ------------------------
 - **nk.scale**  — ``nk.scale(nk.Tensor(flat), alpha=alpha, beta=0.0)`` on the ravelled buffer;
-  output frombuffer'd back.  Matches production ``multiply_by_constant_numkong``.
+  output frombuffer'd back.  Matches production ``_scale_numkong``.
 - **sz full**   — single ``sz.translate`` over the ravelled buffer with a precomputed LUT.
-  Matches production ``sz_lut_full_buffer`` / ``apply_uint8_lut`` (shared-LUT path).
+  Matches production ``StringZilla translate_full_buffer`` / ``apply_uint8_lut`` (shared-LUT path).
 - **cv2.LUT**   — ``cv2.LUT(img, lut)`` on the contiguous HWC/DHWC array.
   OpenCV accepts arbitrary-ndim uint8 arrays for a 1-D shared table.
 
@@ -108,7 +108,7 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
 
     print()
-    print("### Benchmark: `nk.scale` vs `sz_lut` (full-buffer) vs `cv2.LUT` — uint8 affine")
+    print("### Benchmark: `nk.scale` vs `StringZilla translate` (full-buffer) vs `cv2.LUT` — uint8 affine")
     print()
     print(
         f"alpha={_ALPHA}, beta={_BETA}  |  "

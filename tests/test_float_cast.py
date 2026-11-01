@@ -64,6 +64,32 @@ def test_numkong_cast_threshold(size, numkong_calls):
     assert len(numkong_calls) == int(size >= 16_384)
 
 
+@pytest.mark.parametrize("source_dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("target_type", [np.float16, np.float32])
+@pytest.mark.parametrize("size", [3, 20_000])
+@pytest.mark.parametrize("supplied", [False, True])
+def test_non_native_float_target_preserves_storage_and_values(
+    source_dtype, target_type, size, supplied, numkong_calls
+):
+    target_dtype = np.dtype(target_type).newbyteorder("S")
+    source = np.resize(np.array([-2, -0.0, 0.3333, 1.25], dtype=source_dtype), (1, size, 3))
+    source.flags.writeable = False
+    original = source.tobytes()
+    expected = source.astype(target_dtype)
+    backing = np.full((1, size, 6), 41, dtype=target_dtype)
+    output = backing[..., ::2] if supplied else None
+
+    result = from_float(source, target_dtype, out=output)
+
+    assert result.dtype == target_dtype
+    assert result.tobytes() == expected.tobytes()
+    assert source.tobytes() == original
+    if supplied:
+        assert result is output
+        np.testing.assert_array_equal(backing[..., 1::2], 41)
+    assert not numkong_calls
+
+
 def test_numkong_cast_all_finite_binary16_encodings(numkong_calls):
     values = np.arange(65_536, dtype=np.uint16).view(np.float16)
     source = values[np.isfinite(values)].reshape(-1, 1, 1)
@@ -215,3 +241,48 @@ def test_tensor_cast_keeps_identity_and_strided_torch_route(monkeypatch):
     monkeypatch.setattr(convert_mod, "_cast_float_numpy", unexpected_numpy_route)
     assert from_float(source, torch.float16) is source
     np.testing.assert_array_equal(from_float(source, torch.float32).numpy(), source.to(torch.float32).numpy())
+
+
+@pytest.mark.parametrize("source_dtype,target_dtype", [(np.float16, np.float32), (np.float32, np.float16)])
+@pytest.mark.parametrize("layout", ["C", "singleton", "negative", "slice"])
+def test_float_cast_writes_the_supplied_output(source_dtype, target_dtype, layout, numkong_calls):
+    source = np.linspace(-2, 2, 128 * 160, dtype=source_dtype).reshape(128, 160, 1)
+    original = source.copy()
+    shape = (128, 320, 1) if layout == "slice" else source.shape
+    backing = np.full(shape, 17, dtype=target_dtype)
+    output = backing[:, ::2] if layout == "slice" else backing[:, ::-1] if layout == "negative" else backing
+    if layout == "singleton":
+        output = np.lib.stride_tricks.as_strided(backing, shape=source.shape, strides=(*backing.strides[:2], 0))
+    expected = source.astype(target_dtype)
+
+    result = cast_mod._cast_float_numpy(source, target_dtype, out=output)
+
+    assert result is output
+    unsigned = np.uint16 if target_dtype == np.float16 else np.uint32
+    np.testing.assert_array_equal(result.view(unsigned), expected.view(unsigned))
+    np.testing.assert_array_equal(source, original)
+    assert len(numkong_calls) == int(output.flags.c_contiguous)
+    if numkong_calls:
+        assert numkong_calls[-1][1] is output
+    if layout == "slice":
+        np.testing.assert_array_equal(backing[:, 1::2], np.full((128, 160, 1), 17, dtype=target_dtype))
+
+
+@pytest.mark.parametrize("kind", ["overflow", "underflow", "invalid"])
+def test_float_cast_output_preserves_numpy_errors(kind, numkong_calls):
+    source = np.ones((128, 160, 1), np.float32)
+    source.flat[0] = {"overflow": 65_520, "underflow": 1e-40, "invalid": 1}[kind]
+    if kind == "invalid":
+        source.view(np.uint32).flat[0] = 0x7F800001
+    output = np.empty(source.shape, dtype=np.float16)
+
+    with np.errstate(all="raise"):
+        try:
+            expected = source.astype(np.float16)
+        except FloatingPointError:
+            with pytest.raises(FloatingPointError):
+                cast_mod._cast_float_numpy(source, np.float16, out=output)
+        else:
+            actual = cast_mod._cast_float_numpy(source, np.float16, out=output)
+            np.testing.assert_array_equal(actual.view(np.uint16), expected.view(np.uint16))
+    assert not numkong_calls

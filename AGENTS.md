@@ -20,23 +20,18 @@ Please familiarize yourself with these key documents:
    - NumPy uses channel-last; Torch CPU uses an explicit channel-first layout
    - Grayscale images use `(H, W, 1)` or a declared layout with `C=1`
 
-2. **[Decorators](docs/decorators.md)** - Decorator usage and patterns
-   - `@preserve_channel_dim` - Maintains single-channel shape
-   - `@clipped` - Clips to valid dtype range
-   - `@float32_io` / `@uint8_io` - Type conversion wrappers
-
-3. **[Performance Optimization](docs/performance-optimization.md)** - Performance best practices
+2. **[Performance Optimization](docs/performance-optimization.md)** - Performance best practices
    - LUT operations and float32 dtype management
    - Backend selection strategies
    - Memory layout considerations
    - Benchmarking guidelines
 
-4. **[Public API](docs/public-api.md)** - Public routers, star exports, and `albucore.functions` compatibility shims
+3. **[Public API](docs/public-api.md)** - Public operations, explicit root exports, and owning modules
 
-5. **[PyTorch Optimization](docs/torch-performance-optimization.md)** - Eager CPU Torch contracts, full-path benchmarks,
+4. **[PyTorch Optimization](docs/torch-performance-optimization.md)** - Eager CPU Torch contracts, full-path benchmarks,
    Tensor/NumPy bridge costs, profiling, allocation, layout, and threading decisions
 
-6. **[NumKong Performance](docs/numkong-performance.md)** - NumKong vs OpenCV/NumPy/LUT benchmark tables and methodology
+5. **[NumKong Performance](docs/numkong-performance.md)** - NumKong vs OpenCV/NumPy/LUT benchmark tables and methodology
 
 ## Repo-Local Codex Skills
 
@@ -46,7 +41,7 @@ Repo-specific Codex skills live in `.codex/skills/`:
 - `albucore-benchmarks` - Apply when adding benchmarks, comparing versions, or documenting benchmark workflow.
 - `performance-optimization` - Apply for every runtime implementation, review, profile, or optimization. It loads
   `docs/performance-optimization.md` completely and runs the delete-first, vectorization, grouped-reduction, LUT, RNG,
-  backend, extraction, and safe in-place audit.
+  backend, extraction, and explicit-output/alias audit.
 - `torch-performance-optimization` - Apply for every eager CPU-only Torch runtime implementation, review, profile,
   routing, layout, allocation, threading, or benchmark decision. It loads `docs/torch-performance-optimization.md` and adds
   Torch-specific contract, profiler, bridge, and full-path benchmark checks.
@@ -62,6 +57,24 @@ Albucore receives prevalidated inputs from AlbumentationsX or another upstream c
 explicit channel dimension, dtype, device, contiguity, autograd state, and operation-specific control data are checked
 before dispatch. Do not duplicate those checks in Albucore routers; keep only backend dispatch and kernel-required
 normalization. Invalid direct calls are outside the low-level contract.
+
+### Output ownership
+
+Operations with `out` write input storage only when the caller explicitly supplies it as output. Without `out`,
+do not write input data; returning a view or the input object is allowed. Return the supplied destination object
+when `out` is present. The caller validates its shape, dtype, device, strides, writeability, and supported overlap.
+
+AX owns reusable buffers and any protective copies needed before writing shared storage. Include those copies in
+full AX timing and memory measurements. Do not add hidden pools or caches of large arrays. `clip` follows this
+contract through keyword-only `out`.
+`multiply_add` follows the same explicit output contract; Tensor calls require layout and compound control aliases must preserve read-before-write order.
+`normalize` writes result-dtype `out`: float16 for float16 input, float32 for uint8/float32. Exact floating source
+aliases are supported. Preserve its backend arithmetic order and approximate identity policy; destination strides
+must not select a different numerical kernel. Fixed and adaptive normalization share the normalize module.
+`normalize_per_image` also uses result-dtype `out` and required Tensor layout. Compute all statistics before an alias
+write. Preserve mode-specific epsilon/clipping and NumPy whole-array versus Tensor per-item batch statistics.
+
+
 
 ### 1. Image Shape Convention
 
@@ -87,12 +100,16 @@ Never infer `NCHW` versus `CDHW` from rank or axis sizes.
 
 - **Choose implementations ONLY based on benchmark results.** No conventions. If LUT is slower for a given case, use something else.
 - Always benchmark when adding new implementations or changing routing
+- For local macOS ARM64 benchmarks that depend on NumKong, run the process outside the Codex sandbox with
+  `sandbox_permissions="require_escalated"`; verify the NumKong `neon` capability before accepting results. Never force
+  backend flags to conceal a failed hardware probe.
 - OpenCV, NumPy, LUT — pick whichever is fastest for the target dtype/shape
 
 ### 3. Type Safety
 
 - Use type hints consistently
-- Leverage the provided type aliases: `ImageType`, `ImageInput`, `ImageUInt8`, `ImageFloat16`, `ImageFloat32`, `ValueType`
+- Use `NDArray[np.uint8]`, `NDArray[np.float16]`, and `NDArray[np.float32]` for concrete NumPy dtypes.
+- Keep shared unions and TypeVars where they define supported inputs or preserve input/output type relationships.
 - Ensure dtype preservation or explicit conversion
 
 ### 4. Multiple Implementations Pattern
@@ -100,34 +117,24 @@ Never infer `NCHW` versus `CDHW` from rank or axis sizes.
 Route based on **benchmarked performance**, not convention:
 
 ```python
-@clipped
-def operation(img: ImageType, value: ValueType, inplace: bool = False) -> ImageType:
-    num_channels = get_num_channels(img)
-    value = convert_value(value, num_channels)
-
-    # Route based on what benchmarks show is fastest for this dtype/shape
+def operation(
+    img: ImageInput,
+    value: ValueType,
+    *,
+    out: ImageInput | None = None,
+    layout: TensorLayout | None = None,
+) -> ImageInput:
     if img.dtype == np.uint8:
-        return operation_lut(img, value, inplace)  # Only if LUT wins the benchmark
-
+        return operation_uint8(img, value, out=out)
     if img.dtype == np.float16:
-        return operation_float16(img, value)  # Choose the measured native or float32-working route
-
-    if img.dtype == np.float32:
-        return operation_numpy(img, value)  # Or opencv — whichever is faster
-
-    # The caller guarantees uint8, float16, or float32 before entering the router.
-    return operation_numpy(img, value)
+        return operation_float16(img, value, out=out)
+    return operation_float32(img, value, out=out)
 ```
 
-### 5. Use Decorators
+Public overloads must still preserve concrete dtype/container relationships and require `layout` for channel-dependent
+Tensor semantics. This sketch shows only the measured dispatch boundary; the caller validates inputs and controls.
 
-Albucore provides several useful decorators:
-
-- `@preserve_channel_dim` - Maintains `(H, W, 1)` shape when OpenCV might drop it
-- `@clipped` - Clips results to valid dtype range
-- `@float32_io` / `@uint8_io` - Type conversion wrappers
-
-### 6. Testing
+### 5. Testing
 
 - Test uint8, float16, and float32; LUT-specialized APIs remain uint8-only
 - Test NumPy channel-last and declared Torch CPU layouts where supported
@@ -135,7 +142,13 @@ Albucore provides several useful decorators:
 - Test edge cases: single-channel, many channels (>4), extreme values
 - Include performance benchmarks when relevant
 
-### 7. Dependency Lock Consistency
+Final correctness, performance, and memory acceptance for Albucore and AX runs on Python 3.11 with the newest stable
+third-party dependencies that support Python 3.11 and the target platform. The profile recorded on 2026-10-31 used
+PyTorch 2.15.0 (`2.15.0+cpu` on Linux), NumPy 2.4.6, OpenCV 5.0.0.93, NumKong 7.8.6, and StringZilla 5.3.2. Re-resolve
+before future acceptance runs and record the complete package inventory and imported source paths. A newer Python
+profile or stale lockfile does not replace this acceptance profile. Keep runtime minimums separate from test versions.
+
+### 6. Dependency Lock Consistency
 
 - When changing dependencies in `pyproject.toml`, update `uv.lock` in the same PR.
 - Validate lock consistency with `uv lock --check`.
@@ -154,7 +167,6 @@ import numpy as np
 import numkong as nk
 import stringzilla as sz
 
-from albucore.decorators import preserve_channel_dim
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
@@ -241,7 +253,7 @@ Read `docs/performance-optimization.md` and use the `performance-optimization` s
 5. Compare Python, NumPy, and OpenCV random generation without breaking seeded isolation or replay.
 6. Route by benchmarked dtype, shape, channel, size, contiguity, and allocation regions.
 7. Cast float LUTs to float32 and keep full working arrays from widening to float64.
-8. Use in-place operations when ownership and aliasing make them safe.
+8. Use explicit `out=` when ownership, overlap rules, and benchmarks show the destination removes work.
 
 ## Questions to Ask
 
@@ -255,13 +267,13 @@ When implementing a new function, consider:
 6. Does OpenCV support the channel count, rank, layout, and aliasing mode?
 7. Which documented array ranks, including single volumes and volume batches where supported, should this support?
 8. What should the output dtype and mutation contract be?
-9. Is an in-place option safe and measurably faster?
+9. Does `out=` safely reuse storage without adding temporaries or changing read-before-write order?
 
 ## Resources
 
-- Main implementation: `albucore/functions.py`
-- Utilities and types: `albucore/utils.py`
-- Decorators: `albucore/decorators.py`
+- Operation owners: `albucore/arithmetic.py`, `convert.py`, `normalize.py`, `stats.py`, and geometric modules
+- Public exports: `albucore/__init__.py`
+- Utilities: `albucore/utils.py`; type definitions: `albucore/_types.py`
 - Tests: `tests/`
 - Benchmarks: `./benchmark.sh` (dataset I/O); Python micro-benchmarks: [`benchmarks/README.md`](benchmarks/README.md)
 - Public API: `docs/public-api.md`

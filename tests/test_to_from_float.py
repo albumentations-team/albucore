@@ -1,20 +1,9 @@
 from typing import Any
 
-import cv2
 import numpy as np
 import pytest
 
-import albucore.convert as convert
-from albucore.functions import (
-    MAX_VALUES_BY_DTYPE,
-    from_float,
-    from_float_numpy,
-    from_float_opencv,
-    to_float,
-    to_float_lut,
-    to_float_numpy,
-    to_float_opencv,
-)
+from albucore import from_float, to_float
 from albucore.utils import clip, convert_value, get_max_value
 
 CHANNELS = [1, 3, 5]
@@ -22,130 +11,82 @@ DTYPES = [np.uint8, np.float16, np.float32]
 BATCHES = [0, 2]
 
 
-def generate_img(max_value: int, dtype: Any, channels: int, batch: int) -> np.ndarray:
-    """Function generates a random image to be used in unit tests.
-
-    The max_value parameter is ignored when `dtype == np.float32`.
-    """
-    batch_shape = (batch,) if batch > 0 else ()
-    channel_shape = (channels,) if channels > 1 else ()
-    shape = (*batch_shape, 100, 100, *channel_shape)
-    if np.issubdtype(dtype, np.floating):
-        return np.random.rand(*shape).astype(dtype)
-    return np.random.randint(0, max_value, shape).astype(dtype)
-
-
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_functions_match(dtype, channels, batch):
-    img = generate_img(256, dtype, channels, batch)
-
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-
-    result_numpy = to_float_numpy(img, max_value)
-    result_opencv = to_float_opencv(img, max_value)
-    result_to_float = to_float(img)
-
-    np.testing.assert_allclose(result_numpy, result_opencv, rtol=1e-5, atol=1e-8)
-    np.testing.assert_allclose(result_numpy, result_to_float, rtol=1e-5, atol=1e-8)
-
+def generate_img(dtype: Any, channels: int, batch: int) -> np.ndarray:
+    shape = (*((batch,) if batch else ()), 13, 17, channels)
+    rng = np.random.default_rng(137)
     if dtype == np.uint8:
-        result_lut = to_float_lut(img, max_value)
-        np.testing.assert_allclose(result_numpy, result_lut, rtol=1e-5, atol=1e-8)
-
+        return rng.integers(0, 256, shape, dtype=np.uint8)
+    return rng.random(shape, dtype=np.float32).astype(dtype)
 
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_output_type(dtype, channels, batch):
-    img = generate_img(256, dtype, channels, batch)
+@pytest.mark.parametrize("max_value", [None, 128.0, 255.0])
+def test_to_float_reference_and_input_preservation(dtype, channels, batch, max_value):
+    image = generate_img(dtype, channels, batch)
+    original = image.copy()
+    expected = (
+        image.astype(np.float32) / np.float32(255 if max_value is None else max_value) if dtype == np.uint8 else image
+    )
 
-    result = to_float(img)
-    expected_dtype = np.dtype(np.float16) if dtype == np.float16 else np.dtype(np.float32)
-    assert result.dtype == expected_dtype
+    result = to_float(image, max_value)
 
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(image, original)
+    assert result.dtype == (np.float32 if dtype == np.uint8 else dtype)
+    assert result.shape == image.shape
+    if dtype != np.uint8:
+        assert result is image
+
+
+@pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_lut_uint8_only(channels, batch):
-    img_uint8 = generate_img(256, np.uint8, channels, batch)
-    img_uint16 = generate_img(65536, np.uint16, channels, batch)
+@pytest.mark.parametrize("max_value", [None, 128.0, 255.0])
+def test_from_float_reference_and_input_preservation(dtype, channels, batch, max_value):
+    image = generate_img(np.float32, channels, batch)
+    original = image.copy()
+    expected = (
+        np.clip(np.rint(image * np.float32(255 if max_value is None else max_value)), 0, 255).astype(np.uint8)
+        if dtype == np.uint8
+        else image.astype(dtype)
+    )
 
-    # Should work for uint8
-    result_uint8 = to_float_lut(img_uint8, MAX_VALUES_BY_DTYPE[np.uint8])
-    assert result_uint8.dtype == np.float32
+    result = from_float(image, dtype, max_value)
 
-    # The caller validates the dtype before entering the low-level LUT router.
-
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_shape_preservation(channels, batch):
-    img = generate_img(256, np.uint8, channels, batch)
-
-    result = to_float(img)
-    assert result.shape == img.shape
-
-def test_to_float_max_value_none():
-    img = np.random.randint(0, 256, (100, 100)).astype(np.uint8)
-    result = to_float(img)  # max_value not provided
-    assert result.dtype == np.float32
-    assert np.max(result) <= 1.0
-
-def test_to_float_custom_max_value():
-    img = np.random.randint(0, 256, (100, 100)).astype(np.uint8)
-    custom_max = 128.0
-    result = to_float(img, max_value=custom_max)
-    assert np.max(result) <= 2.0  # Since 255 / 128 = 1.9921875
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(image, original)
+    assert result.shape == image.shape
+    assert result.dtype == dtype
 
 
 def test_float16_to_float_preserves_the_input_and_custom_scale() -> None:
     image = np.array([[[-2.0], [0.5], [4.0]]], dtype=np.float16)
-
-    result = to_float(image, max_value=255)
-
-    assert result is image
-    assert result.dtype == np.float16
-    np.testing.assert_array_equal(result, image)
+    assert to_float(image, max_value=255) is image
 
 
 def test_from_float_to_float16_casts_without_integer_rounding_or_clipping() -> None:
     image = np.array([[[-2.0], [0.3333], [4.0]]], dtype=np.float32)
-
     result = from_float(image, np.dtype(np.float16))
-
     assert result.dtype == np.float16
     np.testing.assert_array_equal(result, image.astype(np.float16))
 
 
 def test_float16_conversion_helpers_use_float_image_range() -> None:
     image = np.array([[[-1.0], [0.5], [2.0]]], dtype=np.float16)
-
     result = clip(image.copy(), np.dtype(np.float16))
-
     assert get_max_value(image.dtype) == 1.0
     assert result.dtype == np.float16
     np.testing.assert_array_equal(result, np.array([[[0.0], [0.5], [1.0]]], dtype=np.float16))
     assert convert_value(np.float16(0.3333), 3) == float(np.float16(0.3333))
 
 
-def test_from_float16_to_uint8_matches_promoted_float32_reference_exactly() -> None:
-    image = np.linspace(0.0, 1.0, num=257, dtype=np.float32).astype(np.float16).reshape(1, 257, 1)
-
-    result = from_float(image, np.dtype(np.uint8))
-    reference = from_float(image.astype(np.float32), np.dtype(np.uint8))
-
-    assert result.dtype == np.uint8
-    np.testing.assert_array_equal(result, reference)
-
-
-def test_large_from_float16_to_uint8_matches_float32_rounding() -> None:
-    source = np.linspace(0.0, 1.0, num=128 * 160 * 3, dtype=np.float32).reshape(128, 160, 3).astype(np.float16)
-
-    result = from_float(source, np.dtype(np.uint8))
-    expected = from_float_numpy(source.astype(np.float32), np.dtype(np.uint8))
-
-    np.testing.assert_array_equal(result, expected)
+@pytest.mark.parametrize("shape", [(1, 257, 1), (128, 160, 3)])
+def test_from_float16_to_uint8_matches_promoted_reference(shape) -> None:
+    image = np.linspace(0, 1, num=np.prod(shape), dtype=np.float32).reshape(shape).astype(np.float16)
+    expected = np.clip(np.rint(image.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)
+    np.testing.assert_array_equal(from_float(image, np.dtype(np.uint8)), expected)
 
 
 def test_large_from_float16_to_uint8_preserves_float32_rounding_edges() -> None:
@@ -153,189 +94,40 @@ def test_large_from_float16_to_uint8_preserves_float32_rounding_edges() -> None:
         [-np.inf, -1, -0.0, 0, 0.5 / 17.3, 1.5 / 17.3, 127.5 / 17.3, 255 / 17.3, 1, np.inf, np.nan],
         dtype=np.float16,
     )
-    source = np.resize(values, (128, 160, 3))
-
-    result = from_float(source, np.dtype(np.uint8), max_value=17.3)
-    expected = from_float(source.astype(np.float32), np.dtype(np.uint8), max_value=17.3)
-
+    image = np.resize(values, (128, 160, 3))
+    result = from_float(image, np.dtype(np.uint8), max_value=17.3)
+    expected = from_float(image.astype(np.float32), np.dtype(np.uint8), max_value=17.3)
     np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_from_float_numpy_vs_opencv(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    float_img = generate_img(None, np.float32, channels, batch)
-
-    numpy_result = from_float_numpy(float_img, dtype, max_value)
-    opencv_result = from_float_opencv(float_img, dtype, max_value)
-    result = from_float(float_img, dtype, max_value)
-
-    np.testing.assert_allclose(numpy_result, opencv_result, rtol=1e-5, atol=1)
-    np.testing.assert_allclose(numpy_result, result, rtol=1e-5, atol=1)
-    np.testing.assert_allclose(opencv_result, result, rtol=1e-5, atol=1)
-
-    assert numpy_result.dtype == dtype
-    assert opencv_result.dtype == dtype
-    assert result.dtype == dtype
 
 
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
 @pytest.mark.parametrize("max_value", [128.0, 255.0])
-def test_from_float_uint8_uses_numkong_fallback(monkeypatch, layout, max_value):
+def test_from_float_uint8_saturates_nonfinite_and_rounding_edges(layout, max_value):
     source = np.array(
-        [[[-np.inf], [-0.5 / 255], [0.5 / 255], [1.5 / 255], [1.2], [np.inf], [np.nan]]],
-        dtype=np.float32,
+        [[[-np.inf], [-0.5 / 255], [0.5 / 255], [1.5 / 255], [1.2], [np.inf], [np.nan]]], dtype=np.float32
     )
     source = np.broadcast_to(source, (2, 7, 3)).copy()
-    expanded = np.repeat(source, 2, axis=1)
     image = {
         "contiguous": source,
         "fortran": np.asfortranarray(source),
-        "strided": expanded[:, ::2],
+        "strided": np.repeat(source, 2, axis=1)[:, ::2],
     }[layout]
     with np.errstate(invalid="ignore"):
-        expected = from_float_numpy(image, np.uint8, max_value)
+        expected = np.clip(np.rint(image * np.float32(max_value)), 0, 255).astype(np.uint8)
+    np.testing.assert_array_equal(from_float(image, np.uint8, max_value), expected)
 
-    def fail_opencv(*args, **kwargs):
-        raise AssertionError("float32-to-uint8 fallback must not use OpenCV")
 
-    monkeypatch.setattr(convert, "from_float_opencv", fail_opencv)
-    result = from_float(image, np.uint8, max_value)
-
-    np.testing.assert_array_equal(result, expected)
-    assert result.dtype == np.uint8
-
-@pytest.mark.parametrize("dtype", [np.uint8])  # float32 roundtrip is lossy (quantizes to 0/1)
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_from_float_roundtrip(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    original_img = generate_img(max_value + 1, dtype, channels, batch)
+def test_uint8_roundtrip(channels, batch):
+    image = generate_img(np.uint8, channels, batch)
+    np.testing.assert_array_equal(from_float(to_float(image), np.uint8), image)
 
-    float_img = to_float(original_img, max_value)
-    roundtrip_img = from_float_opencv(float_img, dtype, max_value)
-
-    np.testing.assert_allclose(original_img, roundtrip_img, rtol=1e-5, atol=1e-8)
 
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize("channels", CHANNELS)
 @pytest.mark.parametrize("batch", BATCHES)
 def test_from_float_to_float_roundtrip(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    original_float_img = generate_img(None, np.float32, channels, batch)
-
-    int_img = from_float(original_float_img, dtype, max_value)
-    roundtrip_float_img = to_float(int_img, max_value)
-
-    np.testing.assert_array_almost_equal(original_float_img, roundtrip_float_img, decimal=2)
-
-
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_from_float_opencv_channels(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    float_img = generate_img(None, np.float32, channels, batch)
-
-    result = from_float_opencv(float_img, dtype, max_value)
-
-    assert result.shape == float_img.shape
-
-    np.testing.assert_allclose(
-        result, cv2.multiply(float_img, np.full_like(float_img, max_value)), rtol=1e-5, atol=1
-    )
-
-
-def assert_array_equal_with_copy(original, processed):
-    np.testing.assert_array_equal(original, processed)
-    assert original is not processed  # Ensure a copy was made
-
-@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_input_unchanged(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    img = generate_img(max_value + 1, dtype, channels, batch)
-
-    img_copy = img.copy()
-    _ = to_float(img, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_lut_input_unchanged(channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[np.uint8]
-    img = generate_img(256, np.uint8, channels, batch)
-
-    img_copy = img.copy()
-    _ = to_float_lut(img, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_numpy_input_unchanged(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    img = generate_img(max_value, dtype, channels, batch)
-
-    img_copy = img.copy()
-    _ = to_float_numpy(img, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_to_float_opencv_input_unchanged(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    img = generate_img(max_value, dtype, channels, batch)
-
-    img_copy = img.copy()
-    _ = to_float_opencv(img, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_from_float_input_unchanged(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    img = generate_img(None, np.float32, channels, batch)
-
-    img_copy = img.copy()
-    _ = from_float(img, dtype, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_from_float_numpy_input_unchanged(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    img = generate_img(None, np.float32, channels, batch)
-
-    img_copy = img.copy()
-    _ = from_float_numpy(img, dtype, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-@pytest.mark.parametrize("dtype", DTYPES + [np.float32])
-@pytest.mark.parametrize("channels", CHANNELS)
-@pytest.mark.parametrize("batch", BATCHES)
-def test_from_float_opencv_input_unchanged(dtype, channels, batch):
-    max_value = MAX_VALUES_BY_DTYPE[dtype]
-    img = generate_img(None, np.float32, channels, batch)
-
-    img_copy = img.copy()
-    _ = from_float_opencv(img, dtype, max_value)
-    np.testing.assert_array_equal(img, img_copy)
-
-
-def test_to_float_returns_same_object_for_float32():
-    float32_image = np.random.rand(10, 10, 3).astype(np.float32)
-    result = to_float(float32_image)
-    assert result is float32_image  # Check if it's the same object
+    image = generate_img(np.float32, channels, batch)
+    result = to_float(from_float(image, dtype))
+    np.testing.assert_array_almost_equal(image, result, decimal=2)

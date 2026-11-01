@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
-from albucore.utils import ArrayT
+from albucore._types import ArrayT
 
 __all__ = ["pad3d"]
 

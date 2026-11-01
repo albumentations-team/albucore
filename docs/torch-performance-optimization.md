@@ -6,6 +6,11 @@ PyTorch `>=2.14.1` is installed through the `torch` extra and is required in eve
 This repository pins the development and CI profile to PyTorch's CPU index, so `uv sync --extra torch` does not
 resolve Linux CUDA wheels.
 
+Acceptance and performance comparisons use the latest CPU PyTorch release compatible with Python 3.11, as specified
+in the [canonical performance guide](performance-optimization.md). The 2026-10-31 profile used PyTorch 2.15.0 on
+macOS ARM64 and `2.15.0+cpu` on Linux x86-64. The `>=2.14.1` runtime minimum does not select the acceptance version;
+check the resolved environment before testing.
+
 The current Albucore scope is eager CPU execution without autograd through the primitive or `torch.compile`. NumPy inputs use Albucore channel-last layouts and Tensor inputs declare their own channel-first layout. AlbumentationsX validates CPU placement, layout, strides, autograd state, and parameter ranges before caller-prevalidated 3D primitives run. Do not repeat those checks in their hot paths.
 
 `warp_affine3d` and `remap3d` accept a single rank-4 volume or rank-5 batch: NumPy `DHWC`/`NDHWC` and Tensor
@@ -35,6 +40,11 @@ Measure the path users execute:
 
 Benchmark the canonical non-square image or DHWC volume grid, then add the dimension that controls the proposal: kernel radius, channel count, contiguity, or output size. A local kernel benchmark can explain a result. It cannot select a public route by itself.
 
+Compare old and new routes at the same dtype. Apply the speed, correctness, and memory conditions in the
+[general workflow](performance-optimization.md) independently on Linux x86-64 and macOS ARM64.
+Float16/float32 comparisons remain required diagnostics; same-dtype performance and memory checks determine acceptance.
+The historical cross-dtype measurements below identify optimization candidates rather than a separate acceptance gate.
+
 ## Remove Python and allocation work first
 
 Audit every per-call conversion, allocation, reshape, and Python/Tensor boundary before changing an operator.
@@ -42,10 +52,11 @@ Audit every per-call conversion, allocation, reshape, and Python/Tensor boundary
 - `permute`, `movedim`, `unsqueeze`, and `squeeze` are usually metadata views. Do not add `.contiguous()` or `clone()` defensively; each can materialize the full volume. Benchmark any backend that requires materialization end to end.
 - `torch.from_numpy` and CPU `Tensor.numpy()` can share storage. They require an eligible CPU buffer and do not repair unsupported negative strides, non-writable input, device placement, or autograd state. Copy exactly once only when the documented contract requires a repair.
 - Return `np.asarray(result.numpy())` after the final layout view when the static checker needs an ndarray rather than `Any`. For an array already returned by `Tensor.numpy()`, `np.asarray` returns the same object without copying. `torch.from_numpy` goes in the opposite direction and cannot implement a Tensor-to-NumPy return.
-- Build a scalar, per-channel Tensor, filter weight, affine matrix, or index map once per public call. Normalize a caller-supplied NumPy filter kernel to the documented working dtype before Tensor work; a default float64 NumPy kernel cannot be a Conv weight for a float32 volume. Cache it only when callers actually reuse an identical value and the cache has bounded lifetime, keying, device, dtype, and memory behavior.
+- Release an owned intermediate before constructing the NumPy return view when the next stage no longer needs it. In the measured two-step compound kernels, retaining the product across bridge initialization increased Linux peak RSS by 0.25–0.63MiB; early release restored the old peak with unchanged arithmetic.
+- Build a scalar, per-channel Tensor, filter weight, affine matrix, or index map once per public call. Normalize a caller-supplied NumPy filter kernel to the documented working dtype before Tensor work; a default float64 NumPy kernel cannot be a Conv weight for a float32 volume. AX owns reusable array buffers and supplies them explicitly when measured reuse helps; Albucore does not keep hidden array caches or pools.
 - Keep decisions about sizes, modes, and parameter tuples in Python before the Tensor hot loop. Avoid `.item()`, `.tolist()`, or Python branching on Tensor values inside a repeated Tensor path. On accelerators these can synchronize execution; on CPU they still add wrapper work.
 - Keep input, working, accumulator, and output dtypes explicit. A float16 route may compute in float32 and restore float16 when needed; include both conversions in the public-path benchmark. For uint8 output, preserve the single documented saturation/rounding step.
-- Use `out=` or in-place Tensor operations only after proving ownership, aliasing, and backend semantics. In-place work is a candidate, not an automatic optimization.
+- Request writes to input through `out=img`, after proving ownership, overlap, and backend semantics. Without `out`, do not write input storage; view and identity returns are allowed. Internal Tensor kernels may write to owned working buffers. AX makes any protective copy required by shared storage, and that copy belongs in the full AX measurement.
 
 ## Preserve the Tensor contract
 
@@ -54,7 +65,7 @@ Every Tensor route states its logical layout independently of NumPy conventions.
 - Preserve the caller's container and declared layout.
 - Do not silently move a Tensor, call `.detach()`, make it contiguous, or change a dtype to rescue an unsupported input unless the public contract explicitly documents that fallback. The caller-owned adapter or public contract decides those actions.
 - "Same dtype as input" applies only to the listed supported dtypes. Callers reject other dtypes before dispatch. When a primitive deliberately has a documented fallback dtype, state its working and output dtype and test it, including any identity fast path.
-- Run the primitive under `torch.no_grad()` or `torch.inference_mode()`; neither builds an autograd graph inside Albucore. Choose `inference_mode` only when the returned Tensor will not later be used in a graph. It removes more bookkeeping, but an inference Tensor cannot be saved by a downstream trainable module. Use `no_grad` when the public contract permits the result to feed later training. [PyTorch grad-mode guide](https://docs.pytorch.org/docs/stable/notes/autograd.html)
+- Use `torch.no_grad()` for computing Tensor paths. Returned Tensors must remain usable by downstream trainable modules; do not create inference-only outputs. Autograd through the primitive remains outside the contract. [PyTorch grad-mode guide](https://docs.pytorch.org/docs/stable/notes/autograd.html)
 - Keep the conversion bridge visible in the benchmark. NumPy input may choose a Torch kernel and Tensor input may choose NumPy/OpenCV only when the complete route wins and its numerical tolerance is documented.
 
 ## Choose Torch operators by measured regions
@@ -71,7 +82,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   float32-accumulated half result by up to 0.03125. A Torch float32-working
   candidate matched the current result exactly but remained 1.42–1.97× slower
   than the float32 public route. Keep the NumPy working path until an upstream
-  GEMM kernel meets both requirements; see the targeted
+  GEMM kernel wins against the existing same-dtype route and preserves precision; see the targeted
   [PyTorch matmul issue](https://github.com/pytorch/pytorch/issues/146508#issuecomment-6106617861)
   and the broader [CPU float16 issue](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
 - Contiguous float16 Tensor `reduce_sum` at 16,384+ elements now calls `torch.sum(dtype=float64)` directly for global,
@@ -89,14 +100,14 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   fails the strict subnormal-residual case, recorded in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
   See the [C=3 grid](../_internal/float16_probe_20261010/mean_per_channel_nhwc_c3_public_101_20261011.json)
   and [C=1 grid](../_internal/float16_probe_20261010/mean_per_channel_nhwc_c1_public_sum_route_101_20261011.json).
-- For NumPy HWC float16 per-channel `mean`, a temporary PR #400 `nk.moments` candidate with the subnormal scan bypassed measured C=1 at 0.93–1.02× float32, but C=3 strided calls were 1.15–1.17× and C=9 nine-call routing was 4.85–5.00× and existing `nk.sum(axis=(0,1))` was 4.82–4.93×. A contiguous C3 planar copy was 3.03–3.33×. Keep the CV32F/OpenCV route until a released dependency route meets the no-slower gate; axis-aware moments are tracked in [NumKong #311](https://github.com/ashvardanian/NumKong/issues/311#issuecomment-6112109242).
+- For NumPy HWC float16 per-channel `mean`, a temporary PR #400 `nk.moments` candidate with the subnormal scan bypassed measured C=1 at 0.93–1.02× float32, but C=3 strided calls were 1.15–1.17× and C=9 nine-call routing was 4.85–5.00× and existing `nk.sum(axis=(0,1))` was 4.82–4.93×. A contiguous C3 planar copy was 3.03–3.33×. Keep the CV32F/OpenCV route until a released dependency route wins the same-dtype public comparison with the required precision; axis-aware moments are tracked in [NumKong #311](https://github.com/ashvardanian/NumKong/issues/311#issuecomment-6112109242).
 - For NumPy HWC float16 per-channel `std` and `mean_std`, the current route scans for subnormals and widens to float32 when present; this remains 1.32–1.77× slower than float32 in a representative HWC C=1–4 grid. A temporary wheel from NumKong PR #400 passed 32 public cells at 0.27–0.86× float32 after bypassing only that scan, with maximum errors of 1.37e-10 for mean and 1.67e-8 for std against NumPy float64. Keep the current guard until the PR is merged and released; results are in [NumKong #399 benchmark](https://github.com/ashvardanian/NumKong/issues/399), the [positive-range accuracy follow-up](https://github.com/ashvardanian/NumKong/issues/399), and the [probe JSON](../_internal/float16_probe_20261010/stats_router_numkong_pr400_moments_full_101_20261011.json).
 - For NumPy HWC float16 C=9 `mean_per_channel`, the current CV32F/OpenCV route remains 1.21–1.27× slower than float32. NumKong PR #400 `moments` called once per strided channel was 4.85–5.00× slower, despite meeting `rtol=1e-7`; keep the current route and track a grouped axis-aware reduction in [NumKong #311](https://github.com/ashvardanian/NumKong/issues/311#issuecomment-6112109242).
 - For global float16 image statistics, benchmark each output separately. Current Tensor `mean` uses a float32 Torch
   accumulator (float64 output, C>1, at least 40,960 elements); contiguous Tensor `std` at 40,960+ elements uses a
   float32 NumPy accumulator only when values lie in [-1, 1] and std exceeds 1e-3, with float64 Torch fallback for other values; `mean_std` uses a
   flattened CV16F `meanStdDev` call (contiguous input, at least 20,480 elements) and widens near-constant/non-finite
-  data. PyTorch 2.14.1 CPU `torch.std(float16)` returns half and rejects float32/float64 `out=` on global reduction;
+  data. PyTorch 2.15.0 CPU `torch.std(float16)` returns half and rejects float32/float64 `out=` on global reduction;
   the output-precision gap is tracked in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
 - Contiguous float16 Tensor per-channel `mean` from 40,960 elements uses one CPU Torch reduction with a float64
   accumulator on the declared channel axis. This covers NCHW/NCDHW batches, CDHW volumes, and multi-channel CHW;
@@ -105,13 +116,14 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   C=3/9 and CDHW C=3 large volumes, with maximum absolute error below 4e-10 against a float64 reference.
 - Contiguous float16 Tensor scalar and channel-vector `add`/`multiply` use direct Torch half operations from 16,384
   elements. Scalars keep Torch's native scalar-to-half semantics; every channel-vector element must be exactly
-  representable in float16. The route is out-of-place; non-contiguous inputs, other controls, and in-place calls keep
-  the NumPy bridge. The paired full grid measured all 21 `add` and all 21 `multiply` cases at least 5% faster than
-  their float32 peers. A separate 11-sample interleaved run with scalar `0.1` measured 0.26–0.47× for `add` and
+  representable in float16. Eligible calls pass explicit `out` to the same Torch operation, including supported exact
+  input aliases. Non-contiguous inputs and other controls keep the NumPy bridge. The paired full grid measured all 21
+  cells per operation at least 5% faster than their float32 peers. A separate 11-sample interleaved run with scalar
+  `0.1` measured 0.26–0.47× for `add` and
   0.33–0.62× for `multiply` across CHW 128×160×3, CHW 480×640×3, and NCHW 4×3×240×320.
 - NumPy HWC float16 vector routes are selected by channel count and measured region: C1 uses NumKong `scale` for
-  exact controls from 20,480 elements; C3 uses OpenCV CV16F from 61,440 elements; C9 `add_vector` uses NumKong
-  `add` with a zero-stride half control view for exact controls. C9 `multiply_by_vector` uses OpenCV CV16F for
+  exact controls from 20,480 elements; C3 uses OpenCV CV16F from 61,440 elements; C9 `add(..., channel_vector)` uses NumKong
+  `add` with a zero-stride half control view for exact controls. C9 `multiply(..., channel_vector)` uses OpenCV CV16F for
   contiguous writable HWC inputs from 184,320 elements when finite float32 controls are exactly half-representable,
   or are inexact controls with magnitudes at most 1 and no nonzero half-subnormal values. Other controls keep the
   NumPy float32 ufunc loop into half output. The selected C9 route has no robust slow pair in the 101-sample grid;
@@ -177,7 +189,31 @@ Every Torch optimization handoff reports:
 
 - full-path baseline and selected route;
 - work, copies, allocations, and passes deleted or retained;
-- Python wrapper, vectorization, fused-op, in-place, layout, memory-format, and backend candidates considered;
+- Python wrapper, vectorization, fused-op, explicit output aliasing, layout, memory-format, and backend candidates considered;
 - thread settings, benchmark matrix, wins, regressions, and rejected regions;
 - correctness and memory evidence;
 - any follow-up that needs a profiler trace, platform matrix, or a wider API contract.
+
+Fixed-statistics `normalize` supports explicit result-dtype output. The existing fused Torch kernels can write a
+positive-stride NumPy destination; negative strides retain that kernel and copy its result. The Half CHW/NCHW plane
+route writes contiguous Tensor destinations directly. Non-half Tensor batches fill one final result while preserving
+per-item numerical routing. Strided uint8 Tensor destinations use `Tensor.copy_` after the selected float LUT result.
+
+Keep the batch output order of the selected per-item kernel: NumPy float32 and planar per-channel uint8 LUT results
+use K-order; shared uint8 tables and the whole-array OpenCV LUT route use C-order. Forcing planar float32 input into
+an interleaved batch destination caused a 7–11x allocation-path regression in the ARM64 benchmark screen.
+
+Adaptive `normalize_per_image` keeps per-item statistics for NCHW/NCDHW and uses concrete batch dispatch. One owned
+dense output buffer preserves the first result's strides; later items write into it. A broadcasted empty_like template
+puts the batch axis innermost and does not reproduce the previous stack order. Half uses float32 working values;
+a newly widened contiguous buffer may be reused after statistics are complete. Strided Tensor destinations may use
+native copy_ after the selected kernel rather than changing its arithmetic.
+
+Keep default allocation decisions separate from supplied-output decisions. Allocating a NumPy result before the
+float32 Torch affine kernel regressed measured allocating calls, so its functional Torch allocation is retained.
+The half helper can return its NumPy-owned output directly without a Tensor-owned return view. Supplied float32
+Torch outputs still need regional performance verification; exposing out does not guarantee a temporary-free path.
+
+Adaptive Half global `image` mode keeps a separate arithmetic result: reusing its widened input slowed two complete
+AX batch scenarios by 35–42%. Release the widened source before the final Half cast. Other modes may reuse a newly
+owned contiguous working buffer after statistics are complete. Do not generalize the reuse rule across modes.

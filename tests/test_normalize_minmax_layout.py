@@ -62,12 +62,15 @@ def test_minmax_fortran_numpy(dtype, readonly):
 @pytest.mark.parametrize("dtype", [np.float16, np.float32])
 def test_minmax_single_channel_fortran(dtype):
     image = np.asfortranarray(np.arange(35).reshape(5, 7, 1).astype(dtype))
+    original = image.copy()
     expected = image.astype(np.float64) / 34
 
     result = normalize_per_image(image, "min_max_per_channel")
 
     assert result.shape == image.shape
+    assert result.dtype == image.dtype
     if dtype == np.float16:
         np.testing.assert_array_max_ulp(result, expected.astype(np.float16), maxulp=1)
     else:
         np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-7)
+    np.testing.assert_array_equal(image, original)

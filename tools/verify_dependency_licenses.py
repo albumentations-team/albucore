@@ -24,6 +24,25 @@ def normalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def _validate_version_license_expressions(
+    component: Mapping[str, Any],
+    versions: list[str],
+    name: str,
+    path: Path,
+) -> None:
+    """Validate SPDX overrides against the versions reviewed for a component."""
+    version_expressions = component.get("version_license_expressions")
+    if version_expressions is None:
+        return
+    if not isinstance(version_expressions, Mapping):
+        raise TypeError(f"{path}: {name} version_license_expressions must be an object")
+    if any(
+        version not in versions or not isinstance(expression, str) or not expression
+        for version, expression in version_expressions.items()
+    ):
+        raise ValueError(f"{path}: {name} version_license_expressions must match reviewed_versions")
+
+
 def _validate_component(component: Any, sources: Mapping[str, Any], previous_name: str, path: Path) -> str:
     """Validate one sorted registry component and return its name."""
     if not isinstance(component, Mapping):
@@ -36,6 +55,7 @@ def _validate_component(component: Any, sources: Mapping[str, Any], previous_nam
         raise ValueError(f"{path}: {name} needs reviewed_versions")
     if not isinstance(component.get("license_expression"), str) or not component["license_expression"]:
         raise ValueError(f"{path}: {name} needs license_expression")
+    _validate_version_license_expressions(component, versions, name, path)
     if not isinstance(component.get("notice"), str) or not component["notice"]:
         raise ValueError(f"{path}: {name} needs notice handling")
     source = component.get("evidence_source")
@@ -72,6 +92,12 @@ def load_registry(path: Path) -> dict[str, Any]:
 def registry_by_name(registry: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     """Index registry entries by normalized distribution name."""
     return {component["name"]: component for component in registry["components"]}
+
+
+def _license_expression_for(entry: Mapping[str, Any], version: str) -> str:
+    """Return the reviewed SPDX expression for one locked version."""
+    version_expressions = entry.get("version_license_expressions", {})
+    return version_expressions.get(version, entry["license_expression"])
 
 
 def review_error(entry: Mapping[str, Any] | None, name: str, version: str) -> str | None:
@@ -165,7 +191,7 @@ def enrich_sbom(registry: Mapping[str, Any], path: Path) -> list[str]:
         component["licenses"] = [
             {
                 "acknowledgement": "declared",
-                "expression": entry["license_expression"],
+                "expression": _license_expression_for(entry, version),
             },
         ]
     if not errors:
@@ -228,7 +254,7 @@ def check_license_evidence(registry: Mapping[str, Any], requirements: Iterable[P
             continue
         expected = {
             normalize_license_identifier(identifier)
-            for identifier in entry.get("metadata_identifiers", [entry["license_expression"]])
+            for identifier in entry.get("metadata_identifiers", [_license_expression_for(entry, version)])
         }
         identifiers = {normalize_license_identifier(identifier) for identifier in license_identifiers(component)}
         if not expected.intersection(identifiers):

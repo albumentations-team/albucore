@@ -2,18 +2,8 @@ import numpy as np
 import pytest
 import torch
 
-from albucore import arithmetic
-from albucore.functions import (
-    add,
-    add_numpy,
-    add_opencv,
-    add_weighted,
-    add_weighted_lut,
-    add_weighted_numkong,
-    add_weighted_numpy,
-    add_weighted_opencv,
-)
-from albucore.utils import ImageType, clip
+from albucore import add, add_weighted, weighted
+from albucore._types import ImageType
 
 
 def test_add_weighted_does_not_clip_float32_result_to_unit_range():
@@ -74,24 +64,26 @@ def test_add_weighted_float16_preserves_wide_accumulation_on_large_cancellation(
 
 
 def test_add_weighted_float16_numkong_half_route_matches_binary16_domain(monkeypatch) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
     calls: list[tuple[float, float]] = []
-    original_numkong = arithmetic.add_weighted_numkong
+    original_numkong = weighted._blend_numkong
 
-    def record_numkong(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
+    def record_numkong(
+        img1: ImageType, weight1: float, img2: ImageType, weight2: float, *, out: ImageType | None = None
+    ) -> ImageType:
         calls.append((weight1, weight2))
-        return original_numkong(img1, weight1, img2, weight2)
+        return original_numkong(img1, weight1, img2, weight2, out=out)
 
-    monkeypatch.setattr(arithmetic, "add_weighted_numkong", record_numkong)
+    monkeypatch.setattr(weighted, "_blend_numkong", record_numkong)
     bits = np.arange(1 << 16, dtype=np.uint16)
     exponent = bits & np.uint16(0x7C00)
     mantissa = bits & np.uint16(0x03FF)
     non_nan_bits = bits[~((exponent == 0x7C00) & (mantissa != 0))]
     img1 = np.resize(non_nan_bits, (256, 256, 1)).view(np.float16)
     img2 = np.ascontiguousarray(np.roll(img1, 12345, axis=1))
-    expected = (
-        img1.astype(np.float32) * np.float32(0.5) + img2.astype(np.float32) * np.float32(0.5)
-    ).astype(np.float16)
+    expected = (img1.astype(np.float32) * np.float32(0.5) + img2.astype(np.float32) * np.float32(0.5)).astype(
+        np.float16
+    )
 
     result = add_weighted(img1, 0.5, img2, 0.5)
 
@@ -108,13 +100,13 @@ def test_add_weighted_float16_numkong_half_route_matches_binary16_domain(monkeyp
 
 
 def test_add_weighted_float16_numkong_route_skips_other_weights(monkeypatch) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
 
     def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
         msg = "NumKong float16 blend is enabled only for the measured half-exact 0.5/0.5 weights."
         raise AssertionError(msg)
 
-    monkeypatch.setattr(arithmetic, "add_weighted_numkong", fail_numkong)
+    monkeypatch.setattr(weighted, "_blend_numkong", fail_numkong)
     rng = np.random.default_rng(910_014)
     img1 = rng.uniform(-1, 1, (240, 320, 3)).astype(np.float16)
     img2 = rng.uniform(-1, 1, (240, 320, 3)).astype(np.float16)
@@ -129,20 +121,24 @@ def test_add_weighted_float16_numkong_route_skips_other_weights(monkeypatch) -> 
 
 @pytest.mark.parametrize("layout", ["CHW", "NCHW"])
 @pytest.mark.parametrize("channels", [3, 9])
+@pytest.mark.parametrize("output_mode", ["allocate", "first", "second", "output"])
 def test_add_weighted_float16_numkong_tensor_route_preserves_layout(
     monkeypatch,
     layout: str,
     channels: int,
+    output_mode: str,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
     calls: list[tuple[float, float]] = []
-    original_numkong = arithmetic.add_weighted_numkong
+    original_numkong = weighted._blend_numkong
 
-    def record_numkong(img1: ImageType, weight1: float, img2: ImageType, weight2: float) -> ImageType:
+    def record_numkong(
+        img1: ImageType, weight1: float, img2: ImageType, weight2: float, *, out: ImageType | None = None
+    ) -> ImageType:
         calls.append((weight1, weight2))
-        return original_numkong(img1, weight1, img2, weight2)
+        return original_numkong(img1, weight1, img2, weight2, out=out)
 
-    monkeypatch.setattr(arithmetic, "add_weighted_numkong", record_numkong)
+    monkeypatch.setattr(weighted, "_blend_numkong", record_numkong)
     batch = 2 if layout == "NCHW" else 1
     rng = np.random.default_rng(910_011 + channels)
     img1 = rng.uniform(-1, 1, (batch, 240, 320, channels)).astype(np.float32).astype(np.float16)
@@ -158,29 +154,36 @@ def test_add_weighted_float16_numkong_tensor_route_preserves_layout(
     )
     before1, before2 = tensor1.clone(), tensor2.clone()
 
-    result = add_weighted(tensor1, 0.5, tensor2, 0.5, layout=layout)
+    output = {"allocate": None, "first": tensor1, "second": tensor2}.get(output_mode)
+    if output_mode == "output":
+        output = torch.empty_like(tensor1)
+    result = add_weighted(tensor1, 0.5, tensor2, 0.5, layout=layout, out=output)
 
     assert calls == [(0.5, 0.5)]
     assert result.shape == tensor1.shape
     assert result.dtype == torch.float16
-    assert result.data_ptr() != tensor1.data_ptr()
-    assert result.data_ptr() != tensor2.data_ptr()
-    np.testing.assert_array_equal(tensor1.numpy(), before1.numpy())
-    np.testing.assert_array_equal(tensor2.numpy(), before2.numpy())
+    if output is not None:
+        assert result is output
+    if output_mode != "first":
+        assert result.data_ptr() != tensor1.data_ptr()
+        np.testing.assert_array_equal(tensor1.numpy(), before1.numpy())
+    if output_mode != "second":
+        assert result.data_ptr() != tensor2.data_ptr()
+        np.testing.assert_array_equal(tensor2.numpy(), before2.numpy())
     np.testing.assert_array_max_ulp(result.numpy(), expected.numpy(), maxulp=1)
 
 
 def test_add_weighted_float16_numkong_half_route_matches_all_non_nan_patterns(monkeypatch) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
     bits = np.arange(1 << 16, dtype=np.uint16)
     exponent = bits & np.uint16(0x7C00)
     mantissa = bits & np.uint16(0x03FF)
     non_nan_bits = bits[~((exponent == 0x7C00) & (mantissa != 0))]
     img1 = np.resize(non_nan_bits, (256, 256, 1)).view(np.float16)
     img2 = np.ascontiguousarray(np.roll(img1, 12345, axis=1))
-    expected = (
-        img1.astype(np.float32) * np.float32(0.5) + img2.astype(np.float32) * np.float32(0.5)
-    ).astype(np.float16)
+    expected = (img1.astype(np.float32) * np.float32(0.5) + img2.astype(np.float32) * np.float32(0.5)).astype(
+        np.float16
+    )
     before1, before2 = img1.copy(), img2.copy()
 
     result = add_weighted(img1, 0.5, img2, 0.5)
@@ -255,18 +258,21 @@ def test_add_weighted_float32_backend_routing(
 
     called: list[str] = []
 
-    def opencv_spy(img1: np.ndarray, _weight1: float, _img2: np.ndarray, _weight2: float) -> np.ndarray:
+    native_opencv, native_numkong = weighted._blend_opencv, weighted._blend_numkong
+
+    def opencv_spy(img1, weight1, img2, weight2, *, out=None):
         called.append("opencv")
-        return np.empty_like(img1)
+        return native_opencv(img1, weight1, img2, weight2, out=out)
 
-    def numkong_spy(img1: np.ndarray, _weight1: float, _img2: np.ndarray, _weight2: float) -> np.ndarray:
+    def numkong_spy(img1, weight1, img2, weight2, *, out=None):
         called.append("numkong")
-        return np.empty_like(img1)
+        return native_numkong(img1, weight1, img2, weight2, out=out)
 
-    monkeypatch.setattr(arithmetic, "add_weighted_opencv", opencv_spy)
-    monkeypatch.setattr(arithmetic, "add_weighted_numkong", numkong_spy)
+    monkeypatch.setattr(weighted, "_blend_opencv", opencv_spy)
+    monkeypatch.setattr(weighted, "_blend_numkong", numkong_spy)
 
-    add_weighted(make_input(contiguous1), 0.5, make_input(contiguous2), 0.5)
+    result = add_weighted(make_input(contiguous1), 0.5, make_input(contiguous2), 0.5)
+    np.testing.assert_array_equal(result, np.ones(shape, dtype=np.float32))
 
     assert called == [expected_backend]
 
@@ -321,7 +327,7 @@ def test_add_weighted_float32_backend_routing(
             1.0,
             np.array([[0.5, 0.6], [0.7, 0.8]], dtype=np.float32),
             1.0,
-            np.array([[0.6, 0.8], [1.0, 1.0]], dtype=np.float32),
+            np.array([[0.6, 0.8], [1.0, 1.2]], dtype=np.float32),
         ),
         (
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
@@ -335,32 +341,26 @@ def test_add_weighted_float32_backend_routing(
             1.0,
             np.array([[0.5, 0.6], [0.7, 0.2]], dtype=np.float32),
             -0.5,
-            np.array([[0.75, 0], [0, 0.3]], dtype=np.float32),
+            np.array([[0.75, -0.10000001], [-0.049999982, 0.3]], dtype=np.float32),
         ),
     ],
 )
-def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
-    result_numpy = add_weighted_numpy(img1, weight1, img2, weight2)
-    if img1.dtype == np.uint8:
-        result_numpy = clip(result_numpy, img1.dtype)
-    else:
-        expected_output = img1 * weight1 + img2 * weight2
-    np.testing.assert_array_equal(result_numpy, expected_output)
+def test_weighted_reference_values(img1, weight1, img2, weight2, expected_output):
+    img1, img2, expected_output = (array[..., None] for array in (img1, img2, expected_output))
+    before1, before2 = img1.copy(), img2.copy()
 
-    result_opencv = add_weighted_opencv(img1, weight1, img2, weight2)
-    np.testing.assert_array_equal(result_opencv, expected_output)
+    result = add_weighted(img1, weight1, img2, weight2)
 
-    result_numkong = add_weighted_numkong(img1, weight1, img2, weight2)
-    np.testing.assert_array_equal(result_numkong, expected_output)
-
-    if img1.dtype == np.uint8 and img2.dtype == np.uint8:
-        result_lut = add_weighted_lut(img1, weight1, img2, weight2)
-        np.testing.assert_array_equal(result_lut, expected_output)
+    assert result.dtype == img1.dtype
+    assert result.shape == img1.shape
+    np.testing.assert_array_equal(result, expected_output)
+    np.testing.assert_array_equal(img1, before1)
+    np.testing.assert_array_equal(img2, before2)
 
 
 @pytest.mark.parametrize(
     "img_dtype",
-    [np.uint8, np.float32],
+    [np.uint8, np.float16, np.float32],
 )
 @pytest.mark.parametrize(
     "num_channels",
@@ -382,127 +382,39 @@ def test_add_weighted_numpy(img1, weight1, img2, weight2, expected_output):
     [True, False],
 )
 def test_add_weighted(img_dtype, num_channels, weight1, weight2, is_contiguous):
-    np.random.seed(0)
-    height, width = 9, 11
-
-    if is_contiguous:
-        img1 = (
-            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
-            if img_dtype == np.uint8
-            else np.random.rand(height, width, num_channels).astype(img_dtype)
-        )
-        img2 = (
-            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
-            if img_dtype == np.uint8
-            else np.random.rand(height, width, num_channels).astype(img_dtype)
-        )
-    else:
-        img1 = (
-            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
-            if img_dtype == np.uint8
-            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
-        )
-        img2 = (
-            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
-            if img_dtype == np.uint8
-            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
-        )
-
-    original_img1 = img1.copy()
-    original_img2 = img2.copy()
+    rng = np.random.default_rng(137)
+    shape = (9, 11 if is_contiguous else 22, num_channels)
+    img1 = (
+        rng.integers(0, 256, size=shape, dtype=np.uint8)
+        if img_dtype == np.uint8
+        else rng.random(shape).astype(img_dtype)
+    )
+    img2 = (
+        rng.integers(0, 256, size=shape, dtype=np.uint8)
+        if img_dtype == np.uint8
+        else rng.random(shape).astype(img_dtype)
+    )
+    if not is_contiguous:
+        img1, img2 = img1[:, ::2], img2[:, ::2]
+        assert not img1.flags.c_contiguous
+        assert not img2.flags.c_contiguous
+    before1, before2 = img1.copy(), img2.copy()
+    expected = img1.astype(np.float32) * weight1 + img2.astype(np.float32) * weight2
+    expected = (
+        np.clip(np.rint(expected), 0, 255).astype(img_dtype) if img_dtype == np.uint8 else expected.astype(img_dtype)
+    )
 
     result = add_weighted(img1, weight1, img2, weight2)
 
-    result_numkong = add_weighted_numkong(img1, weight1, img2, weight2)
-
-    if img_dtype == np.uint8:
-        np.testing.assert_allclose(result, result_numkong, atol=1)
-    else:
-        np.testing.assert_allclose(result, result_numkong, atol=1e-6)
-
-    result_numpy = add_weighted_numpy(img1, weight1, img2, weight2)
-    if img_dtype == np.uint8:
-        result_numpy = clip(result_numpy, img_dtype)
-    np.testing.assert_allclose(result, result_numpy, atol=1)
-
-    result_opencv = add_weighted_opencv(img1, weight1, img2, weight2)
-    np.testing.assert_allclose(result, result_opencv, atol=1)
-
-    if img1.dtype == np.uint8 and img2.dtype == np.uint8:
-        result_lut = clip(add_weighted_lut(img1, weight1, img2, weight2), img1.dtype)
-        np.testing.assert_allclose(result, result_lut, atol=1)
-
-    np.testing.assert_array_equal(img1, original_img1)
-    np.testing.assert_array_equal(img2, original_img2)
-
-
-@pytest.mark.parametrize(
-    "img_dtype",
-    [np.uint8, np.float32],
-)
-@pytest.mark.parametrize(
-    "num_channels",
-    [1, 3, 5],
-)
-@pytest.mark.parametrize(
-    "is_contiguous",
-    [True, False],
-)
-def test_add_weighted_with_unit_weights(img_dtype, num_channels, is_contiguous):
-    np.random.seed(0)
-    height, width = 9, 11
-
-    if is_contiguous:
-        img1 = (
-            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
-            if img_dtype == np.uint8
-            else np.random.rand(height, width, num_channels).astype(img_dtype)
-        )
-        img2 = (
-            np.random.randint(0, 256, size=(height, width, num_channels), dtype=img_dtype)
-            if img_dtype == np.uint8
-            else np.random.rand(height, width, num_channels).astype(img_dtype)
-        )
-    else:
-        img1 = (
-            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
-            if img_dtype == np.uint8
-            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
-        )
-        img2 = (
-            np.random.randint(0, 256, size=(num_channels, height, width), dtype=img_dtype).transpose(1, 2, 0)
-            if img_dtype == np.uint8
-            else np.random.rand(num_channels, height, width).astype(img_dtype).transpose(1, 2, 0)
-        )
-
-    original_img1 = img1.copy()
-    original_img2 = img2.copy()
-
-    result = add_weighted(img1, 1, img2, 1)
-
     assert result.dtype == img1.dtype
     assert result.shape == img1.shape
-
-    result_numpy = add_weighted_numpy(img1, 1, img2, 1)
-    result_opencv = add_weighted_opencv(img1, 1, img2, 1)
-
     if img_dtype == np.uint8:
-        result_add = add(img1, img2)
-        result_numpy = clip(result_numpy, img_dtype)
-        result_numpy_add = clip(add_numpy(img1, img2), img_dtype)
-        result_opencv_add = clip(add_opencv(img1, img2), img1.dtype)
-
-        np.testing.assert_array_equal(result, result_add)
-        np.testing.assert_array_equal(result_numpy, result_numpy_add)
-        np.testing.assert_array_equal(result_opencv, result_opencv_add)
-
-    np.testing.assert_allclose(result, result_numpy, atol=1e-6)
-    np.testing.assert_allclose(result, result_opencv, atol=1e-6)
-
-    if img1.dtype == np.uint8 and img2.dtype == np.uint8:
-        result_lut = add_weighted_lut(img1, 1, img2, 1)
-
-        np.testing.assert_allclose(result, result_lut, atol=1)
-
-    np.testing.assert_array_equal(img1, original_img1)
-    np.testing.assert_array_equal(img2, original_img2)
+        np.testing.assert_allclose(result, expected, atol=1, rtol=0)
+    elif img_dtype == np.float16:
+        np.testing.assert_array_max_ulp(result, expected, maxulp=1)
+    else:
+        np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-7)
+    if weight1 == weight2 == 1:
+        np.testing.assert_array_equal(result, add(img1, img2))
+    np.testing.assert_array_equal(img1, before1)
+    np.testing.assert_array_equal(img2, before2)

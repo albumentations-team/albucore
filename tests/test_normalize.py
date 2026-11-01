@@ -1,233 +1,125 @@
-import pytest
 import numpy as np
+import pytest
 
-from albucore.functions import normalize, normalize_numpy, normalize_opencv, normalize_lut
-from albucore.utils import MAX_VALUES_BY_DTYPE, convert_value, get_num_channels
-
-
-@pytest.mark.parametrize(
-    "img, factor, shift, expected",
-    [
-        (np.array([[1, 2], [3, 4]], dtype=np.float32), 2.0, 1.0, np.array([[4, 6], [8, 10]], dtype=np.float32)),
-        (
-            np.array([[0, 1], [2, 3]], dtype=np.float32),
-            np.array([[2, 3], [4, 5]], dtype=np.float32),
-            1.0,
-            np.array([[2, 6], [12, 20]], dtype=np.float32),
-        ),
-        (
-            np.array([[1, 2], [3, 4]], dtype=np.float32),
-            2.0,
-            np.array([[1, 0], [0, 1]], dtype=np.float32),
-            np.array([[4, 4], [6, 10]], dtype=np.float32),
-        ),
-    ],
-)
-def test_normalize(img, factor, shift, expected):
-    result = normalize(img, factor, shift)
-    result_np = normalize_numpy(img, factor, shift)
-    result_cv2 = normalize_opencv(img, factor, shift)
-    np.testing.assert_array_equal(result, expected)
-    np.testing.assert_array_equal(result_np, expected)
-    np.testing.assert_array_equal(result_cv2, expected)
+from albucore import normalize
 
 
 @pytest.mark.parametrize(
-    "img, denominator, mean, expected",
+    ("image", "mean", "denominator", "expected"),
     [
-        (np.array([[1, 2], [3, 4]], dtype=np.uint8), 2.0, 1.0, np.array([[0, 2], [4, 6]])),
-        (
-            np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=np.uint8),
-            2.0,
-            1.0,
-            np.array([[[0, 2], [4, 6]], [[8, 10], [12, 14]]]),
-        ),
-        (
-            np.array([[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dtype=np.uint8),
-            np.array([2.0, 3.0]),
-            1.0,
-            np.array([[[-2, 0], [2, 6]], [[6, 12], [10, 18]]]),
-        ),
+        ([1, 2, 3, 4], 2.0, 1.0, [-1, 0, 1, 2]),
+        ([0, 1, 2, 3], [2, 3, 4, 5], 1.0, [-2, -2, -2, -2]),
+        ([1, 2, 3, 4], 2.0, [1, 0, 0, 1], [-1, 0, 0, 2]),
     ],
 )
-def test_normalize_lut(img, denominator, mean, expected):
-    num_channels = get_num_channels(img)
+def test_normalize_float32_values(image, mean, denominator, expected):
+    image = np.array(image, dtype=np.float32).reshape(2, 2, 1)
+    mean = np.array(mean, dtype=np.float32).reshape(2, 2, 1) if isinstance(mean, list) else mean
+    denominator = (
+        np.array(denominator, dtype=np.float32).reshape(2, 2, 1) if isinstance(denominator, list) else denominator
+    )
 
-    converted_denominator = convert_value(denominator, num_channels)
-    converted_mean = convert_value(mean, num_channels)
+    result = normalize(image, mean, denominator)
 
-    result = normalize_lut(img, converted_mean, denominator)
-    result_lut = normalize_lut(img, converted_mean, converted_denominator)
-    result_np = normalize_numpy(img, mean, denominator)
-    result_cv2 = normalize_opencv(img, mean, denominator)
-
-    np.testing.assert_allclose(result, expected, atol=1e-6)
-    np.testing.assert_allclose(result_lut, expected, atol=1e-6)
-    np.testing.assert_allclose(result_np, expected, atol=1e-6)
-    np.testing.assert_allclose(result_cv2, expected, atol=1e-6)
+    assert result.dtype == np.float32
+    np.testing.assert_array_equal(result, np.array(expected, dtype=np.float32).reshape(image.shape))
 
 
-@pytest.mark.parametrize("shape", [(17, 19, 9), (2, 5, 7, 9)])
-def test_normalize_lut_per_channel_many_channels_matches_reference(shape):
-    rng = np.random.default_rng(123)
-    img = rng.integers(0, 256, size=shape, dtype=np.uint8)
+@pytest.mark.parametrize(
+    ("image", "mean", "denominator", "expected"),
+    [
+        (np.array([1, 2, 3, 4], dtype=np.uint8).reshape(2, 2, 1), 1.0, 2.0, [0, 2, 4, 6]),
+        (np.arange(1, 9, dtype=np.uint8).reshape(2, 2, 2), 1.0, 2.0, [0, 2, 4, 6, 8, 10, 12, 14]),
+        (np.arange(8, dtype=np.uint8).reshape(2, 2, 2), 1.0, np.array([2.0, 3.0]), [-2, 0, 2, 6, 6, 12, 10, 18]),
+    ],
+)
+def test_normalize_uint8_values(image, mean, denominator, expected):
+    result = normalize(image, mean, denominator)
+
+    assert result.dtype == np.float32
+    np.testing.assert_array_equal(result, np.array(expected, dtype=np.float32).reshape(image.shape))
+
+
+@pytest.mark.parametrize("shape", [(17, 19, 9), (2, 5, 7, 9), (4, 6, 1)])
+def test_normalize_uint8_channel_controls(shape):
+    image = np.random.default_rng(137).integers(0, 256, size=shape, dtype=np.uint8)
     mean = np.linspace(70.0, 130.0, num=shape[-1], dtype=np.float32)
     denominator = np.linspace(0.01, 0.03, num=shape[-1], dtype=np.float32)
 
-    result = normalize_lut(img, mean, denominator)
-    expected = (img.astype(np.float32) - mean) * denominator
+    result = normalize(image, mean, denominator)
 
-    assert result.shape == img.shape
+    assert result.shape == image.shape
     assert result.dtype == np.float32
+    np.testing.assert_allclose(result, (image.astype(np.float32) - mean) * denominator, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("channels", "mean", "std"),
+    [(3, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]), (3, 0.5, 0.7), (1, 0.5, 0.7), (1, 0.5, 0.5)],
+)
+def test_normalize_uint8_scaled_controls(channels, mean, std):
+    image = np.random.default_rng(137).integers(0, 256, size=(101, 99, channels), dtype=np.uint8)
+    mean = np.array(mean, dtype=np.float32)
+    denominator = np.reciprocal(np.array(std, dtype=np.float64) * 255)
+
+    result = normalize(image, mean, denominator)
+
+    assert result.shape == image.shape
+    assert result.dtype == np.float32
+    expected = (image.astype(np.float32) - mean) * denominator.astype(np.float32)
     np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
 
 
-def test_normalize_lut_single_channel_preserves_channel_dim():
-    img = np.arange(24, dtype=np.uint8).reshape(4, 6, 1)
-    mean = np.array([3.0], dtype=np.float32)
-    denominator = np.array([0.25], dtype=np.float32)
-
-    result = normalize_lut(img, mean, denominator)
-
-    assert result.shape == img.shape
-    assert result.dtype == np.float32
-    np.testing.assert_allclose(result, (img.astype(np.float32) - 3.0) * 0.25)
-
-
-@pytest.mark.parametrize(
-    ["image", "mean", "std"],
-    [
-        [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]],
-        [np.random.randint(0, 256, [101, 99, 3], dtype=np.uint8), 0.5, 0.7],
-        [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), 0.5, 0.7],
-        [np.random.randint(0, 256, [101, 99, 1], dtype=np.uint8), 0.5, 0.5],
-    ],
-)
-def test_normalize_np_cv_equal(image, mean, std):
-    mean = np.array(mean, dtype=np.float32)
-    max_pixel_value = MAX_VALUES_BY_DTYPE[image.dtype]
-
-    denominator = np.reciprocal(np.array(std, dtype=np.float64) * max_pixel_value)
-
-    num_channels = get_num_channels(image)
-
-    converted_denominator = convert_value(denominator, num_channels)
-    converted_mean = convert_value(mean, num_channels)
-
-    res3 = normalize_lut(image, converted_mean, converted_denominator)
-
-    res1 = normalize_numpy(image, mean, denominator)
-    res2 = normalize_opencv(image, mean, converted_denominator)
-
-    np.testing.assert_array_equal(image.shape, res1.shape)
-    np.testing.assert_array_equal(image.shape, res2.shape)
-    np.testing.assert_array_equal(image.shape, res3.shape)
-
-    np.testing.assert_allclose(res1, res2, atol=1e-6)
-    np.testing.assert_allclose(res1, res3, atol=1e-6)
-
-
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        np.uint8,
-        np.float32,
-    ],
-)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("shape", [(99, 101, 3), (99, 101, 1)])
-def test_normalize(dtype, shape) -> None:
-    img = np.ones(shape, dtype=dtype) * 0.4
+def test_normalize_image_and_batch(dtype, shape):
+    image = np.full(shape, 100 if dtype == np.uint8 else 0.4, dtype=dtype)
+    batch = np.stack([image] * 3)
     mean = np.array(50, dtype=np.float32)
     denominator = np.array(1 / 3, dtype=np.float32)
+    output_dtype = np.float16 if dtype == np.float16 else np.float32
+    expected = ((image.astype(np.float32) - mean) * denominator).astype(output_dtype)
 
-    images = np.stack([img.copy()] * 3, axis=0)  # (3, H, W) or (3, H, W, C)
+    result = normalize(image, mean, denominator)
+    batch_result = normalize(batch, mean, denominator)
 
-    normalized_image = normalize(img, mean=mean, denominator=denominator)
-    assert normalized_image.shape == img.shape
-    assert normalized_image.dtype == np.float32
-
-    expected_image = (np.ones(img.shape, dtype=np.float32) * 0.4 - 50) / 3
-    np.testing.assert_array_almost_equal_nulp(normalized_image, expected_image)
-
-    normalized_images = normalize(images, mean=mean, denominator=denominator)
-    assert normalized_images.shape == images.shape
-    assert normalized_images.dtype == np.float32
-
-    np.testing.assert_allclose(normalized_image[0], normalized_image[1], atol=4, rtol=1e-5)
-    np.testing.assert_allclose(normalized_images[0], normalized_images[1], atol=4, rtol=1e-5)
+    assert result.shape == image.shape
+    assert batch_result.shape == batch.shape
+    assert result.dtype == batch_result.dtype == output_dtype
+    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    np.testing.assert_allclose(batch_result, np.broadcast_to(expected, batch.shape), rtol=1e-6)
 
 
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
-def test_normalize_with_1d_arrays(dtype):
-    img = np.ones((50, 50, 1), dtype=dtype) * 100
-    mean = np.array([50.0], dtype=np.float32)  # 1D array with single element
-    denominator = np.array([2.0], dtype=np.float32)  # 1D array with single element
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("shape", [(50, 50, 1), (3, 50, 50, 1), (50, 50, 3)])
+def test_normalize_with_channel_arrays(dtype, shape):
+    channels = shape[-1]
+    image = np.broadcast_to(np.array([100, 150, 200][:channels], dtype=dtype), shape).copy()
+    mean = np.array([50, 75, 100][:channels], dtype=np.float32)
+    denominator = np.array([2, 3, 4][:channels], dtype=np.float32)
+    output_dtype = np.float16 if dtype == np.float16 else np.float32
+    expected = ((image.astype(np.float32) - mean) * denominator).astype(output_dtype)
 
-    # Calculate expected BEFORE calling normalize to avoid in-place modification issues
-    expected = (img.astype(np.float32) - 50.0) * 2.0
-    result = normalize(img, mean, denominator)
+    result = normalize(image, mean, denominator)
 
-    assert result.shape == img.shape
-    assert result.dtype == np.float32
-    np.testing.assert_allclose(result, expected, rtol=1e-5)
-
-    batch = np.ones((3, 50, 50, 1), dtype=dtype) * 100  # Create fresh batch
-    expected_batch = (batch.astype(np.float32) - 50.0) * 2.0
-    result_batch = normalize(batch, mean, denominator)
-
-    assert result_batch.shape == batch.shape
-    assert result_batch.dtype == np.float32
-    # All images should be normalized identically
-    np.testing.assert_allclose(result_batch[0], result_batch[1], rtol=1e-5)
-    np.testing.assert_allclose(result_batch[0], result_batch[2], rtol=1e-5)
-    np.testing.assert_allclose(result_batch, expected_batch, rtol=1e-5)
-
-    img_3ch = np.ones((50, 50, 3), dtype=dtype) * np.array([100, 150, 200])
-    mean_3ch = np.array([50.0, 75.0, 100.0], dtype=np.float32)
-    denominator_3ch = np.array([2.0, 3.0, 4.0], dtype=np.float32)
-
-    expected_3ch = np.zeros_like(img_3ch, dtype=np.float32)
-    for c in range(3):
-        expected_3ch[..., c] = (img_3ch[..., c].astype(np.float32) - mean_3ch[c]) * denominator_3ch[c]
-
-    result_3ch = normalize(img_3ch, mean_3ch, denominator_3ch)
-
-    assert result_3ch.shape == img_3ch.shape
-    assert result_3ch.dtype == np.float32
-    np.testing.assert_allclose(result_3ch, expected_3ch, rtol=1e-5)
+    assert result.shape == image.shape
+    assert result.dtype == output_dtype
+    np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("shape", [(100, 100, 1), (100, 100, 3)])
 def test_normalize_preserves_original_image(dtype, shape):
-    if dtype == np.uint8:
-        original_img = np.random.randint(0, 256, size=shape, dtype=dtype)
-    else:
-        original_img = np.random.randn(*shape).astype(dtype)
+    rng = np.random.default_rng(137)
+    image = (
+        rng.integers(0, 256, size=shape, dtype=dtype) if dtype == np.uint8 else rng.standard_normal(shape).astype(dtype)
+    )
+    original = image.copy()
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32) if shape[-1] == 3 else 0.5
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32) if shape[-1] == 3 else 0.5
+    denominator = np.reciprocal(std * (255 if dtype == np.uint8 else 1))
 
-    img_copy = original_img.copy()
+    result = normalize(image, mean, denominator)
 
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32) if shape[-1] == 3 else np.array(0.5, dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32) if shape[-1] == 3 else np.array(0.5, dtype=np.float32)
-
-    max_pixel_value = MAX_VALUES_BY_DTYPE[dtype] if dtype == np.uint8 else 1.0
-    denominator = np.reciprocal(std * max_pixel_value)
-
-    _ = normalize(original_img, mean, denominator)
-    np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize() modified the original image")
-
-    original_img = img_copy.copy()
-    _ = normalize_numpy(original_img, mean, denominator)
-    np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize_numpy() modified the original image")
-
-    original_img = img_copy.copy()
-    _ = normalize_opencv(original_img, mean, denominator)
-    np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize_opencv() modified the original image")
-
-    if dtype == np.uint8:
-        original_img = img_copy.copy()
-        num_channels = get_num_channels(original_img)
-        converted_denominator = convert_value(denominator, num_channels)
-        converted_mean = convert_value(mean, num_channels)
-        _ = normalize_lut(original_img, converted_mean, converted_denominator)
-        np.testing.assert_array_equal(original_img, img_copy, err_msg="normalize_lut() modified the original image")
+    assert result.shape == image.shape
+    np.testing.assert_array_equal(image, original)

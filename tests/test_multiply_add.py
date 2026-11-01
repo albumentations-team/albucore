@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
 from albucore import arithmetic
-from albucore.functions import multiply_add, multiply_add_numpy, multiply_add_opencv, multiply_add_lut
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageType, clip
+from albucore import multiply_add
+from albucore._types import ImageType
 
 
 @pytest.mark.parametrize(
@@ -49,7 +49,7 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageType, clip
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             1.0,
             1.0,
-            np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float32),
+            np.array([[1.1, 1.2], [1.3, 1.4]], dtype=np.float32),
         ),
         (
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
@@ -61,26 +61,14 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageType, clip
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
             -0.1,
             0.5,
-            np.array([[0, 0], [0.05, 0.1]], dtype=np.float32),
+            np.array([[-0.05, 0], [0.05, 0.1]], dtype=np.float32),
         ),
     ],
 )
-def test_multiply_add_numpy(img, value, factor, expected_output):
-    result_numpy = multiply_add_numpy(img, factor, value)
-    if img.dtype == np.uint8:
-        result_numpy = clip(result_numpy, img.dtype)
-    else:
-        expected_output = result_numpy
-    np.testing.assert_allclose(result_numpy, expected_output, atol=1e-6)
+def test_multiply_add_literal_values(img, value, factor, expected_output):
+    result = multiply_add(img[..., np.newaxis], factor, value)
+    np.testing.assert_allclose(result, expected_output[..., np.newaxis], atol=1e-6)
 
-    result_opencv = multiply_add_opencv(img, factor, value)
-    if img.dtype == np.uint8:
-        result_opencv = clip(result_opencv, img.dtype)
-    np.testing.assert_allclose(result_opencv, expected_output, atol=1e-6)
-
-    if img.dtype == np.uint8:
-        result_lut = multiply_add_lut(img, factor, value, inplace=False)
-        np.testing.assert_allclose(result_lut, expected_output, atol=1e-6)
 
 
 @pytest.mark.parametrize("img_dtype", [np.uint8, np.float32])
@@ -123,31 +111,23 @@ def test_multiply_add(img_dtype, num_channels, value, factor, is_contiguous):
 
     np.testing.assert_array_equal(img, original_img)
 
-    result_numpy = multiply_add_numpy(img, factor, value)
+    expected = img.astype(np.float32) * np.float32(factor) + np.float32(value)
     if img_dtype == np.uint8:
-        result_numpy = clip(result_numpy, img_dtype)
-    np.testing.assert_allclose(result, result_numpy, atol=1e-6)
-
-    if img.dtype == np.uint8:
-        result_lut = clip(multiply_add_lut(img, factor, value, inplace=False), img.dtype)
-        np.testing.assert_array_equal(result, result_lut)
-
-    result_opencv = multiply_add_opencv(img, factor, value)
-    if img_dtype == np.uint8:
-        result_opencv = clip(result_opencv, img.dtype)
-    np.testing.assert_allclose(result, result_opencv, atol=1e-6)
+        expected = np.clip(expected, 0, 255).astype(np.uint8)
+    np.testing.assert_allclose(result, expected, atol=1e-6)
 
 
-def test_multiply_add_float16_numkong_scale_matches_all_non_nan_binary16_values(monkeypatch) -> None:
+@pytest.mark.parametrize("output_mode", ["allocate", "alias", "output"])
+def test_multiply_add_float16_numkong_scale_matches_all_non_nan_binary16_values(monkeypatch, output_mode) -> None:
     monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
     calls = []
-    original_numkong = arithmetic.multiply_add_numkong
+    original_numkong = arithmetic._scale_numkong
 
-    def record_numkong(img: ImageType, factor: float, value: float) -> ImageType:
+    def record_numkong(img: ImageType, factor: float, value: float, *, out=None) -> ImageType:
         calls.append((factor, value))
-        return original_numkong(img, factor, value)
+        return original_numkong(img, factor, value, out=out)
 
-    monkeypatch.setattr(arithmetic, "multiply_add_numkong", record_numkong)
+    monkeypatch.setattr(arithmetic, "_scale_numkong", record_numkong)
     bits = np.arange(1 << 16, dtype=np.uint16)
     exponent = bits & np.uint16(0x7C00)
     mantissa = bits & np.uint16(0x03FF)
@@ -155,7 +135,13 @@ def test_multiply_add_float16_numkong_scale_matches_all_non_nan_binary16_values(
     image = np.resize(non_nan_bits, (256, 256, 1)).view(np.float16)
     expected = (image.astype(np.float32) * np.float32(0.875) + np.float32(0.125)).astype(np.float16)
 
-    result = multiply_add(image, np.float32(0.875), np.float32(0.125))
+    original = image.view(np.uint16).copy()
+    destination = image if output_mode == "alias" else np.empty_like(image) if output_mode == "output" else None
+    result = multiply_add(image, np.float32(0.875), np.float32(0.125), out=destination)
+    if destination is not None:
+        assert result is destination
+    if output_mode != "alias":
+        np.testing.assert_array_equal(image.view(np.uint16), original)
 
     assert result.shape == image.shape
     assert result.dtype == image.dtype
@@ -175,7 +161,7 @@ def test_multiply_add_float16_numkong_skips_non_half_controls(monkeypatch, facto
         msg = "NumKong half scale requires controls exactly representable in float16."
         raise AssertionError(msg)
 
-    monkeypatch.setattr(arithmetic, "multiply_add_numkong", fail_numkong)
+    monkeypatch.setattr(arithmetic, "_scale_numkong", fail_numkong)
     image = np.random.default_rng(710_011).uniform(-1, 1, (240, 320, 3)).astype(np.float16)
     expected = arithmetic.multiply_add_float16_torch(
         image,

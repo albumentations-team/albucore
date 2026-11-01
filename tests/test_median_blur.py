@@ -220,3 +220,31 @@ def test_median_blur_does_not_mutate_input(
 
     np.testing.assert_array_equal(image, before)
     assert not np.shares_memory(result, image)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("kernel_size", [3, 5, 7])
+def test_median_blur_single_channel_passes_explicit_destination(
+    dtype: type[np.uint8 | np.float16 | np.float32],
+    kernel_size: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shape = (240, 320, 1) if dtype is np.float16 and kernel_size == 5 else (31, 37, 1)
+    image = np.random.default_rng(137).random(shape, dtype=np.float32).astype(dtype)
+    original_median = cv2.medianBlur
+    destinations: list[np.ndarray] = []
+
+    def median_with_destination(src: np.ndarray, size: int, dst: np.ndarray | None = None) -> np.ndarray:
+        assert dst is not None
+        assert dst.shape == src.shape
+        assert dst.dtype == src.dtype
+        destinations.append(dst)
+        return original_median(src, size, dst=dst)
+
+    monkeypatch.setattr(cv2, "medianBlur", median_with_destination)
+
+    result = median_blur(image, kernel_size)
+
+    assert result.shape == image.shape
+    assert len(destinations) == 1
+    assert destinations[0].shape == image.shape

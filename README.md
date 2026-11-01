@@ -27,7 +27,7 @@ Your citation makes the project's research impact visible to funders and helps s
 
 Image processing operations can be implemented in several ways, with performance depending on dtype, size, layout, and channel count. Albucore routes each operation to a benchmark-selected NumPy, OpenCV, NumKong, StringZilla, or eligible CPU PyTorch implementation.
 
-Image routers accept `uint8`, `float16`, and `float32`; float64 image inputs are not supported. NumPy uses channel-last layouts, while eager CPU Torch calls use explicit channel-first layouts where channel semantics matter. The two specialized uint8 LUT APIs remain uint8-only.
+Image routers accept `uint8`, `float16`, and `float32`; float64 image inputs are not supported. NumPy uses channel-last layouts, while eager CPU Torch calls use explicit channel-first layouts where channel semantics matter. The specialized uint8 LUT operation is uint8-only.
 
 Key features:
 
@@ -139,9 +139,8 @@ volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
 
 ## Functions
 
-The tables below highlight commonly used public routers. They are exported via `from albucore import *`. The
-compatibility shims in `albucore.functions` cover only the names documented in [docs/public-api.md](docs/public-api.md);
-`warp_affine3d` is intentionally public from `albucore` and `albucore.geometric` only.
+The tables below highlight public routers exported directly by `albucore`. Their implementations live in the
+operation modules listed in [docs/public-api.md](docs/public-api.md).
 
 NumPy image routers use channel-last inputs with an explicit channel dimension (`(H, W, C)`, never bare `(H, W)`). CPU Torch calls use channel-first layouts (`CHW`, `NCHW`, `CDHW`, `NCDHW`); pass `layout=` to common operations when channel semantics matter. Image routers support `uint8`, `float16`, and `float32`, except where a table states a narrower dtype contract.
 
@@ -149,35 +148,39 @@ NumPy image routers use channel-last inputs with an explicit channel dimension (
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `multiply` | `(img, value, inplace=False, *, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 scalar/vector → LUT; float16 HWC C=1 uses NumKong `scale` with `neonhalf=true` for exact half controls from 20,480 elements; C=3 uses OpenCV CV16F for exact half controls from 61,440 elements; other float16/float32 paths are benchmark-selected |
-| `add` | `(img, value, inplace=False, *, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 uses OpenCV/LUT/NumKong; float16 HWC C=1 uses NumKong `scale` with `neonhalf=true` for exact half controls from 20,480 elements; C=3 uses OpenCV CV16F for exact half controls from 61,440 elements; other float16/float32 paths are benchmark-selected |
-| `power` | `(img, exponent, inplace=False, *, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 → LUT; float32 scalar → `cv2.pow`; float16 scalar widens for OpenCV then restores half |
-| `add_weighted` | `(img1, weight1, img2, weight2, *, layout=None)` | Floating results preserve input dtype; uint8 saturates | NumKong is used for selected uint8/float32 regions; float16 uses a benchmark-selected CPU route |
-| `multiply_add` | `(img, factor, value, inplace=False, *, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 → LUT; float32 scalar → NumKong `scale`; float16 and other controls use measured NumPy/Torch paths |
+| `clip` | `(img, dtype=None, *, out=None)` | Saturate to the selected dtype range; dtype follows `out` or input when omitted | NumPy/Torch clipping; writes only to explicit `out` |
+| `multiply` | `(img, value, *, out=None, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 scalar/vector → LUT; float16 HWC C=1 uses NumKong `scale` with `neonhalf=true` for exact half controls from 20,480 elements; C=3 uses OpenCV CV16F for exact half controls from 61,440 elements; other float16/float32 paths are benchmark-selected |
+| `add` | `(img, value, *, out=None, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 uses OpenCV/LUT/NumKong; float16 HWC C=1 uses NumKong `scale` with `neonhalf=true` for exact half controls from 20,480 elements; C=3 uses OpenCV CV16F for exact half controls from 61,440 elements; other float16/float32 paths are benchmark-selected |
+| `power` | `(img, exponent, *, out=None, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 → LUT; float32 scalar → `cv2.pow`; float16 scalar widens for OpenCV then restores half |
+| `add_weighted` | `(img1, weight1, img2, weight2, *, out=None, layout=None)` | Floating results preserve input dtype; uint8 saturates | NumKong is used for selected uint8/float32 regions; float16 uses a benchmark-selected CPU route |
+| `multiply_add` | `(img, factor, value, *, out=None, layout=None)` | Floating results preserve input dtype; uint8 saturates | uint8 → LUT; float32 scalar → NumKong `scale`; float16 and other controls use measured NumPy/Torch paths |
 
 `value` / `factor` / `exponent` can be a scalar, a length-`C` 1-D array (per-channel), or a
 full image-shaped array.
 
-These arithmetic routers do not impose an image-range convention on floating-point data. The explicit
-`@clipped` decorator remains available for callers, including AlbumentationsX operations whose own
-contract requires clipping.
+These arithmetic routers do not impose an image-range convention on floating-point data. Without `out`, they do not
+write input storage; a supplied destination is returned by identity and may alias only where the operation allows it.
+Tensor calls that depend on channel semantics require `layout=`. All operations express dtype conversion, clipping,
+layout, and output ownership in their own signatures or bodies.
 
 ### Elementwise math
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `exp` | `(array, *, inplace=False)` | Elementwise exponential; float16/float32 preserve dtype, uint8 returns float32 | NumPy, OpenCV, or CPU Torch by dtype and measured region |
-| `log` | `(array, *, inplace=False)` | NumPy-compatible natural logarithm; float16/float32 preserve dtype, uint8 returns float32 | NumPy special values; guarded OpenCV or Torch paths for eligible regions |
-| `sqrt` | `(array, *, inplace=False)` | NumPy-compatible square root; float16/float32 preserve dtype, uint8 returns float32 | NumPy or CPU Torch by dtype and measured region |
+| `exp` | `(array, *, out=None)` | Elementwise exponential; float16/float32 preserve dtype, uint8 returns float32 | NumPy, OpenCV, or CPU Torch by dtype and measured region |
+| `log` | `(array, *, out=None)` | NumPy-compatible natural logarithm; float16/float32 preserve dtype, uint8 returns float32 | NumPy special values; guarded OpenCV or Torch paths for eligible regions |
+| `sqrt` | `(array, *, out=None)` | NumPy-compatible square root; float16/float32 preserve dtype, uint8 returns float32 | NumPy or CPU Torch by dtype and measured region |
 
-These functions preserve the input shape. With `inplace=True`, an owned writable buffer may be reused; views and read-only arrays are never mutated. See the [elementwise benchmark report](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) for routing thresholds, environment, and NumKong results.
+These functions preserve the input shape. Without `out`, they leave input data unchanged. Supply `out=destination`
+to reuse a writable result buffer; floating inputs may use `out=array`, including supported views. Uint8 input
+requires a float32 destination. AX owns any protective copy needed before writing shared storage. See the [elementwise benchmark report](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) for routing thresholds, environment, and NumKong results.
 
 ### Normalization
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `normalize` | `(img, mean, denominator, *, layout=None)` | Float16 input returns float16; uint8/float32 return float32 | uint8 → LUT; float16/float32 use benchmark-selected CPU paths. Caller-supplied constants (e.g. ImageNet stats). |
-| `normalize_per_image` | `(img, normalization, *, layout=None)` | Float16 input returns float16; uint8/float32 return float32 | uint8 → LUT; floating inputs use OpenCV/NumPy working paths. `normalization ∈ {"image", "image_per_channel", "min_max", "min_max_per_channel"}` |
+| `normalize` | `(img, mean, denominator, *, out=None, layout=None)` | Float16 input returns float16; uint8/float32 return float32 | uint8 → LUT; float16/float32 use benchmark-selected CPU paths. Caller-supplied constants (e.g. ImageNet stats). |
+| `normalize_per_image` | `(img, normalization, *, out=None, layout=None)` | Float16 input returns float16; uint8/float32 return float32 | uint8 → LUT; floating inputs use OpenCV/NumPy working paths. `normalization ∈ {"image", "image_per_channel", "min_max", "min_max_per_channel"}` |
 
 `normalize` is for **fixed** per-channel constants (ImageNet-style).
 `normalize_per_image` **estimates** stats from the image at call time.
@@ -198,8 +201,7 @@ These functions preserve the input shape. With `inplace=True`, an owned writable
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `apply_uint8_lut` | `(img, lut, *, inplace=False)` | Apply uint8→uint8 LUT; `lut` shape `(256,)` or `(C, 256)` | Shared `(256,)`: StringZilla or `cv2.LUT` by size heuristic. Per-channel `(C, 256)`: single `cv2.LUT` with `(256,1,C)` table on contiguous HWC; else StringZilla per channel |
-| `sz_lut` | `(img, lut, inplace=True)` | Apply shared `(256,)` uint8 LUT via StringZilla `translate` | Raw byte translation — channel-unaware, fastest for small images and single-channel |
+| `apply_uint8_lut` | `(img, lut, *, out=None, layout=None)` | Apply uint8→uint8 LUT; `lut` shape `(256,)` or `(256, 1, C)` | Shared `(256,)`: StringZilla byte translation. Per-channel `(256, 1, C)`: single `cv2.LUT` with `(256,1,C)` table on contiguous HWC; else StringZilla per channel |
 
 ### Geometric / spatial
 
@@ -222,17 +224,8 @@ The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `r
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `to_float` | `(img, max_value=None)` | Convert uint8 to float32 in [0, 1]; float16 and float32 are unchanged | float32/float16 → no-op; uint8 → `cv2.LUT` (256-entry float32 table) |
-| `from_float` | `(img, target_dtype, max_value=None)` | Convert floats to a target dtype; integer targets scale, round, and clip | Floating targets cast without scaling; NumPy float16→uint8 widens to float32 for exact rounding; float32→uint8 uses the routed fast path |
-
-### Decorators (re-exported)
-
-| Decorator | What it does |
-|---|---|
-| `float32_io` | Wrap a function: cast input to float32, cast output back to original dtype |
-| `uint8_io` | Wrap a function: cast input to uint8, cast output back to original dtype |
-
-See [docs/decorators.md](docs/decorators.md) for `@preserve_channel_dim` and `@clipped`.
+| `to_float` | `(img, max_value=None, *, out=None)` | Convert uint8 to float32 in [0, 1]; float16 and float32 are unchanged | float32/float16 → no-op; uint8 → `cv2.LUT` (256-entry float32 table) |
+| `from_float` | `(img, target_dtype, max_value=None, *, out=None)` | Convert floats to a target dtype; integer targets scale, round, and clip | Floating targets cast without scaling; NumPy float16→uint8 widens to float32 for exact rounding; float32→uint8 uses the routed fast path |
 
 ### Array layouts and batch processing
 
@@ -244,8 +237,6 @@ NumPy arithmetic, normalization, statistics, conversion, and elementwise routers
 
 Spatial routers document their own image-shape requirements. CPU Torch calls use `CHW`, `NCHW`, `CDHW`, or `NCDHW`. Pass keyword-only `layout=` to common operations when channel controls or reductions depend on the channel axis. Spatial APIs such as `resize` and `resize3d` define their layout by the operation.
 
-See [docs/decorators.md](docs/decorators.md) for internal decorator documentation (`@preserve_channel_dim`, `@clipped`).
-
 ## Performance
 
 Albucore uses a combination of techniques to achieve high performance:
@@ -253,7 +244,7 @@ Albucore uses a combination of techniques to achieve high performance:
 1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch when the documented contract permits it.
 2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
 3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
-4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add_array`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add(..., field)`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 5. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
@@ -265,11 +256,10 @@ See [docs/performance-optimization.md](docs/performance-optimization.md) for the
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Pull request process and CLA acceptance paths
 - [AGENTS.md](AGENTS.md) - AI development guidelines for working with this codebase
 - [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
-- [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
 - [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
 - [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) - Eager CPU PyTorch routing and benchmark guidance
 - [docs/numkong-performance.md](docs/numkong-performance.md) - Current NumKong routes and benchmark decisions
-- [docs/public-api.md](docs/public-api.md) - Star-exported routers vs `albucore.functions` shims
+- [docs/public-api.md](docs/public-api.md) - Public operations and their owning modules
 - [benchmarks/README.md](benchmarks/README.md) - Python micro-benchmarks (`uv run python benchmarks/…`)
 
 ## License

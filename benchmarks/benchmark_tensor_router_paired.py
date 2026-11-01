@@ -64,8 +64,8 @@ _FULL_VOLUME_SHAPES = (
     (48, 240, 320, 3),
 )
 _FULL_IMAGE_OPERANDS: dict[str, tuple[int, ...]] = {
-    "add_array": (0,),
-    "multiply_by_array": (0,),
+    "add_field": (0,),
+    "multiply_field": (0,),
     "add_weighted": (1,),
 }
 _UINT8_LUT = np.random.default_rng(7).permutation(256).astype(np.uint8)
@@ -99,9 +99,8 @@ class TensorRouterAdapter:
         self._operation = operation
         self._array_layout = array_layout
         self._tensors: dict[int, tuple[torch.Tensor, str]] = {}
-        self._base_shape = image.shape
         self._base_dtype = image.dtype
-        self._base_tensor = self._tensor_for(image)
+        self._tensor_for(image)
         self._float16_operands: dict[int, np.ndarray | None] = {}
 
     def _tensor_for(self, array: np.ndarray) -> tuple[torch.Tensor, str]:
@@ -127,14 +126,7 @@ class TensorRouterAdapter:
             accepts_layout = False
 
         def call(image: np.ndarray, *args: Any, **kwargs: Any) -> Any:
-            if (
-                self._operation == "sz_lut"
-                and image.shape == self._base_shape
-                and image.dtype == self._base_dtype
-            ):
-                tensor, layout = self._base_tensor
-            else:
-                tensor, layout = self._tensor_for(image)
+            tensor, layout = self._tensor_for(image)
 
             arguments = list(args)
             if self._operation == "apply_uint8_lut" and arguments:
@@ -143,7 +135,7 @@ class TensorRouterAdapter:
                 if index < len(arguments):
                     operand = arguments[index]
                     if isinstance(operand, np.ndarray) and operand.shape == image.shape:
-                        if self._operation == "multiply_by_array" and self._base_dtype == np.float16:
+                        if self._operation == "multiply_field" and self._base_dtype == np.float16:
                             operand = self._exact_float16_operand(operand)
                         arguments[index] = self._tensor_for(operand)[0]
             if accepts_layout:
@@ -160,11 +152,6 @@ def _tensor_builder(
     builder: Any,
     image: np.ndarray,
 ) -> Any:
-    if operation == "sz_lut":
-        tensor = _channel_first_tensor(image, _tensor_layout(operation, array_layout, image))
-        thunk = lambda: alb.sz_lut(tensor.clone(), _UINT8_LUT, inplace=True)
-        thunk()
-        return thunk
     adapter = TensorRouterAdapter(alb, operation, array_layout, image)
     thunk = builder(adapter, image)
     thunk()
@@ -392,12 +379,10 @@ def main() -> None:
     thread_settings = configure_libraries(torch, cv2, args.threads)
     skip_ops = router_bench._parse_skip_ops(args.skip_ops)
     import albucore as alb  # noqa: PLC0415
-    import albucore.functions as alb_fn  # noqa: PLC0415
     import albucore.geometric as alb_geo  # noqa: PLC0415
 
-    declared = getattr(alb_fn, "__all__", None)
-    export_names = set(declared if declared is not None else router_bench._FUNCTIONS_PUBLIC_ROUTERS_FALLBACK)
-    functions_all = list(declared if declared is not None else router_bench._FUNCTIONS_PUBLIC_ROUTERS_FALLBACK)
+    public_exports = list(alb.__all__)
+    export_names = set(public_exports)
     fn_reg = [(name, builder) for name, builder in router_bench._registry_functions() if name not in ("matmul", "pairwise_distances_squared")]
     stats_ops = {
         "mean",
@@ -409,7 +394,7 @@ def main() -> None:
         "mean_std_per_channel",
         "reduce_sum_per_channel",
     }
-    skip_uint8_only = {"apply_uint8_lut", "sz_lut"}
+    skip_uint8_only = {"apply_uint8_lut"}
     skip_float_only = {"from_float"}
     geometric = (
         [(name, builder) for name, builder in router_bench._registry_geometric() if name not in _VOLUME_OPS]
@@ -438,7 +423,7 @@ def main() -> None:
             half_image = None
 
         for op_name, builder in fn_reg:
-            if (op_name not in export_names and op_name not in stats_ops) or op_name in skip_ops:
+            if (router_bench._api_name(op_name) not in export_names and op_name not in stats_ops) or op_name in skip_ops:
                 continue
             if op_name in skip_uint8_only and dtype != np.uint8:
                 continue
@@ -557,7 +542,7 @@ def main() -> None:
         for op_name, builder in fn_reg:
             if op_name in ("matmul", "pairwise_distances_squared") or op_name in skip_ops:
                 continue
-            if op_name not in export_names and not op_name.endswith("_per_channel"):
+            if router_bench._api_name(op_name) not in export_names and not op_name.endswith("_per_channel"):
                 continue
             if op_name in skip_uint8_only and dtype != np.uint8:
                 continue
@@ -617,7 +602,7 @@ def main() -> None:
             "volume_repeats": args.volume_repeats,
             "volume_warmup": args.volume_warmup,
             "float16_control_preparation": "exact-half full-array controls are cast once before timing",
-            "functions_all": functions_all,
+            "public_exports": public_exports,
             "geometric_all": list(alb_geo.__all__),
             "batch_shapes": [
                 (4, height, width, channels)
