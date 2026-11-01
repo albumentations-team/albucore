@@ -64,7 +64,7 @@ def test_add_weighted_float16_preserves_wide_accumulation_on_large_cancellation(
 
 
 def test_add_weighted_float16_numkong_half_route_matches_binary16_domain(monkeypatch) -> None:
-    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON", True)
     calls: list[tuple[float, float]] = []
     original_numkong = weighted._blend_numkong
 
@@ -100,7 +100,7 @@ def test_add_weighted_float16_numkong_half_route_matches_binary16_domain(monkeyp
 
 
 def test_add_weighted_float16_numkong_route_skips_other_weights(monkeypatch) -> None:
-    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON", True)
 
     def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
         msg = "NumKong float16 blend is enabled only for the measured half-exact 0.5/0.5 weights."
@@ -128,7 +128,7 @@ def test_add_weighted_float16_numkong_tensor_route_preserves_layout(
     channels: int,
     output_mode: str,
 ) -> None:
-    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON", True)
     calls: list[tuple[float, float]] = []
     original_numkong = weighted._blend_numkong
 
@@ -174,7 +174,7 @@ def test_add_weighted_float16_numkong_tensor_route_preserves_layout(
 
 
 def test_add_weighted_float16_numkong_half_route_matches_all_non_nan_patterns(monkeypatch) -> None:
-    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON", True)
     bits = np.arange(1 << 16, dtype=np.uint16)
     exponent = bits & np.uint16(0x7C00)
     mantissa = bits & np.uint16(0x03FF)

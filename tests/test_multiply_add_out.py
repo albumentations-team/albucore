@@ -111,7 +111,7 @@ def test_multiply_add_identity_preserves_float32_bits(container):
 @pytest.mark.parametrize("shape", [(256, 256, 1), (4, 256, 256, 1)])
 @pytest.mark.parametrize("output_mode", ["allocate", "alias", "output"])
 def test_multiply_add_half_two_rounding_for_every_encoding(monkeypatch, shape, output_mode):
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
     image = np.resize(np.arange(1 << 16, dtype=np.uint16), shape).view(np.float16)
     original = image.view(np.uint16).copy()
     with np.errstate(all="ignore"):
@@ -167,7 +167,7 @@ def test_multiply_add_reads_input_control_alias_before_writing(dtype, container,
 
 
 def test_multiply_add_half_alias_preserves_source_for_wide_bias_fallback(monkeypatch):
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
     image = np.array([0.5, 1, 1.5], dtype=np.float16).reshape(1, 3, 1)
     bias = np.full(image.shape, 1e40, dtype=np.float64)
     with np.errstate(over="ignore"):
@@ -178,7 +178,7 @@ def test_multiply_add_half_alias_preserves_source_for_wide_bias_fallback(monkeyp
 
 
 def test_multiply_add_half_alias_keeps_invalid_error_on_wide_bias_fallback(monkeypatch):
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
     image = np.array([0x7C01, 0x3800], dtype=np.uint16).view(np.float16).reshape(1, 2, 1)
     original = image.view(np.uint16).copy()
     with np.errstate(invalid="raise"), pytest.raises(FloatingPointError, match="invalid"):

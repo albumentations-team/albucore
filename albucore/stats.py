@@ -13,11 +13,11 @@ from albucore._types import ImageType
 from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
 from albucore.torch_backend import reduce_sum_torch
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, get_opencv_max_channels
-from albucore.weighted import _NUMKONG_NEON_HALF
 
 DEFAULT_EPS = 1e-4
 # Tiny relative variance makes E[x²] - E[x]² unreliable for half moments.
 _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-4
+_NUMKONG_NEON_HALF = bool(nk.get_capabilities().get("neonhalf", False))
 # Host NEON-half NumKong moments reported a 1.68e-4 relative variance for constant 0.575 inputs.
 _NUMKONG_FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-2
 _NUMKONG_FLOAT16_HWC_STATS_MIN_ELEMENTS = 20_480

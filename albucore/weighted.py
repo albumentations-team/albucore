@@ -13,7 +13,7 @@ from albucore._types import ImageArrayT, ImageType, TensorLayout
 from albucore.tensor_bridge import _CHANNEL_LAST_TO_TENSOR, tensor_to_numpy_channel_last
 from albucore.utils import get_num_channels, get_opencv_max_channels
 
-_NUMKONG_NEON_HALF = bool(nk.get_capabilities().get("neonhalf", False))
+_NUMKONG_NEON = bool(nk.get_capabilities().get("neon", False))
 _NUMKONG_HALF_BLEND_MIN_ELEMENTS = 20_480
 _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 
@@ -94,7 +94,7 @@ def _blend_array(
         return img1 if out is None else out
     if img1.dtype == np.float16:
         if (
-            _NUMKONG_NEON_HALF
+            _NUMKONG_NEON
             and img1.flags.c_contiguous
             and img2.flags.c_contiguous
             and img1.size >= _NUMKONG_HALF_BLEND_MIN_ELEMENTS
@@ -240,7 +240,7 @@ def add_weighted(
     if isinstance(img1, torch.Tensor):
         second_tensor = cast("torch.Tensor", img2)
         if (
-            _NUMKONG_NEON_HALF
+            _NUMKONG_NEON
             and img1.dtype == torch.float16
             and img1.is_contiguous()
             and second_tensor.is_contiguous()
