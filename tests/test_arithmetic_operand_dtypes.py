@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from albucore import add, multiply, multiply_add, power
-from albucore.arithmetic import _prepare_numpy_value, apply_numpy, multiply_add_numpy
+from albucore.arithmetic import _apply_numpy, _prepare_numpy_value, _multiply_add_numpy
 
 PUBLIC_OPERATIONS: dict[str, Callable[[np.ndarray, np.ndarray | float], np.ndarray]] = {
     "add": add,
@@ -33,7 +33,7 @@ def test_float32_arithmetic_avoids_copy_for_compatible_operand_dtypes(
     img = np.linspace(0.1, 0.7, np.prod(shape), dtype=np.float32).reshape(shape)
     operand = np.full(shape, 1, dtype=dtype)
 
-    result = apply_numpy(img, operand, operation)  # type: ignore[arg-type]
+    result = _apply_numpy(img, operand, operation)  # type: ignore[arg-type]
     expected = getattr(np, operation)(img, operand)
 
     assert result.dtype == np.float32
@@ -50,7 +50,7 @@ def test_float32_arithmetic_preserves_finite_float64_operands_outside_float32_ra
     assert np.isfinite(operand).all()
     assert np.isinf(narrowed_operand).all()
 
-    result = apply_numpy(img, operand, operation)
+    result = _apply_numpy(img, operand, operation)
     with np.errstate(over="ignore"):
         expected = getattr(np, operation)(img, operand).astype(np.float32)
 
@@ -71,7 +71,7 @@ def test_float32_arithmetic_preserves_finite_scalars_outside_float32_range(
     img = np.array([0.0, 1e-40, 0.5, 1.0], dtype=np.float32).reshape(2, 2, 1)
     operand_float64 = np.float64(operand)
 
-    result = apply_numpy(img, operand, operation)
+    result = _apply_numpy(img, operand, operation)
     with np.errstate(over="ignore"):
         expected = getattr(np, operation)(img, operand_float64).astype(np.float32)
 
@@ -90,7 +90,7 @@ def test_float32_multiply_add_avoids_copy_for_compatible_operand_dtypes(dtype: t
     factor = np.full(shape, 1, dtype=dtype)
     value = np.full(shape, 0, dtype=dtype)
 
-    result = multiply_add_numpy(img, factor, value)
+    result = _multiply_add_numpy(img, factor, value)
 
     assert _prepare_numpy_value(factor) is factor
     assert _prepare_numpy_value(value) is value
@@ -102,7 +102,7 @@ def test_float32_multiply_add_preserves_finite_float64_operand_outside_float32_r
     img = np.array([0.0, 1e-40, 0.5, 1.0], dtype=np.float32).reshape(2, 2, 1)
     factor = np.full(img.shape, 1e40, dtype=np.float64)
 
-    result = multiply_add_numpy(img, factor, 0.0)
+    result = _multiply_add_numpy(img, factor, 0.0)
     with np.errstate(over="ignore"):
         expected = np.multiply(img, factor).astype(np.float32)
 
@@ -121,7 +121,7 @@ def test_float32_multiply_add_preserves_finite_scalar_outside_float32_range(
     img = np.array([0.0, 1e-40, 0.5, 1.0], dtype=np.float32).reshape(2, 2, 1)
     factor_float64 = np.float64(factor)
 
-    result = multiply_add_numpy(img, factor, 0.0)  # type: ignore[arg-type]
+    result = _multiply_add_numpy(img, factor, 0.0)  # type: ignore[arg-type]
     with np.errstate(over="ignore"):
         expected = np.multiply(img, factor_float64).astype(np.float32)
 
@@ -170,7 +170,7 @@ def test_float32_arithmetic_normalizes_float64_operands(
         assert isinstance(operand, np.ndarray)
         assert not operand.flags.c_contiguous
 
-    result = apply_numpy(img, operand, operation)  # type: ignore[arg-type]
+    result = _apply_numpy(img, operand, operation)  # type: ignore[arg-type]
     operand_float32 = np.asarray(operand, dtype=np.float32)
     expected = getattr(np, operation)(img, operand_float32)
 
@@ -198,7 +198,7 @@ def test_float32_multiply_add_normalizes_float64_operands(
     factor = operand if parameter == "factor" else 0.5
     value = operand if parameter == "value" else 0.1
 
-    result = multiply_add_numpy(img, factor, value)  # type: ignore[arg-type]
+    result = _multiply_add_numpy(img, factor, value)  # type: ignore[arg-type]
     expected = np.multiply(img, np.asarray(factor, dtype=np.float32))
     expected = np.add(expected, np.asarray(value, dtype=np.float32))
 

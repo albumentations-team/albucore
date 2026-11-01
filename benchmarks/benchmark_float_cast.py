@@ -20,9 +20,8 @@ import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from albucore import exp, from_float, median_blur, normalize_per_image, resize
+from albucore import exp, from_float, median_blur, normalize_per_image, power, resize
 from albucore._float_cast import _numkong_cast_preserves_numpy_errors
-from albucore.functions import power_opencv
 
 
 def measure(calls, repeats):
@@ -78,7 +77,7 @@ def router_rows(rng, repeats):
             "median3": partial(median_blur, ksize=3),
             "normalize_image": partial(normalize_per_image, normalization="image"),
             "exp": exp,
-            "power_opencv": partial(power_opencv, value=1.3),
+            "power": partial(power, exponent=1.3),
         }
         for name, operation in operations.items():
             calls = {

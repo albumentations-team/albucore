@@ -44,6 +44,10 @@ requires an updated decision before merge. Runtime dependencies are installed
 separately from Albucore's wheel and sdist; retain upstream notices when
 redistributing a combined environment.
 
+If a package's SPDX expression changes between versions, record each changed
+expression under `version_license_expressions`. SBOM enrichment uses the
+expression selected by the exact locked package version.
+
 ## Contributions
 
 Contributors must have the rights needed to submit a change under the CLA. The

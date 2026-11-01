@@ -9,16 +9,10 @@ import torch
 from numpy.typing import DTypeLike, NDArray
 
 from albucore._float_cast import _cast_float_numpy
+from albucore._types import ImageType
 from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
 from albucore.torch_backend import reduce_sum_torch
-from albucore.utils import (
-    MAX_OPENCV_WORKING_CHANNELS,
-    ImageFloat16,
-    ImageFloat32,
-    ImageType,
-    ImageUInt8,
-    get_opencv_max_channels,
-)
+from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, get_opencv_max_channels
 from albucore.weighted import _NUMKONG_NEON_HALF
 
 DEFAULT_EPS = 1e-4
@@ -68,11 +62,11 @@ _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.generic)
 __all__ = ["DEFAULT_EPS", "mean", "mean_std", "reduce_sum", "std"]
 
 
-def _is_uint8_image(arr: ImageType) -> TypeGuard[ImageUInt8]:
+def _is_uint8_image(arr: ImageType) -> TypeGuard[NDArray[np.uint8]]:
     return arr.dtype == np.uint8
 
 
-def _is_float32_image(arr: ImageType) -> TypeGuard[ImageFloat32]:
+def _is_float32_image(arr: ImageType) -> TypeGuard[NDArray[np.float32]]:
     return arr.dtype == np.float32
 
 
@@ -137,7 +131,7 @@ def _cv2_reduce_mean_per_channel(arr: np.ndarray) -> np.ndarray:
     return np.asarray(cv2.reduce(flat, 0, cv2.REDUCE_AVG, dtype=cv2.CV_64F).reshape(-1), dtype=np.float64)
 
 
-def _reduce_sum_global_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.uint64 | np.ndarray:
+def _reduce_sum_global_uint8(arr: NDArray[np.uint8], *, keepdims: bool) -> np.uint64 | np.ndarray:
     torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
     if torch_result is not None:
         return cast("np.uint64 | np.ndarray", torch_result)
@@ -147,7 +141,7 @@ def _reduce_sum_global_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.uint64 | 
     return out
 
 
-def _reduce_sum_global_float32(arr: ImageFloat32, *, keepdims: bool) -> np.float64 | np.ndarray:
+def _reduce_sum_global_float32(arr: NDArray[np.float32], *, keepdims: bool) -> np.float64 | np.ndarray:
     torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
     if torch_result is not None:
         return cast("np.float64 | np.ndarray", torch_result)
@@ -157,7 +151,7 @@ def _reduce_sum_global_float32(arr: ImageFloat32, *, keepdims: bool) -> np.float
     return out
 
 
-def _reduce_sum_per_channel_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.ndarray:
+def _reduce_sum_per_channel_uint8(arr: NDArray[np.uint8], *, keepdims: bool) -> np.ndarray:
     axes = _per_channel_spatial_axes(arr)
     c = arr.shape[-1]
     n_spatial = arr.size // c
@@ -170,7 +164,7 @@ def _reduce_sum_per_channel_uint8(arr: ImageUInt8, *, keepdims: bool) -> np.ndar
     return result
 
 
-def _reduce_sum_per_channel_float32(arr: ImageFloat32, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
+def _reduce_sum_per_channel_float32(arr: NDArray[np.float32], axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
     """Per-channel sum for float32: nk.sum for ndim ≤ 4 and 1 < C ≤ 4 (4x faster than numpy), numpy otherwise."""
     c = arr.shape[-1]
     if c <= MAX_OPENCV_WORKING_CHANNELS:
@@ -309,7 +303,7 @@ def _reduce_sum_numpy(
 
 @overload
 def reduce_sum(
-    arr: ImageUInt8,
+    arr: NDArray[np.uint8],
     axis: _GlobalAxis = None,
     *,
     keepdims: Literal[False] = False,
@@ -319,7 +313,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageUInt8,
+    arr: NDArray[np.uint8],
     axis: AxisSpec = None,
     *,
     keepdims: Literal[True],
@@ -329,7 +323,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageUInt8,
+    arr: NDArray[np.uint8],
     axis: Literal["per_channel"],
     *,
     keepdims: bool = False,
@@ -339,7 +333,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageUInt8,
+    arr: NDArray[np.uint8],
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
@@ -349,7 +343,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageFloat16 | ImageFloat32,
+    arr: NDArray[np.float16] | NDArray[np.float32],
     axis: _GlobalAxis = None,
     *,
     keepdims: Literal[False] = False,
@@ -359,7 +353,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageFloat16 | ImageFloat32,
+    arr: NDArray[np.float16] | NDArray[np.float32],
     axis: AxisSpec = None,
     *,
     keepdims: Literal[True],
@@ -369,7 +363,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageFloat16 | ImageFloat32,
+    arr: NDArray[np.float16] | NDArray[np.float32],
     axis: Literal["per_channel"],
     *,
     keepdims: bool = False,
@@ -379,7 +373,7 @@ def reduce_sum(
 
 @overload
 def reduce_sum(
-    arr: ImageFloat16 | ImageFloat32,
+    arr: NDArray[np.float16] | NDArray[np.float32],
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
@@ -486,7 +480,7 @@ def reduce_sum(
     return result
 
 
-def _global_mean_std_uint8(arr: ImageUInt8, eps: float) -> tuple[float, float]:
+def _global_mean_std_uint8(arr: NDArray[np.uint8], eps: float) -> tuple[float, float]:
     s_sum, s_sq = nk.moments(arr)
     n = arr.size
     mean = float(s_sum) / n
@@ -494,7 +488,7 @@ def _global_mean_std_uint8(arr: ImageUInt8, eps: float) -> tuple[float, float]:
     return mean, float(np.sqrt(var)) + eps
 
 
-def _global_mean_uint8_only(arr: ImageUInt8) -> float:
+def _global_mean_uint8_only(arr: NDArray[np.uint8]) -> float:
     """Global mean only: ``nk.sum`` / N (single reduction, no moments/sqrt work)."""
     return float(nk.sum(arr)) / arr.size
 
@@ -506,7 +500,7 @@ def _mean_std_per_channel_float64(arr: ImageType, eps: float) -> tuple[np.ndarra
     return mean_values, std_values
 
 
-def _mean_std_per_channel_float32(arr: ImageFloat32, eps: float) -> tuple[np.ndarray, np.ndarray]:
+def _mean_std_per_channel_float32(arr: NDArray[np.float32], eps: float) -> tuple[np.ndarray, np.ndarray]:
     c = arr.shape[-1]
     if arr.ndim == 3 and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         means, stds = cv2.meanStdDev(arr)
@@ -806,7 +800,7 @@ def _mean_std_per_channel(
     return m, st
 
 
-def _mean_per_channel_uint8(arr: ImageUInt8, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
+def _mean_per_channel_uint8(arr: NDArray[np.uint8], axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
     """Per-channel mean for uint8 via nk.sum — fastest for all shapes and channel counts."""
     n_spatial = arr.size // arr.shape[-1]
     c = arr.shape[-1]
@@ -922,7 +916,7 @@ def _std_per_channel(
 
 @overload
 def mean_std(
-    arr: ImageFloat32,
+    arr: NDArray[np.float32],
     axis: _GlobalAxis = None,
     *,
     keepdims: Literal[False] = False,
@@ -933,7 +927,7 @@ def mean_std(
 
 @overload
 def mean_std(
-    arr: ImageUInt8 | ImageFloat16,
+    arr: NDArray[np.uint8] | NDArray[np.float16],
     axis: _GlobalAxis = None,
     *,
     keepdims: Literal[False] = False,
@@ -1059,7 +1053,7 @@ def mean_std(
 
 @overload
 def mean(
-    arr: ImageUInt8,
+    arr: NDArray[np.uint8],
     axis: _GlobalAxis = None,
     *,
     keepdims: Literal[False] = False,
@@ -1070,7 +1064,7 @@ def mean(
 
 @overload
 def mean(
-    arr: ImageFloat16 | ImageFloat32,
+    arr: NDArray[np.float16] | NDArray[np.float32],
     axis: _GlobalAxis = None,
     *,
     keepdims: Literal[False] = False,

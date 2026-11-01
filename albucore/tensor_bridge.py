@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from functools import partial, wraps
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import numpy as np
@@ -11,7 +10,7 @@ import torch
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from albucore.utils import ImageInput, TensorLayout, _DtypePreservingFunction, _LayoutBoundFunction
+from albucore._types import TensorLayout
 
 __all__ = ["TensorLayout"]
 
@@ -70,9 +69,6 @@ def dispatch_tensor_image(
 ) -> torch.Tensor:
     """Call an existing channel-last router and restore an image result to the input layout."""
     image_view = tensor_to_numpy_channel_last(image, layout)
-    router_kwargs = kwargs.copy()
-    if kwargs.get("inplace") is True and not image_view.flags.c_contiguous:
-        router_kwargs["inplace"] = False
     if layout in ("NCHW", "NCDHW"):
         batch_sources = []
         batch_results = []
@@ -92,7 +88,7 @@ def dispatch_tensor_image(
                 and value.ndim == image_view.ndim
                 and value.shape[0] == image_view.shape[0]
                 else value
-                for name, value in router_kwargs.items()
+                for name, value in kwargs.items()
             }
             item_result = numpy_router(image_item, *item_args, **item_kwargs)
             batch_results.append(item_result)
@@ -119,29 +115,13 @@ def dispatch_tensor_image(
             raise TypeError(msg)
         result = np.stack(batch_results)
     else:
-        result = numpy_router(image_view, *args, **router_kwargs)
+        result = numpy_router(image_view, *args, **kwargs)
     if result is image_view:
         return image
     if not isinstance(result, np.ndarray):
         msg = "An image Tensor router must return an ndarray."
         raise TypeError(msg)
     return numpy_to_tensor_layout(result, cast("TensorLayout", layout))
-
-
-def _bind_tensor_layout(numpy_router: Callable[..., ImageInput], layout: TensorLayout) -> _LayoutBoundFunction[Any]:
-    @wraps(numpy_router, updated=())
-    def wrapped(img: ImageInput, *args: Any, **kwargs: Any) -> ImageInput:
-        if isinstance(img, torch.Tensor):
-            return dispatch_tensor_image(img, layout, numpy_router, *args, **kwargs)
-        return numpy_router(img, *args, **kwargs)
-
-    return cast("_LayoutBoundFunction[Any]", wrapped)
-
-
-def _with_tensor_layout(func: Callable[..., ImageInput]) -> _DtypePreservingFunction[Any]:
-    wrapped = cast("_DtypePreservingFunction[Any]", func)
-    wrapped.with_layout = partial(_bind_tensor_layout, func)
-    return wrapped
 
 
 def _tensor_reduction_axes_to_numpy(axis: Any, layout: TensorLayout) -> Any:

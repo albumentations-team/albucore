@@ -20,7 +20,7 @@ from albucore.sampling3d import (
 )
 
 if TYPE_CHECKING:
-    from albucore.utils import ImageArrayT
+    from albucore._types import ImageArrayT
 
 __all__ = ["warp_affine3d"]
 

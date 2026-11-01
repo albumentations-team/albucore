@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare NumKong-backed paths against **other albucore backends** (OpenCV, NumPy, LUT),
+"""Compare NumKong-backed paths against **other albucore backends** (OpenCV and NumPy),
 not raw NumPy in isolation — same spirit as production routing (pick the fastest known path).
 
 Requires OpenCV (e.g. ``uv sync --extra headless``).
@@ -17,12 +17,7 @@ import numpy as np
 from shape_grids import TARGETED_BATCH_NHWC, TARGETED_HWC_HW
 from timing import median_ms
 
-from albucore.functions import (
-    add_weighted_lut,
-    add_weighted_numkong,
-    add_weighted_numpy,
-    add_weighted_opencv,
-)
+from albucore.weighted import _blend_numkong, _blend_numpy, _blend_opencv
 from albucore.stats import mean_std
 
 
@@ -41,6 +36,14 @@ def per_channel_stats_numkong(x: np.ndarray, eps: float) -> None:
         float(np.sqrt(var)) + eps
 
 
+
+def weighted_numpy_uint8(img1: np.ndarray, weight1: float, img2: np.ndarray, weight2: float) -> np.ndarray:
+    result = _blend_numpy(img1, weight1, img2, weight2)
+    np.rint(result, out=result)
+    np.clip(result, 0, 255, out=result)
+    return result.astype(np.uint8)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--repeats", type=int, default=9)
@@ -53,27 +56,26 @@ def main() -> None:
     channels = [1, 3, 9]
     w1, w2 = 0.5, 0.5
 
-    print("# Albucore backends: NumKong vs OpenCV / NumPy / LUT")
+    print("# Albucore backends: NumKong vs OpenCV / NumPy")
     print()
-    print("Median ms; **fastest alt** = min(OpenCV, NumPy, [LUT for uint8]).")
+    print("Median ms; **fastest alt** = min(OpenCV, NumPy).")
     print()
 
     # --- add_weighted uint8 ---
     print("## `add_weighted` — uint8 (weights 0.5 / 0.5)")
     print()
-    print("| H×W | C | pixels | NumKong | OpenCV | NumPy | LUT | fastest alt | NK vs best alt |")
-    print("|-----|---|--------|--------:|-------:|------:|----:|------------:|---------------:|")
+    print("| H×W | C | pixels | NumKong | OpenCV | NumPy | fastest alt | NK vs best alt |")
+    print("|-----|---|--------|--------:|-------:|------:|------------:|---------------:|")
     for h, w in sizes:
         for c in channels:
             img1 = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
             img2 = rng.integers(0, 256, size=(h, w, c), dtype=np.uint8)
 
-            t_nk = median_ms(lambda: add_weighted_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
-            t_cv = median_ms(lambda: add_weighted_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
-            t_np = median_ms(lambda: add_weighted_numpy(img1, w1, img2, w2), args.repeats, args.warmup)
-            t_lut = median_ms(lambda: add_weighted_lut(img1, w1, img2, w2), args.repeats, args.warmup)
+            t_nk = median_ms(lambda: _blend_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
+            t_cv = median_ms(lambda: _blend_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
+            t_np = median_ms(lambda: weighted_numpy_uint8(img1, w1, img2, w2), args.repeats, args.warmup)
 
-            alts = {"OpenCV": t_cv, "NumPy": t_np, "LUT": t_lut}
+            alts = {"OpenCV": t_cv, "NumPy": t_np}
             best_name = min(alts, key=alts.get)
             best_t = alts[best_name]
             if t_nk <= best_t:
@@ -81,13 +83,13 @@ def main() -> None:
             else:
                 vs = f"{best_name} {t_nk / best_t:.2f}× faster than NK"
             print(
-                f"| {h}×{w} | {c} | {h * w * c} | {t_nk:.4f} | {t_cv:.4f} | {t_np:.4f} | {t_lut:.4f} | "
+                f"| {h}×{w} | {c} | {h * w * c} | {t_nk:.4f} | {t_cv:.4f} | {t_np:.4f} | "
                 f"{best_name} ({best_t:.4f}) | {vs} |",
             )
     print()
 
     # --- add_weighted float32 ---
-    print("## `add_weighted` — float32 (weights 0.5 / 0.5; no LUT)")
+    print("## `add_weighted` — float32 (weights 0.5 / 0.5)")
     print()
     print("| H×W | C | pixels | NumKong | OpenCV | NumPy | fastest alt | NK vs best alt |")
     print("|-----|---|--------|--------:|-------:|------:|------------:|---------------:|")
@@ -96,9 +98,9 @@ def main() -> None:
             img1 = rng.random((h, w, c), dtype=np.float32)
             img2 = rng.random((h, w, c), dtype=np.float32)
 
-            t_nk = median_ms(lambda: add_weighted_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
-            t_cv = median_ms(lambda: add_weighted_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
-            t_np = median_ms(lambda: add_weighted_numpy(img1, w1, img2, w2), args.repeats, args.warmup)
+            t_nk = median_ms(lambda: _blend_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
+            t_cv = median_ms(lambda: _blend_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
+            t_np = median_ms(lambda: _blend_numpy(img1, w1, img2, w2), args.repeats, args.warmup)
 
             alts = {"OpenCV": t_cv, "NumPy": t_np}
             best_name = min(alts, key=alts.get)
@@ -121,17 +123,16 @@ def main() -> None:
     print()
     print("### uint8")
     print()
-    print("| N×H×W | C | pixels | NumKong | OpenCV | NumPy | LUT | fastest alt | NK vs best alt |")
-    print("|-------|---|--------|--------:|-------:|------:|----:|------------:|---------------:|")
+    print("| N×H×W | C | pixels | NumKong | OpenCV | NumPy | fastest alt | NK vs best alt |")
+    print("|-------|---|--------|--------:|-------:|------:|------------:|---------------:|")
     for c in channels:
         img1 = rng.integers(0, 256, size=(nb, hb, wb, c), dtype=np.uint8)
         img2 = rng.integers(0, 256, size=(nb, hb, wb, c), dtype=np.uint8)
         npx = nb * hb * wb * c
-        t_nk = median_ms(lambda: add_weighted_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
-        t_cv = median_ms(lambda: add_weighted_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
-        t_np = median_ms(lambda: add_weighted_numpy(img1, w1, img2, w2), args.repeats, args.warmup)
-        t_lut = median_ms(lambda: add_weighted_lut(img1, w1, img2, w2), args.repeats, args.warmup)
-        alts = {"OpenCV": t_cv, "NumPy": t_np, "LUT": t_lut}
+        t_nk = median_ms(lambda: _blend_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
+        t_cv = median_ms(lambda: _blend_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
+        t_np = median_ms(lambda: weighted_numpy_uint8(img1, w1, img2, w2), args.repeats, args.warmup)
+        alts = {"OpenCV": t_cv, "NumPy": t_np}
         best_name = min(alts, key=alts.get)
         best_t = alts[best_name]
         if t_nk <= best_t:
@@ -139,11 +140,11 @@ def main() -> None:
         else:
             vs = f"{best_name} {t_nk / best_t:.2f}× faster than NK"
         print(
-            f"| {nb}×{hb}×{wb} | {c} | {npx} | {t_nk:.4f} | {t_cv:.4f} | {t_np:.4f} | {t_lut:.4f} | "
+            f"| {nb}×{hb}×{wb} | {c} | {npx} | {t_nk:.4f} | {t_cv:.4f} | {t_np:.4f} | "
             f"{best_name} ({best_t:.4f}) | {vs} |",
         )
     print()
-    print("### float32 (no LUT)")
+    print("### float32")
     print()
     print("| N×H×W | C | pixels | NumKong | OpenCV | NumPy | fastest alt | NK vs best alt |")
     print("|-------|---|--------|--------:|-------:|------:|------------:|---------------:|")
@@ -151,9 +152,9 @@ def main() -> None:
         img1 = rng.random((nb, hb, wb, c), dtype=np.float32)
         img2 = rng.random((nb, hb, wb, c), dtype=np.float32)
         npx = nb * hb * wb * c
-        t_nk = median_ms(lambda: add_weighted_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
-        t_cv = median_ms(lambda: add_weighted_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
-        t_np = median_ms(lambda: add_weighted_numpy(img1, w1, img2, w2), args.repeats, args.warmup)
+        t_nk = median_ms(lambda: _blend_numkong(img1, w1, img2, w2), args.repeats, args.warmup)
+        t_cv = median_ms(lambda: _blend_opencv(img1, w1, img2, w2), args.repeats, args.warmup)
+        t_np = median_ms(lambda: _blend_numpy(img1, w1, img2, w2), args.repeats, args.warmup)
         alts = {"OpenCV": t_cv, "NumPy": t_np}
         best_name = min(alts, key=alts.get)
         best_t = alts[best_name]

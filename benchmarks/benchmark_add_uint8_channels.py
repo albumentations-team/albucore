@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-``add_constant`` uint8: compare **OpenCV** (scalar if C<=4 else ``np.full`` + cv2), **LUT**/stringzilla,
-**NumKong** ``nk.scale``, **NumPy** saturated int16 add, and the production saturating ``add_constant`` router.
+``add`` uint8: compare **OpenCV** (scalar if C<=4 else ``np.full`` + cv2), **LUT**/stringzilla,
+**NumKong** ``nk.scale``, **NumPy** saturated int16 add, and the production saturating ``add`` router.
 
 Sweep C in 5..9 at several spatial sizes. Production uses OpenCV scalar/tensor preparation for every channel count
-(see ``albucore.arithmetic.add_constant``).
+(see ``albucore.arithmetic.add``).
 
 Run from repo root::
 
-    uv run python benchmarks/benchmark_add_constant_uint8_channels.py --repeats 41 --warmup 12
+    uv run python benchmarks/benchmark_add_uint8_channels.py --repeats 41 --warmup 12
 """
 
 from __future__ import annotations
@@ -20,8 +20,8 @@ import numpy as np
 from shape_grids import SQUARE_BASE_HW
 from timing import bench_wall_ms
 
-from albucore.arithmetic import add_constant, add_lut, add_opencv
-from albucore.weighted import add_constant_numkong
+from albucore.arithmetic import add, _apply_lut, _add_uint8_opencv
+from albucore.arithmetic import _scale_numkong
 
 
 def numpy_uint8_add_constant(img: np.ndarray, scalar: int) -> np.ndarray:
@@ -41,7 +41,7 @@ def main() -> None:
     channels = list(range(5, 10))
 
     print(
-        "| H×W | C | OpenCV | LUT | NumKong | NumPy | `add_constant` | fastest |",
+        "| H×W | C | OpenCV | LUT | NumKong | NumPy | `add` | fastest |",
     )
     print("|-----|---|-------:|----:|--------:|------:|---------------:|---------|")
     for h, w in SQUARE_BASE_HW:
@@ -50,15 +50,15 @@ def main() -> None:
 
             def run_cv() -> None:
                 x = np.ascontiguousarray(base.copy())
-                add_opencv(x, scalar)
+                _add_uint8_opencv(x, scalar)
 
             def run_lut() -> None:
                 x = np.ascontiguousarray(base.copy())
-                add_lut(x, scalar)
+                _apply_lut(x, scalar, 'add')
 
             def run_nk() -> None:
                 x = np.ascontiguousarray(base.copy())
-                add_constant_numkong(x, float(scalar))
+                _scale_numkong(x, 1.0, float(scalar))
 
             def run_np() -> None:
                 x = base.copy()
@@ -66,17 +66,17 @@ def main() -> None:
 
             def run_wrap() -> None:
                 x = np.ascontiguousarray(base.copy())
-                add_constant(x, float(scalar))
+                add(x, float(scalar))
 
-            ref = add_opencv(np.ascontiguousarray(base.copy()), scalar)
+            ref = _add_uint8_opencv(np.ascontiguousarray(base.copy()), scalar)
             for name, fn in [
                 ("LUT", run_lut),
                 ("NumKong", run_nk),
                 ("NumPy", run_np),
             ]:
                 got = {
-                    "LUT": add_lut(np.ascontiguousarray(base.copy()), scalar),
-                    "NumKong": add_constant_numkong(np.ascontiguousarray(base.copy()), float(scalar)),
+                    "LUT": _apply_lut(np.ascontiguousarray(base.copy()), scalar, 'add'),
+                    "NumKong": _scale_numkong(np.ascontiguousarray(base.copy()), 1.0, float(scalar)),
                     "NumPy": numpy_uint8_add_constant(base.copy(), scalar),
                 }[name]
                 if not np.array_equal(ref, got):
@@ -103,7 +103,7 @@ def main() -> None:
 
     print()
     print(
-        "Production uint8 `add_constant`: **C≤4** → OpenCV; **C≥5** → NumKong (wrapper ≈ NumKong ms for C≥5). "
+        "Production uint8 `add`: **C≤4** → OpenCV; **C≥5** → NumKong (wrapper ≈ NumKong ms for C≥5). "
         "This table still compares all backends for the same shapes."
     )
 

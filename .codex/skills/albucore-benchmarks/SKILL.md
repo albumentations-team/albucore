@@ -10,11 +10,30 @@ Before designing a performance comparison, read `../performance-optimization/SKI
 candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random
 generation.
 
+Use Python 3.11 and the latest stable third-party releases compatible with Python 3.11 and the target platform for
+acceptance benchmarks. The recorded 2026-10-31 profile includes PyTorch 2.15.0 (`2.15.0+cpu` on Linux), NumPy 2.4.6,
+OpenCV 5.0.0.93, NumKong 7.8.6, and StringZilla 5.3.2. Re-resolve and record all package versions and imported source
+paths before each acceptance run. `uv run` follows `uv.lock`; verify its resolved profile before using results as
+acceptance evidence.
+
 Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
 performance guide. Benchmark additional thread counts only when the user explicitly requests thread scaling.
+Record enabled backend/ISA flags and verify the intended host profile before acceptance. A sandbox that denies
+`sysctl` can disable NumKong NEON. On macOS ARM64, invoke local benchmark commands through Codex with
+`sandbox_permissions="require_escalated"` and verify `nk.get_capabilities()["neon"]` is true in the same process. The
+router harness rejects this restricted profile by default; `--allow-restricted-isa` is for diagnostics only. Do not
+force NumKong capabilities to make an acceptance run appear native.
 For dtype comparisons, use the same logical inputs and operation controls; choose floating controls exactly
 representable in float16 when the route is compared across float16 and float32. Do not benchmark an identity route for
 one dtype against real work in another.
+
+Restore the original logical source before each case and storage mode, as well as before every alias sample.
+Assert input preservation after ordinary and separate-output calls. Idempotent operations such as clipping can hide
+an already-mutated benchmark input even when the output comparison passes.
+
+Inspect the installed or selected source API before constructing a workload. Reject unknown or ignored transform
+arguments, verify effective controls, and name the actual caller branch being timed. Matching seeds do not prove that
+a library accepted the requested parameters. Preserve invalid runs as rejected evidence and rerun only affected rows.
 
 ## Layout
 

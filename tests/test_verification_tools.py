@@ -69,6 +69,48 @@ def test_router_contract_check_passes() -> None:
     assert check_router_contracts.main() == 0
 
 
+def test_router_contract_check_requires_clip_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    contracts = dict(check_router_contracts.ROUTER_CONTRACTS)
+    del contracts["clip"]
+    monkeypatch.setattr(check_router_contracts, "ROUTER_CONTRACTS", contracts)
+    errors: list[str] = []
+
+    check_router_contracts._check_exports(errors)
+
+    assert errors == ["Missing router contracts: `clip`"]
+
+
+@pytest.mark.parametrize(
+    "change, expected",
+    [
+        ("remove", "Router contracts for non-exported names: `add`"),
+        ("add", "Missing router contracts: `unclassified_operation`"),
+    ],
+)
+def test_router_contract_check_detects_package_export_drift(tmp_path, monkeypatch, change, expected) -> None:
+    exports = check_router_contracts._read_all(check_router_contracts.PUBLIC_API_PATH)
+    if change == "remove":
+        exports.remove("add")
+    else:
+        exports.add("unclassified_operation")
+    package = tmp_path / "__init__.py"
+    package.write_text(f"__all__ = {sorted(exports)!r}\n")
+    monkeypatch.setattr(check_router_contracts, "PUBLIC_API_PATH", package)
+    errors = []
+
+    check_router_contracts._check_exports(errors)
+
+    assert errors == [expected]
+
+
+def test_router_contract_check_rejects_duplicate_exports(tmp_path) -> None:
+    package = tmp_path / "__init__.py"
+    package.write_text("__all__ = ['add', 'add']\n")
+
+    with pytest.raises(RuntimeError, match="Duplicate names in export list"):
+        check_router_contracts._read_all(package)
+
+
 def test_ci_matrix_check_passes() -> None:
     assert ci_matrix.check() == []
 
@@ -91,8 +133,9 @@ def test_ci_matrix_requires_torch_to_be_an_optional_dependency(monkeypatch) -> N
 
 def test_ci_matrix_rejects_torch_as_a_base_dependency(monkeypatch) -> None:
     pyproject_text = ci_matrix.PYPROJECT.read_text().replace(
-        '  "stringzilla>=5.1.2",\n',
-        '  "stringzilla>=5.1.2",\n  "torch>=2.14.1",\n',
+        "\ndependencies = [\n",
+        '\ndependencies = [\n  "torch>=2.14.1",\n',
+        1,
     )
     original_read_text = Path.read_text
 
@@ -189,7 +232,9 @@ def test_ci_matrix_requires_base_runtime_for_release_sbom(monkeypatch, workflow:
 
     errors = ci_matrix.check()
 
-    expected_error = f"{workflow.relative_to(ci_matrix.REPO_ROOT)} must export exactly the locked base runtime for the release SBOM"
+    expected_error = (
+        f"{workflow.relative_to(ci_matrix.REPO_ROOT)} must export exactly the locked base runtime for the release SBOM"
+    )
     assert expected_error in errors
 
 
@@ -365,9 +410,7 @@ def test_ci_matrix_requires_docs_only_codeql_routing(monkeypatch) -> None:
 
 
 def test_ci_matrix_requires_codeql_transition_gate(monkeypatch) -> None:
-    codeql_text = ci_matrix.CODEQL_WORKFLOW.read_text().replace(
-        "    if: vars.CODEQL_ADVANCED_SETUP == 'true'\n", ""
-    )
+    codeql_text = ci_matrix.CODEQL_WORKFLOW.read_text().replace("    if: vars.CODEQL_ADVANCED_SETUP == 'true'\n", "")
     original_read_text = Path.read_text
 
     def read_text(path: Path, *args: object, **kwargs: object) -> str:
@@ -414,8 +457,7 @@ def test_ci_matrix_accepts_equivalent_macos_dependency_formatting(monkeypatch) -
         .replace("runs-on: macos-latest", "runs-on: 'macos-latest'")
         .replace(
             'run: uv pip install -e ".[headless,torch]" "numpy==2.2.6" -r requirements-dev.txt',
-            "run: uv pip install -e '.[headless,torch]' "
-            "'numpy==2.2.6' --requirement=requirements-dev.txt",
+            "run: uv pip install -e '.[headless,torch]' 'numpy==2.2.6' --requirement=requirements-dev.txt",
         )
     )
     original_read_text = Path.read_text

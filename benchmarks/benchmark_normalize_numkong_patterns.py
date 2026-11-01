@@ -2,7 +2,7 @@
 """
 NumKong patterns from the public "how to normalize with nk" write-up vs OpenCV/NumPy.
 
-Relates to **``normalize()``** (``albucore.arithmetic``, exported from ``albucore.functions``): fixed
+Relates to **``normalize()``** (``albucore.arithmetic``, exported from ``albucore``): fixed
 ``mean`` / ``denominator``. **``normalize_per_image``** (``albucore.normalize``) is different — it
 derives stats from ``img``.
 

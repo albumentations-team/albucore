@@ -51,7 +51,7 @@ For a Tensor, read the channel axis from its declared layout (`CHW`/`CDHW`: axis
 ## Supported image dtypes
 
 Image routers accept `uint8`, `float16`, and `float32`. They do not accept `float64` image inputs. Statistics may
-return `float64` or wide integer outputs, and `apply_uint8_lut` / `sz_lut` remain `uint8`-only.
+return `float64` or wide integer outputs, and `apply_uint8_lut` remains `uint8`-only.
 
 This consistency simplifies code and makes it more robust across different input types.
 

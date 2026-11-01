@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Benchmark multiply/add: albucore vs NumKong ``scale`` (a*x+b) and ``fma``.
 
-Run: ``uv run python benchmarks/benchmark_multiply_add_numkong.py`` (after ``uv sync --extra headless``).
+Run: ``uv run python benchmarks/benchmark_numkong_arithmetic.py`` (after ``uv sync --extra headless``).
 
 Production paths use OpenCV / NumPy / LUT; ``*_numkong`` helpers use ``blend`` or ``nk.scale`` as in the printed tables.
 """
@@ -14,19 +14,10 @@ import cv2
 import numkong as nk
 import numpy as np
 
-from albucore.functions import (
-    add_array,
-    add_array_numkong,
-    add_constant,
-    add_vector,
-    multiply_add,
-    multiply_add_numpy,
-    multiply_by_array,
-    multiply_by_constant,
-    multiply_by_vector,
-    multiply_numpy,
-)
-from albucore.weighted import multiply_by_constant_numkong
+from albucore import add, multiply, multiply_add
+from albucore.arithmetic import _multiply_add_numpy, _numpy_pointwise
+from albucore.weighted import _blend_numkong
+from albucore.arithmetic import _scale_numkong
 from albucore.utils import clip, get_num_channels
 from shape_grids import TARGETED_HWC_HW
 from timing import median_ms
@@ -101,7 +92,7 @@ def main() -> None:
     print()
 
     # --- scalar multiply ---
-    print("## `multiply_by_constant` — scalar")
+    print("## `multiply` — scalar")
     print()
     print("| dtype | H×W | C | prod | NK scale (alloc) | NK scale (inplace) | fastest |")
     print("|-------|-----|---|-----:|-----------------:|-------------------:|---------|")
@@ -113,8 +104,8 @@ def main() -> None:
                 else:
                     img = rng.random((h, w, c), dtype=np.float32)
 
-                t_prod = median_ms(lambda: multiply_by_constant(img, s_mul), args.repeats, args.warmup)
-                t_nk = median_ms(lambda: multiply_by_constant_numkong(img, s_mul), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: multiply(img, s_mul), args.repeats, args.warmup)
+                t_nk = median_ms(lambda: _scale_numkong(img, s_mul, 0.0), args.repeats, args.warmup)
                 t_nk_ip = median_ms(lambda: nk_scale_inplace(img, alpha=s_mul, beta=0.0), args.repeats, args.warmup)
                 opts = [("prod", t_prod), ("NK_alloc", t_nk), ("NK_inplace", t_nk_ip)]
                 best = min(opts, key=lambda x: x[1])[0]
@@ -131,7 +122,7 @@ def main() -> None:
         for c in channels:
             img = rng.random((h, w, c), dtype=np.float32)
             t_prod = median_ms(lambda: multiply_add(img, s_mul, s_add), args.repeats, args.warmup)
-            t_np = median_ms(lambda: multiply_add_numpy(img, s_mul, s_add), args.repeats, args.warmup)
+            t_np = median_ms(lambda: _multiply_add_numpy(img, s_mul, s_add), args.repeats, args.warmup)
             t_nk = median_ms(lambda: nk_scale_flat(img, alpha=s_mul, beta=s_add), args.repeats, args.warmup)
             t_cv = median_ms(
                 lambda: cv2_addweighted_scalar_affine(img, alpha=s_mul, beta=s_add),
@@ -144,7 +135,7 @@ def main() -> None:
     print()
 
     # --- scalar add ---
-    print("## `add_constant` — scalar")
+    print("## `add` — scalar")
     print()
     print("| dtype | H×W | C | prod | NK scale (alloc) | NK scale (inplace) | fastest |")
     print("|-------|-----|---|-----:|-----------------:|-------------------:|---------|")
@@ -158,7 +149,7 @@ def main() -> None:
                     img = rng.random((h, w, c), dtype=np.float32)
                     add_v = s_add
 
-                t_prod = median_ms(lambda: add_constant(img, add_v), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: add(img, add_v), args.repeats, args.warmup)
                 t_sc = median_ms(lambda: nk_scale_flat(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup)
                 t_sc_ip = median_ms(
                     lambda: nk_scale_inplace(img, alpha=1.0, beta=float(add_v)), args.repeats, args.warmup
@@ -170,9 +161,9 @@ def main() -> None:
     print()
 
     # --- full-array elementwise multiply ---
-    print("## `multiply_by_array` — elementwise `img * value`")
+    print("## `multiply` — elementwise `img * value`")
     print()
-    print("| dtype | H×W | C | prod (OpenCV) | NK `fma` (a·b+0·z) | NumPy (`multiply_numpy` path) | fastest |")
+    print("| dtype | H×W | C | prod (OpenCV) | NK `fma` (a·b+0·z) | NumPy (`_numpy_pointwise` path) | fastest |")
     print("|-------|-----|---|--------------:|-------------------:|------------------------------:|---------|")
     for h, w in sizes:
         for c in channels:
@@ -184,16 +175,16 @@ def main() -> None:
                     img = rng.random((h, w, c), dtype=np.float32)
                     val = rng.random((h, w, c), dtype=np.float32) * 0.5 + 0.5
 
-                t_prod = median_ms(lambda: multiply_by_array(img, val), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: multiply(img, val), args.repeats, args.warmup)
                 if dtype == np.float32:
                     t_fma = median_ms(lambda: nk_fma_mul_flat(img, val), args.repeats, args.warmup)
                 else:
                     t_fma = float("nan")
                 t_np = median_ms(
                     lambda: (
-                        multiply_numpy(img, val)
+                        _numpy_pointwise(img, val, 'multiply')
                         if dtype == np.float32
-                        else clip(multiply_numpy(img, val), np.uint8)
+                        else clip(_numpy_pointwise(img, val, 'multiply'), np.uint8)
                     ),
                     args.repeats,
                     args.warmup,
@@ -209,9 +200,9 @@ def main() -> None:
     print()
 
     # --- full-array elementwise add ---
-    print("## `add_array` — elementwise `img + value`")
+    print("## `add` — elementwise `img + value`")
     print()
-    print("| dtype | H×W | C | prod (OpenCV) | NK `add_array_numkong` (`blend`) | fastest |")
+    print("| dtype | H×W | C | prod (OpenCV) | NK `_blend_numkong` (`blend`) | fastest |")
     print("|-------|-----|---|--------------:|---------------------------------:|---------|")
     for h, w in sizes:
         for c in channels:
@@ -223,15 +214,15 @@ def main() -> None:
                     img = rng.random((h, w, c), dtype=np.float32)
                     val = rng.random((h, w, c), dtype=np.float32) * 0.1 - 0.05
 
-                t_prod = median_ms(lambda: add_array(img, val), args.repeats, args.warmup)
-                t_nk = median_ms(lambda: add_array_numkong(img, val), args.repeats, args.warmup)
+                t_prod = median_ms(lambda: add(img, val), args.repeats, args.warmup)
+                t_nk = median_ms(lambda: _blend_numkong(img, 1.0, val, 1.0), args.repeats, args.warmup)
                 best = "prod" if t_prod <= t_nk else "NK_blend"
                 dname = "uint8" if dtype == np.uint8 else "float32"
                 print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_nk:.4f} | {best} |")
     print()
 
     # --- per-channel vector (length C) ---
-    print("## `multiply_by_vector` / `add_vector` — per-channel constants (broadcast)")
+    print("## `multiply` / `add` — per-channel constants (broadcast)")
     print()
     print(
         "| dtype | op | H×W | C | prod | NK channel-wise `scale` | fastest |\n"
@@ -250,7 +241,7 @@ def main() -> None:
                     va = rng.random(c, dtype=np.float32) * 0.06 - 0.03
 
                 t_pm = median_ms(
-                    lambda: multiply_by_vector(img, vm),
+                    lambda: multiply(img, vm),
                     args.repeats,
                     args.warmup,
                 )
@@ -263,7 +254,7 @@ def main() -> None:
                 dname = "uint8" if dtype == np.uint8 else "float32"
                 print(f"| {dname} | mul_vec | {h}×{w} | {c} | {t_pm:.4f} | {t_pm_nk:.4f} | {w_m} |")
 
-                t_pa = median_ms(lambda: add_vector(img, va), args.repeats, args.warmup)
+                t_pa = median_ms(lambda: add(img, va), args.repeats, args.warmup)
                 t_pa_nk = median_ms(
                     lambda: nk_channelwise_scale(img, va, alpha_per_ch=False),
                     args.repeats,
@@ -276,10 +267,10 @@ def main() -> None:
     print("## Readout (this machine)")
     print()
     print(
-        "- **Scalar affine** (`multiply_by_constant`, `add_constant`): three paths timed — prod, NK scale (alloc), NK scale (inplace).\n"
+        "- **Scalar affine** (`multiply`, `add`): three paths timed — prod, NK scale (alloc), NK scale (inplace).\n"
         "  `inplace` uses `out=buf` (raw numpy array, not Tensor wrapper) per NumKong #326 fix.\n"
         "- **Elementwise multiply** full array: **NK fma** only timed for **float32** (uint8 prod promotes to f32).\n"
-        "- **Elementwise add** full array: **NK** is existing **`add_array_numkong`** (`blend`).\n"
+        "- **Elementwise add** full array: **NK** is existing **`_blend_numkong`** (`blend`).\n"
         "- **Per-channel** vector: **NK** is **C separate `scale` calls** — usually loses to one OpenCV/LUT pass.",
     )
 

@@ -38,8 +38,8 @@ classifiers = [
 
 dependencies = [
   "numpy>=1.24.4",
-  "numkong>=7.8.5",
-  "stringzilla>=5.1.2",
+  "numkong>=7.8.6",
+  "stringzilla>=5.3.2",
 ]
 
 [project.optional-dependencies]
@@ -162,6 +162,8 @@ lint.pydocstyle.convention = "google"
 "albucore/geometric.py" = [ "PLR0911", "PLR0913", "PLR0917" ]
 # Statistics retain explicit NumPy reduction options and add keyword-only Tensor layout.
 "albucore/stats.py" = [ "PLR0913" ]
+# Weighted sums keep four operands plus explicit output and Tensor layout.
+"albucore/weighted.py" = [ "PLR0913" ]
 
 [tool.mypy]
 python_version = "3.11"

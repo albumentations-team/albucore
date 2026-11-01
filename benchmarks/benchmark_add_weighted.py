@@ -26,8 +26,7 @@ import numpy as np
 from timing import WallTimingMs
 
 from albucore import add_weighted
-from albucore.arithmetic import add_weighted_numpy, add_weighted_opencv
-from albucore.weighted import add_weighted_numkong
+from albucore.weighted import _blend_numkong, _blend_numpy, _blend_opencv
 
 
 def format_timing(timing: WallTimingMs) -> str:
@@ -162,19 +161,19 @@ def main() -> None:
                             second,
                             weight2,
                         ),
-                        "NumPy": lambda first=img1, second=img2: add_weighted_numpy(
+                        "NumPy": lambda first=img1, second=img2: _blend_numpy(
                             first,
                             weight1,
                             second,
                             weight2,
                         ),
-                        "OpenCV": lambda first=img1, second=img2: add_weighted_opencv(
+                        "OpenCV": lambda first=img1, second=img2: _blend_opencv(
                             first,
                             weight1,
                             second,
                             weight2,
                         ),
-                        "NumKong": lambda first=img1, second=img2: add_weighted_numkong(
+                        "NumKong": lambda first=img1, second=img2: _blend_numkong(
                             first,
                             weight1,
                             second,
