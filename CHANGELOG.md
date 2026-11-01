@@ -7,5 +7,6 @@
 - Add float16 image support across NumPy and eager CPU Torch routers, preserving documented output dtype and
   wide-statistics policies. Specialized uint8 LUT APIs remain uint8-only.
 - Write shared NumPy uint8 LUT results directly into separate contiguous outputs with StringZilla.
-- Raise the NumKong and StringZilla minimums to 7.8.6 and 5.3.2, respectively; keep the Torch minimum at 2.14.1.
+- Raise the NumKong and StringZilla minimums to 7.8.7 and 5.3.2, respectively; keep the Torch minimum at 2.14.1.
+- Fix large uint8 statistics and adaptive normalization through NumKong 7.8.7's moments overflow correction.
 - Require Python 3.11 or newer. CI covers Python 3.11, 3.12, 3.13, and 3.14.

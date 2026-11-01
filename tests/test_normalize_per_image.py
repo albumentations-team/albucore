@@ -6,6 +6,21 @@ from albucore import normalize_per_image
 MODES = ("image", "image_per_channel", "min_max", "min_max_per_channel")
 
 
+@pytest.mark.parametrize("mode", ["image", "image_per_channel"])
+@pytest.mark.parametrize("shape", [(600, 1000, 1), (600, 500, 4), (600, 500, 5), (2, 300, 500, 5)])
+def test_adaptive_large_uint8_moments_do_not_overflow(shape, mode):
+    image = np.random.default_rng(137).integers(240, 256, shape, dtype=np.uint8)
+    wide = image.astype(np.float64)
+    axes = None if mode == "image" else tuple(range(image.ndim - 1))
+    expected = (wide - wide.mean(axis=axes)) / (wide.std(axis=axes) + 1e-4)
+
+    result = normalize_per_image(image, mode)
+
+    assert result.shape == image.shape
+    assert result.dtype == np.float32
+    np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
+
+
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("mode", MODES)
 @pytest.mark.parametrize("channels", [1, 2])

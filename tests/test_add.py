@@ -267,7 +267,7 @@ def test_add_float16_numkong_scalar_matches_all_non_nan_binary16_values(
     monkeypatch: pytest.MonkeyPatch,
     output_mode: str,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
     calls: list[tuple[float, float]] = []
     original_scale = arithmetic._scale_numkong
 

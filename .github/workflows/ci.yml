@@ -214,7 +214,7 @@ jobs:
           uv pip install -e ".[torch]" --no-deps
           uv pip install \
             "numpy>=1.24.4" \
-            "numkong>=7.8.5" \
+            "numkong>=7.8.7" \
             "stringzilla>=5.1.2" \
             "opencv-python-headless>=5.0.0.93" \
             hypothesis \

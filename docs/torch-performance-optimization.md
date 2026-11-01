@@ -128,9 +128,10 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   or are inexact controls with magnitudes at most 1 and no nonzero half-subnormal values. Other controls keep the
   NumPy float32 ufunc loop into half output. The selected C9 route has no robust slow pair in the 101-sample grid;
   direct Torch half was 1.05–1.22× slower than the full float32 Torch bridge and is not selected. Track the PyTorch
-  CPU candidate in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503),
-  the signed-zero mismatch in [NumKong #401](https://github.com/ashvardanian/NumKong/issues/401), and NumPy ufunc
-  loop work in [#32970](https://github.com/numpy/numpy/issues/32970).
+  CPU candidate in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503)
+  and NumPy ufunc loop work in [#32970](https://github.com/numpy/numpy/issues/32970).
+  NumKong 7.8.7 resolves [#401](https://github.com/ashvardanian/NumKong/issues/401);
+  the [release review](numkong-7.8.7.md) records the retained performance boundary.
 - Contiguous float16 Tensor `normalize` in CHW/NCHW with C=3/9, scalar or channel-vector controls, and 16,384+ elements uses per-plane CV16F
   `addWeighted` into a preallocated channel-first output. A zero second source preserves infinity semantics. The
   101-sample paired grid found no robust slow pair; median ratios ranged from 0.30× to 1.12× float32 time. Other

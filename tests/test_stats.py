@@ -34,6 +34,21 @@ def test_mean_std_global_matches_numpy_float64_reference(shape: tuple[int, ...],
     assert np.isclose(float(s), float(ref_s), rtol=1e-4, atol=1e-4)
 
 
+@pytest.mark.parametrize("axis", ["global", "per_channel"])
+@pytest.mark.parametrize("shape", [(600, 1000, 1), (600, 500, 4), (600, 500, 5), (2, 300, 500, 5)])
+def test_large_uint8_moments_do_not_overflow(shape: tuple[int, ...], axis: str) -> None:
+    image = np.random.default_rng(137).integers(240, 256, shape, dtype=np.uint8)
+    axes = None if axis == "global" else tuple(range(image.ndim - 1))
+    expected_mean = image.mean(axis=axes, dtype=np.float64)
+    expected_std = image.std(axis=axes, dtype=np.float64)
+
+    actual_mean, actual_std = mean_std(image, axis, eps=0)
+
+    np.testing.assert_allclose(actual_mean, expected_mean, rtol=1e-10, atol=1e-10)
+    np.testing.assert_allclose(actual_std, expected_std, rtol=1e-10, atol=1e-10)
+    np.testing.assert_allclose(std(image, axis, eps=0), expected_std, rtol=1e-10, atol=1e-10)
+
+
 # Covers low/high channel HWC, NHWC, float32, and uint8 per-channel routing.
 @pytest.mark.parametrize(
     "shape",
