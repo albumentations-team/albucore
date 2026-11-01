@@ -327,8 +327,8 @@ def pairwise_distances_squared(
     """Compute squared pairwise Euclidean distances between two point sets.
 
     Backend selection:
-    - Small (``n1 * n2 < 1000``): NumKong ``cdist`` (pure NumPy alone was slower vs 0.0.40 on router).
-    - Large: NumPy vectorized. Algorithm: ||a - b||² = ||a||² + ||b||² - 2(a·b)
+    - Small (``n1 * n2 < 1000``) or high-dimensional (``D >= 9``): NumKong ``cdist``.
+    - Other sets: NumPy coordinate differences accumulated into one distance matrix.
 
     Args:
         points1: First set of points, shape (N, D), dtype float32
@@ -355,12 +355,10 @@ def pairwise_distances_squared(
 
         For actual Euclidean distances: np.sqrt(result)
 
-        The computation can produce very small negative values (e.g., -1e-6)
-        due to floating-point rounding with float32 inputs. The result is
-        automatically clamped to enforce non-negativity (distances >= 0).
-
-        The large-set route uses :func:`matmul`, including its narrowly scoped
-        macOS arm64 workaround for spurious NumPy Accelerate warnings.
+        Subtracting coordinates before squaring avoids overflow and cancellation
+        from large common offsets. Squared distances exceeding the float32 range
+        are returned as infinity. The NumPy route uses one scratch matrix of
+        shape (N, M), rather than a temporary of shape (N, M, D).
     """
     # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
     if isinstance(points1, torch.Tensor) and isinstance(points2, torch.Tensor):
@@ -379,21 +377,19 @@ def pairwise_distances_squared(
     points2_array = points2_array.astype(np.float32, copy=False)
 
     n1, n2 = points1_array.shape[0], points2_array.shape[0]
-    if n1 * n2 < 1000:
+    if n1 * n2 < 1000 or points1_array.shape[1] >= 9:
         # nk.cdist requires contiguous inputs on some strided views.
         points1_array = np.ascontiguousarray(points1_array)
         points2_array = np.ascontiguousarray(points2_array)
         result = np.asarray(nk.cdist(points1_array, points2_array, metric="sqeuclidean"), dtype=np.float32)
-        np.maximum(result, 0.0, out=result)
         return torch.from_numpy(result) if tensor_output else result
 
-    # Vectorized: ||a-b||² = ||a||² + ||b||² - 2(a·b)
-    p1_squared = (points1_array**2).sum(axis=1, keepdims=True)  # (N, 1)
-    p2_squared = (points2_array**2).sum(axis=1)[None, :]  # (1, M)
-    dot_product = matmul(points1_array, points2_array.T)  # (N, M)
-
-    result = p1_squared + p2_squared - 2 * dot_product
-    # Clamp to zero to handle numerical errors that can produce small negative values
-    np.maximum(result, 0.0, out=result)
-    result = cast("np.ndarray", result)
+    result = np.subtract(points1_array[:, :1], points2_array[None, :, 0])
+    np.square(result, out=result)
+    if points1_array.shape[1] > 1:
+        scratch = np.empty_like(result)
+        for coordinate in range(1, points1_array.shape[1]):
+            np.subtract(points1_array[:, coordinate, None], points2_array[None, :, coordinate], out=scratch)
+            np.square(scratch, out=scratch)
+            np.add(result, scratch, out=result)
     return torch.from_numpy(result) if tensor_output else result

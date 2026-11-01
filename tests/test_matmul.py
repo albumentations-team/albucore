@@ -181,6 +181,74 @@ class TestMatmul:
 class TestPairwiseDistancesSquared:
     """Test pairwise_distances_squared function."""
 
+    @pytest.mark.parametrize("n,m", [(31, 31), (32, 32), (25, 40), (1, 999), (1, 1000), (1, 1001)])
+    @pytest.mark.parametrize(
+        "first,second,squared_distance",
+        [
+            ([1e20, 1e20], [1e20, 1e20], 0.0),
+            ([1e20, 0], [1e20, 1], 1.0),
+            ([10000, 10000], [10000.125, 10000.125], 0.03125),
+            ([0, 0], [1e20, 0], np.inf),
+        ],
+        ids=["identical-large", "large-shared-coordinate", "common-offset", "unrepresentable-distance"],
+    )
+    @pytest.mark.parametrize("dimensions", [2, 9])
+    @pytest.mark.parametrize("as_tensor", [False, True], ids=["numpy", "tensor"])
+    @pytest.mark.parametrize("strided", [False, True], ids=["contiguous", "strided"])
+    def test_coordinate_offsets_and_overflow(
+        self, n: int, m: int, first: list[float], second: list[float], squared_distance: float,
+        as_tensor: bool, strided: bool, dimensions: int,
+    ) -> None:
+        points1 = np.zeros((n, dimensions * (2 if strided else 1)), dtype=np.float32)
+        points2 = np.zeros((m, dimensions * (2 if strided else 1)), dtype=np.float32)
+        if strided:
+            points1 = points1[:, ::2]
+            points2 = points2[:, ::2]
+        points1[:, :2] = first
+        points2[:, :2] = second
+        original1, original2 = points1.copy(), points2.copy()
+        differences = points1.astype(np.float64)[:, None, :] - points2.astype(np.float64)[None, :, :]
+        with np.errstate(over="ignore"):
+            expected = np.sum(differences**2, axis=2).astype(np.float32)
+        np.testing.assert_array_equal(expected, np.full((n, m), squared_distance, dtype=np.float32))
+
+        with np.errstate(over="ignore" if np.isinf(squared_distance) else "raise", invalid="raise"):
+            result = pairwise_distances_squared(
+                torch.from_numpy(points1) if as_tensor else points1,
+                torch.from_numpy(points2) if as_tensor else points2,
+            )
+
+        assert isinstance(result, torch.Tensor if as_tensor else np.ndarray)
+        if as_tensor:
+            assert result.device.type == "cpu"
+            result = result.numpy()
+        assert result.dtype == np.float32
+        np.testing.assert_array_equal(result, expected)
+        assert np.all(result >= 0)
+        np.testing.assert_array_equal(points1, original1)
+        np.testing.assert_array_equal(points2, original2)
+
+    @pytest.mark.parametrize("dimensions", [1, 2, 3, 5, 8, 9, 64])
+    @pytest.mark.parametrize("storage", ["contiguous", "strided", "reversed", "read-only"])
+    def test_mixed_points_at_common_offset(self, dimensions: int, storage: str) -> None:
+        rng = np.random.default_rng(197)
+        points1 = 10000 + rng.integers(-8, 9, size=(32, dimensions)).astype(np.float32) * 0.125
+        points2 = 10000 + rng.integers(-8, 9, size=(40, dimensions)).astype(np.float32) * 0.125
+        differences = points1.astype(np.float64)[:, None, :] - points2.astype(np.float64)[None, :, :]
+        expected = np.sum(differences**2, axis=2).astype(np.float32)
+        if storage == "strided":
+            points1, points2 = points1.T.copy().T, points2.T.copy().T
+        elif storage == "reversed":
+            points1, points2 = points1[::-1], points2[::-1]
+            expected = expected[::-1, ::-1]
+        elif storage == "read-only":
+            points1.flags.writeable = False
+            points2.flags.writeable = False
+
+        result = pairwise_distances_squared(points1, points2)
+
+        np.testing.assert_array_equal(result, expected)
+
     def test_matches_manual_computation(self) -> None:
         """Verify against manual distance computation."""
         points1 = np.array([[0, 0], [1, 0], [0, 1]], dtype=np.float32)

@@ -1,0 +1,3337 @@
+{
+  "python": "3.11.15 (main, Jul 23 2026, 14:34:23) [Clang 22.1.3 ]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "source": "/Users/vladimiriglovikov/workspace/albucore/albucore/__init__.py",
+  "imports": {
+    "albucore": "/Users/vladimiriglovikov/workspace/albucore/albucore/__init__.py",
+    "numpy": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/numpy/__init__.py",
+    "numkong": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/numkong/__init__.py",
+    "cv2": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/cv2/__init__.py",
+    "torch": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/torch/__init__.py"
+  },
+  "baseline_commit": "fa126da86ea9b4a660c199549dd791a5f9584811",
+  "packages": {
+    "threadpoolctl": "3.6.0",
+    "scikit-image": "0.26.0",
+    "scikit-learn": "1.9.1",
+    "setuptools": "84.2.1",
+    "albucore": "0.3.1",
+    "google-docstring-parser": "0.0.11",
+    "packaging": "26.3",
+    "pytest-mock": "3.16.0",
+    "Pygments": "2.21.0",
+    "pytest-randomly": "5.0.0",
+    "pytz": "2026.5",
+    "eval_type_backport": "0.4.0",
+    "requests": "2.34.2",
+    "defusedxml": "0.7.1",
+    "narwhals": "2.24.0",
+    "networkx": "3.6.1",
+    "lazy-loader": "0.5",
+    "pydantic_core": "2.46.5",
+    "pytest-xdist": "3.8.0",
+    "docstring_parser": "0.18.0",
+    "hypothesis": "6.170.14",
+    "numpy": "2.4.6",
+    "cachebox": "5.2.3",
+    "iniconfig": "2.3.1",
+    "charset-normalizer": "3.4.9",
+    "tifffile": "2026.3.3",
+    "ImageIO": "2.37.3",
+    "sympy": "1.14.0",
+    "pluggy": "1.7.0",
+    "certifi": "2026.6.17",
+    "urllib3": "2.8.0",
+    "filelock": "4.2.6",
+    "pydantic": "2.13.5",
+    "mpmath": "1.3.0",
+    "PyYAML": "6.0.3",
+    "sortedcontainers": "2.4.0",
+    "fsspec": "2026.9.0",
+    "execnet": "2.1.2",
+    "scipy": "1.17.1",
+    "joblib": "1.5.3",
+    "pytest": "9.2.0",
+    "Jinja2": "3.1.6",
+    "stringzilla": "5.3.2",
+    "deepdiff": "9.1.0",
+    "numkong": "7.8.7",
+    "typing_extensions": "4.16.0",
+    "MarkupSafe": "3.0.4",
+    "albu-spec": "0.0.8",
+    "orderly-set": "5.5.0",
+    "torch": "2.15.0",
+    "idna": "3.18",
+    "typing-inspection": "0.4.2",
+    "pillow": "12.3.0",
+    "annotated-types": "0.7.0",
+    "opencv-python-headless": "5.0.0.93"
+  },
+  "numkong_neon": true,
+  "opencv_threads": 1,
+  "torch_threads": 1,
+  "torch_interop_threads": 1,
+  "repeats": 101,
+  "warmup": 5,
+  "rows": [
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0017080456018447876,
+      "current_ms": 0.0014581019058823586,
+      "baseline_mad_ms": 4.109460860490799e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.8536668484187568
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0027919886633753777,
+      "current_ms": 0.0023330794647336006,
+      "baseline_mad_ms": 0.00012491364032030106,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.8356335737814286
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0019579892978072166,
+      "current_ms": 0.001500011421740055,
+      "baseline_mad_ms": 4.0978193283081055e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.7660978655092455
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.0029579969123005867,
+      "current_ms": 0.0025830231606960297,
+      "baseline_mad_ms": 4.190951585769653e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.8732338935023023
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0017499551177024841,
+      "current_ms": 0.001625041477382183,
+      "baseline_mad_ms": 4.202593117952347e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.9286189462480042
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0029579969123005867,
+      "current_ms": 0.002625049091875553,
+      "baseline_mad_ms": 8.405186235904694e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.8874414577511905
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0019579892978072166,
+      "current_ms": 0.001625041477382183,
+      "baseline_mad_ms": 4.0978193283081055e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.8299542184434271
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.0029579969123005867,
+      "current_ms": 0.002540997229516506,
+      "baseline_mad_ms": 4.0978193283081055e-05,
+      "current_mad_ms": 0.00012596137821674347,
+      "current_over_baseline": 0.8590263292534142
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0017079291865229607,
+      "current_ms": 0.001250067725777626,
+      "baseline_mad_ms": 4.086177796125412e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.7319201145116215
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0026669586077332497,
+      "current_ms": 0.0022919848561286926,
+      "baseline_mad_ms": 4.190951585769653e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.8594002357152211
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0017499551177024841,
+      "current_ms": 0.0015830155462026596,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.9046035125066525
+    },
+    {
+      "shape": [
+        10,
+        10,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.002874992787837982,
+      "current_ms": 0.0025830231606960297,
+      "baseline_mad_ms": 8.405186235904694e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.8984450923226434
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006375019438564777,
+      "current_ms": 0.005875015631318092,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.9215682693887985
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.006709014996886253,
+      "current_ms": 0.006875023245811462,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 1.0247440569148014
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006415997631847858,
+      "current_ms": 0.005875015631318092,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.9156823254041696
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.006875023245811462,
+      "current_ms": 0.0068749068304896355,
+      "baseline_mad_ms": 0.000250060111284256,
+      "current_mad_ms": 4.21423465013504e-05,
+      "current_over_baseline": 0.999983066919534
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0063749030232429504,
+      "current_ms": 0.005832989700138569,
+      "baseline_mad_ms": 8.405186235904694e-05,
+      "current_mad_ms": 8.405186235904694e-05,
+      "current_over_baseline": 0.9149926953981008
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0073339324444532394,
+      "current_ms": 0.006832997314631939,
+      "baseline_mad_ms": 0.00016612466424703598,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.9316962443252167
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.005832989700138569,
+      "current_ms": 0.005915993824601173,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 8.393544703722e-05,
+      "current_over_baseline": 1.014230116754815
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.007417052984237671,
+      "current_ms": 0.006875023245811462,
+      "baseline_mad_ms": 0.00012491364032030106,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.9269211451531894
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006083049811422825,
+      "current_ms": 0.005084089934825897,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 0.00012514647096395493,
+      "current_over_baseline": 0.8357797638413106
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0071249669417738914,
+      "current_ms": 0.006500049494206905,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.9122918811169387
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006332993507385254,
+      "current_ms": 0.005792011506855488,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.9145772058823529
+    },
+    {
+      "shape": [
+        31,
+        31,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.0073749106377363205,
+      "current_ms": 0.006208079867064953,
+      "baseline_mad_ms": 4.21423465013504e-05,
+      "current_mad_ms": 0.00016612466424703598,
+      "current_over_baseline": 0.8417837411207577
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006832997314631939,
+      "current_ms": 0.003834022209048271,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 8.405186235904694e-05,
+      "current_over_baseline": 0.561104012266803
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.008083065040409565,
+      "current_ms": 0.004750094376504421,
+      "baseline_mad_ms": 0.0001240987330675125,
+      "current_mad_ms": 8.288770914077759e-05,
+      "current_over_baseline": 0.5876600463756427
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006791902706027031,
+      "current_ms": 0.0037499703466892242,
+      "baseline_mad_ms": 8.312053978443146e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.5521236844811628
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.008208095096051693,
+      "current_ms": 0.004832982085645199,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.5888067851419008
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0067909713834524155,
+      "current_ms": 0.0036669662222266197,
+      "baseline_mad_ms": 4.2957253754138947e-05,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.5399766859807317
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.007958034984767437,
+      "current_ms": 0.004708999767899513,
+      "baseline_mad_ms": 0.00012596137821674347,
+      "current_mad_ms": 4.109460860490799e-05,
+      "current_over_baseline": 0.5917289603417253
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006749993190169334,
+      "current_ms": 0.0037499703466892242,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.5555517229485013
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.008124974556267262,
+      "current_ms": 0.004791072569787502,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.2957253754138947e-05,
+      "current_over_baseline": 0.5896723167079793
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006417045369744301,
+      "current_ms": 0.003416091203689575,
+      "baseline_mad_ms": 8.288770914077759e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.5323464315518305
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0077500008046627045,
+      "current_ms": 0.004417030140757561,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.21423465013504e-05,
+      "current_over_baseline": 0.5699393138256323
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0068749068304896355,
+      "current_ms": 0.0034170225262641907,
+      "baseline_mad_ms": 8.288770914077759e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.4970281940563881
+    },
+    {
+      "shape": [
+        32,
+        32,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.008167000487446785,
+      "current_ms": 0.004416913725435734,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.5408244718761581
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0067909713834524155,
+      "current_ms": 0.0037080608308315277,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.5460280453937669
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.00800006091594696,
+      "current_ms": 0.004749977961182594,
+      "baseline_mad_ms": 0.00016693957149982452,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.5937427240977882
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006791087798774242,
+      "current_ms": 0.0037499703466892242,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.5521899374303592
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.008082948625087738,
+      "current_ms": 0.004832982085645199,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.5979231478280908
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006166985258460045,
+      "current_ms": 0.003334018401801586,
+      "baseline_mad_ms": 8.393544703722e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.540623702193529
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0074999406933784485,
+      "current_ms": 0.004458008334040642,
+      "baseline_mad_ms": 0.00020791776478290558,
+      "current_mad_ms": 0.0001240987330675125,
+      "current_over_baseline": 0.5944058114988203
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006125075742602348,
+      "current_ms": 0.003334018401801586,
+      "baseline_mad_ms": 4.202593117952347e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.5443228038164747
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.007416936568915844,
+      "current_ms": 0.004708999767899513,
+      "baseline_mad_ms": 0.00016693957149982452,
+      "current_mad_ms": 0.0001240987330675125,
+      "current_over_baseline": 0.6348982122396446
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.005832989700138569,
+      "current_ms": 0.003374996595084667,
+      "baseline_mad_ms": 4.202593117952347e-05,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.5786049296477398
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.007707974873483181,
+      "current_ms": 0.004375004209578037,
+      "baseline_mad_ms": 0.0002080341801047325,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 0.5675945084653607
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006832997314631939,
+      "current_ms": 0.003374996595084667,
+      "baseline_mad_ms": 0.00045797787606716156,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.49392622880994974
+    },
+    {
+      "shape": [
+        25,
+        40,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.008208095096051693,
+      "current_ms": 0.00437488779425621,
+      "baseline_mad_ms": 0.00016693957149982452,
+      "current_mad_ms": 8.405186235904694e-05,
+      "current_over_baseline": 0.5329967237295588
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006500049494206905,
+      "current_ms": 0.006666057743132114,
+      "baseline_mad_ms": 4.202593117952347e-05,
+      "current_mad_ms": 4.2957253754138947e-05,
+      "current_over_baseline": 1.0255395361332498
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0076669966802001,
+      "current_ms": 0.007082941010594368,
+      "baseline_mad_ms": 0.0002919696271419525,
+      "current_mad_ms": 0.0002080341801047325,
+      "current_over_baseline": 0.9238221047996478
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006541959010064602,
+      "current_ms": 0.006083049811422825,
+      "baseline_mad_ms": 4.190951585769653e-05,
+      "current_mad_ms": 8.312053978443146e-05,
+      "current_over_baseline": 0.9298514102678174
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.00825000461190939,
+      "current_ms": 0.007166992872953415,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 0.0002919696271419525,
+      "current_over_baseline": 0.8687259232082634
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006792019121348858,
+      "current_ms": 0.00566698145121336,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 8.393544703722e-05,
+      "current_over_baseline": 0.8343588776717001
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.007832888513803482,
+      "current_ms": 0.00666698906570673,
+      "baseline_mad_ms": 8.312053978443146e-05,
+      "current_mad_ms": 0.000208965502679348,
+      "current_over_baseline": 0.8511533202544439
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.006500049494206905,
+      "current_ms": 0.006707967258989811,
+      "baseline_mad_ms": 4.0978193283081055e-05,
+      "current_mad_ms": 0.0001260777935385704,
+      "current_over_baseline": 1.0319871048625415
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.007500057108700275,
+      "current_ms": 0.0076249707490205765,
+      "baseline_mad_ms": 0.00012514647096395493,
+      "current_mad_ms": 0.00016693957149982452,
+      "current_over_baseline": 1.0166550252231277
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.006416928954422474,
+      "current_ms": 0.005875015631318092,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 0.00037497375160455704,
+      "current_over_baseline": 0.9155494276228661
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.006875023245811462,
+      "current_ms": 0.006792019121348858,
+      "baseline_mad_ms": 0.00029103830456733704,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.9879267136277432
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0071249669417738914,
+      "current_ms": 0.006624963134527206,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.9298237014525432
+    },
+    {
+      "shape": [
+        1,
+        999,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.008291914127767086,
+      "current_ms": 0.007542083039879799,
+      "baseline_mad_ms": 4.21423465013504e-05,
+      "current_mad_ms": 0.0005010515451431274,
+      "current_over_baseline": 0.9095708088224971
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.011500087566673756,
+      "current_ms": 0.0036669662222266197,
+      "baseline_mad_ms": 0.00012491364032030106,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.31886420003036897
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01291697844862938,
+      "current_ms": 0.004708999767899513,
+      "baseline_mad_ms": 8.405186235904694e-05,
+      "current_mad_ms": 4.109460860490799e-05,
+      "current_over_baseline": 0.3645589242582645
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.011749914847314358,
+      "current_ms": 0.0037080608308315277,
+      "baseline_mad_ms": 8.288770914077759e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3155819322111145
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.01295795664191246,
+      "current_ms": 0.004750094376504421,
+      "baseline_mad_ms": 0.00012386590242385864,
+      "current_mad_ms": 8.288770914077759e-05,
+      "current_over_baseline": 0.3665774248032486
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.011167023330926895,
+      "current_ms": 0.003250082954764366,
+      "baseline_mad_ms": 0.00012398231774568558,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.29104290896960094
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.012500095181167126,
+      "current_ms": 0.004375004209578037,
+      "baseline_mad_ms": 8.312053978443146e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3499976717112922
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01154094934463501,
+      "current_ms": 0.0037079444155097008,
+      "baseline_mad_ms": 8.288770914077759e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3212859102646869
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.012833974324166775,
+      "current_ms": 0.004750094376504421,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3701187376976316
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.010707997716963291,
+      "current_ms": 0.002874992787837982,
+      "baseline_mad_ms": 4.202593117952347e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.2684902316782814
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.011958996765315533,
+      "current_ms": 0.0038750004023313522,
+      "baseline_mad_ms": 8.405186235904694e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.3240238690899179
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.012125005014240742,
+      "current_ms": 0.0029159709811210632,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.24049235259666069
+    },
+    {
+      "shape": [
+        1,
+        1000,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.013459008187055588,
+      "current_ms": 0.0038750004023313522,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.2879112894855205
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.011499971151351929,
+      "current_ms": 0.0036669662222266197,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.109460860490799e-05,
+      "current_over_baseline": 0.3188674279235504
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.012916047126054764,
+      "current_ms": 0.004791887477040291,
+      "baseline_mad_ms": 0.0001240987330675125,
+      "current_mad_ms": 4.21423465013504e-05,
+      "current_over_baseline": 0.37100263186357574
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.011625001206994057,
+      "current_ms": 0.0037499703466892242,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3225780608464019
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.01295795664191246,
+      "current_ms": 0.004833098500967026,
+      "baseline_mad_ms": 0.00012398231774568558,
+      "current_mad_ms": 8.288770914077759e-05,
+      "current_over_baseline": 0.3729830739928846
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.011124997399747372,
+      "current_ms": 0.003250082954764366,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.29214235635130753
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.012499978765845299,
+      "current_ms": 0.004334026016294956,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 8.195638656616211e-05,
+      "current_over_baseline": 0.34672267029262205
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01166702713817358,
+      "current_ms": 0.003708992153406143,
+      "baseline_mad_ms": 8.288770914077759e-05,
+      "current_mad_ms": 4.109460860490799e-05,
+      "current_over_baseline": 0.31790379069837055
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.012874952517449856,
+      "current_ms": 0.004790956154465675,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3721144717211447
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.010750023648142815,
+      "current_ms": 0.0029169023036956787,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.190951585769653e-05,
+      "current_over_baseline": 0.2713391522817353
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.011999974958598614,
+      "current_ms": 0.0038750004023313522,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3229173740529109
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.012208009138703346,
+      "current_ms": 0.0029170187190175056,
+      "baseline_mad_ms": 8.405186235904694e-05,
+      "current_mad_ms": 4.0978193283081055e-05,
+      "current_over_baseline": 0.23894303205996223
+    },
+    {
+      "shape": [
+        1,
+        1001,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.013499986380338669,
+      "current_ms": 0.0038750004023313522,
+      "baseline_mad_ms": 8.300412446260452e-05,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.28703735642095823
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.018124934285879135,
+      "current_ms": 0.014082994312047958,
+      "baseline_mad_ms": 0.0005421461537480354,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.7769956067106852
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.019249971956014633,
+      "current_ms": 0.015209079720079899,
+      "baseline_mad_ms": 0.0006660120561718941,
+      "current_mad_ms": 0.00020791776478290558,
+      "current_over_baseline": 0.7900832143980261
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01845892984420061,
+      "current_ms": 0.014082994312047958,
+      "baseline_mad_ms": 0.000541098415851593,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.7629366616002674
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019417027942836285,
+      "current_ms": 0.015374971553683281,
+      "baseline_mad_ms": 0.0009990762919187546,
+      "current_mad_ms": 0.00024994369596242905,
+      "current_over_baseline": 0.7918292953456721
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.018499908037483692,
+      "current_ms": 0.01395796425640583,
+      "baseline_mad_ms": 0.00041618477553129196,
+      "current_mad_ms": 0.00016600824892520905,
+      "current_over_baseline": 0.7544883049215608
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.019208062440156937,
+      "current_ms": 0.015166937373578548,
+      "baseline_mad_ms": 0.0009160721674561501,
+      "current_mad_ms": 0.00012398231774568558,
+      "current_over_baseline": 0.7896130815292491
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01850002445280552,
+      "current_ms": 0.014082994312047958,
+      "baseline_mad_ms": 0.000625033862888813,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 0.7612419295971405
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019208062440156937,
+      "current_ms": 0.015209079720079899,
+      "baseline_mad_ms": 0.0008740462362766266,
+      "current_mad_ms": 0.0001658918336033821,
+      "current_over_baseline": 0.7918070741108876
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.018125050701200962,
+      "current_ms": 0.013625016435980797,
+      "baseline_mad_ms": 0.00045797787606716156,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.75172294194344
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01895800232887268,
+      "current_ms": 0.014708028174936771,
+      "baseline_mad_ms": 0.0008329516276717186,
+      "current_mad_ms": 0.00012596137821674347,
+      "current_over_baseline": 0.7758216250736883
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.019124941900372505,
+      "current_ms": 0.012542004697024822,
+      "baseline_mad_ms": 0.0004580942913889885,
+      "current_mad_ms": 0.00012491364032030106,
+      "current_over_baseline": 0.6557930874958912
+    },
+    {
+      "shape": [
+        100,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019541941583156586,
+      "current_ms": 0.013292068615555763,
+      "baseline_mad_ms": 0.0009170034900307655,
+      "current_mad_ms": 0.00012386590242385864,
+      "current_over_baseline": 0.6801815755611685
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0874160323292017,
+      "current_ms": 0.10004197247326374,
+      "baseline_mad_ms": 0.0003330642357468605,
+      "current_mad_ms": 0.0005830079317092896,
+      "current_over_baseline": 1.1444350630844669
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.08820905350148678,
+      "current_ms": 0.10125001426786184,
+      "baseline_mad_ms": 0.0005010515451431274,
+      "current_mad_ms": 0.002500019036233425,
+      "current_over_baseline": 1.147841522482216
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0873330282047391,
+      "current_ms": 0.10012497659772635,
+      "baseline_mad_ms": 0.000583939254283905,
+      "current_mad_ms": 0.000584055669605732,
+      "current_over_baseline": 1.146473203276525
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.08829194121062756,
+      "current_ms": 0.10129099246114492,
+      "baseline_mad_ms": 0.000583939254283905,
+      "current_mad_ms": 0.0005420297384262085,
+      "current_over_baseline": 1.1472280603674472
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.08662499021738768,
+      "current_ms": 0.09950005915015936,
+      "baseline_mad_ms": 0.0005419133231043816,
+      "current_mad_ms": 0.0007499475032091141,
+      "current_over_baseline": 1.14862996117473
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.08754199370741844,
+      "current_ms": 0.1005829544737935,
+      "baseline_mad_ms": 0.0005830079317092896,
+      "current_mad_ms": 0.0006669433787465096,
+      "current_over_baseline": 1.148968057661108
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.08725002408027649,
+      "current_ms": 0.09966699872165918,
+      "baseline_mad_ms": 0.000625033862888813,
+      "current_mad_ms": 0.0007079215720295906,
+      "current_over_baseline": 1.1423148563255199
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.08824991527944803,
+      "current_ms": 0.10095804464071989,
+      "baseline_mad_ms": 0.0004998873919248581,
+      "current_mad_ms": 0.000750063918530941,
+      "current_over_baseline": 1.1440016040925467
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.08625001646578312,
+      "current_ms": 0.10016700252890587,
+      "baseline_mad_ms": 0.0006669433787465096,
+      "current_mad_ms": 0.002749962732195854,
+      "current_over_baseline": 1.1613563293479934
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.08787494152784348,
+      "current_ms": 0.09183294605463743,
+      "baseline_mad_ms": 0.000500003807246685,
+      "current_mad_ms": 0.0020830193534493446,
+      "current_over_baseline": 1.0450413332626782
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.08791708387434483,
+      "current_ms": 0.09874999523162842,
+      "baseline_mad_ms": 0.00033294782042503357,
+      "current_mad_ms": 0.0009170034900307655,
+      "current_over_baseline": 1.1232173643607934
+    },
+    {
+      "shape": [
+        1000,
+        100,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.08870800957083702,
+      "current_ms": 0.09983300697058439,
+      "baseline_mad_ms": 0.000625033862888813,
+      "current_mad_ms": 0.0007080379873514175,
+      "current_over_baseline": 1.1254114194825169
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.07670791819691658,
+      "current_ms": 0.044332933612167835,
+      "baseline_mad_ms": 0.0014581019058823586,
+      "current_mad_ms": 0.0003330642357468605,
+      "current_over_baseline": 0.5779446849067256
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.07795891724526882,
+      "current_ms": 0.045749940909445286,
+      "baseline_mad_ms": 0.001416075974702835,
+      "current_mad_ms": 0.00029115471988916397,
+      "current_over_baseline": 0.5868467973395534
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.07691595237702131,
+      "current_ms": 0.04425004590302706,
+      "baseline_mad_ms": 0.0011239899322390556,
+      "current_mad_ms": 0.0004998873919248581,
+      "current_over_baseline": 0.5753038808662894
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.07804099004715681,
+      "current_ms": 0.04554097540676594,
+      "baseline_mad_ms": 0.0011239899322390556,
+      "current_mad_ms": 0.0002909218892455101,
+      "current_over_baseline": 0.5835519946536748
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0761660048738122,
+      "current_ms": 0.04258297849446535,
+      "baseline_mad_ms": 0.0017080456018447876,
+      "current_mad_ms": 0.0004169996827840805,
+      "current_over_baseline": 0.5590811617993431
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.07616705261170864,
+      "current_ms": 0.03954197745770216,
+      "baseline_mad_ms": 0.001125037670135498,
+      "current_mad_ms": 0.0006669433787465096,
+      "current_over_baseline": 0.5191480581411344
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.0802499707788229,
+      "current_ms": 0.04412501584738493,
+      "baseline_mad_ms": 0.000208965502679348,
+      "current_mad_ms": 0.000625033862888813,
+      "current_over_baseline": 0.5498446344485031
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.08133298251777887,
+      "current_ms": 0.04529103171080351,
+      "baseline_mad_ms": 0.001125037670135498,
+      "current_mad_ms": 0.0005830079317092896,
+      "current_over_baseline": 0.5568593491687481
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.07641699630767107,
+      "current_ms": 0.042332918383181095,
+      "baseline_mad_ms": 0.0023329630494117737,
+      "current_mad_ms": 0.000250060111284256,
+      "current_over_baseline": 0.5539725509851208
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.07716694381088018,
+      "current_ms": 0.043082982301712036,
+      "baseline_mad_ms": 0.0020419247448444366,
+      "current_mad_ms": 0.00045797787606716156,
+      "current_over_baseline": 0.5583087806003992
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.07916695903986692,
+      "current_ms": 0.04191696643829346,
+      "baseline_mad_ms": 0.0017920974642038345,
+      "current_mad_ms": 0.0002919696271419525,
+      "current_over_baseline": 0.5294755153748535
+    },
+    {
+      "shape": [
+        4096,
+        5,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.07887498941272497,
+      "current_ms": 0.043375068344175816,
+      "baseline_mad_ms": 0.001125037670135498,
+      "current_mad_ms": 0.0002501765266060829,
+      "current_over_baseline": 0.5499217009996591
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.37100003100931644,
+      "current_ms": 0.3784589935094118,
+      "baseline_mad_ms": 0.0018749851733446121,
+      "current_mad_ms": 0.0026259804144501686,
+      "current_over_baseline": 1.0201050185354514
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.37391704972833395,
+      "current_ms": 0.3787080058827996,
+      "baseline_mad_ms": 0.006167101673781872,
+      "current_mad_ms": 0.0023330794647336006,
+      "current_over_baseline": 1.0128128849913276
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.3726249560713768,
+      "current_ms": 0.37583301309496164,
+      "baseline_mad_ms": 0.0008749775588512421,
+      "current_mad_ms": 0.003249966539442539,
+      "current_over_baseline": 1.0086093455935097
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.3742090193554759,
+      "current_ms": 0.37991709541529417,
+      "baseline_mad_ms": 0.0007909256964921951,
+      "current_mad_ms": 0.00070908572524786,
+      "current_over_baseline": 1.0152537105322839
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.3625829704105854,
+      "current_ms": 0.370291993021965,
+      "baseline_mad_ms": 0.00033294782042503357,
+      "current_mad_ms": 0.001209089532494545,
+      "current_over_baseline": 1.0212614028801463
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.3634580643847585,
+      "current_ms": 0.3671250306069851,
+      "baseline_mad_ms": 0.00037404242902994156,
+      "current_mad_ms": 0.007832888513803482,
+      "current_over_baseline": 1.0100891040302926
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.37004100158810616,
+      "current_ms": 0.3803330473601818,
+      "baseline_mad_ms": 0.002542976289987564,
+      "current_mad_ms": 0.002041109837591648,
+      "current_over_baseline": 1.0278132577955017
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.37229107692837715,
+      "current_ms": 0.3785839071497321,
+      "baseline_mad_ms": 0.0010419171303510666,
+      "current_mad_ms": 0.0030831433832645416,
+      "current_over_baseline": 1.0169029842812096
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.36191707476973534,
+      "current_ms": 0.3683749819174409,
+      "baseline_mad_ms": 0.0007080379873514175,
+      "current_mad_ms": 0.0018329592421650887,
+      "current_over_baseline": 1.0178436100363994
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.36308402195572853,
+      "current_ms": 0.3701669629663229,
+      "baseline_mad_ms": 0.0009160721674561501,
+      "current_mad_ms": 0.004334026016294956,
+      "current_over_baseline": 1.0195077188261894
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.38533296901732683,
+      "current_ms": 0.370750087313354,
+      "baseline_mad_ms": 0.0010010553523898125,
+      "current_mad_ms": 0.004249857738614082,
+      "current_over_baseline": 0.9621551155065657
+    },
+    {
+      "shape": [
+        20480,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.3862919984385371,
+      "current_ms": 0.3661660011857748,
+      "baseline_mad_ms": 0.0008740462362766266,
+      "current_mad_ms": 0.006417045369744301,
+      "current_over_baseline": 0.9478995233292036
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 5.673500010743737,
+      "current_ms": 5.746540962718427,
+      "baseline_mad_ms": 0.03466696944087744,
+      "current_mad_ms": 0.05424895789474249,
+      "current_over_baseline": 1.0128740551399267
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 5.752334021963179,
+      "current_ms": 5.85775007493794,
+      "baseline_mad_ms": 0.08341600187122822,
+      "current_mad_ms": 0.12070918455719948,
+      "current_over_baseline": 1.0183257878579839
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 5.706541007384658,
+      "current_ms": 5.878124968148768,
+      "baseline_mad_ms": 0.046915956772863865,
+      "current_mad_ms": 0.07070810534060001,
+      "current_over_baseline": 1.0300679449323273
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 5.700250039808452,
+      "current_ms": 5.905917030759156,
+      "baseline_mad_ms": 0.04950002767145634,
+      "current_mad_ms": 0.09924895130097866,
+      "current_over_baseline": 1.0360803455136882
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 5.781915970146656,
+      "current_ms": 5.742209032177925,
+      "baseline_mad_ms": 0.11549994815140963,
+      "current_mad_ms": 0.05587399937212467,
+      "current_over_baseline": 0.9931325639850619
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 5.652040941640735,
+      "current_ms": 5.885042017325759,
+      "baseline_mad_ms": 0.05149887874722481,
+      "current_mad_ms": 0.08775107562541962,
+      "current_over_baseline": 1.0412242370660156
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 5.790708004496992,
+      "current_ms": 5.897415918298066,
+      "baseline_mad_ms": 0.06600096821784973,
+      "current_mad_ms": 0.05583197344094515,
+      "current_over_baseline": 1.0184274381851417
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 5.858500022441149,
+      "current_ms": 5.948291975073516,
+      "baseline_mad_ms": 0.06991706322878599,
+      "current_mad_ms": 0.11883396655321121,
+      "current_over_baseline": 1.0153267819900003
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 5.683708004653454,
+      "current_ms": 5.835167015902698,
+      "baseline_mad_ms": 0.05366699770092964,
+      "current_mad_ms": 0.09470793884247541,
+      "current_over_baseline": 1.0266479226457867
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 5.574541981332004,
+      "current_ms": 5.690249963663518,
+      "baseline_mad_ms": 0.03308302257210016,
+      "current_mad_ms": 0.05383312236517668,
+      "current_over_baseline": 1.0207565003042396
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 5.95749996136874,
+      "current_ms": 5.84954209625721,
+      "baseline_mad_ms": 0.0515839783474803,
+      "current_mad_ms": 0.054208096116781235,
+      "current_over_baseline": 0.9818786628935661
+    },
+    {
+      "shape": [
+        307200,
+        16,
+        2
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 6.015583057887852,
+      "current_ms": 5.707083037123084,
+      "baseline_mad_ms": 0.0825000461190939,
+      "current_mad_ms": 0.06604206282645464,
+      "current_over_baseline": 0.9487165221066557
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.02037500962615013,
+      "current_ms": 0.004583969712257385,
+      "baseline_mad_ms": 0.00016705598682165146,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.2249800022854531
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.021542073227465153,
+      "current_ms": 0.005708076059818268,
+      "baseline_mad_ms": 0.0001658918336033821,
+      "current_mad_ms": 8.312053978443146e-05,
+      "current_over_baseline": 0.26497338485233324
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.02037500962615013,
+      "current_ms": 0.004541943781077862,
+      "baseline_mad_ms": 0.00024994369596242905,
+      "current_mad_ms": 8.393544703722e-05,
+      "current_over_baseline": 0.22291738087075763
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.021875021047890186,
+      "current_ms": 0.005749985575675964,
+      "baseline_mad_ms": 0.00037497375160455704,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.2628562305420292
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.020166044123470783,
+      "current_ms": 0.004500034265220165,
+      "baseline_mad_ms": 0.00016600824892520905,
+      "current_mad_ms": 4.21423465013504e-05,
+      "current_over_baseline": 0.22314908356184154
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.021332991309463978,
+      "current_ms": 0.005625071935355663,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 0.26367947437639494
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.020124949514865875,
+      "current_ms": 0.004500034265220165,
+      "baseline_mad_ms": 0.00012491364032030106,
+      "current_mad_ms": 8.288770914077759e-05,
+      "current_over_baseline": 0.22360474802165764
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.0213750172406435,
+      "current_ms": 0.005707959644496441,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.2670388323076085
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.019915984012186527,
+      "current_ms": 0.004166038706898689,
+      "baseline_mad_ms": 0.0002080341801047325,
+      "current_mad_ms": 8.207280188798904e-05,
+      "current_over_baseline": 0.2091806613396307
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.021042069420218468,
+      "current_ms": 0.00529095996171236,
+      "baseline_mad_ms": 0.00012514647096395493,
+      "current_mad_ms": 4.2957253754138947e-05,
+      "current_over_baseline": 0.25144674965421854
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.020166044123470783,
+      "current_ms": 0.006083049811422825,
+      "baseline_mad_ms": 0.000125030055642128,
+      "current_mad_ms": 4.202593117952347e-05,
+      "current_over_baseline": 0.3016481454755376
+    },
+    {
+      "shape": [
+        100,
+        100,
+        1
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.021459069103002548,
+      "current_ms": 0.007334048859775066,
+      "baseline_mad_ms": 0.0002511078491806984,
+      "current_mad_ms": 4.2957253754138947e-05,
+      "current_over_baseline": 0.34176919905388103
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.017874990589916706,
+      "current_ms": 0.021124957129359245,
+      "baseline_mad_ms": 0.00024994369596242905,
+      "current_mad_ms": 8.300412446260452e-05,
+      "current_over_baseline": 1.1818164056139895
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.019124941900372505,
+      "current_ms": 0.022499938495457172,
+      "baseline_mad_ms": 0.00020791776478290558,
+      "current_mad_ms": 0.00012514647096395493,
+      "current_over_baseline": 1.1764709462996554
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01791701652109623,
+      "current_ms": 0.021124957129359245,
+      "baseline_mad_ms": 0.00029208604246377945,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 1.1790443517471703
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.01908303238451481,
+      "current_ms": 0.022416003048419952,
+      "baseline_mad_ms": 0.0002080341801047325,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 1.1746562389429118
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.017625046893954277,
+      "current_ms": 0.020915991626679897,
+      "baseline_mad_ms": 0.0002919696271419525,
+      "current_mad_ms": 0.00012596137821674347,
+      "current_over_baseline": 1.1867197717274998
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01895800232887268,
+      "current_ms": 0.022042077034711838,
+      "baseline_mad_ms": 0.00024994369596242905,
+      "current_mad_ms": 0.0001658918336033821,
+      "current_over_baseline": 1.1626793083120457
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.018000020645558834,
+      "current_ms": 0.020958948880434036,
+      "baseline_mad_ms": 0.00037497375160455704,
+      "current_mad_ms": 8.393544703722e-05,
+      "current_over_baseline": 1.164384713392274
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019125058315694332,
+      "current_ms": 0.022292020730674267,
+      "baseline_mad_ms": 0.00020908191800117493,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 1.1655923010901919
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.01820793841034174,
+      "current_ms": 0.018874998204410076,
+      "baseline_mad_ms": 0.0006260816007852554,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 1.0366356574278315
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.0190419377759099,
+      "current_ms": 0.021750107407569885,
+      "baseline_mad_ms": 0.0009990762919187546,
+      "current_mad_ms": 0.00024994369596242905,
+      "current_over_baseline": 1.1422213255567986
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.018915976397693157,
+      "current_ms": 0.020666979253292084,
+      "baseline_mad_ms": 0.000500003807246685,
+      "current_mad_ms": 0.0002080341801047325,
+      "current_over_baseline": 1.0925674053924315
+    },
+    {
+      "shape": [
+        100,
+        100,
+        3
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019333092495799065,
+      "current_ms": 0.021792016923427582,
+      "baseline_mad_ms": 0.00037509016692638397,
+      "current_mad_ms": 0.0002919696271419525,
+      "current_over_baseline": 1.1271873306437044
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.01870805863291025,
+      "current_ms": 0.03462505992501974,
+      "baseline_mad_ms": 0.0008330680429935455,
+      "current_mad_ms": 0.00020791776478290558,
+      "current_over_baseline": 1.8508098891730604
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01937500201165676,
+      "current_ms": 0.03604206722229719,
+      "baseline_mad_ms": 0.000250060111284256,
+      "current_mad_ms": 0.00016705598682165146,
+      "current_over_baseline": 1.8602355344589316
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01808302477002144,
+      "current_ms": 0.03470794763416052,
+      "baseline_mad_ms": 0.00037602148950099945,
+      "current_mad_ms": 0.00016705598682165146,
+      "current_over_baseline": 1.9193662606545978
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019332976080477238,
+      "current_ms": 0.036207959055900574,
+      "baseline_mad_ms": 0.00025099143385887146,
+      "current_mad_ms": 0.00016705598682165146,
+      "current_over_baseline": 1.872860076233373
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.0177919864654541,
+      "current_ms": 0.034667085856199265,
+      "baseline_mad_ms": 0.00045797787606716156,
+      "current_mad_ms": 0.0003761379048228264,
+      "current_over_baseline": 1.9484662897822445
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01895800232887268,
+      "current_ms": 0.03595789894461632,
+      "baseline_mad_ms": 0.00024994369596242905,
+      "current_mad_ms": 0.00020780134946107864,
+      "current_over_baseline": 1.8967134997052466
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.018125050701200962,
+      "current_ms": 0.03524997737258673,
+      "baseline_mad_ms": 0.00037509016692638397,
+      "current_mad_ms": 0.0002919696271419525,
+      "current_over_baseline": 1.9448208975355348
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019540893845260143,
+      "current_ms": 0.03704207483679056,
+      "baseline_mad_ms": 0.0004578614607453346,
+      "current_mad_ms": 0.00041711609810590744,
+      "current_over_baseline": 1.8956182419350034
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.017417012713849545,
+      "current_ms": 0.035041943192481995,
+      "baseline_mad_ms": 0.0001260777935385704,
+      "current_mad_ms": 0.0004998873919248581,
+      "current_over_baseline": 2.0119376249072594
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01870805863291025,
+      "current_ms": 0.03600004129111767,
+      "baseline_mad_ms": 0.00016693957149982452,
+      "current_mad_ms": 0.0002080341801047325,
+      "current_over_baseline": 1.924306631570432
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.018333084881305695,
+      "current_ms": 0.03474997356534004,
+      "baseline_mad_ms": 0.000250060111284256,
+      "current_mad_ms": 0.00020791776478290558,
+      "current_over_baseline": 1.8954787909575819
+    },
+    {
+      "shape": [
+        100,
+        100,
+        5
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019666040316224098,
+      "current_ms": 0.03654207102954388,
+      "baseline_mad_ms": 0.0002491287887096405,
+      "current_mad_ms": 0.00025099143385887146,
+      "current_over_baseline": 1.858130586633517
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.018666964024305344,
+      "current_ms": 0.05725002847611904,
+      "baseline_mad_ms": 0.00012596137821674347,
+      "current_mad_ms": 0.0009159557521343231,
+      "current_over_baseline": 3.066916955621523
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.019957893528044224,
+      "current_ms": 0.059832935221493244,
+      "baseline_mad_ms": 0.00037497375160455704,
+      "current_mad_ms": 0.0030010705813765526,
+      "current_over_baseline": 2.9979584337103424
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01895800232887268,
+      "current_ms": 0.057750032283365726,
+      "baseline_mad_ms": 0.00037497375160455704,
+      "current_mad_ms": 0.0007919734343886375,
+      "current_over_baseline": 3.046208734525447
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.02050003968179226,
+      "current_ms": 0.058832927606999874,
+      "baseline_mad_ms": 0.0008341157808899879,
+      "current_mad_ms": 0.0011658994480967522,
+      "current_over_baseline": 2.8698933524140515
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.01916696783155203,
+      "current_ms": 0.05670799873769283,
+      "baseline_mad_ms": 0.000708969309926033,
+      "current_mad_ms": 0.002834014594554901,
+      "current_over_baseline": 2.958631706176394
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.019875005818903446,
+      "current_ms": 0.05725002847611904,
+      "baseline_mad_ms": 0.0007919734343886375,
+      "current_mad_ms": 0.0017499551177024841,
+      "current_over_baseline": 2.8805037340752673
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.019042054191231728,
+      "current_ms": 0.0600829953327775,
+      "baseline_mad_ms": 0.0007080379873514175,
+      "current_mad_ms": 0.004582921974360943,
+      "current_over_baseline": 3.1552790854068595
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.019749975763261318,
+      "current_ms": 0.057875062339007854,
+      "baseline_mad_ms": 0.0009168870747089386,
+      "current_mad_ms": 0.0019579892978072166,
+      "current_over_baseline": 2.9303864993427684
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.01783308107405901,
+      "current_ms": 0.059707905165851116,
+      "baseline_mad_ms": 0.00037497375160455704,
+      "current_mad_ms": 0.004167086444795132,
+      "current_over_baseline": 3.3481541926428826
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.020041014067828655,
+      "current_ms": 0.05779194179922342,
+      "baseline_mad_ms": 0.0008739298209547997,
+      "current_mad_ms": 0.0015409896150231361,
+      "current_over_baseline": 2.883683510406562
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.019541941583156586,
+      "current_ms": 0.05608401261270046,
+      "baseline_mad_ms": 0.0011668307706713676,
+      "current_mad_ms": 0.0034159747883677483,
+      "current_over_baseline": 2.869930419863699
+    },
+    {
+      "shape": [
+        100,
+        100,
+        8
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.02050003968179226,
+      "current_ms": 0.057040946558117867,
+      "baseline_mad_ms": 0.0011658994480967522,
+      "current_mad_ms": 0.0009159557521343231,
+      "current_over_baseline": 2.7824798119186345
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.018707942217588425,
+      "current_ms": 0.0641250517219305,
+      "baseline_mad_ms": 0.0003330642357468605,
+      "current_mad_ms": 0.007457914762198925,
+      "current_over_baseline": 3.427691350342253
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01979200169444084,
+      "current_ms": 0.0636660261079669,
+      "baseline_mad_ms": 0.0006669433787465096,
+      "current_mad_ms": 0.0002919696271419525,
+      "current_over_baseline": 3.2167552878620334
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.01866708043962717,
+      "current_ms": 0.06258301436901093,
+      "baseline_mad_ms": 0.00033294782042503357,
+      "current_mad_ms": 0.00016600824892520905,
+      "current_over_baseline": 3.3525871692371014
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.01979200169444084,
+      "current_ms": 0.06341689731925726,
+      "baseline_mad_ms": 0.000250060111284256,
+      "current_mad_ms": 0.001375097781419754,
+      "current_over_baseline": 3.2041679410865114
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.019041006453335285,
+      "current_ms": 0.06220908835530281,
+      "baseline_mad_ms": 0.00045797787606716156,
+      "current_mad_ms": 0.0018760329112410545,
+      "current_over_baseline": 3.2671113529508866
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.019541941583156586,
+      "current_ms": 0.05833292379975319,
+      "baseline_mad_ms": 0.000959029421210289,
+      "current_mad_ms": 0.001249951310455799,
+      "current_over_baseline": 2.985011676118763
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.018874998204410076,
+      "current_ms": 0.058582983911037445,
+      "baseline_mad_ms": 0.000500003807246685,
+      "current_mad_ms": 0.0023329630494117737,
+      "current_over_baseline": 3.103734542202486
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.01991703175008297,
+      "current_ms": 0.06212492007762194,
+      "baseline_mad_ms": 0.000750063918530941,
+      "current_mad_ms": 0.0032498501241207123,
+      "current_over_baseline": 3.1191856727026175
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.018416903913021088,
+      "current_ms": 0.06175006274133921,
+      "baseline_mad_ms": 0.0005419133231043816,
+      "current_mad_ms": 0.00016705598682165146,
+      "current_over_baseline": 3.3529013906447536
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.01916696783155203,
+      "current_ms": 0.0579591142013669,
+      "baseline_mad_ms": 0.0004169996827840805,
+      "current_mad_ms": 0.003750203177332878,
+      "current_over_baseline": 3.023906269929484
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.018874998204410076,
+      "current_ms": 0.06250001024454832,
+      "baseline_mad_ms": 0.0002919696271419525,
+      "current_mad_ms": 0.000125030055642128,
+      "current_over_baseline": 3.311259135905264
+    },
+    {
+      "shape": [
+        100,
+        100,
+        9
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.02104195300489664,
+      "current_ms": 0.06874999962747097,
+      "baseline_mad_ms": 0.001291045919060707,
+      "current_mad_ms": 0.002250075340270996,
+      "current_over_baseline": 3.2672822532904746
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.028832932002842426,
+      "current_ms": 0.15570898540318012,
+      "baseline_mad_ms": 0.0005419133231043816,
+      "current_mad_ms": 0.004958943463861942,
+      "current_over_baseline": 5.400386800337542
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.029999995604157448,
+      "current_ms": 0.16004196368157864,
+      "baseline_mad_ms": 0.001166015863418579,
+      "current_mad_ms": 0.0024990877136588097,
+      "current_over_baseline": 5.334732904407485
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "uint8",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.028666923753917217,
+      "current_ms": 0.15904090832918882,
+      "baseline_mad_ms": 0.000333995558321476,
+      "current_mad_ms": 0.0024170149117708206,
+      "current_over_baseline": 5.547888908291268
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "uint8",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.029999995604157448,
+      "current_ms": 0.1593329943716526,
+      "baseline_mad_ms": 0.0005830079317092896,
+      "current_mad_ms": 0.003999099135398865,
+      "current_over_baseline": 5.311100590613819
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.02550007775425911,
+      "current_ms": 0.152332941070199,
+      "baseline_mad_ms": 0.0007499475032091141,
+      "current_mad_ms": 0.0036659184843301773,
+      "current_over_baseline": 5.9738226109822685
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.02729194238781929,
+      "current_ms": 0.153791974298656,
+      "baseline_mad_ms": 0.0009159557521343231,
+      "current_mad_ms": 0.0029579969123005867,
+      "current_over_baseline": 5.63506884608166
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float16",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.02845795825123787,
+      "current_ms": 0.16024999786168337,
+      "baseline_mad_ms": 0.0012490199878811836,
+      "current_mad_ms": 0.0028329668566584587,
+      "current_over_baseline": 5.631113674668238
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float16",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.0301670515909791,
+      "current_ms": 0.1602090196684003,
+      "baseline_mad_ms": 0.0009159557521343231,
+      "current_mad_ms": 0.004207948222756386,
+      "current_over_baseline": 5.310728467620875
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": false,
+      "baseline_ms": 0.02466596197336912,
+      "current_ms": 0.16195792704820633,
+      "baseline_mad_ms": 0.0005010515451431274,
+      "current_mad_ms": 0.009040930308401585,
+      "current_over_baseline": 6.5660494905110935
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": false,
+      "baseline_ms": 0.02637505531311035,
+      "current_ms": 0.16312499064952135,
+      "baseline_mad_ms": 0.0007499475032091141,
+      "current_mad_ms": 0.004542060196399689,
+      "current_over_baseline": 6.184820798022598
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float32",
+      "container": "numpy",
+      "strided": true,
+      "baseline_ms": 0.03120803739875555,
+      "current_ms": 0.15958293806761503,
+      "baseline_mad_ms": 0.0010419171303510666,
+      "current_mad_ms": 0.002834014594554901,
+      "current_over_baseline": 5.113520470017719
+    },
+    {
+      "shape": [
+        100,
+        100,
+        64
+      ],
+      "dtype": "float32",
+      "container": "tensor",
+      "strided": true,
+      "baseline_ms": 0.03287498839199543,
+      "current_ms": 0.16012508422136307,
+      "baseline_mad_ms": 0.0004159519448876381,
+      "current_mad_ms": 0.002875109203159809,
+      "current_over_baseline": 4.870726715156837
+    }
+  ],
+  "cpu": "Apple M4 Max",
+  "memory": {
+    "shape": [
+      307200,
+      16,
+      2
+    ],
+    "method": "fresh processes; tracemalloc array peaks and resource.ru_maxrss bytes",
+    "baseline": {
+      "live_bytes": 19661920,
+      "peak_bytes": 60212864,
+      "rss_peak_bytes": 301465600
+    },
+    "current": {
+      "live_bytes": 19661424,
+      "peak_bytes": 39389232,
+      "rss_peak_bytes": 277102592
+    }
+  }
+}
