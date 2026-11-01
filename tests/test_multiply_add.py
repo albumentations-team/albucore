@@ -119,7 +119,7 @@ def test_multiply_add(img_dtype, num_channels, value, factor, is_contiguous):
 
 @pytest.mark.parametrize("output_mode", ["allocate", "alias", "output"])
 def test_multiply_add_float16_numkong_scale_matches_all_non_nan_binary16_values(monkeypatch, output_mode) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
     calls = []
     original_numkong = arithmetic._scale_numkong
 
@@ -155,7 +155,7 @@ def test_multiply_add_float16_numkong_scale_matches_all_non_nan_binary16_values(
 
 @pytest.mark.parametrize(("factor", "bias"), [(0.4, 0.6), (1.127, 0.07)])
 def test_multiply_add_float16_numkong_skips_non_half_controls(monkeypatch, factor: float, bias: float) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
 
     def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
         msg = "NumKong half scale requires controls exactly representable in float16."

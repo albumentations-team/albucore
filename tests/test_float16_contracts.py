@@ -177,7 +177,7 @@ def test_float16_single_channel_vector_controls_use_scalar_torch_parameter(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
     source = np.random.default_rng(610135).random((128, 160, 1), dtype=np.float32).astype(np.float16)
     vector = np.array([control], dtype=np.float32)
     expected = reference(source.astype(np.float32), vector).astype(np.float16)
@@ -207,30 +207,30 @@ def test_float16_single_channel_vector_controls_use_scalar_torch_parameter(
         (add, 0.875, 1.0, 0.875, np.add),
         (add, -1.25, 1.0, -1.25, np.add),
         (add, 1.0, 1.0, 1.0, np.add),
-        (multiply, 0.0, 0.0, -0.0, np.multiply),
-        (multiply, -0.0, -0.0, -0.0, np.multiply),
-        (multiply, 0.5, 0.5, -0.0, np.multiply),
-        (multiply, -0.5, -0.5, -0.0, np.multiply),
-        (multiply, 0.875, 0.875, -0.0, np.multiply),
-        (multiply, -1.25, -1.25, -0.0, np.multiply),
-        (multiply, 1.0, 1.0, -0.0, np.multiply),
+        (multiply, 0.0, 0.0, None, np.multiply),
+        (multiply, -0.0, -0.0, None, np.multiply),
+        (multiply, 0.5, 0.5, None, np.multiply),
+        (multiply, -0.5, -0.5, None, np.multiply),
+        (multiply, 0.875, 0.875, None, np.multiply),
+        (multiply, -1.25, -1.25, None, np.multiply),
+        (multiply, 1.0, 1.0, None, np.multiply),
     ],
 )
 def test_float16_single_channel_vector_uses_numkong_scale_for_exact_half_controls(
     operation: Callable[..., np.ndarray],
     control: float,
     alpha: float,
-    beta: float,
+    beta: float | None,
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
-    calls: list[tuple[float, float]] = []
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    calls: list[tuple[float, float | None]] = []
     original = arithmetic.nk.scale
 
-    def record_numkong(img: np.ndarray, *, alpha: float, beta: float) -> np.ndarray:
-        calls.append((alpha, beta))
-        return original(img, alpha=alpha, beta=beta)
+    def record_numkong(img: np.ndarray, **kwargs) -> np.ndarray:
+        calls.append((kwargs["alpha"], kwargs.get("beta")))
+        return original(img, **kwargs)
 
     monkeypatch.setattr(arithmetic.nk, "scale", record_numkong)
     image = np.arange(1 << 16, dtype=np.uint16).reshape(256, 256, 1).view(np.float16)
@@ -268,7 +268,7 @@ def test_float16_single_channel_numkong_vector_route_keeps_measurement_gates(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
 
     def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
         msg = "NumKong scale is limited to the measured contiguous HWC C=1 half-exact region."
@@ -509,14 +509,7 @@ def test_float16_hwc_c9_vector_uses_numkong_broadcast_controls(
     np.testing.assert_array_equal(result[finite].view(np.uint16), expected[finite].view(np.uint16))
 
 
-def test_float16_hwc_c9_multiply_zero_control_preserves_negative_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
-
-    def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
-        msg = "NumKong multiply does not preserve negative zero with a zero broadcast control."
-        raise AssertionError(msg)
-
-    monkeypatch.setattr(arithmetic.nk, "multiply", fail_numkong)
+def test_float16_hwc_c9_multiply_zero_control_preserves_negative_zero() -> None:
     image = np.zeros((128, 160, 9), dtype=np.float16)
     image[..., -1] = np.float16(-0.0)
     vector = np.array([0.875, 1.125, 0.5, -0.75, 1.25, 0.625, 0.25, -1.0, 0.0], dtype=np.float32)

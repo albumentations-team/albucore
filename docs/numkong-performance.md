@@ -5,11 +5,14 @@ full-path performance. This page records the current NumKong routes and the
 benchmark questions that can change them. It is a decision guide, not an archive
 of one machine's timings.
 
+The [7.8.7 integration review](numkong-7.8.7.md) records released fixes, removed
+workarounds, and the precision/performance guards that remain necessary.
+
 ## Current production routes
 
 | Operation | NumKong route | Scope and fallback |
 |---|---|---|
-| `add_weighted` | `nk.blend` for uint8 and single-channel float32; capability-gated NumKong half blend | Multi-channel float32 uses OpenCV for HWC/two contiguous inputs and NumKong for the measured strided higher-rank region. Contiguous float16 inputs with `neonhalf=true`, at least 20,480 elements, and weights `0.5, 0.5` use NumKong; the 21-sample HWC grid measured 0.52–0.55× float32 time for C=3/9. Other float16 controls retain the CV16F/float32 routes. A direct Torch half candidate was fast for normalized random data but failed one-ULP parity under extreme cancellation; a CV16F→CV32F OpenCV candidate was 2.61–3.30× slower. See [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503). |
+| `add_weighted` | `nk.blend` for uint8 and single-channel float32; capability-gated NumKong half blend | Multi-channel float32 uses OpenCV for HWC/two contiguous inputs and NumKong for the measured strided higher-rank region. Contiguous float16 inputs with `neon=true`, at least 20,480 elements, and weights `0.5, 0.5` use NumKong; the 21-sample HWC grid measured 0.52–0.55× float32 time for C=3/9. Other float16 controls retain the CV16F/float32 routes. A direct Torch half candidate was fast for normalized random data but failed one-ULP parity under extreme cancellation; a CV16F→CV32F OpenCV candidate was 2.61–3.30× slower. See [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503). |
 | `pairwise_distances_squared` | `nk.cdist(metric="sqeuclidean")` | `n1 * n2 < 1000`; larger point sets use the NumPy vectorized formula. |
 | Global uint8 `mean`, `std`, `mean_std` | `nk.moments` | One contiguous reduction over all elements. |
 | Global float16 `mean` | OpenCV `CV_32F mean` after one widening pass | Contiguous arrays with at least 4,096 elements; smaller or non-contiguous inputs use NumPy float64. Direct `CV_16F mean` lost low-order contributions on skewed subnormal inputs and exceeded tolerance on a positive near-constant C=1 input without subnormals. |
@@ -23,8 +26,8 @@ of one machine's timings.
 | Per-channel float16 `reduce_sum` | Torch float64 accumulation in measured HWC windows and contiguous rank-4 channel-last C=1 arrays up to 307,200 elements without `keepdims`, plus C=3 arrays up to 245,760 elements; OpenCV `CV_64F reduce` after widening for C=9 beyond the Torch window | Rank-4 C=3 is exact and 4.4–5.3× faster than the float32 peer; rank-4 C=1 is exact and 0.965–1.006× float32 time in the tested N=1–4, 128×160 and 240×320 windows. `cv2.reduce` rejects CV_16F; the current correct C=9 route remains 1.21–1.30× slower than the float32 peer, and tested direct Torch/NumKong/NumPy alternatives were slower. See [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769). |
 | NumPy float16 `median_blur` | Ordered binary16 keys through OpenCV `CV_16U` | `ksize=5`, HWC C=1, at least 76,800 elements. NaNs and zero medians from mixed signed-zero inputs use the float32 route; every other region keeps its existing float32 or quantized path. |
 | Float16 Tensor `reduce_sum` | CPU Torch `sum(dtype=float64)` | Contiguous inputs of 16,384+ elements; global, per-channel, and explicit-axis reductions return the existing float64 result without the NumPy layout bridge. The paired grid has no cell above 1.10× and shows >5% speedups in 11/21 global and 16/21 per-channel pairs. |
-| `multiply_add` | `nk.scale` | Float32 scalars use NumKong in its measured region. Contiguous float16 NumPy inputs also use it when `neonhalf=true`, both scalar controls are exactly representable in float16, and the image has at least 20,480 elements. Other float16 controls use the measured Torch/NumPy path; vector and full-array controls do not select the half NumKong route. |
-| NumPy HWC C=1 float16 `add(..., channel_vector)`, `multiply(..., channel_vector)` | `nk.scale` | Contiguous writable inputs with `neonhalf=true`, 20,480+ elements, one control, and a control exactly representable in float16. Addition uses `alpha=1`; multiplication uses a negative-zero bias to preserve signed zero. For 14 exact controls, all 65,536 input bit patterns matched the float32-rounded-half result on finite outputs; NaN/Inf classifications and infinity signs also matched. The 101-sample public grid measured float16/float32 ratios of 0.836/0.667/0.563 for add and 0.866/0.685/0.561 for multiply at 128×160/240×320/480×640; a separate 768×1024 check measured 0.535/0.517. At 128×160, 1,000 calls per sample measured 0.976×/0.991× and 301 samples of 100 calls measured 0.979×/1.029×; neither showed a robust >1.10× slowdown. See [`c1_vector_numkong_public_101_20261011.json`](../_internal/float16_probe_20261010/c1_vector_numkong_public_101_20261011.json), [`c1_vector_numkong_128x160_batched_301_20261011.json`](../_internal/float16_probe_20261010/c1_vector_numkong_128x160_batched_301_20261011.json), [`c1_vector_numkong_128x160_batched_1000_20261011.json`](../_internal/float16_probe_20261010/c1_vector_numkong_128x160_batched_1000_20261011.json), and [`c1_c3_vector_public_768_20261011.json`](../_internal/float16_probe_20261010/c1_c3_vector_public_768_20261011.json). Direct CV16F OpenCV C1 candidates were exact on the tested finite inputs but took 2.22–5.92× float32 public time; see [the C1 benchmark](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [the C3/C9 follow-up](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769). Other channels, layouts, sizes, and controls retain measured Torch/NumPy paths. |
+| `multiply_add` | `nk.scale` | Float32 scalars use NumKong in its measured region. Contiguous float16 NumPy inputs also use it when `neon=true`, both scalar controls are exactly representable in float16, and the image has at least 20,480 elements. Other float16 controls use the measured Torch/NumPy path; vector and full-array controls do not select the half NumKong route. |
+| NumPy HWC C=1 float16 `add(..., channel_vector)`, `multiply(..., channel_vector)` | `nk.scale` | Contiguous writable inputs with `neon=true`, 20,480+ elements, one control, and a control exactly representable in float16. Addition uses `alpha=1`; multiplication uses the signed-zero-preserving default bias in NumKong 7.8.7. For 14 exact controls, all 65,536 input bit patterns matched the float32-rounded-half result on finite outputs; NaN/Inf classifications and infinity signs also matched. The 101-sample public grid measured float16/float32 ratios of 0.836/0.667/0.563 for add and 0.866/0.685/0.561 for multiply at 128×160/240×320/480×640; a separate 768×1024 check measured 0.535/0.517. At 128×160, 1,000 calls per sample measured 0.976×/0.991× and 301 samples of 100 calls measured 0.979×/1.029×; neither showed a robust >1.10× slowdown. See [`c1_vector_numkong_public_101_20261011.json`](../_internal/float16_probe_20261010/c1_vector_numkong_public_101_20261011.json), [`c1_vector_numkong_128x160_batched_301_20261011.json`](../_internal/float16_probe_20261010/c1_vector_numkong_128x160_batched_301_20261011.json), [`c1_vector_numkong_128x160_batched_1000_20261011.json`](../_internal/float16_probe_20261010/c1_vector_numkong_128x160_batched_1000_20261011.json), and [`c1_c3_vector_public_768_20261011.json`](../_internal/float16_probe_20261010/c1_c3_vector_public_768_20261011.json). Direct CV16F OpenCV C1 candidates were exact on the tested finite inputs but took 2.22–5.92× float32 public time; see [the C1 benchmark](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [the C3/C9 follow-up](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769). Other channels, layouts, sizes, and controls retain measured Torch/NumPy paths. |
 | NumPy HWC C=3 float16 `add(..., channel_vector)`, `multiply(..., channel_vector)` | OpenCV `CV_16F add`/`multiply` | Contiguous writable inputs, 61,440+ elements, and three exact half controls. Exhaustive binary16 outputs matched the float32-rounded-half reference, including special-value classifications. Full public ratios at 128×160/240×320/480×640 were 0.304/0.284/0.280 for add and 0.474/0.469/0.479 for multiply; 768×1024 measured 0.270/0.450. See [`c3_vector_cv16f_public_101_20261011.json`](../_internal/float16_probe_20261010/c3_vector_cv16f_public_101_20261011.json) and [`c1_c3_vector_public_768_20261011.json`](../_internal/float16_probe_20261010/c1_c3_vector_public_768_20261011.json); the results are also posted in [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769).
 | NumPy HWC C=9 float16 `add(..., channel_vector)` | NumKong `nk.add` with broadcast half controls | Contiguous writable C9 inputs, `neonhalf=true`, half-exact float32 controls, 184,320+ elements; exact binary16 route, with public ratios described below. |
 | NumPy HWC C=9 float16 `multiply(..., channel_vector)` | OpenCV `CV_16F multiply` with a zero-stride control array | Contiguous writable C9 images with 184,320+ elements and finite float32 controls. Exact half controls match bitwise; inexact controls are accepted only when every magnitude is ≤1 and each nonzero magnitude is at least the float16 normal minimum, where exhaustive binary16 inputs stay within 1 ULP. Other controls keep the NumPy float32 ufunc-to-half fallback. The runtime-enabled 101-sample public grid ranged from 0.842× to 0.922× float32 time across eight sizes from 128×160 through 768×1024. See [`c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json), [`c9_multiply_safe_inexact_controls_public_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_multiply_safe_inexact_controls_public_101_20261011_1715.json), and [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769). |
@@ -46,28 +49,17 @@ This Core result does not close the larger AX architecture acceptance. The half-
 - HWC C9 `multiply(..., channel_vector)` uses OpenCV `CV_16F multiply` for exact half controls and inexact controls in `[-1, 1]` outside the half-subnormal range. Exhaustive binary16 tests stay within 1 ULP and preserve NaN/Inf classifications and signed zero. The 101-sample public ratios are 0.842–0.922× float32 over eight canonical sizes.
 - For non-exact controls above one, the current route uses the NumPy float32 ufunc loop to half output; `1.1` measures 1.13–1.15× float32 at 400×640/480×640/768×1024. A mixed CV16F-output / float32-control OpenCV candidate matched all half bit patterns but took 1.497–1.563× float32. Results are in [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [`c9_multiply_cv16f_mixed_controls_over1_public_101_20261011.json`](../_internal/float16_probe_20261010/c9_multiply_cv16f_mixed_controls_over1_public_101_20261011.json).
 - NumKong candidates on the signed-zero fix branch did not close this region: mixed float16×float32 promotion plus narrowing was 2.28–2.33× float32, and `out_dtype=float16` was 5.38–5.54×. Rounding controls to half was 0.90–0.92× but changed six overflow-boundary finite/Inf classifications across the binary16 input domain. Keep the current fallback; see [NumKong #395](https://github.com/ashvardanian/NumKong/issues/395#issuecomment-6096156733) and [#401](https://github.com/ashvardanian/NumKong/issues/401). Raw data: [`c9_multiply_numkong_mixed_controls_pr402_101_20261011.json`](../_internal/float16_probe_20261010/c9_multiply_numkong_mixed_controls_pr402_101_20261011.json) and [`c9_multiply_numkong_inexact_over1_pr402_101_20261011.json`](../_internal/float16_probe_20261010/c9_multiply_numkong_inexact_over1_pr402_101_20261011.json).
-- The signed-zero defect in direct NumKong C9 multiplication is tracked in [#401](https://github.com/ashvardanian/NumKong/issues/401#issuecomment-6111217588) and proposed for correction in open [PR #402](https://github.com/ashvardanian/NumKong/pull/402). OpenCV’s safe-control results are in [#25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [`c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json).
+- NumKong 7.8.7 fixes the signed-zero defect reported in [#401](https://github.com/ashvardanian/NumKong/issues/401). The current OpenCV route remains faster in the [release screen](numkong-7.8.7.md). OpenCV’s safe-control results are in [#25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769) and [`c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json).
 - OpenCV rejects a nine-channel scalar tuple. Splitting into three CV16F C3 calls was exact on random tests but 5.2–5.74× slower than float32 public calls; measurements: [`c9_vector_cv16f_chunks_101_20261011.json`](../_internal/float16_probe_20261010/c9_vector_cv16f_chunks_101_20261011.json).
 The public routers preserve their documented dtype, layout, and aliasing
 contracts. A dispatch branch is implementation routing; it is not a second
 validation pass. Callers validate dtype, shape, layout, and control parameters
 before entering Albucore.
 
-Albucore checks `nk.get_capabilities()["neonhalf"]` once at import and enables
-only measured float16 NumKong regions when that capability is present. A
-different ARM64 execution environment for NumKong 7.8.5 reported
-`neonhalf=False`; there, direct `nk.scale` and `nk.blend` were 6.3–19.8× slower
-than the full float32 round-trip across HWC 128×160×3, 240×320×3, and
-480×640×3. Those results remain documented in the upstream
-[performance issue](https://github.com/ashvardanian/NumKong/issues/395#issuecomment-6096156733)
-and do not describe the current M4 Max runtime, where `neonhalf=true`.
-
-A separate one-thread C=1 `nk.scale` comparison used 101 paired samples:
-
-- Direct float16 was 16.4–24.7× slower than the float32 round-trip on HWC
-  128×160, 240×320, and 480×640; both paths exactly matched the wide reference.
-- The results are in [NumKong #395](https://github.com/ashvardanian/NumKong/issues/395#issuecomment-6096156733).
-- The existing resolving [PR #398](https://github.com/ashvardanian/NumKong/pull/398) remains open.
+Albucore gates float16 NumKong `scale` and `blend` on baseline `neon` from
+7.8.7. Float16 sums and moments still require `neonhalf`; their dispatch was
+not replaced by this release. Earlier 7.8.5 measurements with NEON disabled
+are historical restricted-process results, not native-host acceptance data.
 
 With NumKong 7.8.5 and `neonhalf=true` on an Apple M4 Max, exact half controls
 were measured through the full NumPy public route. For `nk.scale` controls
@@ -75,16 +67,19 @@ were measured through the full NumPy public route. For `nk.scale` controls
 across HWC C=1/3/9 and the 128×160, 480×640, and 768×1024 sizes; all 65,536
 binary16 values matched exactly. For `nk.blend` weights `0.5, 0.5`, direct half
 took 0.32–0.51× the bridge across the same grid; the tested random and
-adversarial outputs stayed within one binary16 ULP. Albucore enables the
+adversarial outputs stayed within one binary16 ULP. That profile enabled the
 measured `add_weighted` and scalar `multiply_add` regions only when
 `neonhalf=true`, inputs are contiguous, controls are exactly representable in
 half, and the size threshold is met. The paired candidate matrix is recorded in
 [`numkong_half_host_101_20261011.json`](../_internal/float16_probe_20261010/numkong_half_host_101_20261011.json).
 
-NumKong PR [#398](https://github.com/ashvardanian/NumKong/pull/398) remains an
-upstream improvement for widened NEON-half `scale`/`blend`/`fma` behavior across
-more controls. It is separate from the capability-gated regions Albucore has
-already measured. NumKong `moments(float16)` loses subnormal contributions; the
+NumKong 7.8.7 supersedes [PR #398](https://github.com/ashvardanian/NumKong/pull/398)
+and fixes [#395](https://github.com/ashvardanian/NumKong/issues/395) and
+[#396](https://github.com/ashvardanian/NumKong/issues/396). Broader coefficient
+regions remain excluded because they change current rounding and cancellation
+results; see the [integration review](numkong-7.8.7.md).
+
+NumKong `moments(float16)` loses subnormal contributions; the
 precision issue and public-route cost are tracked in
 [NumKong #399](https://github.com/ashvardanian/NumKong/issues/399). The candidate
 F64 NEON accumulator and its contiguous/strided bridge benchmark are in
@@ -99,8 +94,8 @@ fallback at 0.910 ms and F16→F32 conversion plus NEON F32 moments at 1.120 ms
 (0.812× bridge time). The float32 work buffer was preallocated; calls were
 single-threaded, with CPU pinning unavailable. Raw samples are in
 [`numkong_f16_oddstride_bench_20261011.json`](../_internal/float16_probe_20261010/numkong_f16_oddstride_bench_20261011.json).
-The binary16 ULP issue in NumKong's generic test helper is tracked separately
-in [#397](https://github.com/ashvardanian/NumKong/issues/397).
+NumKong 7.8.7 also corrects the generic binary16 ULP helper described in
+[#397](https://github.com/ashvardanian/NumKong/issues/397).
 
 OpenCV 5.0.0.93 returns incorrect `CV_16F meanStdDev` results for constant
 HWC inputs at C=3/4/9. Albucore limits this direct route to C≤4 and uses a

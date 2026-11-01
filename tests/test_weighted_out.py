@@ -170,7 +170,7 @@ def test_weighted_zero_coefficient_preserves_nonfinite_arithmetic(dtype, channel
 
 @pytest.mark.parametrize("output_mode", ["first", "second", "output"])
 def test_weighted_half_numkong_output_matches_all_encodings(monkeypatch, output_mode):
-    monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
+    monkeypatch.setattr(weighted, "_NUMKONG_NEON", True)
     first = np.arange(1 << 16, dtype=np.uint16).reshape(256, 256, 1).view(np.float16)
     second = np.ascontiguousarray(np.roll(first, 137, axis=1))
     before1, before2 = first.copy(), second.copy()
@@ -238,7 +238,7 @@ def test_weighted_tensor_strided_output_preserves_gaps(
     dtype, packed_inputs, shape, layout, permutation, force_half_average, monkeypatch
 ):
     if force_half_average:
-        monkeypatch.setattr(weighted, "_NUMKONG_NEON_HALF", True)
+        monkeypatch.setattr(weighted, "_NUMKONG_NEON", True)
         monkeypatch.setattr(weighted, "_NUMKONG_HALF_BLEND_MIN_ELEMENTS", 1)
     weight1, weight2 = (0.5, 0.5) if force_half_average else (0.25, 0.75)
     values = (np.arange(np.prod(shape), dtype=np.int32).reshape(shape) % 16) * 4

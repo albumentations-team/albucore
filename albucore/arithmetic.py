@@ -34,6 +34,7 @@ from albucore.utils import (
     get_num_channels,
 )
 from albucore.weighted import (
+    _NUMKONG_NEON,
     _NUMKONG_NEON_HALF,
     _blend_numkong,
 )
@@ -216,7 +217,7 @@ def _numkong_float16_single_channel_scale(
     out: NDArray[np.float16] | None = None,
 ) -> NDArray[np.float16] | None:
     if (
-        not _NUMKONG_NEON_HALF
+        not _NUMKONG_NEON
         or not img.flags.c_contiguous
         or not img.flags.writeable
         or img.ndim != 3
@@ -230,25 +231,19 @@ def _numkong_float16_single_channel_scale(
     scalar = _half_exact_scalar(float(value[0]))
     if scalar is None:
         return None
-    if out is not None:
-        if not out.flags.c_contiguous:
-            return None
-        nk.scale(
-            img.reshape(-1),
-            alpha=1.0 if operation == "add" else scalar,
-            beta=scalar if operation == "add" else -0.0,
-            out=out.reshape(-1),
-        )
-        return out
-    result = (
-        nk.scale(img.reshape(-1), alpha=1.0, beta=scalar)
-        if operation == "add"
-        else nk.scale(
-            img.reshape(-1),
-            alpha=scalar,
-            beta=-0.0,
-        )
-    )
+    if out is not None and not out.flags.c_contiguous:
+        return None
+    flat = img.reshape(-1)
+    if operation == "add":
+        if out is not None:
+            nk.scale(flat, alpha=1.0, beta=scalar, out=out.reshape(-1))
+            return out
+        result = nk.scale(flat, alpha=1.0, beta=scalar)
+    else:
+        if out is not None:
+            nk.scale(flat, alpha=scalar, out=out.reshape(-1))
+            return out
+        result = nk.scale(flat, alpha=scalar)
     if result is None:
         raise RuntimeError("nk.scale returned None")
     return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
@@ -699,7 +694,7 @@ def _add_numkong_float16_scalar(img: ImageType, value: float | None, out: ImageT
     if value is None or value == 0 or not _is_float16_image(img):
         return None
     if (
-        not _NUMKONG_NEON_HALF
+        not _NUMKONG_NEON
         or img.ndim < 3
         or not img.flags.c_contiguous
         or img.size < _NUMKONG_FLOAT16_MIN_ELEMENTS
@@ -1069,7 +1064,7 @@ def _multiply_add_half(
     numkong_factor = _half_exact_scalar(factor)
     numkong_value = _half_exact_scalar(value)
     if (
-        _NUMKONG_NEON_HALF
+        _NUMKONG_NEON
         and img.flags.c_contiguous
         and img.size >= _NUMKONG_FLOAT16_MIN_ELEMENTS
         and numkong_factor is not None
