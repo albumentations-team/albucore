@@ -89,7 +89,7 @@ def _format_names(names: Iterable[str]) -> str:
 def _check_exports(errors: list[str]) -> None:
     exports = _read_all(PUBLIC_API_PATH)
     shared_exports = {"__version__", "__author__", "__maintainer__"}
-    for module in ("_types", "utils", "decorators"):
+    for module in ("_types", "utils"):
         shared_exports.update(_read_all(REPO_ROOT / "albucore" / f"{module}.py"))
     # clip is also a public router, despite being re-exported from utils.
     shared_exports.discard("clip")

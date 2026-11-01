@@ -14,17 +14,21 @@ with invalid metadata are outside the low-level contract and are not part of the
 
 Image-like inputs always have an explicit channel dimension:
 
-- HWC: `(H, W, C)`
-- XHWC: `(X, H, W, C)`
+- NumPy images/batches: HWC / NHWC
+- NumPy volumes/batches: DHWC / NDHWC
+- CPU Tensor images/batches: CHW / NCHW
+- CPU Tensor volumes/batches: CDHW / NCDHW
 
-Grayscale is `(H, W, 1)` or `(..., H, W, 1)`. Implicit-channel grayscale arrays such as `(H, W)` or
-`(D, H, W)` are invalid image inputs.
+The channel dimension is explicit even for grayscale (`(H, W, 1)` for NumPy); channel-first Tensor operations that
+need channel semantics receive an explicit `layout=`. Never infer `NCHW` versus `CDHW` from rank or axis sizes.
 
-Dimension indexing is always:
+For image arrays, dimension indexing is always:
 
 - `shape[-1]`: channels
 - `shape[-2]`: width
 - `shape[-3]`: height
+
+For NumPy volumes, `shape[-4]` is depth; the last three spatial/channel axes retain the same order.
 
 Tests and benchmarks must include non-square H/W cases so height-width swaps fail visibly.
 
@@ -33,6 +37,7 @@ Tests and benchmarks must include non-square H/W cases so height-width swaps fai
 Public image operations support:
 
 - `uint8`
+- `float16`
 - `float32`
 
 Other dtypes are invalid for the validated public image contract unless a function explicitly documents
@@ -45,7 +50,10 @@ Stats and reduction helpers document their accumulator dtypes separately.
 Unless a router explicitly changes spatial size:
 
 - HWC remains HWC
-- XHWC remains XHWC
+- NHWC remains NHWC
+- DHWC remains DHWC
+- NDHWC remains NDHWC
+- CPU Tensor layout is preserved
 - `(H, W, 1)` remains `(H, W, 1)`
 
 Public routers must hide OpenCV channel-dropping behavior.
@@ -53,7 +61,7 @@ Public routers must hide OpenCV channel-dropping behavior.
 ## Clipping And Bounds
 
 - `uint8` arithmetic output stays in `[0, 255]`.
-- Clipped `float32` output stays in `[0.0, 1.0]`.
+- Operations whose contract clips floating output constrain float16/float32 values to `[0.0, 1.0]`.
 - Stats functions do not clip.
 
 ## Values
@@ -63,8 +71,9 @@ Short-vector behavior follows `convert_value` and must be covered by router cont
 
 ## Aliasing
 
-- `inplace=True` mutates only where documented.
-- Functions without an `inplace` parameter must not mutate inputs.
+- Without `out`, a router does not write input storage; returning an identity or view is allowed.
+- `out=` explicitly requests a write and the supplied destination is returned by identity.
+- Exact aliases and other overlaps are supported only where the operation contract names them; the caller validates them.
 - Intentional no-op alias behavior must be recorded in `tests/router_contracts.py`.
 
 ## Contiguity
@@ -72,6 +81,10 @@ Short-vector behavior follows `convert_value` and must be covered by router cont
 Routers that need a contiguous input normalize it at their own backend boundary.
 
 ## Backend Routing
+
+Acceptance tests run on Python 3.11 with the newest stable dependencies available for Python 3.11 and each target
+platform. See the [canonical performance guide](../performance-optimization.md) for the current version profile and
+evidence requirements.
 
 Routing is implementation detail, but routing changes require benchmark evidence. Public outputs
 must match reference semantics regardless of whether the selected backend is NumPy, OpenCV,

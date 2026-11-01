@@ -1,13 +1,15 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, Protocol, TypeVar, cast, overload
+from typing import Any, Concatenate, ParamSpec, TypeVar, cast, overload
 
 import cv2
 import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from albucore._types import ImageArrayT, ImageInput, ImageType, P, SupportedDType, TensorLayout, ValueType
+from albucore._types import ImageArrayT, ImageInput, ImageType, SupportedDType, TensorLayout, ValueType
+
+P = ParamSpec("P")
 
 _FLOAT32_MAX = float(np.finfo(np.float32).max)
 _OpenCVScalarBinary = Callable[[np.ndarray, int, np.ndarray], np.ndarray]
@@ -34,24 +36,7 @@ TWO = 2
 
 MAX_OPENCV_WORKING_CHANNELS = 4
 
-_ImageInputT = TypeVar("_ImageInputT", bound=ImageInput)
-_InputImageT_contra = TypeVar("_InputImageT_contra", bound=ImageInput, contravariant=True)
-_OutputImageT_co = TypeVar("_OutputImageT_co", bound=ImageInput, covariant=True)
 _ImageDTypeT = TypeVar("_ImageDTypeT", bound=np.uint8 | np.float16 | np.float32)
-
-
-class _ClippedFunction(Protocol[_InputImageT_contra, P, _OutputImageT_co]):
-    def __call__(self, img: _InputImageT_contra, *args: P.args, **kwargs: P.kwargs) -> _OutputImageT_co: ...
-
-
-class _LayoutBoundFunction(Protocol[P]):
-    def __call__(self, img: _ImageInputT, *args: P.args, **kwargs: P.kwargs) -> _ImageInputT: ...
-
-
-class _DtypePreservingFunction(Protocol[P]):
-    with_layout: Callable[[TensorLayout], _LayoutBoundFunction[P]]
-
-    def __call__(self, img: ImageArrayT, *args: P.args, **kwargs: P.kwargs) -> ImageArrayT: ...
 
 
 MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
@@ -315,64 +300,6 @@ def clip(
     return numpy_out
 
 
-@overload
-def clipped(func: _DtypePreservingFunction[P]) -> _DtypePreservingFunction[P]: ...
-
-
-@overload
-def clipped(func: _LayoutBoundFunction[P]) -> _LayoutBoundFunction[P]: ...
-
-
-@overload
-def clipped(
-    func: Callable[Concatenate[ImageArrayT, P], NDArray[np.uint8]],
-) -> _ClippedFunction[ImageArrayT, P, NDArray[np.uint8]]: ...
-
-
-@overload
-def clipped(
-    func: Callable[Concatenate[ImageArrayT, P], NDArray[np.float16] | NDArray[np.float32]],
-) -> _ClippedFunction[ImageArrayT, P, ImageArrayT]: ...
-
-
-@overload
-def clipped(
-    func: Callable[Concatenate[ImageArrayT, P], np.ndarray],
-) -> _ClippedFunction[ImageArrayT, P, ImageArrayT | NDArray[np.uint8]]: ...
-
-
-@overload
-def clipped(
-    func: Callable[Concatenate[torch.Tensor, P], torch.Tensor],
-) -> _ClippedFunction[torch.Tensor, P, torch.Tensor]: ...
-
-
-def clipped(func: Callable[..., ImageInput]) -> Callable[..., ImageInput]:
-    """Clip floating results without modifying the callback's output."""
-
-    @wraps(func)
-    def wrapped_function(img: ImageInput, *args: Any, **kwargs: Any) -> ImageInput:
-        dtype = img.dtype
-        result = func(img, *args, **kwargs)
-
-        if result.dtype in (np.uint8, torch.uint8):
-            return result
-
-        if isinstance(img, torch.Tensor):
-            numpy_dtype = cast("SupportedDType", np.dtype(_NUMPY_DTYPES[cast("torch.dtype", dtype)]))
-            return clip(cast("torch.Tensor", result), numpy_dtype)
-
-        result = cast("ImageType", result)
-        numpy_dtype = cast("SupportedDType", dtype)
-        return clip(result, numpy_dtype)
-
-    bind_layout = getattr(func, "with_layout", None)
-    if bind_layout is not None:
-        preserving_function = cast("_DtypePreservingFunction[Any]", wrapped_function)
-        preserving_function.with_layout = lambda layout: clipped(bind_layout(layout))
-    return wrapped_function
-
-
 def get_num_channels(image: ImageInput, *, layout: TensorLayout | None = None) -> int:
     """Return the channel count from the input's declared layout.
 
@@ -511,7 +438,6 @@ __all__ = [
     "NUM_RGB_CHANNELS",
     "TWO",
     "clip",
-    "clipped",
     "convert_value",
     "get_image_data",
     "get_max_value",

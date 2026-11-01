@@ -6,6 +6,11 @@ PyTorch `>=2.14.1` is installed through the `torch` extra and is required in eve
 This repository pins the development and CI profile to PyTorch's CPU index, so `uv sync --extra torch` does not
 resolve Linux CUDA wheels.
 
+Acceptance and performance comparisons use the latest CPU PyTorch release compatible with Python 3.11, as specified
+in the [canonical performance guide](performance-optimization.md). The 2026-10-31 profile used PyTorch 2.15.0 on
+macOS ARM64 and `2.15.0+cpu` on Linux x86-64. The `>=2.14.1` runtime minimum does not select the acceptance version;
+check the resolved environment before testing.
+
 The current Albucore scope is eager CPU execution without autograd through the primitive or `torch.compile`. NumPy inputs use Albucore channel-last layouts and Tensor inputs declare their own channel-first layout. AlbumentationsX validates CPU placement, layout, strides, autograd state, and parameter ranges before caller-prevalidated 3D primitives run. Do not repeat those checks in their hot paths.
 
 `warp_affine3d` and `remap3d` accept a single rank-4 volume or rank-5 batch: NumPy `DHWC`/`NDHWC` and Tensor
@@ -37,7 +42,7 @@ Benchmark the canonical non-square image or DHWC volume grid, then add the dimen
 
 Compare old and new routes at the same dtype. Apply the speed, correctness, and memory conditions in the
 [general workflow](performance-optimization.md) independently on Linux x86-64 and macOS ARM64.
-Float16/float32 comparisons remain required diagnostics; they do not independently block architecture migration.
+Float16/float32 comparisons remain required diagnostics; same-dtype performance and memory checks determine acceptance.
 The historical cross-dtype measurements below identify optimization candidates rather than a separate acceptance gate.
 
 ## Remove Python and allocation work first
@@ -51,7 +56,7 @@ Audit every per-call conversion, allocation, reshape, and Python/Tensor boundary
 - Build a scalar, per-channel Tensor, filter weight, affine matrix, or index map once per public call. Normalize a caller-supplied NumPy filter kernel to the documented working dtype before Tensor work; a default float64 NumPy kernel cannot be a Conv weight for a float32 volume. AX owns reusable array buffers and supplies them explicitly when measured reuse helps; Albucore does not keep hidden array caches or pools.
 - Keep decisions about sizes, modes, and parameter tuples in Python before the Tensor hot loop. Avoid `.item()`, `.tolist()`, or Python branching on Tensor values inside a repeated Tensor path. On accelerators these can synchronize execution; on CPU they still add wrapper work.
 - Keep input, working, accumulator, and output dtypes explicit. A float16 route may compute in float32 and restore float16 when needed; include both conversions in the public-path benchmark. For uint8 output, preserve the single documented saturation/rounding step.
-- Request writes to input through `out=img`, after proving ownership, overlap, and backend semantics. Without `out`, do not write input storage; view and identity returns are allowed. Internal in-place Tensor work may use owned working buffers. AX makes any protective copy required by shared storage, and that copy belongs in the full AX measurement.
+- Request writes to input through `out=img`, after proving ownership, overlap, and backend semantics. Without `out`, do not write input storage; view and identity returns are allowed. Internal Tensor kernels may write to owned working buffers. AX makes any protective copy required by shared storage, and that copy belongs in the full AX measurement.
 
 ## Preserve the Tensor contract
 
@@ -102,7 +107,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   accumulator (float64 output, C>1, at least 40,960 elements); contiguous Tensor `std` at 40,960+ elements uses a
   float32 NumPy accumulator only when values lie in [-1, 1] and std exceeds 1e-3, with float64 Torch fallback for other values; `mean_std` uses a
   flattened CV16F `meanStdDev` call (contiguous input, at least 20,480 elements) and widens near-constant/non-finite
-  data. PyTorch 2.14.1 CPU `torch.std(float16)` returns half and rejects float32/float64 `out=` on global reduction;
+  data. PyTorch 2.15.0 CPU `torch.std(float16)` returns half and rejects float32/float64 `out=` on global reduction;
   the output-precision gap is tracked in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
 - Contiguous float16 Tensor per-channel `mean` from 40,960 elements uses one CPU Torch reduction with a float64
   accumulator on the declared channel axis. This covers NCHW/NCDHW batches, CDHW volumes, and multi-channel CHW;
@@ -111,9 +116,10 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   C=3/9 and CDHW C=3 large volumes, with maximum absolute error below 4e-10 against a float64 reference.
 - Contiguous float16 Tensor scalar and channel-vector `add`/`multiply` use direct Torch half operations from 16,384
   elements. Scalars keep Torch's native scalar-to-half semantics; every channel-vector element must be exactly
-  representable in float16. The route is out-of-place; non-contiguous inputs, other controls, and in-place calls keep
-  the NumPy bridge. The paired full grid measured all 21 `add` and all 21 `multiply` cases at least 5% faster than
-  their float32 peers. A separate 11-sample interleaved run with scalar `0.1` measured 0.26–0.47× for `add` and
+  representable in float16. Eligible calls pass explicit `out` to the same Torch operation, including supported exact
+  input aliases. Non-contiguous inputs and other controls keep the NumPy bridge. The paired full grid measured all 21
+  cells per operation at least 5% faster than their float32 peers. A separate 11-sample interleaved run with scalar
+  `0.1` measured 0.26–0.47× for `add` and
   0.33–0.62× for `multiply` across CHW 128×160×3, CHW 480×640×3, and NCHW 4×3×240×320.
 - NumPy HWC float16 vector routes are selected by channel count and measured region: C1 uses NumKong `scale` for
   exact controls from 20,480 elements; C3 uses OpenCV CV16F from 61,440 elements; C9 `add(..., channel_vector)` uses NumKong
@@ -183,7 +189,7 @@ Every Torch optimization handoff reports:
 
 - full-path baseline and selected route;
 - work, copies, allocations, and passes deleted or retained;
-- Python wrapper, vectorization, fused-op, in-place, layout, memory-format, and backend candidates considered;
+- Python wrapper, vectorization, fused-op, explicit output aliasing, layout, memory-format, and backend candidates considered;
 - thread settings, benchmark matrix, wins, regressions, and rejected regions;
 - correctness and memory evidence;
 - any follow-up that needs a profiler trace, platform matrix, or a wider API contract.
@@ -195,7 +201,7 @@ per-item numerical routing. Strided uint8 Tensor destinations use `Tensor.copy_`
 
 Keep the batch output order of the selected per-item kernel: NumPy float32 and planar per-channel uint8 LUT results
 use K-order; shared uint8 tables and the whole-array OpenCV LUT route use C-order. Forcing planar float32 input into
-an interleaved batch destination caused a 7–11x allocation-path regression in the ARM64 migration screen.
+an interleaved batch destination caused a 7–11x allocation-path regression in the ARM64 benchmark screen.
 
 Adaptive `normalize_per_image` keeps per-item statistics for NCHW/NCDHW and uses concrete batch dispatch. One owned
 dense output buffer preserves the first result's strides; later items write into it. A broadcasted empty_like template

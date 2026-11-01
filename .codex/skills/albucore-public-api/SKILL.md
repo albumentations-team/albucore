@@ -25,13 +25,13 @@ Write concrete NumPy dtypes directly as `NDArray[np.uint8]`, `NDArray[np.float16
 Dtype annotations do not define image, video or volume rank. Keep unions and TypeVars only where they express
 supported inputs or an input/output relationship.
 
-`ImageInputT` bounds a known helper to supported NumPy image dtypes or Tensor when it preserves both dtype and
-container. Keep scalar/control arguments explicit. It does not transform an arbitrary callback signature or describe
-a dtype-changing operation.
+`ImageInputT` bounds a helper to supported NumPy image dtypes or Tensor when it preserves both dtype and container.
+Keep scalar/control arguments explicit and use concrete overloads when an operation changes dtype.
 
 Extend checked consumer cases for the affected dtype, container, required controls, layout, and explicit output.
-Run mypy and Pyrefly with actual dependency stubs. Existing callback-decorator consumers must remain checked until
-those decorators and their consumers are removed.
+Run mypy and Pyrefly with actual dependency stubs. Keep callable signatures explicit and express dtype, container,
+layout, and output contracts in concrete operations.
+Use concrete Albucore routers with explicit dtype, container, layout, clipping, and `out=` contracts.
 
 Before interpreting a typing result, verify the imported producer path and a Python target compatible with the
 installed dependency stubs. Missing Torch stubs turn Tensor overloads into `Any` and can silently accept a NumPy
@@ -46,7 +46,7 @@ it must protect an original array when a preceding identity operation returns th
 `add` and `multiply` preserve dtype, use concrete NumPy/Tensor output overloads, and require a Tensor layout.
 Their keyword-only `out` returns the supplied storage by identity, including writable strided views and exact
 image/full-field aliases. Without it, input storage remains unchanged. When adapting AX, audit ownership:
-the former `inplace=True` could allocate, so replacing it with `out=image` may introduce an input write.
+passing an input as `out` makes the write explicit and may change aliased storage; protect caller-owned data in AX when required.
 
 `to_float` and `from_float` also accept explicit result-dtype `out`. Floating `to_float` is an identity; uint8
 input is divided into float32. Floating `from_float` targets cast without scaling; uint8 targets scale, round
@@ -66,25 +66,24 @@ from AX only when the complete caller gains speed or memory; ownership alone doe
 5. Check dependent AX imports and typing consumers before removing or changing an export.
 6. Update `docs/public-api.md` and the relevant operation documentation.
 
-Public backend/scalar/vector/array shims are being retired under the accepted architecture plan. Do not add new
-technical variants to the public root API. Keep migration progress and remaining retirements in the internal ledger.
+Keep one public operation for each numerical contract. Scalar, channel-vector and full-array operands belong to the
+operation's documented parameter contract; backend selection remains inside its owning module.
 
 `multiply_add` uses concrete NumPy dtype/output overloads and a required Tensor layout. Output may alias the image
 or a full coefficient field; preserve reads of the original bias before writing. Its half NumPy/Torch routes round
 the product before addition, while selected NumKong scalar routes retain fused rounding. A supplied output does not
-promise no temporary: keep one when wide controls or aliases require it. The former inplace argument and unprefixed
-NumPy/OpenCV/LUT compound entrypoints are retired.
+promise no temporary: keep one when wide controls or aliases require it.
 
 `add_weighted` belongs to `albucore.weighted` and accepts dtype/container-matching keyword-only `out`.
 Both operands have matching shape, dtype and container under AX's prevalidated contract. Output may alias either
 complete input. NumPy outputs retain the first input dtype; Tensor calls require an explicit layout. Preserve the
-existing backend region and its non-finite behavior rather than adding neutral-weight shortcuts. Unprefixed weighted
-backend entrypoints and scalar NumKong convenience wrappers are retired; private scalar scale lives in arithmetic.
+existing backend region and its non-finite behavior rather than adding neutral-weight shortcuts. Private scalar scale
+lives in arithmetic.
 
 Fixed-statistics `normalize` and adaptive `normalize_per_image` share the `albucore.normalize` owner. Root imports
 both directly. `normalize` accepts result-dtype `out`: half input produces half; uint8/float32 produce float32.
 Exact floating input aliases are supported, and Tensor layout is required. Preserve the selected backend's operation
-order, working precision and approximate identity policy even for strided outputs. Fixed and adaptive NumPy/OpenCV/LUT backend entrypoints are retired.
+order, working precision and approximate identity policy even for strided outputs.
 Adaptive normalization also accepts result-dtype output and requires Tensor layout. Preserve its distinct statistics,
 epsilon and clipping rules; NumPy global modes span the whole array, while Tensor NCHW/NCDHW normalize each item.
 All statistics precede alias writes. Empty inputs return empty outputs without a reduction.

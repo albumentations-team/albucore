@@ -136,7 +136,7 @@ def test_warp_affine_per_channel_border_value(rng: np.random.Generator) -> None:
     assert result.shape == (16, 16, 8)
 
 
-def test_warp_affine_preserve_channel_dim(rng: np.random.Generator) -> None:
+def test_warp_affine_preserves_singleton_channel(rng: np.random.Generator) -> None:
     """warp_affine preserves (H, W, 1) for grayscale."""
     img = make_image(16, 16, 1, np.uint8, rng)
     M = np.float32([[1, 0, 0], [0, 1, 0]])
@@ -888,7 +888,7 @@ def test_remap_identity_map(rng: np.random.Generator) -> None:
     np.testing.assert_array_equal(result, img)
 
 
-def test_remap_preserve_channel_dim(rng: np.random.Generator) -> None:
+def test_remap_preserves_singleton_channel(rng: np.random.Generator) -> None:
     """remap preserves (H, W, 1) for grayscale."""
     h, w = 16, 16
     img = make_image(h, w, 1, np.uint8, rng)
@@ -1129,7 +1129,7 @@ def test_resize_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
     np.testing.assert_array_equal(result, expected)
 
 
-def test_resize_preserve_channel_dim(rng: np.random.Generator) -> None:
+def test_resize_preserves_singleton_channel(rng: np.random.Generator) -> None:
     """resize preserves (H, W, 1) for grayscale images."""
     img = make_image(16, 16, 1, np.uint8, rng)
     dsize = (20, 20)
@@ -1419,3 +1419,49 @@ def test_float16_nearest_warp_affine_noncontiguous_input_uses_float32_path(
 
     assert input_dtypes == [np.dtype(np.float32)]
     np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+
+
+@pytest.mark.parametrize(
+    "operation,backend,expected_shape",
+    [
+        ("resize", "resize", (11, 17, 1)),
+        ("warp_affine", "warpAffine", (11, 17, 1)),
+        ("warp_perspective", "warpPerspective", (11, 17, 1)),
+        ("copy_make_border", "copyMakeBorder", (12, 20, 1)),
+        ("remap", "remap", (6, 8, 1)),
+    ],
+)
+def test_geometric_single_channel_passes_explicit_destination(
+    operation: str,
+    backend: str,
+    expected_shape: tuple[int, int, int],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = np.ones((9, 13, 1), dtype=np.float32)
+    matrix = np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float32)
+    perspective_matrix = np.eye(3, dtype=np.float32)
+    map_x, map_y = np.meshgrid(np.arange(8, dtype=np.float32), np.arange(6, dtype=np.float32))
+    original_backend = getattr(cv2, backend)
+    destinations: list[np.ndarray] = []
+
+    def run_backend(*args: object, **kwargs: object) -> np.ndarray:
+        destination = kwargs.get("dst")
+        assert isinstance(destination, np.ndarray)
+        assert destination.shape == expected_shape
+        destinations.append(destination)
+        return original_backend(*args, **kwargs)
+
+    monkeypatch.setattr(cv2, backend, run_backend)
+    if operation == "resize":
+        result = resize(image, (17, 11))
+    elif operation == "warp_affine":
+        result = warp_affine(image, matrix, (17, 11))
+    elif operation == "warp_perspective":
+        result = warp_perspective(image, perspective_matrix, (17, 11))
+    elif operation == "copy_make_border":
+        result = copy_make_border(image, 1, 2, 3, 4)
+    else:
+        result = remap(image, map_x, map_y)
+
+    assert result.shape == expected_shape
+    assert destinations == [result]

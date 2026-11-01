@@ -13,7 +13,6 @@ from albucore import (
     power,
     torch_backend,
 )
-from albucore.utils import clipped
 
 
 @pytest.mark.parametrize(
@@ -83,18 +82,6 @@ def test_uint8_arithmetic_remains_saturating(
 
     assert result.dtype == np.uint8
     np.testing.assert_array_equal(result, expected)
-
-
-def test_clipped_decorator_remains_an_explicit_float32_range_constraint() -> None:
-    @clipped
-    def copy_image(img: np.ndarray) -> np.ndarray:
-        return img.copy()
-
-    img = np.array([[[-1.0], [2.0]]], dtype=np.float32)
-
-    result = copy_image(img)
-
-    np.testing.assert_array_equal(result, np.array([[[0.0], [1.0]]], dtype=np.float32))
 
 
 @pytest.mark.parametrize("is_contiguous", [True, False])

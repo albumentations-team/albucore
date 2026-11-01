@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import cv2
 
 from albucore import hflip, vflip
 from albucore.ops_misc import hflip_cv2, hflip_numpy, vflip_cv2, vflip_numpy
@@ -57,3 +58,27 @@ def test_flip_multichannel_function(channels, flip_code):
 
     np.testing.assert_array_equal(flipped, expected)
     assert flipped.dtype == img.dtype
+
+
+@pytest.mark.parametrize(
+    ("backend", "flip_code"),
+    [(hflip_cv2, 1), (vflip_cv2, 0)],
+    ids=["horizontal", "vertical"],
+)
+def test_cv2_flip_single_channel_uses_explicit_destination(backend, flip_code, monkeypatch):
+    image = np.arange(4 * 5, dtype=np.float32).reshape(4, 5, 1)
+    original_flip = cv2.flip
+    destinations = []
+
+    def flip_with_destination(src, code, dst=None):
+        assert dst is not None
+        assert dst.shape == src.shape
+        destinations.append(dst)
+        return original_flip(src, code, dst=dst)
+
+    monkeypatch.setattr(cv2, "flip", flip_with_destination)
+
+    result = backend(image)
+
+    assert result is destinations[0]
+    np.testing.assert_array_equal(result, np.flip(image, axis=1 if flip_code == 1 else 0))

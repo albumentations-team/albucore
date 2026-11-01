@@ -8,6 +8,15 @@ Scripts here time **NumKong vs OpenCV / NumPy / LUT** and compare **`albucore.st
 uv sync --extra headless --extra torch
 ```
 
+`uv sync` installs the versions in `uv.lock` and is suitable for repeatable local iteration. Final correctness,
+performance, and memory acceptance uses the latest Python 3.11-compatible dependency profile in
+[`docs/performance-optimization.md`](../docs/performance-optimization.md). Verify installed versions and imported
+source paths before recording results; a test run from a stale lock or virtual environment does not satisfy that gate.
+
+On macOS ARM64, run NumKong benchmarks outside the Codex sandbox so `sysctl` feature detection succeeds. The router
+benchmark refuses to time by default when NumKong reports `neon=false`; `--allow-restricted-isa` produces diagnostic-only
+results whose JSON metadata records the restricted mode. Do not use capability overrides to make those results look native.
+
 Run each script from the **repository root** so imports resolve:
 
 ```bash
@@ -47,7 +56,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_gaussian_blur3d.py`](benchmark_gaussian_blur3d.py) | Full CPU `gaussian_blur3d` routes for NumPy `DHWC` and already-imported-Torch `CDHW`: selected reflect padding, universal fallback, NumPy, packed OpenCV, and public dispatch. |
 | [`benchmark_stats.py`](benchmark_stats.py) | Quick smoke: `albucore.stats.mean_std` vs NumPy reference on a few shapes. |
 | [`benchmark_reduce_sum.py`](benchmark_reduce_sum.py) | `albucore.stats.reduce_sum` (NumKong uint8 routing) vs `numpy.sum` global / per-channel. |
-| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Public numerical operations from **`albucore.__all__`** (excluding types, metadata, helpers, and decorator factories) on NumPy inputs, with HWC images and HWC/NHWC statistics. Add **`--with-geometric`** for 2D/3D geometric and volume-batch routers. Defaults **`--repeats 21`**, **`--warmup 5`**, and **`--threads 1`**; JSON records library versions, NumKong CPU capabilities, effective thread settings, and spread (`ms_std`, `ms_mad`). Use **`--interleave-float16`** for paired float16/float32 timings on the same half-quantized values, with call order alternated per sample. **`--skip-ops`** omits routers (no rows), and **`--benchmark-label`** is stored in JSON metadata. |
+| [`benchmark_router_synthetic.py`](benchmark_router_synthetic.py) | Public numerical operations from **`albucore.__all__`** (excluding types, metadata, and helpers) on NumPy inputs, with HWC images and HWC/NHWC statistics. Add **`--with-geometric`** for 2D/3D geometric and volume-batch routers. Defaults **`--repeats 21`**, **`--warmup 5`**, and **`--threads 1`**; JSON records library versions, NumKong CPU capabilities, effective thread settings, and spread (`ms_std`, `ms_mad`). Use **`--interleave-float16`** for paired float16/float32 timings on the same half-quantized values, with call order alternated per sample. **`--skip-ops`** omits routers (no rows), and **`--benchmark-label`** is stored in JSON metadata. |
 | [`benchmark_tensor_router_paired.py`](benchmark_tensor_router_paired.py) | Public eager CPU Tensor routes for the function routers and, with **`--with-geometric`**, all geometric exports and volume batches. Run with `uv run --extra torch python benchmarks/benchmark_tensor_router_paired.py --with-geometric`. Pairs float16/float32 calls on identical half-quantized values across CHW/NCHW/CDHW/NCDHW; batch-capable image operations also use N=4 NCHW cases. Tensor and control preparation are excluded; bridge, dispatch, kernel, and output are timed. Exactly half-representable full-array controls use matching input dtypes. HWC uses the canonical router grid, NCHW uses its batch grid, and 3D uses the DHWC volume grid. Defaults to 21 image samples and 7 volume samples per dtype pair. |
 | [`compare_router_json.py`](compare_router_json.py) | Markdown report: ratios from medians; full table shows **median ± σ** and MAD columns when present. Sections for **new-only** / **baseline-only** `ok` cells. |
 | [`benchmark_minmax_ravel.py`](benchmark_minmax_ravel.py) | Prints Markdown tables: `Tensor.minmax()` vs NumPy min+max on raveled `(H,W,C)`. |

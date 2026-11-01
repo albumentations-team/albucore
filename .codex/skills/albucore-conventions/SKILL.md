@@ -69,7 +69,11 @@ dtypes before dispatch; runtime kernels may rely on each router's documented dty
 ### 3. Backend Routing - Benchmark-Driven Only
 
 - Compare old/new implementations at the same dtype on Linux x86-64 and macOS ARM64 independently, following
-  `docs/performance-optimization.md`. Float16/float32 timing is required diagnostics rather than a migration blocker.
+  `docs/performance-optimization.md`. Float16/float32 timing is a required diagnostic; same-dtype results determine
+  acceptance.
+- Run final acceptance on Python 3.11 with the latest stable dependency releases that support Python 3.11 and the
+  target platform; the recorded CPU PyTorch version is 2.15.0. Check installed versions and source paths before
+  treating a test or benchmark run as acceptance evidence.
 - Do not assume LUT is fastest for uint8; benchmark.
 - NumKong is used where benchmarks win (`blend`, `moments`, `scale`, `cdist`, etc.); see `docs/numkong-performance.md`.
 - Runtime minimums are `numkong>=7.8.6` and `stringzilla>=5.3.2`. Albucore reads `nk.get_capabilities()["neonhalf"]` once and uses NumKong float16 elementwise kernels only in measured regions: contiguous `add_weighted` with weights `0.5, 0.5`, and scalar `multiply_add` with half-exact controls, both above 20,480 elements. Other controls keep their measured NumPy/Torch/OpenCV routes. PR [#398](https://github.com/ashvardanian/NumKong/pull/398) remains an upstream widening improvement for broader controls; Issues [#395](https://github.com/ashvardanian/NumKong/issues/395), [#396](https://github.com/ashvardanian/NumKong/issues/396), and [#397](https://github.com/ashvardanian/NumKong/issues/397) track the related performance and precision work.
@@ -130,7 +134,7 @@ write the final half output directly.
   Global CV16F routes remain only in measured regions with wide near-constant/non-finite fallbacks. Track accuracy and
   performance work in [OpenCV #25019](https://github.com/opencv/opencv/issues/25019).
 
-### 7. Utilities and Decorators
+### 7. Utilities and Operation Contracts
 
 - Type definitions have one owner, `albucore._types`; consumers use the public types exported by `albucore`.
 - Utilities: `get_num_channels`, `convert_value`, `clip`, etc. in `albucore.utils`.
@@ -139,7 +143,9 @@ write the final half output directly.
   AX validates metadata/overlap and protects input aliases before requesting mutation, including identity results.
 - Contiguous NumPy half-to-half `clip` from 16,384 elements uses a flattened OpenCV integer view. Preserve the NaN/negative-zero guard and NumPy stride route; widening or a full-array mask would change its memory contract. Exhaustive finite-domain and all-encoding tests cover the two numerical paths; see `docs/numkong-performance.md` for two-platform evidence.
 - `multiply_add` also uses dtype/container-matching `out` and required Tensor layout. Preserve the selected fused/two-rounding policy. Exact image and full-field coefficient aliases are supported; writing the product over a still-needed bias is invalid. NumPy half output reuse is safe only after proving the later bias stage is supported.
-- Decorators: `@preserve_channel_dim` in `albucore.decorators`; `@clipped` in `albucore.utils`.
+- Put dtype conversion and clipping in the owning operation; Tensor routers that need channel semantics take an
+  explicit `layout=`. C=1 OpenCV operations keep
+  `(H, W, 1)` through an explicit singleton-channel destination when the backend supports it. Do not add wrappers.
 
 - `add_weighted` is owned by `albucore.weighted`. Its explicit output may alias either input; other overlaps are
   prevalidated by AX. Keep the measured NumKong/OpenCV regions and native rounding/non-finite behavior. Tensor
@@ -180,4 +186,4 @@ because the destination cannot be wrapped by Torch or written by OpenCV.
 Adaptive `normalize_per_image` has result-dtype output and explicit Tensor layout. Preserve whole-array NumPy versus
 per-item Tensor batch statistics. Its epsilon differs for global min/max and C=1 dtype regions; use the public API
 table. Compute statistics before mutation, reuse only newly owned working storage, and avoid image-sized replicated
-extrema. Its former unprefixed backend functions and shape decorators are retired.
+extrema.

@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import torch
+from numpy.typing import NDArray
 
 from albucore import from_float, to_float
 
@@ -10,6 +11,26 @@ SHAPES = [(3, 5, 1), (2, 3, 5, 3), (2, 2, 3, 5, 9)]
 OUTPUTS = [("numpy", mode) for mode in ("contiguous", "gapped", "fortran", "negative")] + [
     ("tensor", mode) for mode in ("contiguous", "gapped")
 ]
+
+
+def _record_reused_numkong_working_buffer(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
+    from albucore import convert
+
+    original = convert._from_float_uint8_numkong
+    calls: list[bool] = []
+
+    def record(
+        img: NDArray[np.float32],
+        max_value: float,
+        *,
+        out: NDArray[np.uint8] | None = None,
+        input_is_working_buffer: bool = False,
+    ) -> NDArray[np.uint8]:
+        calls.append(input_is_working_buffer)
+        return original(img, max_value, out=out, input_is_working_buffer=input_is_working_buffer)
+
+    monkeypatch.setattr(convert, "_from_float_uint8_numkong", record)
+    return calls
 
 
 def destination(shape, dtype, container, mode):
@@ -99,8 +120,18 @@ def test_float_identity_and_exact_alias(dtype, container, shape):
 
 @pytest.mark.parametrize("container", ["numpy", "tensor"])
 @pytest.mark.parametrize("scale", [128.0, 255.0, 17.3])
-def test_half_quantization_all_encodings_with_output(container, scale):
-    source = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(1, 65536, 1)
+@pytest.mark.parametrize("channels", [1, 3, 4, 5])
+def test_half_quantization_all_encodings_with_output(monkeypatch, container, scale, channels):
+    working_buffer_calls: list[bool] = []
+    if container == "numpy":
+        from albucore import torch_backend
+
+        monkeypatch.setattr(torch_backend, "TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS", 1 << 31)
+        working_buffer_calls = _record_reused_numkong_working_buffer(monkeypatch)
+
+    values = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(1, 65536, 1)
+    source = np.repeat(values, channels, axis=-1)
+    original_bits = source.view(np.uint16).copy()
     image = torch.from_numpy(source) if container == "tensor" else source
     output = (
         torch.empty(source.shape, dtype=torch.uint8)
@@ -113,7 +144,32 @@ def test_half_quantization_all_encodings_with_output(container, scale):
     actual = result.numpy() if container == "tensor" else result
     assert result is output
     np.testing.assert_allclose(actual, expected, rtol=0, atol=1 if container == "tensor" and scale != 17.3 else 0)
-    np.testing.assert_array_equal(source.view(np.uint16).reshape(-1), np.arange(65536, dtype=np.uint16))
+    np.testing.assert_array_equal(source.view(np.uint16), original_bits)
+    if container == "numpy":
+        assert working_buffer_calls == [True]
+
+
+@pytest.mark.parametrize("channels", [1, 3, 4, 5])
+def test_half_quantization_all_encodings_without_output(monkeypatch, channels):
+    from albucore import torch_backend
+
+    monkeypatch.setattr(torch_backend, "TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS", 1 << 31)
+    working_buffer_calls = _record_reused_numkong_working_buffer(monkeypatch)
+
+    values = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(256, 256, 1)
+    source = np.repeat(values, channels, axis=-1)
+    original_bits = source.view(np.uint16).copy()
+    with np.errstate(all="ignore"):
+        expected = np.clip(np.rint(source.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)
+
+    result = from_float(source, np.uint8)
+
+    assert result.dtype == np.uint8
+    assert result.shape == source.shape
+    assert not np.shares_memory(result, source)
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(source.view(np.uint16), original_bits)
+    assert working_buffer_calls == [True]
 
 
 @pytest.mark.parametrize("dtype", [np.float16, np.float32])

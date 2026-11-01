@@ -18,7 +18,6 @@ from numpy.typing import NDArray
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ArrayT, ImageType, TensorImageLayout
 from albucore.affine3d import warp_affine3d
-from albucore.decorators import preserve_channel_dim
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
 from albucore.pad3d import pad3d
 from albucore.remap3d import remap3d
@@ -302,8 +301,8 @@ def _warp_affine_float16_nearest(
     source = _float16_nearest_integer_source(img)
     if source is None:
         return None
-    channels = img.shape[-1]
     matrix = np.asarray(m[:2, :], dtype=np.float32)
+    destination = np.empty((dsize[1], dsize[0], source.shape[-1]), dtype=source.dtype)
     result = cv2.warpAffine(
         source,
         matrix,
@@ -311,8 +310,9 @@ def _warp_affine_float16_nearest(
         flags=flags,
         borderMode=border_mode,
         borderValue=0,
+        dst=destination,
     )
-    return cast("ImageType", result.view(np.float16).reshape(dsize[1], dsize[0], channels))
+    return cast("ImageType", result.view(np.float16))
 
 
 def _warp_affine_float16(
@@ -369,7 +369,6 @@ def warp_affine(
 ) -> torch.Tensor: ...
 
 
-@preserve_channel_dim
 def warp_affine(
     img: ImageType | torch.Tensor,
     m: np.ndarray,
@@ -434,6 +433,8 @@ def warp_affine(
 
     m = np.asarray(m[:2, :], dtype=np.float32)
     num_channels = get_num_channels(img)
+    if num_channels == 1 and dst is None and dsize[0] > 0 and dsize[1] > 0:
+        dst = np.empty((dsize[1], dsize[0], num_channels), dtype=img.dtype)
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
 
     needs_chunk = num_channels > MAX_OPENCV_WORKING_CHANNELS and (
@@ -516,7 +517,7 @@ def _warp_perspective_float16_nearest(
     if source is None:
         return None
 
-    channels = img.shape[-1]
+    destination = np.empty((dsize[1], dsize[0], source.shape[-1]), dtype=source.dtype)
     result = cv2.warpPerspective(
         source,
         m,
@@ -524,8 +525,9 @@ def _warp_perspective_float16_nearest(
         flags=flags,
         borderMode=border_mode,
         borderValue=0,
+        dst=destination,
     )
-    return cast("ImageType", result.view(np.float16).reshape(dsize[1], dsize[0], channels))
+    return cast("ImageType", result.view(np.float16))
 
 
 @overload
@@ -556,7 +558,6 @@ def warp_perspective(
 ) -> torch.Tensor: ...
 
 
-@preserve_channel_dim
 def warp_perspective(
     img: ImageType | torch.Tensor,
     m: np.ndarray,
@@ -641,6 +642,9 @@ def warp_perspective(
         return dst if isinstance(dst, torch.Tensor) else result
 
     dst = cast("ImageType | None", dst)
+
+    if img.shape[-1] == 1 and dst is None and dsize[0] > 0 and dsize[1] > 0:
+        dst = np.empty((dsize[1], dsize[0], 1), dtype=img.dtype)
 
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
@@ -731,7 +735,6 @@ def copy_make_border(
 ) -> torch.Tensor: ...
 
 
-@preserve_channel_dim
 def copy_make_border(
     img: ImageType | torch.Tensor,
     top: int,
@@ -781,6 +784,12 @@ def copy_make_border(
         return dst if isinstance(dst, torch.Tensor) else result
 
     dst = cast("ImageType | None", dst)
+
+    if img.shape[-1] == 1 and dst is None:
+        output_height = img.shape[0] + top + bottom
+        output_width = img.shape[1] + left + right
+        if output_height > 0 and output_width > 0:
+            dst = np.empty((output_height, output_width, 1), dtype=img.dtype)
 
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(value) if value is not None else 0
@@ -855,8 +864,7 @@ def _remap_float16_nearest(
     if source is None:
         return None
 
-    channels = img.shape[-1]
-    output_shape = (*map_x.shape[:2], channels)
+    destination = np.empty((*map_x.shape[:2], source.shape[-1]), dtype=source.dtype)
     remap_map_x, _ = cv2.convertMaps(map_x, map_y, cv2.CV_16SC2, nninterpolation=True)
     # OpenCV stubs: https://github.com/opencv/opencv/issues/30296 (review 2026-11-15).
     result = cv2.remap(
@@ -866,8 +874,9 @@ def _remap_float16_nearest(
         interpolation=interpolation,
         borderMode=border_mode,
         borderValue=0,
+        dst=destination,
     )
-    return cast("ImageType", result.view(np.float16).reshape(output_shape))
+    return cast("ImageType", result.view(np.float16))
 
 
 @overload
@@ -898,7 +907,6 @@ def remap(
 ) -> torch.Tensor: ...
 
 
-@preserve_channel_dim
 def remap(
     img: ImageType | torch.Tensor,
     map_x: np.ndarray,
@@ -980,6 +988,9 @@ def remap(
             return dst
         return restored
 
+    if img.shape[-1] == 1 and dst is None:
+        dst = np.empty((*map_x.shape[:2], 1), dtype=img.dtype)
+
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
 
@@ -1041,8 +1052,49 @@ def _resize_float16_nearest(
 
     # Nearest resize copies samples, so CV_16U can move each float16 bit unchanged.
     source_u16 = img.view(np.uint16)
-    result_u16 = cv2.resize(source_u16, dsize, fx=fx, fy=fy, interpolation=interpolation)
+    destination = np.empty((dsize[1], dsize[0], img.shape[-1]), dtype=np.uint16)
+    result_u16 = cv2.resize(source_u16, dsize, fx=fx, fy=fy, interpolation=interpolation, dst=destination)
     return cast("ImageType", result_u16.view(np.float16))
+
+
+def _resolve_resize_dsize(
+    image_shape: tuple[int, ...],
+    dsize: tuple[int, int],
+    fx: float,
+    fy: float,
+) -> tuple[int, int]:
+    if dsize == (0, 0):
+        if fx <= 0 or fy <= 0:
+            msg = "When dsize is (0, 0), fx and fy must be positive to compute the output size."
+            raise ValueError(msg)
+        width = round(image_shape[1] * fx)
+        height = round(image_shape[0] * fy)
+        if width <= 0 or height <= 0:
+            msg = f"Computed dsize from fx and fy is invalid: ({width}, {height})."
+            raise ValueError(msg)
+        return width, height
+    if (dsize[0] == 0 or dsize[1] == 0) and fx > 0 and fy > 0:
+        width = round(image_shape[1] * fx)
+        height = round(image_shape[0] * fy)
+        if width > 0 and height > 0:
+            return width, height
+    return dsize
+
+
+def _resize_numpy(
+    img: ImageType,
+    dsize: tuple[int, int],
+    fx: float,
+    fy: float,
+    interpolation: int,
+) -> ImageType:
+    if img.shape[-1] == 1 and dsize[0] > 0 and dsize[1] > 0:
+        destination = np.empty((dsize[1], dsize[0], 1), dtype=img.dtype)
+        return cast(
+            "ImageType",
+            cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation, dst=destination),
+        )
+    return cast("ImageType", cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation))
 
 
 def _resize_tensor_float16(
@@ -1104,7 +1156,6 @@ def resize(
 ) -> torch.Tensor: ...
 
 
-@preserve_channel_dim
 def resize(
     img: ImageType | torch.Tensor,
     dsize: tuple[int, int],
@@ -1150,24 +1201,14 @@ def resize(
         result = resize(_cast_float_numpy(img, np.float32), dsize, fx, fy, interpolation)
         return _cast_float_numpy(result, np.float16)
 
-    # Calculate actual output size only if dsize is (0, 0), matching cv2.resize semantics
-    if dsize[0] == 0 and dsize[1] == 0:
-        if fx <= 0 or fy <= 0:
-            msg = "When dsize is (0, 0), fx and fy must be positive to compute the output size."
-            raise ValueError(msg)
-        width = round(img.shape[1] * fx)
-        height = round(img.shape[0] * fy)
-        if width <= 0 or height <= 0:
-            msg = f"Computed dsize from fx and fy is invalid: ({width}, {height})."
-            raise ValueError(msg)
-        dsize = (width, height)
+    dsize = _resolve_resize_dsize(img.shape, dsize, fx, fy)
 
     num_channels = get_num_channels(img)
     is_downscale = dsize[0] < img.shape[1] or dsize[1] < img.shape[0]
     if num_channels > MAX_OPENCV_WORKING_CHANNELS and interpolation == cv2.INTER_AREA and is_downscale:
         return maybe_process_in_chunks(cv2.resize, dsize=dsize, fx=fx, fy=fy, interpolation=interpolation)(img)
 
-    return cast("ImageType", cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation))
+    return _resize_numpy(img, dsize, fx, fy, interpolation)
 
 
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000

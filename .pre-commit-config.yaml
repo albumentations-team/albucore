@@ -93,16 +93,16 @@ repos:
         args: [--py311-plus]
         exclude: ^(tests|benchmark)/
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.4.0
+    rev: v2.4.1
     hooks:
       - id: mypy
         files: ^(albucore|benchmark|tests/typing)/
         # Missing Torch stubs make Tensor overloads accept invalid NumPy outputs as Any.
         additional_dependencies:
-          - numpy==2.2.6
-          - numkong>=7.8.5
+          - numpy==2.4.6
+          - numkong>=7.8.6
           - --extra-index-url=https://download.pytorch.org/whl/cpu
-          - "torch==2.14.1; sys_platform == 'darwin'"
-          - "torch==2.14.1+cpu; sys_platform != 'darwin'"
+          - "torch==2.15.0; sys_platform == 'darwin'"
+          - "torch==2.15.0+cpu; sys_platform != 'darwin'"
         args:
           [ --config-file=pyproject.toml ]

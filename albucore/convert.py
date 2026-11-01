@@ -100,9 +100,10 @@ def _from_float_uint8_numkong(
     max_value: float,
     *,
     out: NDArray[np.uint8] | None = None,
+    input_is_working_buffer: bool = False,
 ) -> NDArray[np.uint8]:
     """Scale, round, and saturate float32 input with one float32 work buffer."""
-    rounded = np.empty_like(img)
+    rounded = img if input_is_working_buffer else np.empty_like(img)
     np.multiply(img, max_value, out=rounded)
     np.rint(rounded, out=rounded)
     result = np.empty(img.shape, dtype=np.uint8) if out is None or not out.flags.c_contiguous else out
@@ -259,6 +260,13 @@ def from_float(
     torch_result = from_float_uint8_torch(img, resolved_max, out=numpy_out)
     if torch_result is not None:
         return torch_result
-    if img.dtype == np.float16:
-        img = cast("NDArray[np.float32]", img.astype(np.float32))
-    return _from_float_uint8_numkong(cast("NDArray[np.float32]", img), resolved_max, out=numpy_out)
+    input_is_working_buffer = img.dtype == np.float16
+    if input_is_working_buffer:
+        with np.errstate(invalid="ignore"):
+            img = cast("NDArray[np.float32]", img.astype(np.float32))
+    return _from_float_uint8_numkong(
+        cast("NDArray[np.float32]", img),
+        resolved_max,
+        out=numpy_out,
+        input_is_working_buffer=input_is_working_buffer,
+    )

@@ -45,14 +45,14 @@ def test_apply_uint8_lut_per_channel_matches_numpy(shape: tuple[int, ...], seed:
     np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
 
 
-def test_apply_uint8_lut_inplace_shared() -> None:
+def test_apply_uint8_lut_exact_alias_out() -> None:
     rng = np.random.default_rng(3)
     img = np.ascontiguousarray(rng.integers(0, 256, size=(8, 8, 3), dtype=np.uint8))
     lut = np.arange(256, dtype=np.uint8)
     expected = apply_uint8_lut(img, lut)
-    img2 = img.copy()
-    out = apply_uint8_lut(img2, lut, out=img2)
-    assert out is img2  # noqa: S101
+    destination = img.copy()
+    out = apply_uint8_lut(destination, lut, out=destination)
+    assert out is destination  # noqa: S101
     np.testing.assert_array_equal(out, expected)
 
 

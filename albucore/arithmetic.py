@@ -546,6 +546,8 @@ def multiply(
     value = _prepare_pointwise_operand(img, cast("ValueType", value))
     if img.size == 0:
         return img if destination is None else destination
+    if isinstance(value, np.ndarray) and img.dtype == np.uint8 and value.dtype == np.uint8 and value.shape == (1,):
+        value = int(value[0])
     if isinstance(value, (float, int)):
         return _multiply_scalar(img, value, out=destination)
     return (
@@ -578,8 +580,17 @@ def _add_uint8_opencv(
 
 
 def _add_scalar(img: ImageType, value: float, *, out: ImageType | None = None) -> ImageType:
+    if value == 0:
+        if out is not None:
+            np.copyto(out, img)
+        return img if out is None else out
     if _is_uint8_image(img):
         return _add_uint8_opencv(img, value, out=cast("NDArray[np.uint8] | None", out))
+    if _is_float32_image(img) and math.isfinite(float(value)) and abs(float(value)) <= _FLOAT32_MAX:
+        return cast(
+            "NDArray[np.float32]",
+            np.add(img, np.float32(value), out=cast("NDArray[np.float32] | None", out)),
+        )
     if _is_float16_image(img):
         result = float16_pointwise_torch(
             img,
@@ -620,21 +631,109 @@ def _add_channels(img: ImageType, value: np.ndarray, *, out: ImageType | None = 
 
 def _add_field(img: ImageType, value: np.ndarray, *, out: ImageType | None = None) -> ImageType:
     if _is_uint8_image(img):
-        destination = cast("NDArray[np.uint8] | None", out)
+        destination_u8 = cast("NDArray[np.uint8] | None", out)
         if value.shape == img.shape and value.dtype == img.dtype:
-            return _blend_numkong(img, 1.0, value, 1.0, out=destination)
-        return _add_uint8_opencv(img, value, out=destination)
+            return _blend_numkong(img, 1.0, value, 1.0, out=destination_u8)
+        return _add_uint8_opencv(img, value, out=destination_u8)
+    if (
+        _is_float16_image(img)
+        and _NUMKONG_NEON_HALF
+        and img.ndim >= 3
+        and img.flags.c_contiguous
+        and img.size >= _NUMKONG_FLOAT16_MIN_ELEMENTS
+        and value.dtype == np.float16
+        and value.shape == img.shape
+        and value.flags.c_contiguous
+        and (out is None or out.flags.c_contiguous)
+    ):
+        destination_f16 = cast("NDArray[np.float16] | None", out)
+        if destination_f16 is None:
+            numkong_result = nk.add(img, value)
+            if numkong_result is None:
+                raise RuntimeError("nk.add returned None")
+            numkong_output = cast("NDArray[np.float16]", np.asarray(numkong_result).reshape(img.shape))
+        else:
+            nk.add(img, value, out=destination_f16)
+            numkong_output = destination_f16
+        return cast("ImageType", numkong_output)
     if _is_float16_image(img) and not (value.dtype == np.float32 and value.ndim == img.ndim):
-        result = float16_pointwise_torch(
+        torch_result = float16_pointwise_torch(
             img,
             "add",
             value,
             minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
             out=cast("NDArray[np.float16] | None", out),
         )
-        if result is not None:
-            return result
+        if torch_result is not None:
+            return torch_result
     return _numpy_pointwise(img, value, "add", out=out)
+
+
+def _add_numpy_fast_path(img: ImageType, value: ValueType, out: ImageType | None) -> ImageType | None:
+    if (
+        img.size
+        and img.dtype == np.float32
+        and isinstance(value, np.ndarray)
+        and value.dtype == np.float32
+        and value.shape == img.shape
+    ):
+        return cast("ImageType", np.add(img, value, out=cast("NDArray[np.float32] | None", out)))
+    if (
+        img.size
+        and img.dtype == np.uint8
+        and isinstance(value, np.ndarray)
+        and value.dtype == np.uint8
+        and img.ndim == 3
+        and img.shape[-1] == 1
+        and value.shape == img.shape
+        and img.flags.c_contiguous
+        and value.flags.c_contiguous
+        and (out is None or out.flags.c_contiguous)
+    ):
+        result = cv2.add(img, value, dst=cast("NDArray[np.uint8] | None", out))
+        return cast("NDArray[np.uint8]", result.reshape(img.shape) if out is None else out)
+    return None
+
+
+def _add_numkong_float16_scalar(img: ImageType, value: float | None, out: ImageType | None) -> ImageType | None:
+    if value is None or value == 0 or not _is_float16_image(img):
+        return None
+    if (
+        not _NUMKONG_NEON_HALF
+        or img.ndim < 3
+        or not img.flags.c_contiguous
+        or img.size < _NUMKONG_FLOAT16_MIN_ELEMENTS
+        or (out is not None and not out.flags.c_contiguous)
+    ):
+        return None
+    scalar = _half_exact_scalar(value)
+    if scalar is None:
+        return None
+    return _scale_numkong(img, 1.0, scalar, out=cast("NDArray[np.float16] | None", out))
+
+
+def _add_numpy(img: ImageType, value: ValueType, out: ImageType | None) -> ImageType:
+    raw_scalar: float | None = None
+    if isinstance(value, (float, int, np.floating)) or (isinstance(value, np.ndarray) and value.shape == ()):
+        raw_scalar = float(value)
+
+    fast_result = _add_numpy_fast_path(img, value, out)
+    if fast_result is not None:
+        return fast_result
+
+    value = _prepare_pointwise_operand(img, value)
+    if img.size == 0:
+        return img if out is None else out
+    if isinstance(value, np.ndarray) and img.dtype == np.uint8 and value.dtype == np.uint8 and value.shape == (1,):
+        value = int(value[0])
+
+    numkong_result = _add_numkong_float16_scalar(img, raw_scalar, out)
+    if numkong_result is not None:
+        return numkong_result
+
+    if isinstance(value, (float, int)):
+        return _add_scalar(img, int(value) if img.dtype == np.uint8 else value, out=out)
+    return _add_channels(img, value, out=out) if value.ndim == 1 else _add_field(img, value, out=out)
 
 
 @overload
@@ -699,19 +798,7 @@ def add(
             result = torch.add(img, value) if tensor_out is None else torch.add(img, value, out=tensor_out)
             return result if result.dtype == img.dtype else result.to(img.dtype)
         return _tensor_pointwise(img, value, "add", layout, out=tensor_out)
-    destination = cast("ImageType | None", out)
-    value = _prepare_pointwise_operand(img, cast("ValueType", value))
-    if img.size == 0:
-        return img if destination is None else destination
-    if isinstance(value, (float, int)):
-        if value == 0:
-            if destination is not None:
-                np.copyto(destination, img)
-            return img if destination is None else destination
-        if img.dtype == np.uint8:
-            value = int(value)
-        return _add_scalar(img, value, out=destination)
-    return _add_channels(img, value, out=destination) if value.ndim == 1 else _add_field(img, value, out=destination)
+    return _add_numpy(img, cast("ValueType", value), cast("ImageType | None", out))
 
 
 def _power_opencv(

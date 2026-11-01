@@ -69,9 +69,6 @@ from .convert import (
     from_float,
     to_float,
 )
-from .decorators import (
-    preserve_channel_dim,
-)
 from .elementwise import (
     exp,
     log,
@@ -101,12 +98,10 @@ from .normalize import (
     normalize_per_image,
 )
 from .ops_misc import (
-    float32_io,
     hflip,
     matmul,
     median_blur,
     pairwise_distances_squared,
-    uint8_io,
     vflip,
 )
 from .stats import (
@@ -122,7 +117,6 @@ from .utils import (
     NUM_RGB_CHANNELS,
     TWO,
     clip,
-    clipped,
     convert_value,
     get_image_data,
     get_max_value,
@@ -157,12 +151,10 @@ __all__ = [
     "add_weighted",
     "apply_uint8_lut",
     "clip",
-    "clipped",
     "convert_value",
     "copy_make_border",
     "exp",
     "flip_volume",
-    "float32_io",
     "from_float",
     "gaussian_blur3d",
     "get_image_data",
@@ -187,7 +179,6 @@ __all__ = [
     "pad3d",
     "pairwise_distances_squared",
     "power",
-    "preserve_channel_dim",
     "reduce_sum",
     "remap",
     "remap3d",
@@ -199,7 +190,6 @@ __all__ = [
     "std",
     "to_float",
     "transpose_volume",
-    "uint8_io",
     "vflip",
     "warp_affine",
     "warp_affine3d",

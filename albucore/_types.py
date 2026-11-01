@@ -1,13 +1,12 @@
 """Supported array storage types and explicit CPU Tensor layouts."""
 
-from typing import Literal, ParamSpec, TypeAlias, TypeVar
+from typing import Literal, TypeAlias, TypeVar
 
 import numpy as np
 import torch
 from numpy.typing import NDArray
 
 NormalizationType = Literal["image", "image_per_channel", "min_max", "min_max_per_channel"]
-P = ParamSpec("P")
 ImageType: TypeAlias = NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
 ImageInput: TypeAlias = ImageType | torch.Tensor
 ImageInputT = TypeVar("ImageInputT", bound=ImageInput)
@@ -24,6 +23,7 @@ SupportedDType: TypeAlias = (
     | type[np.float32]
 )
 ValueType = np.ndarray | float | int
+
 
 __all__ = [
     "ImageInput",

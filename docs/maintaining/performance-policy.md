@@ -3,6 +3,10 @@
 Albucore backend routing is benchmark-driven. Performance checks protect public atomic operations
 from silent regressions.
 
+Final acceptance and performance comparisons use Python 3.11 with the newest stable dependencies compatible with
+Python 3.11 on each target platform. Follow the exact profile and evidence requirements in the
+[canonical performance guide](../performance-optimization.md); a newer Python or stale lockfile does not replace it.
+
 ## Benchmark Scope
 
 Use `benchmarks/benchmark_router_synthetic.py` as the public-router regression guard. It times
@@ -49,7 +53,7 @@ continues to cover inputs, outputs, workspace, backend heap, and retained arrays
 
 Float16 remains fully supported. Compare complete float16 and float32 routes on equivalent logical data as mandatory
 optimization diagnostics, including casts, bridges, allocations, and output restoration. This cross-dtype comparison
-is not an independent blocker for architecture migration. Missing fast kernels remain actionable upstream work;
+does not independently block architecture acceptance. Missing fast kernels remain actionable upstream work;
 they do not justify removing float16 support.
 
 ## Baselines

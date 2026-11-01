@@ -24,7 +24,7 @@ def check_clip_outputs(
     assert_type(clip(image), NDArray[np.float32])
     assert_type(clip(tensor), torch.Tensor)
     assert_type(clip(image, out=half_output), NDArray[np.float16])
-    # warn_unused_ignores rejects a reintroduced positional or inplace API.
+    # warn_unused_ignores catches any unsupported call becoming accepted.
     clip(image, np.float32, True)  # type: ignore[call-overload]
     clip(image, np.float32, inplace=True)  # type: ignore[call-overload]
     clip(image, np.float32, out=half_output)  # type: ignore[arg-type]

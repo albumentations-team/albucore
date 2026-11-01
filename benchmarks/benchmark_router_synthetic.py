@@ -12,6 +12,9 @@ Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d
 ``remap_nearest``, ``resize``, ``resize3d``, ``separable_filter3d``, ``warp_affine``, ``warp_affine3d``,
 ``warp_perspective``, and ``warp_perspective_nearest``.
 
+On macOS ARM64, the script requires NumKong's native NEON probe to succeed. Use ``--allow-restricted-isa`` only for a
+diagnostic run in an environment that blocks ``sysctl``.
+
 Run::
 
     uv run python benchmarks/benchmark_router_synthetic.py --threads 1 --output-json benchmarks/results/run.json
@@ -88,6 +91,26 @@ def _parse_skip_ops(raw: str) -> frozenset[str]:
     if not raw.strip():
         return frozenset()
     return frozenset(x.strip() for x in raw.split(",") if x.strip())
+
+
+def _numkong_isa_mode(
+    system: str,
+    machine: str,
+    capabilities: dict[str, bool],
+    *,
+    allow_restricted: bool,
+) -> str:
+    if system != "Darwin" or machine.lower() not in {"arm64", "aarch64"}:
+        return "not-apple-arm64"
+    if capabilities.get("neon", False):
+        return "native"
+    if allow_restricted:
+        return "restricted-diagnostic"
+    raise RuntimeError(
+        "NumKong reports NEON unavailable on macOS ARM64. This process may be sandboxed and unable to read "
+        "hw.optional.neon with sysctl. Rerun outside the sandbox; use --allow-restricted-isa only for diagnostic "
+        "timings.",
+    )
 
 
 def _git_head_short(repo_root: Path) -> str:
@@ -808,8 +831,27 @@ def main() -> None:
         action="store_true",
         help="Compare float16 and float32 public calls on the same half-quantized inputs in alternating order.",
     )
+    p.add_argument(
+        "--allow-restricted-isa",
+        action="store_true",
+        help=(
+            "Allow diagnostic timings when NumKong cannot detect NEON; results are not native ARM64 acceptance "
+            "evidence."
+        ),
+    )
     p.add_argument("--threads", type=int, default=THREAD_COUNT, help="Torch/OpenCV/BLAS CPU thread count.")
     args = p.parse_args()
+
+    numkong_capabilities = nk.get_capabilities()
+    try:
+        numkong_mode = _numkong_isa_mode(
+            platform.system(),
+            platform.machine(),
+            numkong_capabilities,
+            allow_restricted=args.allow_restricted_isa,
+        )
+    except RuntimeError as exc:
+        p.error(str(exc))
 
     thread_settings = configure_libraries(torch, cv2, args.threads)
     skip_ops = _parse_skip_ops(args.skip_ops)
@@ -846,12 +888,6 @@ def main() -> None:
     public_exports = list(alb.__all__)
     export_names = set(public_exports)
 
-    for name in sorted(export_names):
-        if name in ("float32_io", "uint8_io"):
-            rows.append(
-                BenchRow(name, "meta", (-1,), "n/a", None, "skip", "decorator factory, not an image router"),
-            )
-
     geo_reg = _registry_geometric() + _registry_volume_batches() if args.with_geometric else []
     paired_half_images: dict[tuple[str, tuple[int, ...]], np.ndarray] = {}
 
@@ -876,7 +912,7 @@ def main() -> None:
                     for float_dtype in ("float16", "float32"):
                         rows.append(BenchRow(op_name, layout, shape, float_dtype, None, "skip", "needs uint8"))
                     continue
-                if op_name not in stats_ops and not hasattr(alb, op_name):
+                if op_name not in stats_ops and not hasattr(alb, _api_name(op_name)):
                     for float_dtype in ("float16", "float32"):
                         rows.append(BenchRow(op_name, layout, shape, float_dtype, None, "skip", "missing API"))
                     continue
@@ -906,7 +942,7 @@ def main() -> None:
             if op_name in skip_float_only and dtype not in (np.float16, np.float32):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "needs floating input"))
                 continue
-            if op_name not in stats_ops and not hasattr(alb, op_name):
+            if op_name not in stats_ops and not hasattr(alb, _api_name(op_name)):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
             t, st, det = _bench(alb, img, build, args.repeats, args.warmup)
@@ -1054,6 +1090,8 @@ def main() -> None:
         "quick": args.quick,
         "with_geometric": args.with_geometric,
         "interleave_float16": args.interleave_float16,
+        "allow_restricted_isa": args.allow_restricted_isa,
+        "numkong_isa_mode": numkong_mode,
         "public_exports": public_exports,
         "repeats": args.repeats,
         "warmup": args.warmup,
@@ -1071,7 +1109,7 @@ def main() -> None:
         },
         "numpy": np.__version__,
         "numkong": importlib.metadata.version("numkong"),
-        "numkong_capabilities": nk.get_capabilities(),
+        "numkong_capabilities": numkong_capabilities,
         "stringzilla": importlib.metadata.version("stringzilla"),
         "torch": torch.__version__,
         "opencv": cv2.__version__,

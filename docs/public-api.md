@@ -91,19 +91,6 @@ buffer; an explicit target dtype must match that buffer. Generic overloads must 
 NumPy image dtypes and Tensor; Tensor dtype and CPU placement remain runtime preconditions. Operations that change
 dtype or accept different operand types by container use their concrete overloads.
 
-`float32_io` and `uint8_io` preserve NumPy input types and required callback arguments, including `img=` calls.
-Bind a Tensor layout before calling a decorated function: `kernel.with_layout("CHW")(tensor, amount=1.5)`.
-The bound callable accepts NumPy/Tensor unions and preserves the input container and dtype. Bind once and reuse the
-callable for repeated calls. Both forms check callback argument names and types; omitting a required argument is a
-static error. Binding requires a non-None `CHW`, `NCHW`, `CDHW`, or `NCDHW` layout.
-
-Stacking `clipped` inside or outside either I/O decorator preserves those signatures and the clipping behavior of the
-chosen order. A plain `clipped` callback that intentionally returns uint8 keeps that output contract.
-
-For these I/O decorators, Tensor calls require `.with_layout()`; their direct call signature accepts NumPy arrays.
-Checked consumer examples live in
-[`tests/typing/router_calls.py`](../tests/typing/router_calls.py); the mypy hook and runtime-stub CI check compile them.
-
 ## Routers (package `__all__`)
 
 User-facing entry points with benchmark-driven backends inside:
@@ -134,7 +121,6 @@ operands use the native CPU operation when that preserves the declared result dt
   storage conversion and zero-copy Tensor wrapping. Same-dtype calls preserve the input object.
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
 - **Stats:** `mean`, `std`, `mean_std`, `reduce_sum` (from `albucore.stats`)
-- **Decorators:** see `decorators.__all__` in [`albucore/decorators.py`](../albucore/decorators.py)
 - **Geometric:** `copy_make_border`, `flip_volume`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `rot90_volume`, `separable_filter3d`, `transpose_volume`, `warp_affine`, `warp_affine3d`, `warp_perspective`.
   NumPy image layouts are HWC/NHWC and volume layouts are DHWC/NDHWC; CPU Tensor image layouts are CHW/NCHW and volume layouts are CDHW/NCDHW.
   Only `warp_affine3d` and `remap3d` accept volume batches, applying one shared matrix or grid to each item. Other 3D routers accept one volume per call.

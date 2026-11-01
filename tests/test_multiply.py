@@ -206,3 +206,24 @@ def test_multiply(img_dtype, num_channels, multiplier, is_contiguous):
         expected = np.clip(expected, 0, 255).astype(np.uint8)
     np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
     np.testing.assert_array_equal(img, original_image)
+
+
+@pytest.mark.parametrize("multiplier", [0, 2, 255])
+def test_multiply_uint8_single_channel_vector_preserves_output_contract(multiplier: int) -> None:
+    image = np.array([0, 1, 2, 255], dtype=np.uint8).reshape(1, 4, 1)
+    original = image.copy()
+    vector = np.array([multiplier], dtype=np.uint8)
+    expected = np.minimum(original.astype(np.uint16) * multiplier, 255).astype(np.uint8)
+
+    result = multiply(image, vector)
+
+    assert result.shape == image.shape
+    assert result.dtype == np.uint8
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(image, original)
+
+    destination = original.copy()
+    returned = multiply(destination, vector, out=destination)
+
+    assert returned is destination
+    np.testing.assert_array_equal(destination, expected)
