@@ -20,6 +20,10 @@ can include additional binary components; their notices remain with the
 separately installed wheel and must be retained by a distributor of a combined
 environment.
 
+When an SPDX expression changes between releases, `version_license_expressions`
+records the exact expression for each affected locked version; SBOM enrichment
+uses that version-specific expression.
+
 `tools/verify_dependency_licenses.py` rejects a dependency name or resolved
 version absent from the registry and writes the reviewed SPDX expressions into
 the CycloneDX SBOM. The release workflow generates it from the locked base
