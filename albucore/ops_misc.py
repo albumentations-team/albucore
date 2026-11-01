@@ -349,6 +349,9 @@ def pairwise_distances_squared(
         (3, 2)
 
     Note:
+        The caller validates matching coordinate counts. NumPy arithmetic follows
+        the caller's floating-point error settings.
+
         Returns SQUARED distances (not Euclidean distances).
         This is often what's needed (e.g., for RBF kernels in TPS),
         and avoids the expensive sqrt operation.
@@ -386,7 +389,7 @@ def pairwise_distances_squared(
         points2_array = np.ascontiguousarray(points2_array)
         result = np.asarray(nk.cdist(points1_array, points2_array, metric="sqeuclidean"), dtype=np.float32)
     else:
-        result = np.subtract(points1_array[:, :1], points2_array[None, :, 0])
+        result = np.subtract(points1_array[:, 0, None], points2_array[None, :, 0])
         np.square(result, out=result)
         if dimensions > 1:
             scratch = np.empty_like(result)

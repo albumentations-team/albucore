@@ -321,14 +321,16 @@ class TestPairwiseDistancesSquared:
 
         assert result.shape == (n, m)
         assert result.dtype == np.float32
-        assert np.all(result >= -1e-5)  # Allow small numerical errors
+        assert np.all(result >= 0)
 
-    def test_self_distance_is_zero(self) -> None:
-        points = np.random.randn(10, 2).astype(np.float32)
+    @pytest.mark.parametrize("n,dimensions", [(10, 2), (32, 9), (32, 64)])
+    def test_self_distance_is_zero(self, n: int, dimensions: int) -> None:
+        points = np.random.randn(n, dimensions).astype(np.float32)
         result = pairwise_distances_squared(points, points)
 
         diagonal = np.diag(result)
-        np.testing.assert_allclose(diagonal, 0, atol=1e-5)
+        np.testing.assert_array_equal(diagonal, np.zeros(n, dtype=np.float32))
+        assert np.all(result >= 0)
 
     def test_symmetry(self) -> None:
         points = np.random.randn(20, 3).astype(np.float32)

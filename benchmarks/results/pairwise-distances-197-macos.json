@@ -1,13 +1,13 @@
 {
   "python": "3.11.15 (main, Jul 23 2026, 14:34:23) [Clang 22.1.3 ]",
   "platform": "macOS-27.0.1-arm64-arm-64bit",
-  "source": "/Users/vladimiriglovikov/workspace/albucore/albucore/__init__.py",
+  "source": "<repository>/albucore/__init__.py",
   "imports": {
-    "albucore": "/Users/vladimiriglovikov/workspace/albucore/albucore/__init__.py",
-    "numpy": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/numpy/__init__.py",
-    "numkong": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/numkong/__init__.py",
-    "cv2": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/cv2/__init__.py",
-    "torch": "/private/tmp/albucore-ax-py311-latest/lib/python3.11/site-packages/torch/__init__.py"
+    "albucore": "<repository>/albucore/__init__.py",
+    "numpy": "<environment>/lib/python3.11/site-packages/numpy/__init__.py",
+    "numkong": "<environment>/lib/python3.11/site-packages/numkong/__init__.py",
+    "cv2": "<environment>/lib/python3.11/site-packages/cv2/__init__.py",
+    "torch": "<environment>/lib/python3.11/site-packages/torch/__init__.py"
   },
   "baseline_commit": "fa126da86ea9b4a660c199549dd791a5f9584811",
   "packages": {
@@ -93,5 +93,7 @@
     }
   },
   "timings": "pairwise-distances-197-macos.csv",
-  "measured_commit": "8d49a274ed39fe0aae6053b6ecfdfac323420087"
+  "measured_commit": "8d49a274ed39fe0aae6053b6ecfdfac323420087",
+  "measurement_date": "2026-11-01",
+  "measurement_timezone": "Asia/Tokyo"
 }

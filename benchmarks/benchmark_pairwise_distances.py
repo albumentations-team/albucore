@@ -12,6 +12,7 @@ import json
 import os
 import platform
 import sys
+from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
 
@@ -27,6 +28,16 @@ import torch
 
 import albucore
 from timing import bench_wall_ms
+
+
+def _source_path(path: str) -> str:
+    """Identify the import root without publishing the developer's local paths."""
+    source = Path(path).resolve()
+    roots = (("<repository>", Path(__file__).resolve().parents[1]), ("<environment>", Path(sys.prefix).resolve()))
+    for label, root in roots:
+        if source.is_relative_to(root):
+            return f"{label}/{source.relative_to(root).as_posix()}"
+    return f"<external>/{source.name}"
 
 
 def norm_dot_baseline(first: np.ndarray | torch.Tensor, second: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
@@ -107,8 +118,9 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
     args.output_json.write_text(json.dumps({
-        "python": sys.version, "platform": platform.platform(), "source": albucore.__file__,
-        "imports": {module.__name__: module.__file__ for module in (albucore, np, nk, cv2, torch)},
+        "python": sys.version, "platform": platform.platform(), "source": _source_path(albucore.__file__),
+        "imports": {module.__name__: _source_path(module.__file__) for module in (albucore, np, nk, cv2, torch)},
+        "measured_at": datetime.now(UTC).isoformat(),
         "baseline_commit": "fa126da86ea9b4a660c199549dd791a5f9584811",
         "packages": {item.metadata["Name"]: item.version for item in metadata.distributions()},
         "numkong_neon": capabilities["neon"],

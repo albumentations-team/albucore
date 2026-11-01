@@ -18,10 +18,11 @@ matrix on both sides of the 1,000-pair boundary.
 Apple M4 Max, macOS 27.0.1 ARM64, Python 3.11.15; NumPy 2.4.6, OpenCV 5.0.0.93, NumKong 7.8.7,
 StringZilla 5.3.2, Torch 2.15.0. Dependencies were re-resolved on 2026-11-01. NumKong reported native NEON.
 OpenCV parallelism was disabled; Torch intra-op/inter-op and numerical-library thread controls were one.
-Measurements were recorded at `8d49a274ed39fe0aae6053b6ecfdfac323420087` against baseline
+Measurements ran on **2026-11-01 (JST)** at `8d49a274ed39fe0aae6053b6ecfdfac323420087` against baseline
 `fa126da86ea9b4a660c199549dd791a5f9584811`, with five warmups and 101 samples per case and no concurrent tests.
 The [216 timing rows](pairwise-distances-197-macos.csv) retain dtype/container/stride variants and median
-absolute deviations; [metadata](pairwise-distances-197-macos.json) records package versions and imported paths.
+absolute deviations; [metadata](pairwise-distances-197-macos.json) records package versions and source paths
+relative to the repository or Python environment.
 The table shows allocating contiguous NumPy float32 calls, in microseconds; lower is better.
 
 | N × M × D | Norm/dot baseline, µs | Fixed public route, µs |
