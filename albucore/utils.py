@@ -13,8 +13,7 @@ P = ParamSpec("P")
 
 _FLOAT32_MAX = float(np.finfo(np.float32).max)
 _OpenCVScalarBinary = Callable[[np.ndarray, int, np.ndarray], np.ndarray]
-# OpenCV 5.0.0.93 predates the merged scalar stubs: https://github.com/opencv/opencv/issues/30354
-# and https://github.com/opencv/opencv/pull/30355. Review after the next wheel release or on 2026-11-30.
+# OpenCV 5.0.0.93 predates https://github.com/opencv/opencv/pull/30355; remove this cast when a fixed wheel ships.
 _cv2_min_scalar = cast("_OpenCVScalarBinary", cv2.min)
 _cv2_max_scalar = cast("_OpenCVScalarBinary", cv2.max)
 

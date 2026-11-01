@@ -80,5 +80,5 @@ Report the full-path baseline, selected route, removed work, allocation and copy
   supplied Torch output is faster or allocation-free.
 
 - Adaptive Half global image mean/std must not reuse its widened source for arithmetic: full AX batch calls
-  regressed35–42%. Keep a distinct result and release widened input before final casting; other modes may reuse
+  regressed 35–42%. Keep a distinct result and release widened input before final casting; other modes may reuse
   their newly owned contiguous work after statistics.

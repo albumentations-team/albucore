@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 from tests.verification_constants import (
     ARRAY_IMAGE_LAYOUTS,
@@ -76,15 +75,12 @@ from tests.verification_constants import (
     ValueKind,
 )
 
-RouterKind = Literal["function", "decorator", "geometric"]
-
 
 @dataclass(frozen=True)
 class RouterContract:
     """Declarative contract metadata for one public router."""
 
     name: str
-    kind: RouterKind
     dtypes: tuple[DTypeName, ...]
     layouts: tuple[LayoutName, ...]
     channels: tuple[ChannelSpec, ...]
@@ -104,7 +100,6 @@ class RouterContract:
 ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "clip": RouterContract(
         name="clip",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -122,7 +117,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "add": RouterContract(
         name="add",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -137,7 +131,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "add_weighted": RouterContract(
         name="add_weighted",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -152,7 +145,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "apply_uint8_lut": RouterContract(
         name="apply_uint8_lut",
-        kind="function",
         dtypes=(DTYPE_UINT8,),
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -169,7 +161,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "exp": RouterContract(
         name="exp",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_2D, *ARRAY_IMAGE_LAYOUTS),
         tensor_layouts=TENSOR_LAYOUTS,
@@ -187,7 +178,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "from_float": RouterContract(
         name="from_float",
-        kind="function",
         dtypes=FLOATING_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -202,7 +192,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "hflip": RouterContract(
         name="hflip",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_LAYOUTS,
@@ -217,7 +206,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "log": RouterContract(
         name="log",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_2D, *ARRAY_IMAGE_LAYOUTS),
         tensor_layouts=TENSOR_LAYOUTS,
@@ -235,7 +223,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "matmul": RouterContract(
         name="matmul",
-        kind="function",
         dtypes=(DTYPE_UINT8, DTYPE_FLOAT16, DTYPE_FLOAT32, DTYPE_FLOAT64),
         layouts=(LAYOUT_2D,),
         tensor_layouts=(LAYOUT_2D,),
@@ -249,7 +236,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "mean": RouterContract(
         name="mean",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -264,7 +250,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "mean_std": RouterContract(
         name="mean_std",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -279,7 +264,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "median_blur": RouterContract(
         name="median_blur",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_IMAGE_LAYOUTS,
@@ -293,7 +277,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "multiply": RouterContract(
         name="multiply",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -308,7 +291,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "multiply_add": RouterContract(
         name="multiply_add",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -323,7 +305,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "normalize": RouterContract(
         name="normalize",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -341,7 +322,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "normalize_per_image": RouterContract(
         name="normalize_per_image",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -359,7 +339,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "pairwise_distances_squared": RouterContract(
         name="pairwise_distances_squared",
-        kind="function",
         dtypes=(DTYPE_UINT8, DTYPE_FLOAT16, DTYPE_FLOAT32, DTYPE_FLOAT64),
         layouts=(LAYOUT_POINTS,),
         tensor_layouts=(LAYOUT_POINTS,),
@@ -373,7 +352,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "power": RouterContract(
         name="power",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -391,7 +369,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "reduce_sum": RouterContract(
         name="reduce_sum",
-        kind="function",
         dtypes=(DTYPE_UINT8, DTYPE_FLOAT16, DTYPE_FLOAT32, DTYPE_OTHER_NUMERIC_FALLBACK),
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -406,7 +383,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "std": RouterContract(
         name="std",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -421,7 +397,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "sqrt": RouterContract(
         name="sqrt",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_2D, *ARRAY_IMAGE_LAYOUTS),
         tensor_layouts=TENSOR_LAYOUTS,
@@ -439,7 +414,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "to_float": RouterContract(
         name="to_float",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=ARRAY_IMAGE_LAYOUTS,
         tensor_layouts=TENSOR_LAYOUTS,
@@ -454,7 +428,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "vflip": RouterContract(
         name="vflip",
-        kind="function",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_LAYOUTS,
@@ -469,7 +442,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "copy_make_border": RouterContract(
         name="copy_make_border",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_IMAGE_LAYOUTS,
@@ -483,7 +455,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "flip_volume": RouterContract(
         name="flip_volume",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -496,7 +467,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "pad3d": RouterContract(
         name="pad3d",
-        kind="geometric",
         dtypes=(*IMAGE_DTYPES, DTYPE_INT16),
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -510,7 +480,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "remap": RouterContract(
         name="remap",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_IMAGE_LAYOUTS,
@@ -525,7 +494,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "remap3d": RouterContract(
         name="remap3d",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW, LAYOUT_NDHWC, LAYOUT_NCDHW),
         tensor_layouts=TENSOR_VOLUME_BATCH_LAYOUTS,
@@ -540,7 +508,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "resize": RouterContract(
         name="resize",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_IMAGE_LAYOUTS,
@@ -555,7 +522,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "gaussian_blur3d": RouterContract(
         name="gaussian_blur3d",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -570,7 +536,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "resize3d": RouterContract(
         name="resize3d",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC,),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -588,7 +553,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "rot90_volume": RouterContract(
         name="rot90_volume",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -601,7 +565,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "warp_affine3d": RouterContract(
         name="warp_affine3d",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW, LAYOUT_NDHWC, LAYOUT_NCDHW),
         tensor_layouts=TENSOR_VOLUME_BATCH_LAYOUTS,
@@ -616,7 +579,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "separable_filter3d": RouterContract(
         name="separable_filter3d",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -631,7 +593,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "transpose_volume": RouterContract(
         name="transpose_volume",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_DHWC, LAYOUT_CDHW),
         tensor_layouts=TENSOR_VOLUME_LAYOUTS,
@@ -644,7 +605,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "warp_affine": RouterContract(
         name="warp_affine",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_IMAGE_LAYOUTS,
@@ -658,7 +618,6 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     ),
     "warp_perspective": RouterContract(
         name="warp_perspective",
-        kind="geometric",
         dtypes=IMAGE_DTYPES,
         layouts=(LAYOUT_HWC,),
         tensor_layouts=TENSOR_IMAGE_LAYOUTS,

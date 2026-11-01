@@ -215,5 +215,5 @@ The half helper can return its NumPy-owned output directly without a Tensor-owne
 Torch outputs still need regional performance verification; exposing out does not guarantee a temporary-free path.
 
 Adaptive Half global `image` mode keeps a separate arithmetic result: reusing its widened input slowed two complete
-AX batch scenarios by35–42%. Release the widened source before the final Half cast. Other modes may reuse a newly
+AX batch scenarios by 35–42%. Release the widened source before the final Half cast. Other modes may reuse a newly
 owned contiguous working buffer after statistics are complete. Do not generalize the reuse rule across modes.

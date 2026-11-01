@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tests.router_contracts import ROUTER_CONTRACTS, RouterContract
+from tests.router_contracts import ROUTER_CONTRACTS
 from tests.verification_constants import ALL_CHANNEL_SPECS, ALL_DTYPE_NAMES, ALL_LAYOUT_NAMES, ALL_VALUE_KINDS
 
 if TYPE_CHECKING:
@@ -102,18 +102,12 @@ def _check_exports(errors: list[str]) -> None:
         errors.append(f"Router contracts for non-exported names: {_format_names(extra)}")
 
 
-def _contracts_requiring_benchmarks() -> dict[str, RouterContract]:
-    return {
-        name: contract
-        for name, contract in ROUTER_CONTRACTS.items()
-        if contract.kind != "decorator" and contract.benchmark_names
-    }
-
-
 def _check_benchmarks(errors: list[str]) -> None:
     benchmark_names = _benchmark_names()
     missing_benchmarks: list[str] = []
-    for contract in _contracts_requiring_benchmarks().values():
+    for contract in ROUTER_CONTRACTS.values():
+        if not contract.benchmark_names:
+            continue
         missing = set(contract.benchmark_names) - benchmark_names
         if missing:
             missing_benchmarks.append(f"{contract.name}: {_format_names(missing)}")
