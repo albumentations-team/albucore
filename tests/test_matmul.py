@@ -181,7 +181,10 @@ class TestMatmul:
 class TestPairwiseDistancesSquared:
     """Test pairwise_distances_squared function."""
 
-    @pytest.mark.parametrize("n,m", [(31, 31), (32, 32), (25, 40), (1, 999), (1, 1000), (1, 1001)])
+    @pytest.mark.parametrize(
+        "n,m,dimensions",
+        [(31, 31, 2), (32, 32, 2), (25, 40, 2), (1, 999, 2), (1, 1000, 2), (1, 1001, 2), (32, 32, 9)],
+    )
     @pytest.mark.parametrize(
         "first,second,squared_distance",
         [
@@ -192,7 +195,6 @@ class TestPairwiseDistancesSquared:
         ],
         ids=["identical-large", "large-shared-coordinate", "common-offset", "unrepresentable-distance"],
     )
-    @pytest.mark.parametrize("dimensions", [2, 9])
     @pytest.mark.parametrize("as_tensor", [False, True], ids=["numpy", "tensor"])
     @pytest.mark.parametrize("strided", [False, True], ids=["contiguous", "strided"])
     def test_coordinate_offsets_and_overflow(
@@ -207,10 +209,7 @@ class TestPairwiseDistancesSquared:
         points1[:, :2] = first
         points2[:, :2] = second
         original1, original2 = points1.copy(), points2.copy()
-        differences = points1.astype(np.float64)[:, None, :] - points2.astype(np.float64)[None, :, :]
-        with np.errstate(over="ignore"):
-            expected = np.sum(differences**2, axis=2).astype(np.float32)
-        np.testing.assert_array_equal(expected, np.full((n, m), squared_distance, dtype=np.float32))
+        expected = np.full((n, m), squared_distance, dtype=np.float32)
 
         with np.errstate(over="ignore" if np.isinf(squared_distance) else "raise", invalid="raise"):
             result = pairwise_distances_squared(
@@ -224,7 +223,6 @@ class TestPairwiseDistancesSquared:
             result = result.numpy()
         assert result.dtype == np.float32
         np.testing.assert_array_equal(result, expected)
-        assert np.all(result >= 0)
         np.testing.assert_array_equal(points1, original1)
         np.testing.assert_array_equal(points2, original2)
 

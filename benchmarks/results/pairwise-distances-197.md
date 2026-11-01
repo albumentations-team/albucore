@@ -1,34 +1,27 @@
-# Pairwise distances: common-coordinate overflow and cancellation
+# Pairwise squared distances: correctness and performance
 
-Issue [#197](https://github.com/albumentations-team/albucore/issues/197) is reproducible at baseline
-`fa126da86ea9b4a660c199549dd791a5f9584811`. The norm/dot identity squares absolute coordinates before
-subtracting large terms. It produces NaNs for identical coordinates near `1e20` and loses a squared distance
-of `0.03125` between coordinates near `10000`.
-
-The replacement subtracts coordinates before squaring. NumKong handles fewer than 1,000 pairs and dimensions
-`D >= 9`; other sets accumulate NumPy squared differences with one reusable `(N, M)` scratch matrix.
-Removing the redundant NumKong non-negativity clamp also avoids one output pass. Neither route writes inputs.
-The Tensor route retains its NumPy bridge and float32 output.
+Subtracting coordinates before squaring fixes the overflow and cancellation in
+[#197](https://github.com/albumentations-team/albucore/issues/197). NumKong handles fewer than 1,000 pairs or
+`D >= 9`; other sets accumulate NumPy squared differences with one `(N, M)` scratch matrix. One-dimensional
+inputs need only the output. Both routes preserve inputs and return float32 in the caller's container.
 
 ## Correctness
 
-Regression tests require exactly `0`, `1`, and `0.03125` for the three reported examples, with separate
-operands, 999/1,000/1,001 pairs, NumPy/Tensor containers, and contiguous/strided storage. Actual squared
-distances outside float32 range remain infinity. Mixed points at a common offset cover dimensions
-1/2/3/5/8/9/64 and contiguous, strided, reversed, and read-only NumPy storage. Oracles subtract coordinates
-in float64 rather than repeating the norm/dot identity. Shape, dtype, non-negativity, and input preservation
-are checked.
+The reported examples must return exactly `0`, `1`, and `0.03125`; distances beyond float32 range remain
+infinity. Tests cover 999/1,000/1,001 pairs, both containers, strided storage, and the high-dimensional route.
+Mixed-point tests compare with float64 coordinate differences across dimensions 1/2/3/5/8/9/64 and
+contiguous, strided, reversed, and read-only storage.
 
 ## Native macOS measurements
 
 Apple M4 Max, macOS 27.0.1 ARM64, Python 3.11.15; NumPy 2.4.6, OpenCV 5.0.0.93, NumKong 7.8.7,
 StringZilla 5.3.2, Torch 2.15.0. Dependencies were re-resolved on 2026-11-01. NumKong reported native NEON.
 OpenCV parallelism was disabled; Torch intra-op/inter-op and numerical-library thread controls were one.
-Each timing has five warmups and 101 samples, with no concurrent test workload.
-
-The [216-case JSON](pairwise-distances-197-macos.json) includes dtype/container/stride variants, median
-absolute deviations, package inventory, and imported source paths. The table shows allocating contiguous
-NumPy float32 calls. Times are medians in microseconds; lower is better.
+Measurements were recorded at `8d49a274ed39fe0aae6053b6ecfdfac323420087` against baseline
+`fa126da86ea9b4a660c199549dd791a5f9584811`, with five warmups and 101 samples per case and no concurrent tests.
+The [216 timing rows](pairwise-distances-197-macos.csv) retain dtype/container/stride variants and median
+absolute deviations; [metadata](pairwise-distances-197-macos.json) records package versions and imported paths.
+The table shows allocating contiguous NumPy float32 calls, in microseconds; lower is better.
 
 | N × M × D | Norm/dot baseline, µs | Fixed public route, µs |
 |---|---:|---:|
@@ -58,22 +51,15 @@ Fresh-process measurements for 307,200 × 16 × 2 reduced peak traced array allo
 bytes. Both runs retained one approximately 19.7 MB result. The NumPy route uses two distance-sized buffers
 and avoids the `(N, M, D)` broadcast temporary and norm/dot intermediates.
 
-## Alternatives and scope
+## Alternatives
 
 - Direct NumKong for every matrix was slower on dense 2D inputs: a preliminary 307,200 × 16 × 2 screen
-  measured about 24 ms versus 5.6 ms for coordinate accumulation. Higher-dimensional NumKong avoids a
-  Python loop over every coordinate; at D=64 it took about 0.15 ms versus 0.44 ms for that loop.
-- Full NumPy broadcasting and `einsum` allocate an `(N, M, D)` difference array and were slower in the
-  dense 2D screen. Per-coordinate NumPy, OpenCV arithmetic, and flattened NumKong FMA were compared.
+  measured about 24 ms versus 5.6 ms for coordinate accumulation. At D=64, NumKong took about 0.15 ms
+  versus 0.44 ms for the coordinate loop.
+- NumPy broadcasting and `einsum` allocated an `(N, M, D)` temporary and were slower on dense 2D inputs.
 - Direct float32 Torch `cdist(..., compute_mode="donot_use_mm_for_euclid_dist").square()` changed some
   exactly representable mixed-point squared distances by one ULP because of its square-root round trip.
-  Wider Torch arithmetic and fused per-coordinate Torch arithmetic were also screened; neither is added
-  to this fix. Fused arithmetic would introduce another rounding policy and routing region.
-- OpenCV's sorted nearest-neighbor `batchDistance` path required reordering, was slower, and did not
-  provide the required infinity results. It is unsuitable as the full-matrix implementation here.
-- LUTs, StringZilla byte translation, grouped integer-label reductions, and random generation do not apply
-  to this distance calculation. No new public API, output alias, cache, or reusable atom is needed.
-  AlbumentationsX already calls this atom from its TPS functions; no consumer changes are included.
+  Fused per-coordinate Torch arithmetic would also change the accumulation rounding policy.
 
 Reproduce the public comparison with the latest Python 3.11-compatible environment:
 
@@ -81,4 +67,5 @@ Reproduce the public comparison with the latest Python 3.11-compatible environme
 python benchmarks/benchmark_pairwise_distances.py --output-json /tmp/pairwise-distances.json
 ```
 
-On macOS ARM64, run outside the restricted sandbox; the script rejects a disabled NEON profile.
+This writes timings to `/tmp/pairwise-distances.csv` and metadata to the JSON file. On macOS ARM64, run
+outside the restricted sandbox; the script rejects a disabled NEON profile.

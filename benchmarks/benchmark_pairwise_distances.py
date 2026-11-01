@@ -1,11 +1,13 @@
 """Compare the public distance router with the norm/dot route from before #197.
 
-Run from the repository root with Python 3.11; see docs/performance-optimization.md.
+Write timings to CSV and environment metadata to JSON. Run from the repository root
+with Python 3.11; see docs/performance-optimization.md.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import platform
@@ -48,7 +50,7 @@ def norm_dot_baseline(first: np.ndarray | torch.Tensor, second: np.ndarray | tor
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-json", type=Path, required=True)
+    parser.add_argument("--output-json", type=Path, required=True, help="Metadata file; timings use the same stem with .csv")
     parser.add_argument("--repeats", type=int, default=101)
     parser.add_argument("--warmup", type=int, default=5)
     args = parser.parse_args()
@@ -85,20 +87,25 @@ def main() -> None:
                     differences = first[:3].astype(np.float64)[:, None, :] - second[:5].astype(np.float64)[None, :, :]
                     expected = np.sum(differences**2, axis=2).astype(np.float32)
                     np.testing.assert_allclose(result_array[:3, :5], expected, rtol=2e-6, atol=0)
+                    del result, result_array
                     baseline = bench_wall_ms(lambda: norm_dot_baseline(a, b), args.repeats, args.warmup)
                     current = bench_wall_ms(lambda: albucore.pairwise_distances_squared(a, b), args.repeats, args.warmup)
                     np.testing.assert_array_equal(first, first_values_dtype)
                     np.testing.assert_array_equal(second, second_values_dtype)
                     row = {
-                        "shape": [n, m, dimensions], "dtype": np.dtype(dtype).name,
+                        "n": n, "m": m, "dimensions": dimensions, "dtype": np.dtype(dtype).name,
                         "container": "tensor" if tensor_output else "numpy", "strided": strided,
                         "baseline_ms": baseline.median, "current_ms": current.median,
                         "baseline_mad_ms": baseline.mad, "current_mad_ms": current.mad,
-                        "current_over_baseline": current.median / baseline.median,
                     }
                     rows.append(row)
                     print(json.dumps(row), flush=True)
 
+    timings_path = args.output_json.with_suffix(".csv")
+    with timings_path.open("w", newline="") as timings_file:
+        writer = csv.DictWriter(timings_file, fieldnames=list(rows[0]), lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
     args.output_json.write_text(json.dumps({
         "python": sys.version, "platform": platform.platform(), "source": albucore.__file__,
         "imports": {module.__name__: module.__file__ for module in (albucore, np, nk, cv2, torch)},
@@ -107,7 +114,7 @@ def main() -> None:
         "numkong_neon": capabilities["neon"],
         "opencv_threads": cv2.getNumThreads(),
         "torch_threads": torch.get_num_threads(), "torch_interop_threads": torch.get_num_interop_threads(),
-        "repeats": args.repeats, "warmup": args.warmup, "rows": rows,
+        "repeats": args.repeats, "warmup": args.warmup, "timings": timings_path.name,
     }, indent=2) + "\n")
 
 
