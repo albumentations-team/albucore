@@ -193,22 +193,23 @@ def bench_cdist_sweep(repeats: int, warmup: int) -> list[BenchRow]:
             nk.cdist(p1, p2, metric="sqeuclidean")
 
         def np_c() -> None:
-            p1_sq = (p1**2).sum(axis=1, keepdims=True)
-            p2_sq = (p2**2).sum(axis=1)[None, :]
-            out = p1_sq + p2_sq - 2 * (p1 @ p2.T)
-            np.maximum(out, 0.0, out=out)
+            out = np.subtract(p1[:, :1], p2[None, :, 0])
+            np.square(out, out=out)
+            scratch = np.subtract(p1[:, 1, None], p2[None, :, 1])
+            np.square(scratch, out=scratch)
+            np.add(out, scratch, out=out)
 
         t_nk = _median_ms(nk_c, repeats, warmup)
         t_np = _median_ms(np_c, repeats, warmup)
-        winner = "numkong_cdist" if t_nk <= t_np else "numpy_formula"
+        winner = "numkong_cdist" if t_nk <= t_np else "numpy_direct"
         route = "albucore: NumKong (n*m < 1000)" if prod < 1000 else "albucore: NumPy (n*m >= 1000)"
         rows.append(
             BenchRow(
                 "pairwise_distances_sq (cdist)",
                 f"n={n}, m={m}, d={d} → n*m={prod}; {route}",
                 winner,
-                {"numkong_cdist": t_nk, "numpy_formula": t_np},
-                note="Threshold 1000 matches albucore.pairwise_distances_squared.",
+                {"numkong_cdist": t_nk, "numpy_direct": t_np},
+                note="2D direct differences; full public comparison: benchmark_pairwise_distances.py.",
             ),
         )
 
