@@ -10,7 +10,12 @@ import torch
 
 import albucore.affine3d as affine3d
 from albucore import warp_affine3d
-from albucore.affine3d import _inverse_matrix, _normalize_matrix, _warp_affine3d_torch_cpu_batch_native
+from albucore.affine3d import (
+    _affine_grid,
+    _inverse_matrix,
+    _normalize_matrix,
+    _warp_affine3d_torch_cpu_batch_native,
+)
 from albucore.sampling3d import _normalize_border_value
 
 
@@ -276,7 +281,7 @@ def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
         volumes = volumes[0]
 
     grid_sizes: list[tuple[int, int, int]] = []
-    original_grid = affine3d._affine_grid
+    original_grid = _affine_grid
 
     def record_grid(
         inverse_matrix: np.ndarray,
@@ -353,7 +358,7 @@ def test_warp_affine3d_xy_nearest_single_item_batch_matches_single_volume(
     )
     single = warp_affine3d(volumes[0], matrix, size, cv2.INTER_NEAREST, border_mode, fill)
     grid_sizes: list[tuple[int, int, int]] = []
-    original_grid = affine3d._affine_grid
+    original_grid = _affine_grid
 
     def record_grid(
         inverse: np.ndarray,
