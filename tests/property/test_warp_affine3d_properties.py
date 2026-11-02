@@ -10,6 +10,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 import albucore as ac
+from albucore.affine3d import _affine_grid, _inverse_matrix, _normalize_matrix
+from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu
 from tests.property.strategies import dhwc_volumes
 
 
@@ -75,3 +77,36 @@ def test_warp_affine3d_nearest_uint8_output_uses_only_input_or_fill_values(
     )
 
     assert set(np.unique(result)).issubset(set(np.unique(labels)) | {251})
+
+
+@given(
+    dhwc_volumes(),
+    st.sampled_from((-1.5, -0.5, 0.5, 1.5)),
+    st.floats(min_value=-0.25, max_value=0.25, allow_nan=False, allow_infinity=False, width=32),
+    st.sampled_from((cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE)),
+)
+@settings(max_examples=100, deadline=None)
+def test_warp_affine3d_xy_nearest_matches_native_3d_coordinates(
+    volume: np.ndarray,
+    shift: float,
+    shear: float,
+    border_mode: int,
+) -> None:
+    matrix = np.array(((0.9, shear, 0.0, 64 + shift), (0.0, 1.1, 0.0, 80 - shift), (0.0, 0.0, 1.0, 0.0)))
+    size = (volume.shape[0], 128, 160)
+    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    grid = _affine_grid(_inverse_matrix(_normalize_matrix(matrix)), volume.shape[:3], volume.shape[-1], size)
+    expected = _sample3d_torch_cpu(
+        tensor,
+        grid,
+        cv2.INTER_NEAREST,
+        border_mode,
+        _normalize_border_value(3.2, volume.shape[-1]),
+    )
+
+    for source in (volume, tensor, tensor.contiguous()):
+        result = ac.warp_affine3d(source, matrix, size, cv2.INTER_NEAREST, border_mode, 3.2)
+        if isinstance(result, torch.Tensor):
+            torch.testing.assert_close(result, expected, rtol=0, atol=0)
+        else:
+            np.testing.assert_array_equal(result, expected.permute(1, 2, 3, 0).numpy())
