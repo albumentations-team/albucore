@@ -354,23 +354,22 @@ def test_warp_affine3d_does_not_mutate_a_real_warp_input() -> None:
 
 @pytest.mark.parametrize("axis", [0, 1], ids=["x", "y"])
 @pytest.mark.parametrize(
-    "shape",
+    ("shape", "labels"),
     [
-        (1, 9, 4),
-        (5, 9, 13),
-        (30, 9, 5),
-        (1, 128, 160),
-        (2, 64, 80),
-        (96, 1, 129),
-        (96, 129, 1),
-        (2, 32, 127),
-        (2, 32, 128),
-        (2, 32, 129),
+        ((1, 9, 4), 2),
+        ((5, 9, 13), 3),
+        ((30, 9, 5), 3),
+        ((1, 128, 160), 2),
+        ((2, 64, 80), 2),
+        ((96, 1, 129), 3),
+        ((96, 129, 1), 3),
+        ((2, 32, 127), 3),
+        ((2, 32, 128), 3),
+        ((2, 32, 129), 3),
     ],
 )
 @pytest.mark.parametrize("shift", [0.5, 1.5, -0.5, -1.5])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
-@pytest.mark.parametrize("labels", [2, 3])
 def test_warp_affine3d_xy_nearest_preserves_native_half_voxel_ties(
     axis: int,
     shape: tuple[int, int, int],

@@ -2,11 +2,13 @@
 
 Export the baseline with ``git show <revision>:albucore/affine3d.py > /tmp/affine3d_before.py``, then run
 ``python benchmarks/benchmark_warp_affine3d_xy_nearest.py --baseline /tmp/affine3d_before.py --output result.json``.
+Timings use the same stem with ``.csv``; JSON holds environment and source metadata.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import importlib.metadata
 import json
@@ -15,22 +17,41 @@ import platform
 import resource
 import runpy
 import subprocess
+import sys
 from collections.abc import Callable
-from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 import benchmark_threads
 import cv2
-import numkong as nk
 import numpy as np
 import torch
-from benchmark_warp_affine3d_batch import _time_candidates
+from benchmark_warp_affine3d_batch import Timing, _time_candidates
 
 import albucore
 import albucore.affine3d as affine3d
 
 Volume = np.ndarray | torch.Tensor
 Warp = Callable[..., Volume]
+
+TIMING_COLUMNS = (
+    "phase",
+    "run",
+    "shape",
+    "batch",
+    "batched",
+    "layout",
+    "dtype",
+    "border",
+    "fill",
+    "operation",
+    "baseline_ms",
+    "baseline_mad_ms",
+    "baseline_n",
+    "current_ms",
+    "current_mad_ms",
+    "current_n",
+)
 
 SHAPES = (
     (1, 1, 4, 1),
@@ -72,6 +93,43 @@ def _array(value: np.ndarray | torch.Tensor) -> np.ndarray:
     return value.numpy() if isinstance(value, torch.Tensor) else value
 
 
+def _source_path(path: str) -> str:
+    source = Path(path).resolve()
+    for label, root in (
+        ("<environment>", Path(sys.prefix).resolve()),
+        ("<repository>", Path(__file__).resolve().parents[1]),
+    ):
+        if source.is_relative_to(root):
+            return f"{label}/{source.relative_to(root).as_posix()}"
+    return f"<external>/{source.name}"
+
+
+def _summary(timings: dict[str, Timing]) -> dict[str, str | int]:
+    result: dict[str, str | int] = {}
+    for name, value in timings.items():
+        result[f"{name}_ms"] = f"{value.median_ms:.6f}"
+        result[f"{name}_mad_ms"] = f"{value.mad_ms:.6f}"
+        result[f"{name}_n"] = len(value.samples_ms)
+    return result
+
+
+def _write_results(path: Path, metadata: dict, rows: list[dict]) -> None:
+    timings_path = path.with_suffix(".csv")
+    with timings_path.open("w", newline="") as timings_file:
+        writer = csv.DictWriter(timings_file, fieldnames=TIMING_COLUMNS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    metadata = {
+        **metadata,
+        "timings": timings_path.name,
+        "timing_units": "milliseconds",
+        "timing_precision_ms": 1e-6,
+        "cases": sum(row["run"] == "main" for row in rows),
+        "timing_rows": len(rows),
+    }
+    path.write_text(json.dumps(metadata, indent=2) + "\n")
+
+
 def _measure(
     functions: dict[str, Warp],
     inputs: tuple[Volume, ...],
@@ -81,7 +139,7 @@ def _measure(
     border: int,
     fill: float,
     args: argparse.Namespace,
-) -> dict[str, dict]:
+) -> list[dict]:
     def call(function: Warp) -> tuple[Volume, ...]:
         return tuple(
             function(data, matrix, size, mode, border, fill) for data, mode in zip(inputs, interpolations, strict=True)
@@ -95,19 +153,18 @@ def _measure(
         assert new.shape == old.shape and new.dtype == old.dtype
         np.testing.assert_array_equal(_array(new), _array(old))
         assert not np.shares_memory(_array(new), _array(source))
+    del expected, actual, old, new
     candidates = {name: lambda fn=fn: call(fn) for name, fn in functions.items()}
     timings = dict(_time_candidates(candidates, args.warmup, args.repeats))
-    result = {name: asdict(timing) for name, timing in timings.items()}
+    result = [{"run": "main", **_summary(timings)}]
     baseline, current = timings["baseline"], timings["current"]
     if (
         current.median_ms > 1.05 * baseline.median_ms
         and current.median_ms - 2 * current.mad_ms > baseline.median_ms + 2 * baseline.mad_ms
     ):
-        result["followup"] = {
-            "runs": [
-                {name: asdict(timing) for name, timing in _time_candidates(candidates, 10, 101)} for _ in range(3)
-            ],
-        }
+        result.extend(
+            {"run": f"recheck{index}", **_summary(dict(_time_candidates(candidates, 10, 101)))} for index in range(1, 4)
+        )
     for data, original in zip(inputs, before, strict=True):
         np.testing.assert_array_equal(_array(data), original)
     return result
@@ -116,7 +173,9 @@ def _measure(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--output", type=Path, required=True, help="Metadata JSON path; timings use the same stem with .csv."
+    )
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=11)
@@ -126,17 +185,15 @@ def main() -> None:
     if Path(albucore.__file__).resolve().parent.parent != Path(__file__).resolve().parents[1]:
         raise RuntimeError("Benchmark the checkout with PYTHONPATH set to its repository root.")
     threads = benchmark_threads.configure_libraries(torch, cv2, args.threads)
-    capabilities = nk.get_capabilities()
-    if platform.machine() == "arm64" and not capabilities["neon"]:
-        raise RuntimeError("Native ARM64 acceptance requires NumKong NEON; run outside the sandbox.")
     functions = {"baseline": runpy.run_path(str(args.baseline))["warp_affine3d"], "current": albucore.warp_affine3d}
     metadata = {
+        "measured_at": datetime.now(UTC).isoformat(),
         "platform": platform.platform(),
         "python": platform.python_version(),
         "threads": threads,
-        "capabilities": capabilities,
+        "torch_cpu_capability": torch.backends.cpu.get_cpu_capability(),
         "packages": {dist.metadata["Name"]: dist.version for dist in importlib.metadata.distributions()},
-        "sources": {module.__name__: module.__file__ for module in (albucore, np, torch, cv2, nk)},
+        "sources": {module.__name__: _source_path(module.__file__) for module in (albucore, np, torch, cv2)},
         "baseline_sha256": hashlib.sha256(args.baseline.read_bytes()).hexdigest(),
         "current_sha256": hashlib.sha256(Path(affine3d.__file__).read_bytes()).hexdigest(),
     }
@@ -166,6 +223,11 @@ def main() -> None:
         )
         return
 
+    metadata["timing_protocol"] = {
+        "warmup": args.warmup,
+        "samples": args.repeats,
+        "rechecks": {"warmup": 10, "samples": 101, "runs": 3},
+    }
     rows = []
     shapes = ((16, 128, 160, 1), (16, 128, 160, 3)) if args.quick else SHAPES
     workloads = [(shape, 1, False) for shape in shapes]
@@ -182,12 +244,13 @@ def main() -> None:
                 source = (logical * 3).astype(dtype) if dtype is np.uint8 else logical.astype(dtype)
                 data = _input(source, layout, batched)
                 for border, fill in ((cv2.BORDER_CONSTANT, 0), (cv2.BORDER_CONSTANT, 0.3), (cv2.BORDER_REPLICATE, 0)):
-                    timing = _measure(
+                    timings = _measure(
                         functions, (data,), _matrix(shape), shape[:3], (cv2.INTER_NEAREST,), border, fill, args
                     )
-                    rows.append(
+                    rows.extend(
                         {
-                            "shape": shape,
+                            "phase": "matrix",
+                            "shape": "x".join(map(str, shape)),
                             "batch": batch,
                             "batched": batched,
                             "layout": layout,
@@ -195,17 +258,17 @@ def main() -> None:
                             "border": border,
                             "fill": fill,
                             "operation": "nearest",
-                            "timings": timing,
+                            **timing,
                         }
+                        for timing in timings
                     )
-        args.output.write_text(json.dumps({"metadata": metadata, "rows": rows}, indent=2) + "\n")
 
     for shape in ((16, 128, 160, 1), (32, 288, 288, 1), (32, 128, 160, 3)):
         logical = rng.random((1, *shape), dtype=np.float32)
         mask = (logical[..., :1] > 0.2).astype(np.uint8)
         for layout in ("numpy", "tensor_view", "tensor_contiguous"):
             data = (_input(logical, layout, False), _input(mask, layout, False))
-            timing = _measure(
+            timings = _measure(
                 functions,
                 data,
                 _matrix(shape),
@@ -215,9 +278,10 @@ def main() -> None:
                 0,
                 args,
             )
-            rows.append(
+            rows.extend(
                 {
-                    "shape": shape,
+                    "phase": "matrix",
+                    "shape": "x".join(map(str, shape)),
                     "batch": 1,
                     "batched": False,
                     "layout": layout,
@@ -225,12 +289,12 @@ def main() -> None:
                     "border": 0,
                     "fill": 0,
                     "operation": "pair",
-                    "timings": timing,
+                    **timing,
                 }
+                for timing in timings
             )
-    args.output.write_text(json.dumps({"metadata": metadata, "rows": rows}, indent=2) + "\n")
-    ratios = [row["timings"]["baseline"]["median_ms"] / row["timings"]["current"]["median_ms"] for row in rows]
-    print(f"{len(rows)} exact cases; baseline/current median ratios {min(ratios):.3f}–{max(ratios):.3f}; {args.output}")
+    _write_results(args.output, metadata, rows)
+    print(f"Wrote {args.output.with_suffix('.csv')} and {args.output}")
 
 
 if __name__ == "__main__":

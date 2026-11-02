@@ -1,0 +1,191 @@
+{
+  "measured_on": "2026-11-02",
+  "dependency_profile_checked_on": "2026-11-02",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "python": "3.11.15",
+  "cpu": "Apple M4 Max",
+  "threads": "Threads: Torch intra-op `1`, inter-op `1`, OpenCV internal parallelism disabled; OpenMP/BLAS environment `1`.",
+  "packages": {
+    "threadpoolctl": "3.6.0",
+    "scikit-image": "0.26.0",
+    "scikit-learn": "1.9.1",
+    "setuptools": "84.2.1",
+    "albucore": "0.3.1",
+    "google-docstring-parser": "0.0.11",
+    "packaging": "26.3",
+    "pytest-mock": "3.16.0",
+    "Pygments": "2.21.0",
+    "pytest-randomly": "5.0.0",
+    "pytz": "2026.5",
+    "eval_type_backport": "0.4.0",
+    "requests": "2.34.2",
+    "defusedxml": "0.7.1",
+    "narwhals": "2.24.0",
+    "networkx": "3.6.1",
+    "lazy-loader": "0.5",
+    "pydantic_core": "2.46.5",
+    "pytest-xdist": "3.8.0",
+    "docstring_parser": "0.18.0",
+    "hypothesis": "6.170.14",
+    "numpy": "2.4.6",
+    "cachebox": "5.2.3",
+    "iniconfig": "2.3.1",
+    "charset-normalizer": "3.4.9",
+    "tifffile": "2026.3.3",
+    "ImageIO": "2.37.3",
+    "sympy": "1.14.0",
+    "pluggy": "1.7.0",
+    "certifi": "2026.6.17",
+    "urllib3": "2.8.0",
+    "filelock": "4.2.6",
+    "pydantic": "2.13.5",
+    "mpmath": "1.3.0",
+    "PyYAML": "6.0.3",
+    "sortedcontainers": "2.4.0",
+    "fsspec": "2026.9.0",
+    "execnet": "2.1.2",
+    "scipy": "1.17.1",
+    "joblib": "1.5.3",
+    "pytest": "9.2.0",
+    "Jinja2": "3.1.6",
+    "stringzilla": "5.3.2",
+    "deepdiff": "9.1.0",
+    "numkong": "7.8.7",
+    "typing_extensions": "4.16.0",
+    "MarkupSafe": "3.0.4",
+    "albu-spec": "0.0.8",
+    "orderly-set": "5.5.0",
+    "torch": "2.15.0",
+    "idna": "3.18",
+    "typing-inspection": "0.4.2",
+    "pillow": "12.3.0",
+    "annotated-types": "0.7.0",
+    "opencv-python-headless": "5.0.0.93"
+  },
+  "sources": {
+    "albucore": "<repository>/albucore/__init__.py",
+    "numpy": "<environment>/lib/python3.11/site-packages/numpy/__init__.py",
+    "torch": "<environment>/lib/python3.11/site-packages/torch/__init__.py",
+    "cv2": "<environment>/lib/python3.11/site-packages/cv2/__init__.py",
+    "numkong": "<environment>/lib/python3.11/site-packages/numkong/__init__.py"
+  },
+  "raw_capture": "https://github.com/albumentations-team/albucore/blob/8b999313b24a22d46c443e8c68935b204818040c/benchmarks/results/xy_nearest_macos.json.gz",
+  "raw_capture_sha256": "4f685dfa88b6021534f5c55aeeb93c153ee5d48535635a6a25cb9a2cd410a709",
+  "protocol": {
+    "matrix": {
+      "warmup": 3,
+      "samples": 11
+    },
+    "recheck": {
+      "warmup": 10,
+      "samples": 101,
+      "runs": 3
+    },
+    "seed": 179,
+    "xy_rotation_degrees": 5
+  },
+  "phases": {
+    "matrix": {
+      "baseline_commit": "2af7aaed196f357f8c2da73eb2cda0fb81ee79ca",
+      "candidate_commit": "fbaf64d608978e58f7ae93dc0839ed07fc8b8b4d",
+      "baseline_sha256": "84bf6e4a313e3f23e1f2f2a09d1c6fc163bfa9e2816608740bb0f7b206e717b4",
+      "current_sha256": "b70e148d9665036b2d86e847ba94f48e76ae46dd83ee58f6a3bd3ab12e6c94f4",
+      "cases": 1062
+    },
+    "singleton": {
+      "baseline_commit": "fbaf64d608978e58f7ae93dc0839ed07fc8b8b4d",
+      "candidate_commit": "8b3b7b91a559a829d537e31fb58350673839285a",
+      "baseline_sha256": "b70e148d9665036b2d86e847ba94f48e76ae46dd83ee58f6a3bd3ab12e6c94f4",
+      "current_sha256": "a64b948635af1e6bc74d5425d5dad11a423aae74dd1c64518bed10bf653b1db9",
+      "cases": 48,
+      "warmup": 5,
+      "samples": 31
+    }
+  },
+  "rss_mib": {
+    "baseline": [
+      {
+        "peak_rss_mib": 362.078125,
+        "steady_rss_mib": 362.09375
+      },
+      {
+        "peak_rss_mib": 361.96875,
+        "steady_rss_mib": 361.96875
+      },
+      {
+        "peak_rss_mib": 361.890625,
+        "steady_rss_mib": 361.90625
+      }
+    ],
+    "current": [
+      {
+        "peak_rss_mib": 291.265625,
+        "steady_rss_mib": 291.265625
+      },
+      {
+        "peak_rss_mib": 293.53125,
+        "steady_rss_mib": 293.53125
+      },
+      {
+        "peak_rss_mib": 291.265625,
+        "steady_rss_mib": 291.265625
+      }
+    ]
+  },
+  "grid_allocation_profile": {
+    "source_sha256": "5bec060d4ae8edcd7bcc4ebbd9ff1223084461953e41040c692257faefdad849",
+    "operations": [
+      {
+        "candidate": "baseline",
+        "operations": [
+          {
+            "key": "aten::empty",
+            "count": 5,
+            "self_bytes": 53086592,
+            "total_bytes": 53086592
+          },
+          {
+            "key": "aten::bmm",
+            "count": 1,
+            "self_bytes": 31850496,
+            "total_bytes": 31850496
+          },
+          {
+            "key": "aten::grid_sampler_3d",
+            "count": 1,
+            "self_bytes": 0,
+            "total_bytes": 10616832
+          }
+        ]
+      },
+      {
+        "candidate": "current",
+        "operations": [
+          {
+            "key": "aten::empty",
+            "count": 5,
+            "self_bytes": 11946244,
+            "total_bytes": 11946244
+          },
+          {
+            "key": "aten::bmm",
+            "count": 1,
+            "self_bytes": 995328,
+            "total_bytes": 995328
+          },
+          {
+            "key": "aten::grid_sampler_2d",
+            "count": 1,
+            "self_bytes": 0,
+            "total_bytes": 10616832
+          }
+        ]
+      }
+    ]
+  },
+  "timings": "xy_nearest_macos.csv",
+  "timing_units": "milliseconds",
+  "timing_precision_ms": 1e-06,
+  "timing_rows": 1113,
+  "numkong_neon_at_capture": true
+}

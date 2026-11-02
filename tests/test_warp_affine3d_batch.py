@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import cv2
 import numpy as np
 import pytest
@@ -237,7 +239,6 @@ def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
     channels: int,
     layout: str,
     nearest_plane: bool,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     rng = np.random.default_rng(137)
     shape = (batch_size, depth, 11, 13, channels)
@@ -280,23 +281,12 @@ def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
     if batch_size == 1:
         volumes = volumes[0]
 
-    grid_sizes: list[tuple[int, int, int]] = []
-    original_grid = _affine_grid
-
-    def record_grid(
-        inverse_matrix: np.ndarray,
-        input_size: tuple[int, int, int],
-        channels: int,
-        output_size: tuple[int, int, int],
-    ) -> torch.Tensor:
-        grid_sizes.append(output_size)
-        return original_grid(inverse_matrix, input_size, channels, output_size)
-
-    monkeypatch.setattr(affine3d, "_affine_grid", record_grid)
-    result = warp_affine3d(volumes, matrix, size, interpolation, border_mode, fill)
+    with patch.object(affine3d, "_affine_grid", wraps=_affine_grid) as grid:
+        result = warp_affine3d(volumes, matrix, size, interpolation, border_mode, fill)
 
     shared_plane = interpolation == cv2.INTER_LINEAR or nearest_plane
-    assert grid_sizes == [(1, *size[1:]) if shared_plane else size]
+    grid.assert_called_once()
+    assert grid.call_args.args[-1] == ((1, *size[1:]) if shared_plane else size)
     if isinstance(result, torch.Tensor):
         actual = result.permute(1, 2, 3, 0).numpy() if batch_size == 1 else result.permute(0, 2, 3, 4, 1).numpy()
         assert result.untyped_storage().data_ptr() != volumes.untyped_storage().data_ptr()
@@ -340,7 +330,6 @@ def test_warp_affine3d_xy_nearest_single_item_batch_matches_single_volume(
     dtype: type,
     channels: int,
     border_mode: int,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = np.random.default_rng(179).integers(0, 4, (1, 16, 32, 40, channels)).astype(dtype)
     volumes = _tensor_batch(source).contiguous()
@@ -357,22 +346,11 @@ def test_warp_affine3d_xy_nearest_single_item_batch_matches_single_volume(
         fill,
     )
     single = warp_affine3d(volumes[0], matrix, size, cv2.INTER_NEAREST, border_mode, fill)
-    grid_sizes: list[tuple[int, int, int]] = []
-    original_grid = _affine_grid
+    with patch.object(affine3d, "_affine_grid", wraps=_affine_grid) as grid:
+        result = warp_affine3d(volumes, matrix, size, cv2.INTER_NEAREST, border_mode, fill)
 
-    def record_grid(
-        inverse: np.ndarray,
-        input_size: tuple[int, int, int],
-        count: int,
-        output_size: tuple[int, int, int],
-    ) -> torch.Tensor:
-        grid_sizes.append(output_size)
-        return original_grid(inverse, input_size, count, output_size)
-
-    monkeypatch.setattr(affine3d, "_affine_grid", record_grid)
-    result = warp_affine3d(volumes, matrix, size, cv2.INTER_NEAREST, border_mode, fill)
-
-    assert grid_sizes == [(1, *size[1:])]
+    grid.assert_called_once()
+    assert grid.call_args.args[-1] == (1, *size[1:])
     assert result.shape == (1, channels, *size)
     assert result.dtype == volumes.dtype
     torch.testing.assert_close(result, expected, rtol=0, atol=0)

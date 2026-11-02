@@ -1,0 +1,95 @@
+{
+  "measured_on": "2026-11-02",
+  "dependency_profile_checked_on": "2026-11-02",
+  "platform": "Linux-7.0.0-1014-gcp-x86_64-with-glibc2.39",
+  "python": "3.11.18",
+  "cpu": "Intel Xeon Platinum 8581C",
+  "threads": "Threads: Torch intra-op `1`, inter-op `1`, OpenCV internal parallelism disabled; OpenMP/BLAS environment `1`.",
+  "packages": {
+    "packaging": "26.3",
+    "numpy": "2.4.6",
+    "networkx": "3.6.1",
+    "pluggy": "1.7.0",
+    "Pygments": "2.21.0",
+    "Jinja2": "3.1.6",
+    "numkong": "7.8.7",
+    "filelock": "4.2.6",
+    "MarkupSafe": "3.0.4",
+    "mpmath": "1.3.0",
+    "hypothesis": "6.170.14",
+    "torch": "2.15.0+cpu",
+    "pytest": "9.2.0",
+    "pytest-randomly": "5.0.0",
+    "typing_extensions": "4.16.0",
+    "albucore": "0.3.1",
+    "sortedcontainers": "2.4.0",
+    "stringzilla": "5.3.2",
+    "sympy": "1.14.0",
+    "opencv-python-headless": "5.0.0.93",
+    "iniconfig": "2.3.1",
+    "setuptools": "84.2.1",
+    "fsspec": "2026.9.0"
+  },
+  "sources": {
+    "albucore": "<repository>/albucore/__init__.py",
+    "numpy": "<environment>/lib/python3.11/site-packages/numpy/__init__.py",
+    "torch": "<environment>/lib/python3.11/site-packages/torch/__init__.py",
+    "cv2": "<environment>/lib/python3.11/site-packages/cv2/__init__.py",
+    "numkong": "<environment>/lib/python3.11/site-packages/numkong/__init__.py"
+  },
+  "raw_capture": "https://github.com/albumentations-team/albucore/blob/8b999313b24a22d46c443e8c68935b204818040c/benchmarks/results/xy_nearest_linux.json.gz",
+  "raw_capture_sha256": "da4d12c04034a18152f64d7bc27b253d74919dc627657d85448fcded4fd3c294",
+  "protocol": {
+    "matrix": {
+      "warmup": 3,
+      "samples": 11
+    },
+    "recheck": {
+      "warmup": 10,
+      "samples": 101,
+      "runs": 3
+    },
+    "seed": 179,
+    "xy_rotation_degrees": 5
+  },
+  "phases": {
+    "matrix": {
+      "baseline_commit": "2af7aaed196f357f8c2da73eb2cda0fb81ee79ca",
+      "candidate_commit": "fbaf64d608978e58f7ae93dc0839ed07fc8b8b4d",
+      "baseline_sha256": "84bf6e4a313e3f23e1f2f2a09d1c6fc163bfa9e2816608740bb0f7b206e717b4",
+      "current_sha256": "b70e148d9665036b2d86e847ba94f48e76ae46dd83ee58f6a3bd3ab12e6c94f4",
+      "cases": 1062
+    },
+    "eager_full": {
+      "baseline_sha256": "84bf6e4a313e3f23e1f2f2a09d1c6fc163bfa9e2816608740bb0f7b206e717b4",
+      "current_sha256": "5bec060d4ae8edcd7bcc4ebbd9ff1223084461953e41040c692257faefdad849",
+      "cases": 1,
+      "note": "Rejected eager stride-check candidate"
+    },
+    "eager_smoke": {
+      "baseline_sha256": "84bf6e4a313e3f23e1f2f2a09d1c6fc163bfa9e2816608740bb0f7b206e717b4",
+      "current_sha256": "5bec060d4ae8edcd7bcc4ebbd9ff1223084461953e41040c692257faefdad849",
+      "cases": 1,
+      "note": "Rejected eager stride-check candidate"
+    }
+  },
+  "rss_mib": {
+    "baseline": [
+      {
+        "peak_rss_mib": 435.62109375,
+        "steady_rss_mib": 405.41796875
+      }
+    ],
+    "current": [
+      {
+        "peak_rss_mib": 383.5078125,
+        "steady_rss_mib": 357.1171875
+      }
+    ]
+  },
+  "timings": "xy_nearest_linux.csv",
+  "timing_units": "milliseconds",
+  "timing_precision_ms": 1e-06,
+  "timing_rows": 1073,
+  "numkong_neon_at_capture": false
+}
