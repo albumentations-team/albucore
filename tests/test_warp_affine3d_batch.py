@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import torch
 
+import albucore.affine3d as affine3d
 from albucore import warp_affine3d
 from albucore.affine3d import _inverse_matrix, _normalize_matrix, _warp_affine3d_torch_cpu_batch_native
 from albucore.sampling3d import _normalize_border_value
@@ -204,16 +205,22 @@ def test_warp_affine3d_batch_result_can_feed_a_trainable_torch_module() -> None:
 @pytest.mark.parametrize("interpolation", [cv2.INTER_NEAREST, cv2.INTER_LINEAR], ids=("nearest", "linear"))
 @pytest.mark.parametrize("border_mode", [cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE])
 @pytest.mark.parametrize(
-    ("batch_size", "depth", "channels", "layout"),
+    ("batch_size", "depth", "channels", "layout", "nearest_plane"),
     [
-        (1, 1, 1, "numpy"),
-        (1, 30, 3, "tensor_view"),
-        (4, 5, 1, "numpy_negative"),
-        (4, 96, 9, "tensor_contiguous"),
-        (1, 257, 5, "numpy_readonly"),
-        (4, 8, 5, "tensor_view"),
-        (1, 511, 1, "numpy"),
-        (1, 513, 1, "tensor_view"),
+        (1, 1, 1, "numpy", False),
+        (1, 30, 3, "tensor_view", False),
+        (4, 5, 1, "numpy_negative", False),
+        (4, 96, 9, "tensor_contiguous", False),
+        (1, 257, 5, "numpy_readonly", True),
+        (4, 8, 5, "tensor_view", False),
+        (1, 511, 1, "numpy", True),
+        (1, 513, 1, "tensor_view", True),
+        (1, 96, 3, "tensor_contiguous", True),
+        (4, 96, 1, "tensor_contiguous", True),
+        (4, 96, 5, "tensor_view", True),
+        (16, 96, 3, "numpy", True),
+        (4, 96, 1, "numpy_batch_stride", False),
+        (4, 96, 1, "tensor_batch_stride", False),
     ],
 )
 def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
@@ -224,6 +231,8 @@ def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
     depth: int,
     channels: int,
     layout: str,
+    nearest_plane: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     rng = np.random.default_rng(137)
     shape = (batch_size, depth, 11, 13, channels)
@@ -235,6 +244,8 @@ def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
         fill = np.linspace(0.1, 0.8, channels, dtype=np.float32)
     if layout == "numpy_negative":
         source = source[:, :, :, ::-1]
+    elif layout == "numpy_batch_stride":
+        source = np.repeat(source, 2, axis=0)[::2]
     before = source.copy()
     tensor = _tensor_batch(before)
     volumes: np.ndarray | torch.Tensor = source
@@ -242,20 +253,45 @@ def test_warp_affine3d_xy_matches_native_3d_sampling(  # noqa: PLR0913, PLR0917
         volumes = _tensor_batch(source)
         if layout == "tensor_contiguous":
             volumes = volumes.contiguous()
+        elif layout == "tensor_batch_stride":
+            volumes = volumes.repeat_interleave(2, dim=0)[::2]
         tensor = volumes
     elif layout == "numpy_readonly":
         volumes.flags.writeable = False
     matrix = np.array(((0.9, 0.1, 0.0, 0.37), (-0.07, 1.05, 0.0, -0.23), (0.0, 0.0, 1.0, 0.0)))
     size = (depth, 9, 15)
-    expected = _warp_affine3d_torch_cpu_batch_native(
-        tensor, _inverse_matrix(_normalize_matrix(matrix)), size, interpolation, border_mode,
-        _normalize_border_value(fill, channels),
-    ).permute(0, 2, 3, 4, 1).numpy()
+    expected = (
+        _warp_affine3d_torch_cpu_batch_native(
+            tensor,
+            _inverse_matrix(_normalize_matrix(matrix)),
+            size,
+            interpolation,
+            border_mode,
+            _normalize_border_value(fill, channels),
+        )
+        .permute(0, 2, 3, 4, 1)
+        .numpy()
+    )
     if batch_size == 1:
         volumes = volumes[0]
 
+    grid_sizes: list[tuple[int, int, int]] = []
+    original_grid = affine3d._affine_grid
+
+    def record_grid(
+        inverse_matrix: np.ndarray,
+        input_size: tuple[int, int, int],
+        channels: int,
+        output_size: tuple[int, int, int],
+    ) -> torch.Tensor:
+        grid_sizes.append(output_size)
+        return original_grid(inverse_matrix, input_size, channels, output_size)
+
+    monkeypatch.setattr(affine3d, "_affine_grid", record_grid)
     result = warp_affine3d(volumes, matrix, size, interpolation, border_mode, fill)
 
+    shared_plane = interpolation == cv2.INTER_LINEAR or nearest_plane
+    assert grid_sizes == [(1, *size[1:]) if shared_plane else size]
     if isinstance(result, torch.Tensor):
         actual = result.permute(1, 2, 3, 0).numpy() if batch_size == 1 else result.permute(0, 2, 3, 4, 1).numpy()
         assert result.untyped_storage().data_ptr() != volumes.untyped_storage().data_ptr()

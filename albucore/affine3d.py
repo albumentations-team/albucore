@@ -49,13 +49,17 @@ def _is_identity_matrix(matrix: np.ndarray) -> bool:
 def _can_warp_affine_xy(
     inverse_matrix: np.ndarray,
     input_depth: int,
-    output_depth: int,
+    output_size: tuple[int, int, int],
     interpolation: int,
 ) -> bool:
-    """Require exact unchanged Z and no XY/Z coupling; keep categorical ties on the 3D sampler."""
+    """Share sufficiently large XY warps with exact unchanged Z and no XY/Z coupling."""
     return (
-        interpolation == cv2.INTER_LINEAR
-        and output_depth == input_depth
+        # At extreme depths the native float32 Z grid can round to a different slice.
+        (
+            interpolation == cv2.INTER_LINEAR
+            or (input_depth <= 1_048_576 and output_size[0] * output_size[1] * output_size[2] >= 8192)
+        )
+        and output_size[0] == input_depth
         and np.array_equal(inverse_matrix[2], (0.0, 0.0, 1.0, 0.0))
         and not np.any(inverse_matrix[:2, 2])
     )
@@ -101,7 +105,7 @@ def _warp_affine3d_torch_cpu(
 ) -> torch.Tensor:
     """Route one prevalidated CPU CDHW tensor through shared XY or full 3D sampling."""
     input_size = volume.shape[1], volume.shape[2], volume.shape[3]
-    if _can_warp_affine_xy(inverse_matrix, input_size[0], size[0], interpolation):
+    if _can_warp_affine_xy(inverse_matrix, input_size[0], size, interpolation):
         return _warp_affine_xy_torch_cpu_batch(
             volume.unsqueeze(0),
             inverse_matrix,
@@ -203,7 +207,12 @@ def _warp_affine3d_torch_cpu_batch(
 ) -> torch.Tensor:
     """Sample prevalidated CPU ``NCDHW`` volumes with one shared affine grid."""
     input_size = volumes.shape[2], volumes.shape[3], volumes.shape[4]
-    if _can_warp_affine_xy(inverse_matrix, input_size[0], size[0], interpolation):
+    if _can_warp_affine_xy(
+        inverse_matrix,
+        input_size[0],
+        size,
+        interpolation,
+    ) and (interpolation == cv2.INTER_LINEAR or volumes.stride(0) == input_size[0] * volumes.stride(2)):
         return _warp_affine_xy_torch_cpu_batch(
             volumes,
             inverse_matrix,
@@ -333,8 +342,8 @@ def warp_affine3d(
     input coordinates to output coordinates. ``size`` is ordered as ``(depth, height,
     width)``. Only ``uint8`` and ``float32`` are supported. Callers validate the input
     container, layout, dtype, device, and control data before this low-level kernel.
-    Exact XY-only linear warps with unchanged depth share one 2D Torch grid across slices.
-    Nearest interpolation retains the original 3D sampler.
+    Exact XY-only warps with unchanged depth share one Torch plane grid across slices.
+    Nearest interpolation preserves the native 3D sampler's categorical ties.
     Linear results may differ from the 3D sampler by floating-point roundoff or one uint8 level.
 
     Args:

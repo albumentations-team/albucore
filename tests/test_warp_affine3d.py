@@ -352,28 +352,86 @@ def test_warp_affine3d_does_not_mutate_a_real_warp_input() -> None:
     assert not np.shares_memory(result, volume)
 
 
-@pytest.mark.parametrize("width", [4, 5, 13])
-@pytest.mark.parametrize("depth", [1, 5, 30])
-@pytest.mark.parametrize("shift", [0.5, 1.5, -0.5])
-def test_warp_affine3d_xy_nearest_preserves_native_half_voxel_ties(width: int, depth: int, shift: float) -> None:
-    volume = np.arange(depth * 3 * width, dtype=np.uint8).reshape(depth, 3, width, 1)
-    matrix = _translation(x=shift)
+@pytest.mark.parametrize("axis", [0, 1], ids=["x", "y"])
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (1, 9, 4),
+        (5, 9, 13),
+        (30, 9, 5),
+        (1, 128, 160),
+        (2, 64, 80),
+        (96, 1, 129),
+        (96, 129, 1),
+        (2, 32, 127),
+        (2, 32, 128),
+        (2, 32, 129),
+    ],
+)
+@pytest.mark.parametrize("shift", [0.5, 1.5, -0.5, -1.5])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("labels", [2, 3])
+def test_warp_affine3d_xy_nearest_preserves_native_half_voxel_ties(
+    axis: int,
+    shape: tuple[int, int, int],
+    shift: float,
+    dtype: type,
+    labels: int,
+) -> None:
+    volume = (np.arange(np.prod(shape)).reshape(*shape, 1) % labels).astype(dtype)
+    matrix = np.eye(4, dtype=np.float64)
+    matrix[axis, 3] = shift
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     grid = _affine_grid(_inverse_matrix(_normalize_matrix(matrix)), volume.shape[:3], 1, volume.shape[:3])
-    expected = _sample3d_torch_cpu(
-        tensor, grid, cv2.INTER_NEAREST, cv2.BORDER_CONSTANT, np.array([99], dtype=np.float32),
-    ).permute(1, 2, 3, 0).numpy()
+    expected = (
+        _sample3d_torch_cpu(
+            tensor,
+            grid,
+            cv2.INTER_NEAREST,
+            cv2.BORDER_CONSTANT,
+            np.array([99], dtype=np.float32),
+        )
+        .permute(1, 2, 3, 0)
+        .numpy()
+    )
 
     result = warp_affine3d(volume, matrix, volume.shape[:3], interpolation=cv2.INTER_NEAREST, border_value=99)
 
     np.testing.assert_array_equal(result, expected)
 
 
+def test_warp_affine3d_nearest_extreme_depth_preserves_native_z_rounding() -> None:
+    depth = 2**23 + 1
+    volume = (np.arange(depth, dtype=np.uint32) % 251).astype(np.uint8).reshape(depth, 1, 1, 1)
+    matrix = _translation(x=0.125)
+    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    grid = _affine_grid(_inverse_matrix(_normalize_matrix(matrix)), volume.shape[:3], 1, volume.shape[:3])
+    expected = (
+        _sample3d_torch_cpu(
+            tensor,
+            grid,
+            cv2.INTER_NEAREST,
+            cv2.BORDER_CONSTANT,
+            np.zeros(1, dtype=np.float32),
+        )
+        .permute(1, 2, 3, 0)
+        .numpy()
+    )
+    del grid
+
+    result = warp_affine3d(volume, matrix, volume.shape[:3], cv2.INTER_NEAREST)
+
+    np.testing.assert_array_equal(result, expected)
+
+
 @pytest.mark.parametrize("entry", [(0, 2), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3)])
+@pytest.mark.parametrize("interpolation", [cv2.INTER_NEAREST, cv2.INTER_LINEAR])
 def test_warp_affine3d_near_xy_matrix_keeps_true_3d_sampling(
-    entry: tuple[int, int], monkeypatch: pytest.MonkeyPatch,
+    entry: tuple[int, int],
+    interpolation: int,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    volume = _volume(np.float32, channels=3)
+    volume = np.tile(_volume(np.float32, channels=3), (16, 16, 16, 1))
     matrix = np.eye(4, dtype=np.float64)
     matrix[0, 3] = 0.25
     matrix[entry] += 1e-12
@@ -382,12 +440,50 @@ def test_warp_affine3d_near_xy_matrix_keeps_true_3d_sampling(
         raise AssertionError("A real Z change must retain 3D sampling")
 
     monkeypatch.setattr(affine3d, "_warp_affine_xy_torch_cpu_batch", unexpected_xy)
-    result = warp_affine3d(volume, matrix, volume.shape[:3])
+    result = warp_affine3d(volume, matrix, volume.shape[:3], interpolation)
     grid = _affine_grid(_inverse_matrix(matrix), volume.shape[:3], 3, volume.shape[:3])
-    expected = _sample3d_torch_cpu(
-        torch.from_numpy(volume).permute(3, 0, 1, 2), grid, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT,
-        np.zeros(3, dtype=np.float32),
-    ).permute(1, 2, 3, 0).numpy()
+    expected = (
+        _sample3d_torch_cpu(
+            torch.from_numpy(volume).permute(3, 0, 1, 2),
+            grid,
+            interpolation,
+            cv2.BORDER_CONSTANT,
+            np.zeros(3, dtype=np.float32),
+        )
+        .permute(1, 2, 3, 0)
+        .numpy()
+    )
 
     np.testing.assert_array_equal(result, expected)
     assert not np.shares_memory(result, volume)
+
+
+@pytest.mark.parametrize("depth", [8, 32])
+def test_warp_affine3d_xy_nearest_changed_depth_keeps_true_3d_sampling(
+    depth: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    volume = (np.arange(16 * 64 * 80, dtype=np.uint32) % 251).astype(np.uint8).reshape(16, 64, 80, 1)
+    matrix = _translation(x=0.5)
+    size = (depth, 64, 80)
+
+    def unexpected_xy(*args: object) -> torch.Tensor:
+        raise AssertionError("A depth change must retain 3D sampling")
+
+    monkeypatch.setattr(affine3d, "_warp_affine_xy_torch_cpu_batch", unexpected_xy)
+    grid = _affine_grid(_inverse_matrix(_normalize_matrix(matrix)), volume.shape[:3], 1, size)
+    expected = (
+        _sample3d_torch_cpu(
+            torch.from_numpy(volume).permute(3, 0, 1, 2),
+            grid,
+            cv2.INTER_NEAREST,
+            cv2.BORDER_CONSTANT,
+            np.zeros(1, dtype=np.float32),
+        )
+        .permute(1, 2, 3, 0)
+        .numpy()
+    )
+
+    result = warp_affine3d(volume, matrix, size, cv2.INTER_NEAREST)
+
+    np.testing.assert_array_equal(result, expected)
