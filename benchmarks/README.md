@@ -39,6 +39,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | Large Markdown tables: `add_weighted`, global mean/std, per-channel stats — matches methodology in [`docs/numkong-performance.md`](../docs/numkong-performance.md). |
 | [`benchmark_numkong_arithmetic.py`](benchmark_numkong_arithmetic.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
 | [`benchmark_numkong.py`](benchmark_numkong.py) | Smaller sweeps: `cdist`, blend, 1D `scale`/`fma`, misc. |
+| [`benchmark_pairwise_distances.py`](benchmark_pairwise_distances.py) | Public pairwise distances versus the norm/dot baseline before #197; routing boundaries, dimensions, dtypes, strides, and NumPy/Tensor containers. |
 | [`benchmark_numkong_astype.py`](benchmark_numkong_astype.py) | NumKong 7.8 buffer-first cast: previous NumPy `rint`+clip and isolated cast paths across HWC/XHWC contiguous and strided inputs. |
 | [`benchmark_float_cast.py`](benchmark_float_cast.py) | Exact FP16↔FP32 public NumPy/Tensor casts, CPU/layout/size boundaries, owned-output NumKong and Torch candidates. `--with-routers` includes complete float32 working bridges; `--routers-only` runs those bridges alone. |
 | [`benchmark_elementwise.py`](benchmark_elementwise.py) | Public `exp`/`log`/`sqrt` vs NumPy/OpenCV: canonical non-square HWC C=1/3/9 and DHWC, tiny Python `math`, strided channel/size calibration, explicit output reuse, and NumKong `minmax` as a `log` guard. |
