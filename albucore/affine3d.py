@@ -212,7 +212,11 @@ def _warp_affine3d_torch_cpu_batch(
         input_size[0],
         size,
         interpolation,
-    ) and (interpolation == cv2.INTER_LINEAR or volumes.stride(0) == input_size[0] * volumes.stride(2)):
+    ) and (
+        interpolation == cv2.INTER_LINEAR
+        or volumes.shape[0] == 1
+        or volumes.stride(0) == input_size[0] * volumes.stride(2)
+    ):
         return _warp_affine_xy_torch_cpu_batch(
             volumes,
             inverse_matrix,

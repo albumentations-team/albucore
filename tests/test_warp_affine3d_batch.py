@@ -326,3 +326,51 @@ def test_warp_affine3d_xy_tensor_batch_can_feed_training() -> None:
 
     assert layer.weight.grad is not None
     assert not result.requires_grad
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("channels", [1, 3, 5, 9])
+@pytest.mark.parametrize("border_mode", [cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE])
+def test_warp_affine3d_xy_nearest_single_item_batch_matches_single_volume(
+    dtype: type,
+    channels: int,
+    border_mode: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = np.random.default_rng(179).integers(0, 4, (1, 16, 32, 40, channels)).astype(dtype)
+    volumes = _tensor_batch(source).contiguous()
+    before = volumes.clone()
+    matrix = np.array(((0.9, 0.1, 0.0, 0.5), (-0.07, 1.05, 0.0, -0.5), (0.0, 0.0, 1.0, 0.0)))
+    size = (16, 33, 39)
+    fill = np.arange(channels, dtype=np.float32) + 17.3
+    expected = _warp_affine3d_torch_cpu_batch_native(
+        volumes,
+        _inverse_matrix(_normalize_matrix(matrix)),
+        size,
+        cv2.INTER_NEAREST,
+        border_mode,
+        fill,
+    )
+    single = warp_affine3d(volumes[0], matrix, size, cv2.INTER_NEAREST, border_mode, fill)
+    grid_sizes: list[tuple[int, int, int]] = []
+    original_grid = affine3d._affine_grid
+
+    def record_grid(
+        inverse: np.ndarray,
+        input_size: tuple[int, int, int],
+        count: int,
+        output_size: tuple[int, int, int],
+    ) -> torch.Tensor:
+        grid_sizes.append(output_size)
+        return original_grid(inverse, input_size, count, output_size)
+
+    monkeypatch.setattr(affine3d, "_affine_grid", record_grid)
+    result = warp_affine3d(volumes, matrix, size, cv2.INTER_NEAREST, border_mode, fill)
+
+    assert grid_sizes == [(1, *size[1:])]
+    assert result.shape == (1, channels, *size)
+    assert result.dtype == volumes.dtype
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    torch.testing.assert_close(result[0], single, rtol=0, atol=0)
+    torch.testing.assert_close(volumes, before, rtol=0, atol=0)
+    assert result.untyped_storage().data_ptr() != volumes.untyped_storage().data_ptr()

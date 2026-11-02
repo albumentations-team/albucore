@@ -25,9 +25,9 @@ measurements in [`REPORT_sampling3d_batch.md`](../benchmarks/results/REPORT_samp
 An exact XY-only linear affine with unchanged depth shares one plane grid across all slices and batch items.
 Single-channel inputs fold `N*D` into 2D channels. Multi-channel inputs use a 2D batch when merging `N` and `D`
 requires no copy; other layouts sample each volume into one preallocated output while reusing the grid.
-Nearest also shares the plane from 8,192 output voxels through input depth 1,048,576 for single volumes and batches
-whose N/D strides permit a direct merge. Smaller calls and batches that require a per-volume loop retain native
-sampling. The depth bound preserves native float32 Z-coordinate rounding at extreme sizes.
+Nearest also shares the plane from 8,192 output voxels through input depth 1,048,576 for single volumes, single-item
+batches, and larger batches whose N/D strides permit a direct merge. Smaller calls and batches that require a
+per-volume loop retain native sampling. The depth bound preserves native float32 Z-coordinate rounding at extreme sizes.
 Nearest results must match the 3D sampler exactly, including categorical half-voxel ties and constant/replicate borders.
 See [`REPORT_xy_nearest.md`](../benchmarks/results/REPORT_xy_nearest.md) for its benchmark and correctness evidence.
 Every real Z change retains the original 3D sampler. See
