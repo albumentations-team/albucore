@@ -16,11 +16,11 @@ def test_flips_preserve_shape_dtype(img: np.ndarray) -> None:
 
 
 @given(hwc_images(dtypes=(np.dtype("uint8"),)))
-def test_to_from_float_preserves_shape(img: np.ndarray) -> None:
-    as_float = ac.to_float(img)
+def test_convert_dtype_preserves_shape(img: np.ndarray) -> None:
+    as_float = ac.convert_dtype(img, np.float32)
     assert as_float.shape == img.shape
     assert as_float.dtype == np.float32
 
-    restored = ac.from_float(as_float, np.uint8)
+    restored = ac.convert_dtype(as_float, np.uint8)
     assert restored.shape == img.shape
     assert restored.dtype == np.uint8

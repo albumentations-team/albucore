@@ -395,7 +395,6 @@ def main() -> None:
         "reduce_sum_per_channel",
     }
     skip_uint8_only = {"apply_uint8_lut"}
-    skip_float_only = {"from_float"}
     geometric = (
         [(name, builder) for name, builder in router_bench._registry_geometric() if name not in _VOLUME_OPS]
         if args.with_geometric
@@ -427,9 +426,7 @@ def main() -> None:
                 continue
             if op_name in skip_uint8_only and dtype != np.uint8:
                 continue
-            if op_name in skip_float_only and dtype not in (np.float16, np.float32):
-                continue
-            if op_name not in stats_ops and not hasattr(alb, op_name):
+            if op_name not in stats_ops and not hasattr(alb, router_bench._api_name(op_name)):
                 continue
             if half_image is not None:
                 _record_image_pair(rows, alb, op_name, array_layout, shape, half_image, image, builder, args.repeats, args.warmup)
@@ -438,8 +435,6 @@ def main() -> None:
 
         for op_name, builder in geometric:
             if op_name in skip_ops or (op_name in skip_uint8_only and dtype != np.uint8):
-                continue
-            if op_name in skip_float_only and dtype not in (np.float16, np.float32):
                 continue
             api_name = router_bench._GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
             if not hasattr(alb, api_name):
@@ -545,8 +540,6 @@ def main() -> None:
             if router_bench._api_name(op_name) not in export_names and not op_name.endswith("_per_channel"):
                 continue
             if op_name in skip_uint8_only and dtype != np.uint8:
-                continue
-            if op_name in skip_float_only and dtype not in (np.float16, np.float32):
                 continue
             if half_image is not None:
                 _record_image_pair(rows, alb, op_name, array_layout, shape, half_image, image, builder, args.repeats, args.warmup)

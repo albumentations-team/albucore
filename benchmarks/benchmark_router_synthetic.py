@@ -60,7 +60,15 @@ from shape_grids import (
 )
 from timing import WallTimingMs, bench_wall_ms
 
-_OPERATION_API_NAMES = {"add_channel": "add", "add_field": "add", "multiply_channel": "multiply", "multiply_field": "multiply"}
+_OPERATION_API_NAMES = {
+    "add_channel": "add",
+    "add_field": "add",
+    "multiply_channel": "multiply",
+    "multiply_field": "multiply",
+    "convert_dtype_float16": "convert_dtype",
+    "convert_dtype_float32": "convert_dtype",
+    "convert_dtype_uint8": "convert_dtype",
+}
 
 
 def _api_name(workload: str) -> str:
@@ -222,6 +230,13 @@ def _bench_pair_rows(
     repeats: int,
     warmup: int,
 ) -> tuple[BenchRow, BenchRow]:
+    """Compare equivalent half/float32 work, recording unsupported pairs as skipped rows."""
+    if op_name in {"convert_dtype_float16", "convert_dtype_float32"}:
+        detail = "fixed floating target mixes an identity with an allocating cast; use standalone measurements"
+        return (
+            BenchRow(op_name, layout, shape, "float16", None, "skip", detail),
+            BenchRow(op_name, layout, shape, "float32", None, "skip", detail),
+        )
     try:
         half_fn = build(alb, half_img)
         float32_fn = build(alb, float32_img)
@@ -604,15 +619,21 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    def tf(alb: Any, img: np.ndarray) -> Callable[[], object]:
+    def convert_float32(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
-            alb.to_float(img)
+            alb.convert_dtype(img, np.float32)
 
         return thunk
 
-    def ff(alb: Any, img: np.ndarray) -> Callable[[], object]:
+    def convert_float16(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
-            alb.from_float(img, np.uint8)
+            alb.convert_dtype(img, np.float16)
+
+        return thunk
+
+    def convert_uint8(alb: Any, img: np.ndarray) -> Callable[[], object]:
+        def thunk() -> None:
+            alb.convert_dtype(img, np.uint8)
 
         return thunk
 
@@ -718,8 +739,9 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("std", st),
         ("std_per_channel", st_pc),
         ("sqrt", square_root),
-        ("to_float", tf),
-        ("from_float", ff),
+        ("convert_dtype_float16", convert_float16),
+        ("convert_dtype_float32", convert_float32),
+        ("convert_dtype_uint8", convert_uint8),
     ]
 
 
@@ -883,7 +905,6 @@ def main() -> None:
         "reduce_sum_per_channel",
     }
     skip_uint8_only = {"apply_uint8_lut"}
-    skip_float_only = {"from_float"}
 
     public_exports = list(alb.__all__)
     export_names = set(public_exports)
@@ -920,7 +941,7 @@ def main() -> None:
                     _bench_pair_rows(alb, op_name, layout, shape, build, half_img, img, args.repeats, args.warmup),
                 )
             for op_name, build in geo_reg:
-                if op_name in skip_ops or op_name in skip_uint8_only or op_name in skip_float_only:
+                if op_name in skip_ops or op_name in skip_uint8_only:
                     continue
                 api_name = _GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
                 if not hasattr(alb, api_name):
@@ -939,9 +960,6 @@ def main() -> None:
             if op_name in skip_uint8_only and dtype != np.uint8:
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "needs uint8"))
                 continue
-            if op_name in skip_float_only and dtype not in (np.float16, np.float32):
-                rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "needs floating input"))
-                continue
             if op_name not in stats_ops and not hasattr(alb, _api_name(op_name)):
                 rows.append(BenchRow(op_name, layout, shape, dname, None, "skip", "missing API"))
                 continue
@@ -952,8 +970,6 @@ def main() -> None:
             if op_name in skip_ops:
                 continue
             if op_name in skip_uint8_only and dtype != np.uint8:
-                continue
-            if op_name in skip_float_only and dtype not in (np.float16, np.float32):
                 continue
             api_name = _GEOMETRIC_API_ALIASES.get(op_name, op_name.removesuffix("_batch"))
             if not hasattr(alb, api_name):

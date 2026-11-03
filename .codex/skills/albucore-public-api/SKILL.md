@@ -48,9 +48,11 @@ Their keyword-only `out` returns the supplied storage by identity, including wri
 image/full-field aliases. Without it, input storage remains unchanged. When adapting AX, audit ownership:
 passing an input as `out` makes the write explicit and may change aliased storage; protect caller-owned data in AX when required.
 
-`to_float` and `from_float` also accept explicit result-dtype `out`. Floating `to_float` is an identity; uint8
-input is divided into float32. Floating `from_float` targets cast without scaling; uint8 targets scale, round
-and saturate. Keep concrete destination-dtype overloads; generic target-dtype fallbacks accept no destination.
+`convert_dtype(img, dtype, *, max_value=None, out=None)` accepts all uint8/float16/float32 input and target pairs.
+Uint8-to-float divides by max_value (default 255); float-to-uint8 scales, rounds and saturates. Float casts and
+same-dtype conversions ignore the scale. Same-dtype calls return the input object without output; a supplied
+result-dtype `out` is returned by identity. Keep concrete destination-dtype overloads; generic target-dtype
+fallbacks accept no destination.
 
 `power` has concrete dtype-matching `out` overloads and requires a Tensor layout. Preserve scalar/channel uint8
 LUT saturation and truncation; floating inputs also accept exponent fields. A supplied output does not promise

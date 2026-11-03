@@ -5,7 +5,7 @@ import pytest
 import torch
 from numpy.typing import NDArray
 
-from albucore import from_float, to_float
+from albucore import convert_dtype
 
 SHAPES = [(3, 5, 1), (2, 3, 5, 3), (2, 2, 3, 5, 9)]
 OUTPUTS = [("numpy", mode) for mode in ("contiguous", "gapped", "fortran", "negative")] + [
@@ -16,7 +16,7 @@ OUTPUTS = [("numpy", mode) for mode in ("contiguous", "gapped", "fortran", "nega
 def _record_reused_numkong_working_buffer(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
     from albucore import convert
 
-    original = convert._from_float_uint8_numkong
+    original = convert._quantize_uint8_numkong
     calls: list[bool] = []
 
     def record(
@@ -29,7 +29,7 @@ def _record_reused_numkong_working_buffer(monkeypatch: pytest.MonkeyPatch) -> li
         calls.append(input_is_working_buffer)
         return original(img, max_value, out=out, input_is_working_buffer=input_is_working_buffer)
 
-    monkeypatch.setattr(convert, "_from_float_uint8_numkong", record)
+    monkeypatch.setattr(convert, "_quantize_uint8_numkong", record)
     return calls
 
 
@@ -48,20 +48,32 @@ def destination(shape, dtype, container, mode):
 
 @pytest.mark.parametrize("container,mode", OUTPUTS)
 @pytest.mark.parametrize("shape", SHAPES)
-@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
-def test_to_float_supplied_output(container, mode, shape, dtype):
-    source = np.resize(np.array([0, 1, 127, 254, 255], dtype=dtype), shape)
-    if dtype != np.uint8:
-        source = source / np.array(128, dtype=dtype)
+@pytest.mark.parametrize("source_dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("target_dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("max_value", [128.0, 17.3])
+def test_convert_dtype_supplied_output(container, mode, shape, source_dtype, target_dtype, max_value):
+    values = (
+        np.array([0, 1, 127, 254, 255], dtype=np.uint8)
+        if source_dtype == np.uint8
+        else np.array([-np.inf, -2, -0.0, 0.5 / 255, 1.5 / 255, 0.3333, 1, 2, np.inf, np.nan], dtype=source_dtype)
+    )
+    source = np.resize(values, shape)
     original = source.copy()
     image = torch.from_numpy(source) if container == "tensor" else source
     if container == "numpy":
         source.flags.writeable = False
-    target_dtype = np.float32 if dtype == np.uint8 else dtype
     output, backing = destination(shape, target_dtype, container, mode)
-    expected = source.astype(np.float32) / np.float32(128) if dtype == np.uint8 else source
+    with np.errstate(invalid="ignore"):
+        if source_dtype == target_dtype:
+            expected = source
+        elif source_dtype == np.uint8:
+            expected = (source.astype(np.float32) / np.float32(max_value)).astype(target_dtype)
+        elif target_dtype == np.uint8:
+            expected = np.clip(np.rint(source.astype(np.float32) * np.float32(max_value)), 0, 255).astype(np.uint8)
+        else:
+            expected = source.astype(target_dtype)
 
-    result = to_float(image, max_value=128, out=output)
+    result = convert_dtype(image, target_dtype, max_value=max_value, out=output)
 
     assert result is output
     actual = result.numpy() if container == "tensor" else result
@@ -71,50 +83,17 @@ def test_to_float_supplied_output(container, mode, shape, dtype):
     np.testing.assert_array_equal(backing[..., 1::2], np.full(shape, 41, dtype=target_dtype))
 
 
-@pytest.mark.parametrize("container,mode", OUTPUTS)
-@pytest.mark.parametrize("shape", SHAPES)
-@pytest.mark.parametrize("source_dtype", [np.float16, np.float32])
-@pytest.mark.parametrize("target_dtype", [np.uint8, np.float16, np.float32])
-def test_from_float_supplied_output(container, mode, shape, source_dtype, target_dtype):
-    values = np.array([-np.inf, -2, -0.0, 0.5 / 255, 1.5 / 255, 0.3333, 1, 2, np.inf, np.nan], dtype=source_dtype)
-    source = np.resize(values, shape)
-    original = source.copy()
-    image = torch.from_numpy(source) if container == "tensor" else source
-    if container == "numpy":
-        source.flags.writeable = False
-    output, backing = destination(shape, target_dtype, container, mode)
-    with np.errstate(invalid="ignore"):
-        expected = (
-            np.clip(np.rint(source.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)
-            if target_dtype == np.uint8
-            else source.astype(target_dtype)
-        )
-
-    result = from_float(image, target_dtype, out=output)
-
-    assert result is output
-    actual = result.numpy() if container == "tensor" else result
-    if container == "tensor" and source_dtype == np.float16 and target_dtype == np.uint8:
-        np.testing.assert_allclose(actual, expected, rtol=0, atol=1)
-    else:
-        np.testing.assert_array_equal(actual, expected)
-    np.testing.assert_array_equal(source, original)
-    assert actual.dtype == target_dtype
-    np.testing.assert_array_equal(backing[..., 1::2], np.full(shape, 41, dtype=target_dtype))
-
-
-@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("container", ["numpy", "tensor"])
 @pytest.mark.parametrize("shape", SHAPES)
-def test_float_identity_and_exact_alias(dtype, container, shape):
-    source = np.resize(np.array([-2, -0.0, 0.3333, 2, np.inf, np.nan], dtype=dtype), shape)
+def test_same_dtype_identity_and_exact_alias(dtype, container, shape):
+    values = [0, 1, 127, 254, 255] if dtype == np.uint8 else [-2, -0.0, 0.3333, 2, np.inf, np.nan]
+    source = np.resize(np.array(values, dtype=dtype), shape)
     image = torch.from_numpy(source) if container == "tensor" else source
-    original_bits = source.view(np.uint16 if dtype == np.float16 else np.uint32).copy()
+    original_bits = source.view(np.uint8).copy()
 
-    assert to_float(image) is image
-    assert from_float(image, dtype) is image
-    assert to_float(image, max_value=255, out=image) is image
-    assert from_float(image, dtype, max_value=255, out=image) is image
+    assert convert_dtype(image, dtype) is image
+    assert convert_dtype(image, dtype, max_value=255, out=image) is image
     np.testing.assert_array_equal(source.view(original_bits.dtype), original_bits)
 
 
@@ -140,7 +119,7 @@ def test_half_quantization_all_encodings_with_output(monkeypatch, container, sca
     )
     with np.errstate(all="ignore"):
         expected = np.clip(np.rint(source.astype(np.float32) * np.float32(scale)), 0, 255).astype(np.uint8)
-        result = from_float(image, np.uint8, max_value=scale, out=output)
+        result = convert_dtype(image, np.uint8, max_value=scale, out=output)
     actual = result.numpy() if container == "tensor" else result
     assert result is output
     np.testing.assert_allclose(actual, expected, rtol=0, atol=1 if container == "tensor" and scale != 17.3 else 0)
@@ -162,7 +141,7 @@ def test_half_quantization_all_encodings_without_output(monkeypatch, channels):
     with np.errstate(all="ignore"):
         expected = np.clip(np.rint(source.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)
 
-    result = from_float(source, np.uint8)
+    result = convert_dtype(source, np.uint8)
 
     assert result.dtype == np.uint8
     assert result.shape == source.shape
@@ -188,8 +167,8 @@ def test_numpy_torch_quantization_writes_supplied_storage(monkeypatch, dtype, mo
     def fail_numkong(*args, **kwargs):
         raise AssertionError("The eligible Torch route must honor the supplied destination")
 
-    monkeypatch.setattr(convert, "_from_float_uint8_numkong", fail_numkong)
-    result = from_float(source, np.uint8, out=output)
+    monkeypatch.setattr(convert, "_quantize_uint8_numkong", fail_numkong)
+    result = convert_dtype(source, np.uint8, out=output)
 
     assert result is output
     np.testing.assert_array_equal(result, expected)
@@ -204,7 +183,7 @@ def test_large_tensor_float_cast_supplied_output(dtype, target, mode):
     output, backing = destination(source.shape, target, "tensor", mode)
     expected = source.astype(target)
 
-    result = from_float(image, target, out=output)
+    result = convert_dtype(image, target, out=output)
 
     assert result is output
     np.testing.assert_array_equal(result.numpy(), expected)

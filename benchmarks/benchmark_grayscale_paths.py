@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""
-Grayscale / small-C sanity: where **LUT vs OpenCV** and **NumPy vs cv2.multiply** win.
+"""Grayscale / small-C sanity: where **LUT vs OpenCV** and **NumPy vs cv2.multiply** win.
 
 - **uint8 ``multiply``**: production uses **LUT**; OpenCV (float multiply + clip) is correct but slower here.
-- **``from_float`` (float32 → uint8, C≤4)**: production uses **NumPy** ``rint(img * max_value)``; ``cv2.multiply`` on
-  **(H, W, 1)** float tensors does **not** match NumPy elementwise multiply (OpenCV quirk); squeezed 2D ``cv2`` still
-  loses to NumPy on tested sizes.
+- **float32 → uint8 scaling**: compares NumPy ``rint(img * max_value)`` with ``cv2.multiply``.
+  Production ``convert_dtype`` uses its measured NumKong/Torch routes. OpenCV scalar multiplication on
+  **(H, W, 1)** arrays needs special handling; this benchmark also checks the squeezed 2D candidate.
 
 Run from repo root::
 
@@ -18,11 +17,11 @@ import argparse
 
 import cv2
 import numpy as np
-
 from shape_grids import GRAYSCALE_MULTIPLY_SHAPES, LARGE_SQUARE_HW
+from timing import bench_wall_ms
+
 from albucore.arithmetic import _apply_lut, _multiply_uint8_opencv
 from albucore.utils import clip, get_max_value
-from timing import bench_wall_ms
 
 
 def main() -> None:

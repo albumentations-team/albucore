@@ -32,8 +32,10 @@ workarounds, and the precision/performance guards that remain necessary.
 | NumPy HWC C=9 float16 `add(..., channel_vector)` | NumKong `nk.add` with broadcast half controls | Contiguous writable C9 inputs, `neonhalf=true`, half-exact float32 controls, 184,320+ elements; exact binary16 route, with public ratios described below. |
 | NumPy HWC C=9 float16 `multiply(..., channel_vector)` | OpenCV `CV_16F multiply` with a zero-stride control array | Contiguous writable C9 images with 184,320+ elements and finite float32 controls. Exact half controls match bitwise; inexact controls are accepted only when every magnitude is ≤1 and each nonzero magnitude is at least the float16 normal minimum, where exhaustive binary16 inputs stay within 1 ULP. Other controls keep the NumPy float32 ufunc-to-half fallback. The runtime-enabled 101-sample public grid ranged from 0.842× to 0.922× float32 time across eight sizes from 128×160 through 768×1024. See [`c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json), [`c9_multiply_safe_inexact_controls_public_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_multiply_safe_inexact_controls_public_101_20261011_1715.json), and [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769). |
 | `add(..., field)` | `nk.blend` | Same-shape, same-dtype uint8 arrays. Float32 uses NumPy; other uint8 layouts use OpenCV. |
-| `from_float` (`float32` → `uint8`) | `nk.astype(..., out=...)` | The fallback uses one NumKong scale-and-round work buffer followed by NumKong's saturating, round-to-even cast; it beat the prior NumPy `rint`+clip route across the HWC/XHWC contiguous and strided matrix. |
-| NumPy `from_float` (`float16` → `uint8`) | CPU Torch float32 work buffer | Widen once, scale/round/clip in place, then cast. This preserves exact float32 rounding; six large HWC full-path pairs were 1.29–1.31× slower than float32. An exhaustive 65,536-entry conversion LUT was exact but 1.39–2.46× slower than the current half route, so it was rejected. A fused CPU conversion is tracked in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503) and the rejected LUT screen in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503). |
+| `convert_dtype` (`float32` → `uint8`) | `nk.astype(..., out=...)` | The fallback uses one NumKong scale-and-round work buffer followed by NumKong's saturating, round-to-even cast; it beat the prior NumPy `rint`+clip route across the HWC/XHWC contiguous and strided matrix. |
+| NumPy `convert_dtype` (`uint8` → `float16`) | OpenCV float16 LUT | Divide the 256-entry table in float32, cast the table to half, and write half output directly. This avoids a full float32 image buffer. See the [ARM64 conversion report](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip). |
+| Tensor `convert_dtype` (`uint8` → `float16`) | Torch float32 workspace on Linux x86-64; native half conversion and division on macOS ARM64 | The Xeon half-normalization path was up to 2.884× the previous chain; a float32 workspace restored a 0.993 median and 1.032 maximum ratio. ARM64 keeps direct half normalization, using half workspace for strided destinations. See the [Linux correction report](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) and [ARM64 candidates](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip). |
+| NumPy `convert_dtype` (`float16` → `uint8`) | CPU Torch float32 work buffer | Widen once, scale/round/clip in place, then cast. This preserves exact float32 rounding; six large HWC full-path pairs were 1.29–1.31× slower than float32. An exhaustive 65,536-entry conversion LUT was exact but 1.39–2.46× slower than the current half route, so it was rejected. A fused CPU conversion is tracked in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503) and the rejected LUT screen in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503). |
 
 ### Float16 clipping
 
@@ -272,8 +274,9 @@ reported in [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuec
 
 ## Exact FP16 and FP32 storage casts
 
-`from_float(image, np.float16/np.float32)` casts without scaling. The same internal cast is used by arithmetic,
-normalization, statistics, filtering, and geometry when a kernel needs float32 work or float16 restoration.
+`convert_dtype(float_image, np.float16/np.float32)` casts floating inputs without scaling. Uint8 inputs are divided
+by `max_value` (default 255). Arithmetic, normalization, statistics, filtering, and geometry use the internal
+`_cast_float_numpy` helper when a kernel needs float32 work or float16 restoration.
 
 Contiguous NumPy inputs use NumKong from 16,384 elements when its `skylake` capability is enabled. NumKong writes
 directly into `np.empty`, preserving independent writable storage and `OWNDATA`. Other CPU/layout/size regions
@@ -321,7 +324,7 @@ uv run python benchmarks/benchmark_numkong_astype.py
 ```
 
 The [NumKong buffer-first cast report](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) records the accepted
-`from_float` fallback across HWC/XHWC contiguous and strided inputs.
+`convert_dtype` fallback across HWC/XHWC contiguous and strided inputs.
 
 For a new route, record the benchmark date, hardware, dependency versions,
 shapes, channels, dtypes, strides, thread settings, warmups, repetitions,

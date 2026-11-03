@@ -82,10 +82,10 @@ def _case_normalize_uint8_vector() -> ArrayOutputs:
     return {"result": ac.normalize(img, mean, denominator)}
 
 
-def _case_to_from_float_roundtrip() -> ArrayOutputs:
+def _case_convert_dtype_roundtrip() -> ArrayOutputs:
     img = uint8_image((8, 9, 1))
-    as_float = ac.to_float(img)
-    return {"float": as_float, "roundtrip": ac.from_float(as_float, np.uint8)}
+    as_float = ac.convert_dtype(img, np.float32)
+    return {"float": as_float, "roundtrip": ac.convert_dtype(as_float, np.uint8)}
 
 
 def _case_apply_uint8_lut_shared() -> ArrayOutputs:
@@ -128,7 +128,7 @@ GOLDEN_CASES: tuple[GoldenCase, ...] = (
     GoldenCase("multiply_float32_scalar_hwc", _case_multiply_float32_scalar),
     GoldenCase("multiply_add_uint8_vector_hwc9", _case_multiply_add_uint8_vector),
     GoldenCase("normalize_uint8_vector_hwc", _case_normalize_uint8_vector, rtol=1e-6, atol=1e-6),
-    GoldenCase("to_from_float_uint8_hwc1", _case_to_from_float_roundtrip, rtol=1e-6, atol=1e-6),
+    GoldenCase("convert_dtype_uint8_hwc1", _case_convert_dtype_roundtrip, rtol=1e-6, atol=1e-6),
     GoldenCase("apply_uint8_lut_shared_hwc", _case_apply_uint8_lut_shared),
     GoldenCase("apply_uint8_lut_per_channel_hwc9", _case_apply_uint8_lut_per_channel),
     GoldenCase("sz_lut_shared_hwc1", _case_uint8_lut_shared_single_channel),

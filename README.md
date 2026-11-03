@@ -224,8 +224,7 @@ The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `r
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `to_float` | `(img, max_value=None, *, out=None)` | Convert uint8 to float32 in [0, 1]; float16 and float32 are unchanged | float32/float16 → no-op; uint8 → `cv2.LUT` (256-entry float32 table) |
-| `from_float` | `(img, target_dtype, max_value=None, *, out=None)` | Convert floats to a target dtype; integer targets scale, round, and clip | Floating targets cast without scaling; NumPy float16→uint8 widens to float32 for exact rounding; float32→uint8 uses the routed fast path |
+| `convert_dtype` | `(img, dtype, *, max_value=None, out=None)` | Convert among uint8, float16, and float32; uint8↔float scales by 255 by default, float↔float casts, same dtype returns by identity | Uint8→float uses a result-dtype LUT; floating casts and uint8 quantization retain measured NumPy/NumKong/Torch routes |
 
 ### Array layouts and batch processing
 

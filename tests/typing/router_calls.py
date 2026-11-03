@@ -12,9 +12,9 @@ from albucore import (
     add_weighted,
     apply_uint8_lut,
     clip,
+    convert_dtype,
     copy_make_border,
     exp,
-    from_float,
     hflip,
     log,
     median_blur,
@@ -26,7 +26,6 @@ from albucore import (
     remap,
     resize,
     sqrt,
-    to_float,
     vflip,
     warp_affine,
     warp_perspective,
@@ -56,7 +55,7 @@ def check_numpy(image: ConsumerImage, half: NDArray[np.float16], floats: NDArray
 
 
 def check_geometry(
-    image: ConsumerImage, labels: NDArray[np.int16], matrix: NDArray[np.float32], grid: NDArray[np.float32]
+    image: ConsumerImage, labels: NDArray[np.int16], matrix: NDArray[np.float32], grid: NDArray[np.float32],
 ) -> None:
     assert_type(resize(image, (11, 13)), ConsumerImage)
     assert_type(copy_make_border(image, 1, 1, 1, 1, cv2.BORDER_CONSTANT), ConsumerImage)
@@ -71,12 +70,12 @@ def check_conversions(
     floats: NDArray[np.float32],
     dtype: np.dtype[np.uint8] | np.dtype[np.float32],
 ) -> None:
-    assert_type(to_float(image), NDArray[np.float32])
-    assert_type(to_float(half), NDArray[np.float16])
+    assert_type(convert_dtype(image, np.float32), NDArray[np.float32])
+    assert_type(convert_dtype(half, np.float16), NDArray[np.float16])
     assert_type(clip(image, dtype), ConsumerImage)
     assert_type(clip(floats, np.dtype(np.uint8)), NDArray[np.uint8])
-    assert_type(from_float(half, np.dtype(np.uint8)), NDArray[np.uint8])
-    assert_type(from_float(floats, np.dtype(np.float16)), NDArray[np.float16])
+    assert_type(convert_dtype(half, np.dtype(np.uint8)), NDArray[np.uint8])
+    assert_type(convert_dtype(floats, np.dtype(np.float16)), NDArray[np.float16])
 
 
 def check_luts(image: NDArray[np.uint8], lut: NDArray[np.uint8]) -> None:
@@ -87,8 +86,8 @@ def check_tensor(image: torch.Tensor, matrix: NDArray[np.float32], lut: NDArray[
     assert_type(multiply(image, 1.5, layout="CHW"), torch.Tensor)
     assert_type(normalize(image, 0.5, 2.0, layout="CHW"), torch.Tensor)
     assert_type(normalize_per_image(image, "image", layout="CHW"), torch.Tensor)
-    assert_type(to_float(image), torch.Tensor)
-    assert_type(from_float(image, torch.uint8), torch.Tensor)
+    assert_type(convert_dtype(image, np.float32), torch.Tensor)
+    assert_type(convert_dtype(image, torch.uint8), torch.Tensor)
     assert_type(hflip(image), torch.Tensor)
     assert_type(median_blur(image, 3, layout="CHW"), torch.Tensor)
     assert_type(resize(image, (11, 13), layout="CHW"), torch.Tensor)
@@ -99,7 +98,7 @@ def check_tensor(image: torch.Tensor, matrix: NDArray[np.float32], lut: NDArray[
 def check_union_inputs(image: ConsumerImage | torch.Tensor, floats: NDArray[np.float32]) -> None:
     assert_type(multiply(image, 1.5, layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(add(image, 0.5, layout="CHW"), ConsumerImage | torch.Tensor)
-    assert_type(to_float(image), NDArray[np.float32] | torch.Tensor)
+    assert_type(convert_dtype(image, np.float32), NDArray[np.float32] | torch.Tensor)
     assert_type(normalize(image, 0.5, 2.0, layout="CHW"), NDArray[np.float32] | torch.Tensor)
     assert_type(resize(image, (11, 13), layout="CHW"), ConsumerImage | torch.Tensor)
     assert_type(multiply(floats, 1.5), NDArray[np.float32])

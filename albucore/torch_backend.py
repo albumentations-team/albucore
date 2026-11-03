@@ -174,7 +174,7 @@ def _parameter_tensor(value: float | np.ndarray, ndim: int, channels: int) -> to
     return tensor.reshape((1,) * (ndim - 1) + (channels,)) if value_float32.shape == (channels,) else tensor
 
 
-def from_float_uint8_torch(
+def quantize_uint8_torch(
     img: NDArray[np.float16] | NDArray[np.float32],
     max_value: float,
     *,

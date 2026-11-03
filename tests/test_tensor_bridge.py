@@ -12,8 +12,8 @@ from albucore import (
     add,
     apply_uint8_lut,
     clip,
+    convert_dtype,
     exp,
-    from_float,
     get_image_data,
     get_num_channels,
     hflip,
@@ -29,7 +29,6 @@ from albucore import (
     resize3d,
     separable_filter3d,
     std,
-    to_float,
     vflip,
 )
 from albucore._types import TensorLayout
@@ -133,12 +132,12 @@ def test_tensor_dtype_conversion_preserves_container_and_float16_policy() -> Non
     half = torch.tensor([0.0, 0.3333, 1.25], dtype=torch.float16)
     uint8 = torch.tensor([0, 127, 255], dtype=torch.uint8)
 
-    assert to_float(half) is half
-    torch.testing.assert_close(to_float(uint8), uint8.to(torch.float32) / 255.0)
-    torch.testing.assert_close(from_float(half, np.dtype(np.float32)), half.to(torch.float32))
-    torch.testing.assert_close(from_float(half, np.dtype(np.float16)), half)
+    assert convert_dtype(half, np.float16) is half
+    torch.testing.assert_close(convert_dtype(uint8, np.float32), uint8.to(torch.float32) / 255.0)
+    torch.testing.assert_close(convert_dtype(half, np.dtype(np.float32)), half.to(torch.float32))
+    torch.testing.assert_close(convert_dtype(half, np.dtype(np.float16)), half)
     torch.testing.assert_close(
-        from_float(torch.tensor([0.5 / 255, 1.0], dtype=torch.float16), np.dtype(np.uint8)),
+        convert_dtype(torch.tensor([0.5 / 255, 1.0], dtype=torch.float16), np.dtype(np.uint8)),
         torch.tensor([0, 255], dtype=torch.uint8),
     )
 
@@ -162,8 +161,8 @@ def test_contiguous_float16_tensor_to_uint8_stays_within_one_over_full_half_doma
     half_bits = np.arange(1 << 16, dtype=np.uint16).reshape(256, 256, 1)
     half_values = torch.from_numpy(half_bits.view(np.float16).copy())
 
-    actual = from_float(half_values, np.dtype(np.uint8))
-    reference = from_float(half_values.to(torch.float32), np.dtype(np.uint8))
+    actual = convert_dtype(half_values, np.dtype(np.uint8))
+    reference = convert_dtype(half_values.to(torch.float32), np.dtype(np.uint8))
 
     difference = (actual.to(torch.int16) - reference.to(torch.int16)).abs()
     assert int(difference.max()) <= 1
@@ -173,8 +172,8 @@ def test_float16_tensor_to_uint8_uses_wide_rounding_for_unrepresentable_scale() 
     half_bits = np.arange(1 << 16, dtype=np.uint16).reshape(256, 256, 1)
     half_values = torch.from_numpy(half_bits.view(np.float16).copy())
 
-    actual = from_float(half_values, np.dtype(np.uint8), max_value=17.3)
-    reference = from_float(half_values.to(torch.float32), np.dtype(np.uint8), max_value=17.3)
+    actual = convert_dtype(half_values, np.dtype(np.uint8), max_value=17.3)
+    reference = convert_dtype(half_values.to(torch.float32), np.dtype(np.uint8), max_value=17.3)
 
     torch.testing.assert_close(actual, reference, rtol=0, atol=0)
 
