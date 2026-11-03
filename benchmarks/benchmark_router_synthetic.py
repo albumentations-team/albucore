@@ -230,6 +230,13 @@ def _bench_pair_rows(
     repeats: int,
     warmup: int,
 ) -> tuple[BenchRow, BenchRow]:
+    """Compare equivalent half/float32 work, recording unsupported pairs as skipped rows."""
+    if op_name in {"convert_dtype_float16", "convert_dtype_float32"}:
+        detail = "fixed floating target mixes an identity with an allocating cast; use standalone measurements"
+        return (
+            BenchRow(op_name, layout, shape, "float16", None, "skip", detail),
+            BenchRow(op_name, layout, shape, "float32", None, "skip", detail),
+        )
     try:
         half_fn = build(alb, half_img)
         float32_fn = build(alb, float32_img)
