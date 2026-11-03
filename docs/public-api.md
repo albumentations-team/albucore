@@ -16,10 +16,11 @@ layouts: CHW/NCHW for images and CDHW/NCDHW for volumes. Common Tensor operation
 take keyword-only `layout=`; do not infer layout from rank. Spatial APIs define their layout by operation.
 
 Image inputs support `uint8`, `float16`, and `float32`; float64 is not a supported image input. Most arithmetic and
-geometric operations preserve the input dtype. `normalize`, `normalize_per_image`, and `to_float` return float16 for
+geometric operations preserve the input dtype. `normalize` and `normalize_per_image` return float16 for
 float16 input and float32 for uint8/float32 input; `exp`, `log`, and `sqrt` return float32 for uint8 input. Statistics
 use wide accumulators and may return float64. `apply_uint8_lut` remains uint8-only. A backend may compute
 in float32 and restore float16 when needed; include those conversions in the full-path benchmark.
+`convert_dtype` returns the explicitly requested dtype.
 
 ## Explicit output buffers
 
@@ -82,7 +83,7 @@ These annotations constrain dtype, not rank; the same types describe images, vid
 Shape and layout follow the operation's documented contract. Shared unions and TypeVars express supported
 input sets and input/output relationships rather than abbreviating a single dtype.
 
-The checked generic `np.dtype[T]` path in `clip` and `from_float` uses `T` bounded by
+The checked generic `np.dtype[T]` path in `clip` and `convert_dtype` uses `T` bounded by
 `np.uint8 | np.float16 | np.float32` and retains `NDArray[T]` without a destination. A dynamically selected
 `SupportedDType` returns the union of the three concrete array types. Inferred `clip` output follows the supplied
 buffer; an explicit target dtype must match that buffer. Generic overloads must not hide a conflicting destination.
@@ -107,18 +108,7 @@ operands use the native CPU operation when that preserves the declared result dt
   and round once; half channel/field routes match the wide result within one half ULP.
 - **Elementwise math:** `exp`, `log`, `sqrt` (float16/float32 inputs, uint8 with float32 output, NumPy-compatible special values, exact shape preservation, explicit writable `out` buffers)
 - **Uint8 LUT (`albucore.lut`):** `apply_uint8_lut` (shared or per-channel tables, with explicit `out`)
-- **I/O:** `to_float`, `from_float`
-  Both accept keyword-only `out` with the result dtype and return that destination by identity. Without `out`,
-  input storage is unchanged; same-dtype floating conversions return by identity. Writable strided destinations
-  are supported; exact input aliasing is allowed for same-dtype casts. Other overlapping views are outside the
-  contract. `to_float` divides uint8 by `max_value` (default 255), while floating inputs ignore that divisor.
-  Floating `from_float` targets cast without intensity scaling. Uint8 targets scale, round ties to even, saturate,
-  and map NaN to zero. NumPy half input computes in float32; contiguous half Tensors may compute in half for exactly
-  representable scales, within one uint8 unit of the wide result. Tensor inputs follow the prevalidated CPU,
-  `requires_grad=False`, float16/float32 contract above. Large contiguous NumPy FP16↔FP32 casts use NumKong
-  on the measured AVX-512 region when NumPy's floating-error policy is preserved; other cases retain NumPy.
-  Large contiguous macOS ARM Tensor casts use NumPy
-  storage conversion and zero-copy Tensor wrapping. Same-dtype calls preserve the input object.
+- **Conversion (`albucore.convert`):** `convert_dtype(img, dtype, *, max_value=None, out=None)`; see the conversion contract below.
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
 - **Stats:** `mean`, `std`, `mean_std`, `reduce_sum` (from `albucore.stats`)
 - **Geometric:** `copy_make_border`, `flip_volume`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `rot90_volume`, `separable_filter3d`, `transpose_volume`, `warp_affine`, `warp_affine3d`, `warp_perspective`.
@@ -136,6 +126,50 @@ The second image has the same shape, dtype and container as the first. Tensor ca
 `out`, both inputs remain unchanged; a writable output is returned by identity and may alias either complete input.
 Strided outputs may require a temporary. The existing NumKong/OpenCV region keeps its rounding and non-finite
 policy; zero weights do not add a new identity shortcut. Caller prevalidation owns metadata and overlap checks.
+
+## Image dtype conversion
+
+`convert_dtype(img, dtype, *, max_value=None, out=None)` accepts NumPy arrays and eager CPU Tensors.
+The destination dtype is explicit and supports all nine pairs among uint8, float16, and float32.
+`max_value` defaults to 255 and affects only conversions between uint8 and floating types:
+
+| Conversion | Values |
+| --- | --- |
+| uint8 → float16/float32 | Divide by `max_value`, returning the requested floating dtype |
+| float16/float32 → uint8 | Multiply by `max_value`, round ties to even, saturate to [0, 255], map NaN to zero |
+| float16 ↔ float32 | Cast without intensity scaling or clipping |
+| Same dtype | Preserve values and ignore `max_value` |
+
+Float images conventionally represent intensities in [0, 1]. The conversion does not estimate the image's
+min/max or rescale floating values that are outside that range. For example:
+
+```python
+import numpy as np
+
+from albucore import convert_dtype
+
+half = convert_dtype(image_uint8, np.float16)
+wide = convert_dtype(half, np.float32)
+restored = convert_dtype(wide, np.uint8)
+convert_dtype(image_uint8, np.float32, max_value=128, out=float32_buffer)
+```
+
+Without `out`, input storage is unchanged and same-dtype calls return the input object. A supplied output
+must match the target dtype, input shape, container, and layout; it is returned by identity. Writable strided
+destinations and exact same-dtype input aliases are supported. Other overlaps are outside the caller-validated
+contract. Pointwise Tensor conversion preserves the declared layout without a `layout` argument.
+
+NumPy uint8 normalization uses a 256-entry LUT in the target floating dtype, avoiding a full float32 intermediate
+for float16 output. On Linux x86-64, Tensor uint8-to-float16 conversion normalizes in a float32 workspace before
+casting or writing the half destination. Other Tensor uint8 conversions divide in the result dtype; a strided
+half destination uses a contiguous half workspace before copying the result.
+
+NumPy half-to-uint8 quantization computes in float32. Contiguous half Tensors may quantize in half for exactly
+representable scales, within one uint8 unit of the wide result; other Tensor quantization uses float32.
+
+Large contiguous NumPy FP16↔FP32 casts use NumKong in the measured AVX-512 region when NumPy's
+floating-error policy is preserved. Large contiguous macOS ARM Tensor casts use NumPy storage conversion and
+zero-copy Tensor wrapping. These routes also preserve the explicit-output contract.
 
 ## Backend-specific imports (submodule-only)
 

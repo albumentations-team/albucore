@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from albucore import exp, from_float, median_blur, normalize_per_image, power, resize
+from albucore import exp, convert_dtype, median_blur, normalize_per_image, power, resize
 from albucore._float_cast import _numkong_cast_preserves_numpy_errors
 
 
@@ -128,7 +128,7 @@ def main():
                     }
                 )
             for layout, image in views.items():
-                calls = {"numpy": partial(image.astype, dtype), "public_numpy": partial(from_float, image, dtype)}
+                calls = {"numpy": partial(image.astype, dtype), "public_numpy": partial(convert_dtype, image, dtype)}
                 if image.flags.c_contiguous:
                     calls["numkong_out"] = partial(numkong_cast, image, dtype)
                 if layout != "readonly" and all(s >= 0 for s in image.strides):
@@ -137,7 +137,7 @@ def main():
                     tensor = torch.from_numpy(image)
                     target = torch.float32 if dtype == np.float32 else torch.float16
                     calls["torch"] = partial(tensor.to, target)
-                    calls["public_tensor"] = partial(from_float, tensor, target)
+                    calls["public_tensor"] = partial(convert_dtype, tensor, target)
                 reference = image.astype(dtype)
                 for name, call in calls.items():
                     result = call()

@@ -79,7 +79,7 @@ Initial hot paths:
 - `add` with scalar/channel/field controls, `add_weighted`
 - `multiply` with scalar/channel/field controls, `multiply_add`
 - `mean`, `std`, `mean_std`, `reduce_sum`
-- `to_float`, `from_float`
+- `convert_dtype`
 - `hflip`, `vflip`, `resize`, `remap`
 
 Other public routers are reported first and reviewed when baselines stabilize.

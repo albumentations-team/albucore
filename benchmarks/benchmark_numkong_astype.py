@@ -1,5 +1,5 @@
 # ruff: noqa: INP001, T201
-"""Benchmark the NumKong 7.8 buffer-first cast used by ``from_float``.
+"""Benchmark the NumKong 7.8 buffer-first cast used by ``convert_dtype``.
 
 The complete candidates include float32 scaling, round-to-even, saturation,
 output allocation, and the public router. Run from the repository root:
@@ -21,7 +21,7 @@ import numpy as np
 from shape_grids import ROUTER_HWC_FULL_HW
 from timing import WallTimingMs, bench_wall_ms
 
-from albucore.convert import _from_float_uint8_numkong
+from albucore.convert import _quantize_uint8_numkong
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -69,7 +69,7 @@ def _row(
     warmup: int,
 ) -> str:
     expected = np.clip(np.rint(image * np.float32(255)), 0, 255).astype(np.uint8)
-    candidate = _from_float_uint8_numkong(image, 255.0)
+    candidate = _quantize_uint8_numkong(image, 255.0)
     np.testing.assert_array_equal(candidate, expected, strict=True)
 
     rounded = np.rint(image * np.float32(255.0))
@@ -81,7 +81,7 @@ def _row(
         repeats=repeats,
         warmup=warmup,
     )
-    numkong_full = bench_wall_ms(lambda: _from_float_uint8_numkong(image, 255.0), repeats=repeats, warmup=warmup)
+    numkong_full = bench_wall_ms(lambda: _quantize_uint8_numkong(image, 255.0), repeats=repeats, warmup=warmup)
     numpy_cast = bench_wall_ms(lambda: _numpy_direct_cast(rounded), repeats=repeats, warmup=warmup)
     numkong_cast = bench_wall_ms(lambda: _numkong_direct_cast(rounded), repeats=repeats, warmup=warmup)
     return (

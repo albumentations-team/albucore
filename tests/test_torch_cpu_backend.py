@@ -8,7 +8,7 @@ from importlib import import_module
 import numpy as np
 import pytest
 
-from albucore import arithmetic, convert, from_float, multiply_add, normalize, reduce_sum, stats, torch_backend
+from albucore import arithmetic, convert, convert_dtype, multiply_add, normalize, reduce_sum, stats, torch_backend
 
 
 def _enable_torch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -41,7 +41,7 @@ def test_half_pointwise_writes_supplied_strided_output(operation, value, referen
 
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
 @pytest.mark.parametrize("max_value", [128.0, 255.0])
-def test_from_float_torch_matches_numpy_and_bypasses_numkong(
+def test_convert_dtype_torch_matches_numpy_and_bypasses_numkong(
     monkeypatch: pytest.MonkeyPatch,
     layout: str,
     max_value: float,
@@ -62,8 +62,8 @@ def test_from_float_torch_matches_numpy_and_bypasses_numkong(
         msg = "Torch-compatible float32 input should not reach the NumKong fallback."
         raise AssertionError(msg)
 
-    monkeypatch.setattr(convert, "_from_float_uint8_numkong", fail_numkong)
-    result = from_float(image, np.uint8, max_value)
+    monkeypatch.setattr(convert, "_quantize_uint8_numkong", fail_numkong)
+    result = convert_dtype(image, np.uint8, max_value=max_value)
 
     np.testing.assert_array_equal(result, expected)
     assert result.dtype == np.uint8
@@ -167,7 +167,7 @@ def test_torch_backend_can_be_disabled_for_a_non_torch_baseline(monkeypatch: pyt
     monkeypatch.setattr(torch_backend, "TORCH_CPU_BACKEND_ENABLED", False)
     image = np.ones((800, 800, 1), dtype=np.float32)
 
-    assert torch_backend.from_float_uint8_torch(image, 255.0) is None
+    assert torch_backend.quantize_uint8_torch(image, 255.0) is None
     assert torch_backend.multiply_add_float32_torch(image, 1.1, 0.2) is None
 
 

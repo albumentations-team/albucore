@@ -146,3 +146,13 @@ End-to-end throughput over real image folders (not in `benchmarks/`):
 ```
 
 See [`benchmark.sh`](../benchmark.sh) for flags.
+
+Dtype conversion workloads use `convert_dtype_float16`, `convert_dtype_float32`, and
+`convert_dtype_uint8`, each with an explicit target dtype. Historical result artifacts
+retain the API names recorded when they were measured: `to_float` normalized uint8
+to float32, and `from_float` converted floating inputs to an explicit target dtype.
+
+Fixed floating targets are measured independently in the NumPy router harness. The
+interleaved float16/float32 and Tensor paired harnesses mark these targets as skipped:
+one source dtype would return by identity while the other allocates a cast. The uint8
+target still compares quantization work for both floating source dtypes.

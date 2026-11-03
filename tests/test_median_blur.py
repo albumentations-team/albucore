@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from albucore import from_float, median_blur, to_float
+from albucore import convert_dtype, median_blur
 
 
 def _make_image(channels: int, dtype: type[np.uint8 | np.float32]) -> np.ndarray:
@@ -65,7 +65,7 @@ def test_median_blur_float32_native_preserves_sub_uint8_precision(kernel_size: i
 
     result = median_blur(image, kernel_size)
     native = _repair_channel_dim(cv2.medianBlur(image, kernel_size), 1)
-    quantized_reference = to_float(_uint8_reference(from_float(image, np.dtype(np.uint8)), kernel_size))
+    quantized_reference = convert_dtype(_uint8_reference(convert_dtype(image, np.dtype(np.uint8)), kernel_size), np.float32)
 
     np.testing.assert_array_equal(result, native)
     assert not np.array_equal(result, quantized_reference)
@@ -75,8 +75,8 @@ def test_median_blur_float32_native_preserves_sub_uint8_precision(kernel_size: i
 @pytest.mark.parametrize("kernel_size", [7, 9])
 def test_median_blur_float32_large_kernel_matches_quantized_fallback(channels: int, kernel_size: int) -> None:
     image = _make_image(channels, np.float32)
-    quantized = from_float(image, np.dtype(np.uint8))
-    expected = to_float(_uint8_reference(quantized, kernel_size))
+    quantized = convert_dtype(image, np.dtype(np.uint8))
+    expected = convert_dtype(_uint8_reference(quantized, kernel_size), np.float32)
 
     result = median_blur(image, kernel_size)
 

@@ -275,16 +275,16 @@ def _prepare_vflip(array: np.ndarray, _: np.random.Generator) -> PreparedBenchma
     return lambda: albucore.vflip(array), lambda: _torch_array(torch.flip(torch.from_numpy(array), dims=(-3,)))
 
 
-def _prepare_to_float(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
+def _prepare_convert_dtype_float32(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
     return (
-        lambda: albucore.to_float(array),
+        lambda: albucore.convert_dtype(array, np.float32),
         lambda: _torch_array(torch.mul(torch.from_numpy(array).to(torch.float32), 1.0 / 255.0)),
     )
 
 
-def _prepare_from_float(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
+def _prepare_convert_dtype_uint8(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
     return (
-        lambda: albucore.from_float(array, np.uint8),
+        lambda: albucore.convert_dtype(array, np.uint8),
         lambda: _torch_array(
             torch.round(torch.from_numpy(array).to(torch.float32) * 255.0).clamp_(0.0, 255.0).to(torch.uint8),
         ),
@@ -357,8 +357,8 @@ CANDIDATES: tuple[Candidate, ...] = (
     Candidate("reduce_sum_per_channel_uint8", UINT8, _prepare_reduce_sum_per_channel_uint8, rtol=0, atol=0),
     Candidate("hflip", BOTH, _prepare_hflip, rtol=0, atol=0),
     Candidate("vflip", BOTH, _prepare_vflip, rtol=0, atol=0),
-    Candidate("to_float", UINT8, _prepare_to_float),
-    Candidate("from_float", FLOATING, _prepare_from_float, rtol=0, atol=0),
+    Candidate("convert_dtype_float32", UINT8, _prepare_convert_dtype_float32),
+    Candidate("convert_dtype_uint8", FLOATING, _prepare_convert_dtype_uint8, rtol=0, atol=0),
     Candidate("apply_uint8_lut", UINT8, _prepare_uint8_lut, rtol=0, atol=0),
     Candidate("copy_make_border_constant", BOTH, _prepare_copy_make_border, rtol=0, atol=0),
     Candidate("resize_linear", FLOATING, _prepare_resize),
@@ -557,8 +557,8 @@ def main() -> None:
             "reduce_sum_per_channel_float",
             "reduce_sum_global_uint8",
             "reduce_sum_per_channel_uint8",
-            "to_float",
-            "from_float",
+            "convert_dtype_float32",
+            "convert_dtype_uint8",
             "apply_uint8_lut",
         }
         volume_candidates = tuple(c for c in active_candidates if c.name in generic_candidate_names)
