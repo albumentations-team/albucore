@@ -65,10 +65,7 @@ from .arithmetic import (
     multiply_add,
     power,
 )
-from .convert import (
-    from_float,
-    to_float,
-)
+from .convert import convert_dtype
 from .elementwise import (
     exp,
     log,
@@ -151,11 +148,11 @@ __all__ = [
     "add_weighted",
     "apply_uint8_lut",
     "clip",
+    "convert_dtype",
     "convert_value",
     "copy_make_border",
     "exp",
     "flip_volume",
-    "from_float",
     "gaussian_blur3d",
     "get_image_data",
     "get_max_value",
@@ -188,7 +185,6 @@ __all__ = [
     "separable_filter3d",
     "sqrt",
     "std",
-    "to_float",
     "transpose_volume",
     "vflip",
     "warp_affine",

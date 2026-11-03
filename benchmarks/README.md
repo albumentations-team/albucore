@@ -146,3 +146,8 @@ End-to-end throughput over real image folders (not in `benchmarks/`):
 ```
 
 See [`benchmark.sh`](../benchmark.sh) for flags.
+
+Dtype conversion workloads use `convert_dtype_float16`, `convert_dtype_float32`, and
+`convert_dtype_uint8`, each with an explicit target dtype. Historical result artifacts
+retain the API names recorded when they were measured: `to_float` normalized uint8
+to float32, and `from_float` converted floating inputs to an explicit target dtype.

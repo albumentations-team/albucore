@@ -32,8 +32,8 @@ workarounds, and the precision/performance guards that remain necessary.
 | NumPy HWC C=9 float16 `add(..., channel_vector)` | NumKong `nk.add` with broadcast half controls | Contiguous writable C9 inputs, `neonhalf=true`, half-exact float32 controls, 184,320+ elements; exact binary16 route, with public ratios described below. |
 | NumPy HWC C=9 float16 `multiply(..., channel_vector)` | OpenCV `CV_16F multiply` with a zero-stride control array | Contiguous writable C9 images with 184,320+ elements and finite float32 controls. Exact half controls match bitwise; inexact controls are accepted only when every magnitude is ≤1 and each nonzero magnitude is at least the float16 normal minimum, where exhaustive binary16 inputs stay within 1 ULP. Other controls keep the NumPy float32 ufunc-to-half fallback. The runtime-enabled 101-sample public grid ranged from 0.842× to 0.922× float32 time across eight sizes from 128×160 through 768×1024. See [`c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_vector_final_public_runtime_neonhalf_101_20261011_1715.json), [`c9_multiply_safe_inexact_controls_public_101_20261011_1715.json`](../_internal/float16_probe_20261010/c9_multiply_safe_inexact_controls_public_101_20261011_1715.json), and [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuecomment-6112519769). |
 | `add(..., field)` | `nk.blend` | Same-shape, same-dtype uint8 arrays. Float32 uses NumPy; other uint8 layouts use OpenCV. |
-| `from_float` (`float32` → `uint8`) | `nk.astype(..., out=...)` | The fallback uses one NumKong scale-and-round work buffer followed by NumKong's saturating, round-to-even cast; it beat the prior NumPy `rint`+clip route across the HWC/XHWC contiguous and strided matrix. |
-| NumPy `from_float` (`float16` → `uint8`) | CPU Torch float32 work buffer | Widen once, scale/round/clip in place, then cast. This preserves exact float32 rounding; six large HWC full-path pairs were 1.29–1.31× slower than float32. An exhaustive 65,536-entry conversion LUT was exact but 1.39–2.46× slower than the current half route, so it was rejected. A fused CPU conversion is tracked in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503) and the rejected LUT screen in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503). |
+| `convert_dtype` (`float32` → `uint8`) | `nk.astype(..., out=...)` | The fallback uses one NumKong scale-and-round work buffer followed by NumKong's saturating, round-to-even cast; it beat the prior NumPy `rint`+clip route across the HWC/XHWC contiguous and strided matrix. |
+| NumPy `convert_dtype` (`float16` → `uint8`) | CPU Torch float32 work buffer | Widen once, scale/round/clip in place, then cast. This preserves exact float32 rounding; six large HWC full-path pairs were 1.29–1.31× slower than float32. An exhaustive 65,536-entry conversion LUT was exact but 1.39–2.46× slower than the current half route, so it was rejected. A fused CPU conversion is tracked in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503) and the rejected LUT screen in [#97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503). |
 
 ### Float16 clipping
 
@@ -272,7 +272,7 @@ reported in [OpenCV #25019](https://github.com/opencv/opencv/issues/25019#issuec
 
 ## Exact FP16 and FP32 storage casts
 
-`from_float(image, np.float16/np.float32)` casts without scaling. The same internal cast is used by arithmetic,
+`convert_dtype(image, np.float16/np.float32)` casts without scaling. The same internal cast is used by arithmetic,
 normalization, statistics, filtering, and geometry when a kernel needs float32 work or float16 restoration.
 
 Contiguous NumPy inputs use NumKong from 16,384 elements when its `skylake` capability is enabled. NumKong writes
@@ -321,7 +321,7 @@ uv run python benchmarks/benchmark_numkong_astype.py
 ```
 
 The [NumKong buffer-first cast report](../benchmarks/results/benchmark_numkong_astype.md) records the accepted
-`from_float` fallback across HWC/XHWC contiguous and strided inputs.
+`convert_dtype` fallback across HWC/XHWC contiguous and strided inputs.
 
 For a new route, record the benchmark date, hardware, dependency versions,
 shapes, channels, dtypes, strides, thread settings, warmups, repetitions,

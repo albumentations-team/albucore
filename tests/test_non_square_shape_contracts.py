@@ -43,11 +43,11 @@ def test_flips_preserve_non_square_shape(dtype: np.dtype, channels: int) -> None
 def test_conversion_preserves_non_square_shape(channels: int) -> None:
     img = _image(np.uint8, channels)
 
-    as_float = ac.to_float(img)
+    as_float = ac.convert_dtype(img, np.float32)
     assert as_float.shape == img.shape
     assert as_float.dtype == np.float32
 
-    restored = ac.from_float(as_float, np.uint8)
+    restored = ac.convert_dtype(as_float, np.uint8)
     assert restored.shape == img.shape
     assert restored.dtype == np.uint8
 

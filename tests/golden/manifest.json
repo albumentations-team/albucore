@@ -82,7 +82,7 @@
     },
     {
       "atol": 1e-06,
-      "name": "to_from_float_uint8_hwc1",
+      "name": "convert_dtype_uint8_hwc1",
       "outputs": {
         "float": {
           "dtype": "float32",

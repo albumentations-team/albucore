@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ArrayT, ImageArrayT, ImageType, TensorImageLayout
-from albucore.convert import from_float, to_float
+from albucore.convert import convert_dtype
 from albucore.tensor_bridge import dispatch_tensor_image
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
@@ -234,8 +234,8 @@ def median_blur(
         destination = np.empty_like(img, order="C") if img.shape[-1] == 1 else None
         result = cast("ImageType", cv2.medianBlur(img, ksize, dst=destination))
     elif img.dtype == np.float32:
-        quantized = from_float(cast("NDArray[np.float32]", img), target_dtype=np.dtype(np.uint8))
-        result = to_float(_median_blur_uint8(quantized, ksize))
+        quantized = convert_dtype(cast("NDArray[np.float32]", img), dtype=np.dtype(np.uint8))
+        result = convert_dtype(_median_blur_uint8(quantized, ksize), np.float32)
     elif (
         img.dtype == np.float16
         and ksize == 5
@@ -249,12 +249,12 @@ def median_blur(
         result = cast("NDArray[np.float32]", cv2.medianBlur(working, ksize, dst=destination))
         result = _cast_float_numpy(result, np.float16)
     elif img.dtype == np.float16:
-        quantized = from_float(_cast_float_numpy(img, np.float32), np.dtype(np.uint8))
-        filtered = to_float(_median_blur_uint8(quantized, ksize))
+        quantized = convert_dtype(_cast_float_numpy(img, np.float32), np.dtype(np.uint8))
+        filtered = convert_dtype(_median_blur_uint8(quantized, ksize), np.float32)
         result = _cast_float_numpy(filtered, np.float16)
     else:
-        uint8_img = from_float(cast("NDArray[np.float32]", img), np.dtype(np.uint8))
-        result = to_float(_median_blur_uint8(uint8_img, ksize))
+        uint8_img = convert_dtype(cast("NDArray[np.float32]", img), np.dtype(np.uint8))
+        result = convert_dtype(_median_blur_uint8(uint8_img, ksize), np.float32)
     return result
 
 

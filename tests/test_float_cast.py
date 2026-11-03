@@ -9,7 +9,7 @@ import torch
 
 import albucore._float_cast as cast_mod
 import albucore.convert as convert_mod
-from albucore import from_float
+from albucore import convert_dtype
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def test_float_cast_preserves_bits_ownership_and_source(source_dtype, target_dty
     original = source.copy()
     expected = source.astype(target_dtype)
 
-    actual = from_float(source, target_dtype, max_value=255)
+    actual = convert_dtype(source, target_dtype, max_value=255)
 
     unsigned = np.uint16 if target_dtype == np.float16 else np.uint32
     np.testing.assert_array_equal(actual.view(unsigned), expected.view(unsigned))
@@ -58,7 +58,7 @@ def test_float_cast_preserves_bits_ownership_and_source(source_dtype, target_dty
 def test_numkong_cast_threshold(size, numkong_calls):
     source = np.ones((1, size, 1), np.float16)
 
-    actual = from_float(source, np.float32)
+    actual = convert_dtype(source, np.float32)
 
     np.testing.assert_array_equal(actual, source.astype(np.float32))
     assert len(numkong_calls) == int(size >= 16_384)
@@ -79,7 +79,7 @@ def test_non_native_float_target_preserves_storage_and_values(
     backing = np.full((1, size, 6), 41, dtype=target_dtype)
     output = backing[..., ::2] if supplied else None
 
-    result = from_float(source, target_dtype, out=output)
+    result = convert_dtype(source, target_dtype, out=output)
 
     assert result.dtype == target_dtype
     assert result.tobytes() == expected.tobytes()
@@ -94,7 +94,7 @@ def test_numkong_cast_all_finite_binary16_encodings(numkong_calls):
     values = np.arange(65_536, dtype=np.uint16).view(np.float16)
     source = values[np.isfinite(values)].reshape(-1, 1, 1)
 
-    actual = from_float(source, np.float32)
+    actual = convert_dtype(source, np.float32)
 
     np.testing.assert_array_equal(actual.view(np.uint32), source.astype(np.float32).view(np.uint32))
     assert len(numkong_calls) == 1
@@ -108,7 +108,7 @@ def test_numkong_cast_binary16_rounding_boundaries(numkong_calls):
     positive = np.concatenate([midpoint, np.nextafter(midpoint, -np.inf), np.nextafter(midpoint, np.inf)])
     source = np.concatenate([positive, -positive]).reshape(-1, 1, 1)
 
-    actual = from_float(source, np.float16)
+    actual = convert_dtype(source, np.float16)
 
     np.testing.assert_array_equal(actual.view(np.uint16), source.astype(np.float16).view(np.uint16))
     assert len(numkong_calls) == 1
@@ -118,7 +118,7 @@ def test_numkong_cast_binary16_rounding_boundaries(numkong_calls):
 def test_numkong_cast_keeps_numpy_special_values(source_dtype, target_dtype, numkong_calls):
     source = np.resize(np.array([-np.inf, np.inf, np.nan, -0.0, 0.0], source_dtype), (128, 160, 1))
 
-    actual = from_float(source, target_dtype)
+    actual = convert_dtype(source, target_dtype)
 
     np.testing.assert_array_equal(actual, source.astype(target_dtype))
     np.testing.assert_array_equal(np.signbit(actual), np.signbit(source.astype(target_dtype)))
@@ -137,9 +137,9 @@ def test_float_cast_preserves_numpy_raising_error_policy(kind, numkong_calls):
             expected = source.astype(np.float16)
         except FloatingPointError:
             with pytest.raises(FloatingPointError):
-                from_float(source, np.float16)
+                convert_dtype(source, np.float16)
         else:
-            actual = from_float(source, np.float16)
+            actual = convert_dtype(source, np.float16)
             np.testing.assert_array_equal(actual.view(np.uint16), expected.view(np.uint16))
     assert not numkong_calls
 
@@ -148,7 +148,7 @@ def test_float_cast_preserves_numpy_overflow_warning(numkong_calls):
     source = np.full((128, 160, 1), 65_520, np.float32)
 
     with np.errstate(over="warn"), pytest.warns(RuntimeWarning, match="overflow"):
-        actual = from_float(source, np.float16)
+        actual = convert_dtype(source, np.float16)
 
     assert np.isposinf(actual).all()
     assert not numkong_calls
@@ -164,7 +164,7 @@ def test_signaling_nan_warning_matches_numpy(position, numkong_calls):
 
     with warnings.catch_warnings(record=True) as actual_warnings, np.errstate(invalid="warn"):
         warnings.simplefilter("always")
-        actual = from_float(source, np.float16)
+        actual = convert_dtype(source, np.float16)
 
     np.testing.assert_array_equal(actual.view(np.uint16), expected.view(np.uint16))
     assert [(w.category, str(w.message)) for w in actual_warnings] == [
@@ -177,7 +177,7 @@ def test_signaling_nan_warning_matches_numpy(position, numkong_calls):
 def test_same_dtype_cast_returns_original_array(dtype, numkong_calls):
     source = np.ones((128, 160, 1), dtype)
 
-    assert from_float(source, dtype) is source
+    assert convert_dtype(source, dtype) is source
     assert not numkong_calls
 
 
@@ -190,7 +190,7 @@ def test_tensor_cast_matches_torch_and_has_independent_storage(shape, source_dty
     source = torch.linspace(-2, 2, int(np.prod(shape)), dtype=source_dtype).reshape(shape)
     original = source.clone()
 
-    actual = from_float(source, target_dtype)
+    actual = convert_dtype(source, target_dtype)
 
     assert numpy_cast.call_count == 1
     np.testing.assert_array_equal(actual.numpy(), source.to(target_dtype).numpy())
@@ -210,7 +210,7 @@ def test_tensor_numpy_cast_size_boundary(size, monkeypatch):
     monkeypatch.setattr(convert_mod, "_cast_float_numpy", numpy_cast)
     source = torch.linspace(-1, 1, size, dtype=torch.float16).reshape(1, 1, size)
 
-    actual = from_float(source, torch.float32)
+    actual = convert_dtype(source, torch.float32)
 
     assert numpy_cast.call_count == int(size >= 61_440)
     np.testing.assert_array_equal(actual.numpy(), source.to(torch.float32).numpy())
@@ -226,7 +226,7 @@ def test_tensor_cast_keeps_torch_error_policy_and_nan_bits(monkeypatch):
         source = torch.from_numpy(array)
         expected = source.to(target).numpy().view(unsigned)
         with warnings.catch_warnings(record=True) as caught, np.errstate(all="raise"):
-            actual = from_float(source, target)
+            actual = convert_dtype(source, target)
         assert not caught
         np.testing.assert_array_equal(actual.numpy().view(unsigned), expected)
 
@@ -239,8 +239,8 @@ def test_tensor_cast_keeps_identity_and_strided_torch_route(monkeypatch):
         pytest.fail("The NumPy cast route must not handle identity or strided Tensor calls.")
 
     monkeypatch.setattr(convert_mod, "_cast_float_numpy", unexpected_numpy_route)
-    assert from_float(source, torch.float16) is source
-    np.testing.assert_array_equal(from_float(source, torch.float32).numpy(), source.to(torch.float32).numpy())
+    assert convert_dtype(source, torch.float16) is source
+    np.testing.assert_array_equal(convert_dtype(source, torch.float32).numpy(), source.to(torch.float32).numpy())
 
 
 @pytest.mark.parametrize("source_dtype,target_dtype", [(np.float16, np.float32), (np.float32, np.float16)])
