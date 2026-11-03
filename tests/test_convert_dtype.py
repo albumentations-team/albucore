@@ -93,6 +93,33 @@ def test_tensor_uint8_to_float16_accepts_numpy_and_torch_dtypes(dtype, max_value
     torch.testing.assert_close(result, expected, rtol=0, atol=0)
 
 
+@pytest.mark.parametrize("max_value", [255.0, 128.0, 17.3])
+@pytest.mark.parametrize("destination", ["allocate", "contiguous", "strided"])
+def test_linux_tensor_uint8_half_normalization_preserves_values_and_output(monkeypatch, max_value, destination):
+    from albucore import convert
+
+    monkeypatch.setattr(convert, "_LINUX_X86_64", True)
+    image = torch.arange(256, dtype=torch.uint8).reshape(1, 8, 32)
+    original = image.clone()
+    backing = None
+    output = None
+    if destination == "contiguous":
+        output = torch.empty(image.shape, dtype=torch.float16)
+    elif destination == "strided":
+        backing = torch.full((1, 8, 64), 41, dtype=torch.float16)
+        output = backing[..., ::2]
+    expected = (image.to(torch.float32) / max_value).to(torch.float16)
+
+    result = convert_dtype(image, torch.float16, max_value=max_value, out=output)
+
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    torch.testing.assert_close(image, original, rtol=0, atol=0)
+    if backing is not None:
+        torch.testing.assert_close(backing[..., 1::2], torch.full(image.shape, 41, dtype=torch.float16), rtol=0, atol=0)
+    if output is not None:
+        assert result is output
+
+
 @pytest.mark.parametrize("shape", [(1, 257, 1), (128, 160, 3)])
 def test_float16_to_uint8_matches_promoted_reference(shape) -> None:
     image = np.linspace(0, 1, num=np.prod(shape), dtype=np.float32).reshape(shape).astype(np.float16)

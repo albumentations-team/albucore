@@ -1,8 +1,9 @@
 # Dtype conversion route evidence — 2026-11-03
 
-The new uint8→float16 paths remove the full float32 image buffer from the previous
-two-call conversion chain. NumPy uses a float16 OpenCV LUT. Torch normalizes in half;
+NumPy uint8→float16 conversion uses a float16 OpenCV LUT, avoiding the full float32
+image buffer in the previous two-call chain. On macOS ARM64, Torch normalizes in half;
 a strided half destination uses a contiguous half workspace before copying.
+Linux x86-64 uses a float32 workspace after the [Linux follow-up](convert_dtype_linux_20261103.md).
 
 ## Original public-call comparison
 
@@ -78,5 +79,5 @@ normalization also matched that reference for all 256 uint8 values at scales 255
 128 and 17.3. These results concern uint8→float16; FP16↔FP32 casts and float→uint8
 quantization are separate workloads.
 
-These timings cover macOS ARM64 only. Linux correctness is covered by CI; this report
-does not provide Linux x86-64 performance acceptance.
+The original timings above cover macOS ARM64. The [Linux follow-up](convert_dtype_linux_20261103.md)
+adds x86-64 evidence and records the correction required for Tensor half normalization.

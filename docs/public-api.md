@@ -160,8 +160,9 @@ destinations and exact same-dtype input aliases are supported. Other overlaps ar
 contract. Pointwise Tensor conversion preserves the declared layout without a `layout` argument.
 
 NumPy uint8 normalization uses a 256-entry LUT in the target floating dtype, avoiding a full float32 intermediate
-for float16 output. Tensor uint8 normalization divides in the result dtype; a strided float16 destination uses
-a contiguous half working buffer before copying the result.
+for float16 output. On Linux x86-64, Tensor uint8-to-float16 conversion normalizes in a float32 workspace before
+casting or writing the half destination. Other Tensor uint8 conversions divide in the result dtype; a strided
+half destination uses a contiguous half workspace before copying the result.
 
 NumPy half-to-uint8 quantization computes in float32. Contiguous half Tensors may quantize in half for exactly
 representable scales, within one uint8 unit of the wide result; other Tensor quantization uses float32.

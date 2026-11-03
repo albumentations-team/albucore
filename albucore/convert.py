@@ -31,6 +31,7 @@ _TORCH_DTYPES: dict[SupportedDType | torch.dtype, torch.dtype] = {
     torch.float32: torch.float32,
 }
 _MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
 
 
@@ -65,12 +66,15 @@ def _convert_dtype_torch(
         return img if out is None or out is img else out.copy_(img)
     if img.dtype == torch.uint8:
         divisor = MAX_VALUES_BY_DTYPE[np.dtype(np.uint8)] if max_value is None else max_value
+        working_dtype = torch.float32 if _LINUX_X86_64 and torch_dtype == torch.float16 else torch_dtype
         normalized = (
-            img.to(torch_dtype)
-            if out is None or (torch_dtype == torch.float16 and not out.is_contiguous())
+            img.to(working_dtype)
+            if out is None or working_dtype != torch_dtype or (torch_dtype == torch.float16 and not out.is_contiguous())
             else out.copy_(img)
         )
         normalized.div_(divisor)
+        if out is None and working_dtype != torch_dtype:
+            normalized = normalized.to(torch_dtype)
         return normalized if out is None or normalized is out else out.copy_(normalized)
     if torch_dtype in (torch.float16, torch.float32):
         if _MACOS_ARM64 and img.numel() >= _TENSOR_NUMPY_CAST_MIN_ELEMENTS and img.is_contiguous():
