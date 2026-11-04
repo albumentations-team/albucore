@@ -81,11 +81,11 @@ write. Preserve mode-specific epsilon/clipping and NumPy whole-array versus Tens
 **This is the most important rule:**
 
 ```python
-# ✅ ALWAYS use explicit channel dimension
+# ALWAYS use an explicit channel dimension
 grayscale_image = np.array(..., shape=(H, W, 1))
 
-# ❌ NEVER use implicit channel dimension
-grayscale_image = np.array(..., shape=(H, W))  # WRONG!
+# NEVER use an implicit channel dimension
+grayscale_image = np.array(..., shape=(H, W))
 ```
 
 For NumPy image arrays, you can always assume:

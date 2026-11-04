@@ -53,11 +53,9 @@ For a Tensor, read the channel axis from its declared layout (`CHW`/`CDHW`: axis
 Image routers accept `uint8`, `float16`, and `float32`. They do not accept `float64` image inputs. Statistics may
 return `float64` or wide integer outputs, and `apply_uint8_lut` remains `uint8`-only.
 
-This consistency simplifies code and makes it more robust across different input types.
-
 ## Important Notes
 
-### ✅ Correct
+### Correct
 
 ```python
 import numpy as np
@@ -72,7 +70,7 @@ rgb_image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
 multi_channel = np.random.randint(0, 256, (100, 100, 10), dtype=np.uint8)
 ```
 
-### ❌ Incorrect
+### Incorrect
 
 ```python
 # DO NOT use 2D shape for grayscale images
@@ -109,11 +107,3 @@ volume_batch = np.random.randint(0, 256, (4, 20, 256, 256, 1), dtype=np.uint8)
 matrix = np.eye(4, dtype=np.float32)
 warped_batch = albucore.warp_affine3d(volume_batch, matrix, (20, 256, 256))
 ```
-
-## Why This Convention?
-
-1. **Consistency**: Uniform interface regardless of the number of channels
-2. **Simplicity**: No special cases for grayscale vs. color images
-3. **Compatibility**: Works seamlessly with libraries that expect channel dimensions
-4. **Type Safety**: Shape information is preserved and predictable
-5. **Broadcasting**: Enables efficient vectorized operations across channels

@@ -61,7 +61,6 @@ def main() -> None:
     print("Median ms; **fastest alt** = min(OpenCV, NumPy).")
     print()
 
-    # --- add_weighted uint8 ---
     print("## `add_weighted` — uint8 (weights 0.5 / 0.5)")
     print()
     print("| H×W | C | pixels | NumKong | OpenCV | NumPy | fastest alt | NK vs best alt |")
@@ -88,7 +87,6 @@ def main() -> None:
             )
     print()
 
-    # --- add_weighted float32 ---
     print("## `add_weighted` — float32 (weights 0.5 / 0.5)")
     print()
     print("| H×W | C | pixels | NumKong | OpenCV | NumPy | fastest alt | NK vs best alt |")
@@ -115,7 +113,6 @@ def main() -> None:
             )
     print()
 
-    # --- add_weighted batch (N,H,W,C) — same APIs, raveled in NumKong path ---
     nb, hb, wb = TARGETED_BATCH_NHWC
     print(f"## `add_weighted` — batch / video `(N,H,W,C)`, N={nb}, H×W={hb}×{wb}")
     print()
@@ -181,7 +178,6 @@ def main() -> None:
             opts.append(("OpenCV", t_cv))
         return min(opts, key=lambda x: x[1])[0]
 
-    # --- global mean only ---
     print("## Global **mean only** (uint8) — NumPy vs NumKong vs OpenCV")
     print()
     print(cv_global_note)
@@ -328,7 +324,6 @@ def main() -> None:
             print(f"| {h}×{w} | {c} | {n} | {t_np:.4f} | {t_nk:.4f} | {cv_s} | {win} |")
     print()
 
-    # --- global stats batch (N,H,W,C) same formulas, full tensor ravel ---
     print(
         f"## Global statistics — batch / video `(N,H,W,C)`, N={nb}, H×W={hb}×{wb} "
         "(same mean/std semantics as image: reduce over **all** pixels)",
@@ -462,7 +457,6 @@ def main() -> None:
     row_batch_global_mean_f32()
     row_batch_global_std_f32()
 
-    # --- per-channel: (H,W,C), (N,H,W,C) ---
     print("## Per-channel mean + std — `(H,W,C)`, `(N,H,W,C)`")
     print()
     print(

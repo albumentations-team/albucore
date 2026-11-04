@@ -275,7 +275,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         args.func(args)
-    except (FileNotFoundError, OSError, TypeError, ValueError) as exc:
+    except (OSError, TypeError, ValueError) as exc:
         sys.stderr.write(f"Publish artifact verification failed: {exc}\n")
         return 1
     return 0

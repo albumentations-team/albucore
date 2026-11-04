@@ -42,8 +42,6 @@ from timing import bench_wall_ms
 _ALPHA = 1.5
 _BETA = 0.0
 
-# ── LUT construction ─────────────────────────────────────────────────────────
-
 
 def _build_lut(alpha: float, beta: float) -> np.ndarray:
     """Precomputed uint8 affine LUT: clip(round(alpha*x + beta), 0, 255)."""
@@ -52,9 +50,6 @@ def _build_lut(alpha: float, beta: float) -> np.ndarray:
 
 
 _LUT = _build_lut(_ALPHA, _BETA)
-
-
-# ── Implementations ───────────────────────────────────────────────────────────
 
 
 def impl_nk_scale(img: np.ndarray) -> np.ndarray:
@@ -77,25 +72,9 @@ def impl_cv2_lut(img: np.ndarray, lut: np.ndarray) -> np.ndarray:
     return cv2.LUT(np.ascontiguousarray(img, dtype=np.uint8), lut)
 
 
-# ── Shape grid ───────────────────────────────────────────────────────────────
-
-# Canonical shape grid used throughout albucore benchmarks.
-#
-# HWC (H, W, C):
-#   Small: 128×160 and 240×320 — fast iteration / warm-cache behaviour.
-#   Medium: 480×640 — typical augmentation training crop.
-#   Large: 768×1024 — high-res / full-image pass.
-#   Channels: 1 (grayscale), 3 (RGB), 9 (hyperspectral / >4-ch OpenCV limit).
-#
-# DHWC (D, H, W, C):
-#   3-D medical patches (nnU-Net style).  Non-square in-plane sizes; depth 16–128.
-#   1-ch (CT/MRI single modality) and 3-ch (multi-contrast / RGB video).
 _SHAPES = SCALE_LUT_SHAPES
 
 _LAYOUT = {3: "HWC", 4: "DHWC"}
-
-
-# ── Runner ────────────────────────────────────────────────────────────────────
 
 
 def main() -> None:
