@@ -29,13 +29,6 @@ Image processing operations can be implemented in several ways, with performance
 
 Image routers accept `uint8`, `float16`, and `float32`; float64 image inputs are not supported. NumPy uses channel-last layouts, while eager CPU Torch calls use explicit channel-first layouts where channel semantics matter. The specialized uint8 LUT operation is uint8-only.
 
-Key features:
-
-- Optimized atomic image processing functions
-- Automatic selection of the fastest implementation based on input image characteristics
-- Seamless integration with AlbumentationsX
-- Reproducible micro-benchmarks and committed routing reports (see [benchmarks/README.md](benchmarks/README.md))
-
 ## Installation
 
 **Requires Python 3.11+.** CI covers Python 3.11, 3.12, 3.13, and 3.14. Choose and install the PyTorch build for your CPU,
@@ -88,61 +81,33 @@ existing installation.
 import numpy as np
 import albucore
 
-# Create a sample RGB image
 image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
-
-# Apply a function
 result = albucore.multiply(image, 1.5)
 
-# For grayscale images, ensure the channel dimension is present
+# Grayscale images keep an explicit channel dimension
 gray_image = np.random.randint(0, 256, (100, 100, 1), dtype=np.uint8)
 gray_result = albucore.multiply(gray_image, 1.5)
 ```
 
-Albucore automatically selects the most efficient implementation based on the input image type and characteristics.
-
 ## Shape Conventions
 
-Albucore expects images to follow specific shape conventions, with the channel dimension always present:
+The channel dimension is always present, even for grayscale (`(H, W, 1)`, never `(H, W)`). NumPy layouts are
+channel-last:
 
-- **Single image**: `(H, W, C)` - Height, Width, Channels
-- **Grayscale image**: `(H, W, 1)` - Height, Width, 1 channel
-- **Batch of images**: `(N, H, W, C)` - Number of images, Height, Width, Channels
-- **3D volume**: `(D, H, W, C)` - Depth, Height, Width, Channels
+- **Single image**: `(H, W, C)`
+- **Batch of images**: `(N, H, W, C)`
+- **3D volume**: `(D, H, W, C)`
+- **Volume batch**: `(N, D, H, W, C)`, accepted only by `warp_affine3d` and `remap3d`
 
-These are NumPy layouts. CPU Torch uses `CHW`, `NCHW`, `CDHW`, or `NCDHW`; common operations that need a channel axis take an explicit `layout=` keyword.
-
-### Important Notes:
-
-1. **Channel dimension is always required**, even for grayscale images (use shape `(H, W, 1)`)
-2. Single-channel images should have shape `(H, W, 1)` not `(H, W)`
-3. **Batch vs volume:** `(N, H, W, C)` is **N separate images**; a single NumPy **3D volume** is `(D, H, W, C)`. `warp_affine3d` and `remap3d` also accept NumPy volume batches `(N, D, H, W, C)`. Do not confuse `N` (batch) with `D` (slices).
-
-### Examples:
-
-```python
-import numpy as np
-import albucore
-
-# Grayscale image - MUST have explicit channel dimension
-gray_image = np.random.randint(0, 256, (100, 100, 1), dtype=np.uint8)
-
-# RGB image
-rgb_image = np.random.randint(0, 256, (100, 100, 3), dtype=np.uint8)
-
-# Batch of 10 grayscale images
-batch_gray = np.random.randint(0, 256, (10, 100, 100, 1), dtype=np.uint8)
-
-# 3D volume with 20 slices
-volume = np.random.randint(0, 256, (20, 100, 100, 1), dtype=np.uint8)
-```
+CPU Torch uses `CHW`, `NCHW`, `CDHW`, or `NCDHW`; common operations that need a channel axis take an explicit
+`layout=` keyword. Spatial routers such as `resize` and `resize3d` define their layout by the operation. See
+[docs/image-conventions.md](docs/image-conventions.md) for details.
 
 ## Functions
 
 The tables below highlight public routers exported directly by `albucore`. Their implementations live in the
-operation modules listed in [docs/public-api.md](docs/public-api.md).
-
-NumPy image routers use channel-last inputs with an explicit channel dimension (`(H, W, C)`, never bare `(H, W)`). CPU Torch calls use channel-first layouts (`CHW`, `NCHW`, `CDHW`, `NCDHW`); pass `layout=` to common operations when channel semantics matter. Image routers support `uint8`, `float16`, and `float32`, except where a table states a narrower dtype contract.
+operation modules listed in [docs/public-api.md](docs/public-api.md). Image routers support `uint8`, `float16`, and
+`float32`, except where a table states a narrower dtype contract.
 
 ### Arithmetic
 
@@ -226,25 +191,11 @@ The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `r
 |---|---|---|---|
 | `convert_dtype` | `(img, dtype, *, max_value=None, out=None)` | Convert among uint8, float16, and float32; uint8↔float scales by 255 by default, float↔float casts, same dtype returns by identity | Uint8→float uses a result-dtype LUT; floating casts and uint8 quantization retain measured NumPy/NumKong/Torch routes |
 
-### Array layouts and batch processing
-
-NumPy arithmetic, normalization, statistics, conversion, and elementwise routers use channel-last layouts:
-
-- Single images: `(H, W, C)`
-- Batches: `(N, H, W, C)`
-- Single volumes: `(D, H, W, C)`
-
-Spatial routers document their own image-shape requirements. CPU Torch calls use `CHW`, `NCHW`, `CDHW`, or `NCDHW`. Pass keyword-only `layout=` to common operations when channel controls or reductions depend on the channel axis. Spatial APIs such as `resize` and `resize3d` define their layout by the operation.
-
 ## Performance
 
-Albucore uses a combination of techniques to achieve high performance:
-
-1. **Multiple Implementations**: Each function may have several implementations using NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch when the documented contract permits it.
-2. **Automatic Selection**: The library chooses a backend from dtype, size, memory layout, channel count, and semantic constraints.
-3. **Measured Routing**: Backend choices and thresholds come from repeatable benchmarks rather than backend preference.
-4. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add(..., field)`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
-5. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
+1. **Measured routing**: Each function may have several NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch implementations. The router picks one from dtype, size, memory layout, channel count, and semantic constraints, using thresholds from repeatable benchmarks.
+2. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add(..., field)`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+3. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 

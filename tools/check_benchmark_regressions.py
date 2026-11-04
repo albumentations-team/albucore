@@ -166,7 +166,7 @@ def _regressions(
         status = _status_for_slowdown(current_cell.op, slowdown, mode)
         if status is not None:
             accepted_match = accepted.get(current_cell.key)
-            if current_cell.key in accepted:
+            if accepted_match is not None:
                 status = "accepted"
             regressions.append(
                 Regression(

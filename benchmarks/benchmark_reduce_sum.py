@@ -29,9 +29,6 @@ from timing import median_ms
 from albucore.stats import DEFAULT_EPS, mean, reduce_sum, std
 
 
-# ── nk helpers — N-D arrays accepted directly, no reshape/Tensor needed ──────
-
-
 def _nk_sum_global(arr: np.ndarray) -> float:
     return float(nk.sum(arr))
 
@@ -78,8 +75,6 @@ def _nk_std_per_channel(arr: np.ndarray) -> np.ndarray:
     var = np.maximum(s2 / n - (s / n) ** 2, 0.0)
     return np.sqrt(var) + DEFAULT_EPS
 
-
-# ── table helpers ─────────────────────────────────────────────────────────────
 
 HDR3 = "| dtype | shape | prod ms | nk_new ms | numpy ms | fastest |"
 SEP3 = "|-------|-------|--------:|----------:|---------:|---------|"
@@ -135,31 +130,12 @@ def _row4(
     return f"| {dtype_name} | {shape_str} | {t_prod:.4f} | {t_sum:.4f} | {t_moments:.4f} | {t_np:.4f} | **{fastest}** |"
 
 
-def _section3(title: str, rows: list[str]) -> None:
+def _section(title: str, header: str, separator: str, rows: list[str]) -> None:
     print(f"\n### {title}\n")
-    print(HDR3)
-    print(SEP3)
+    print(header)
+    print(separator)
     for r in rows:
         print(r)
-
-
-def _section4(title: str, rows: list[str]) -> None:
-    print(f"\n### {title}\n")
-    print(HDR4)
-    print(SEP4)
-    for r in rows:
-        print(r)
-
-
-def _section_candidates(title: str, rows: list[str]) -> None:
-    print(f"\n### {title}\n")
-    print(HDR_CAND)
-    print(SEP_CAND)
-    for r in rows:
-        print(r)
-
-
-# ── main ──────────────────────────────────────────────────────────────────────
 
 
 def main() -> None:
@@ -186,45 +162,45 @@ def main() -> None:
             )
             axes = tuple(range(arr.ndim - 1))
 
-            # sum global
             t_prod = median_ms(lambda a=arr: reduce_sum(a, "global"), reps, wu)
             t_nk   = median_ms(lambda a=arr: _nk_sum_global(a), reps, wu)
             t_np   = median_ms(lambda a=arr, ac=acc: np.sum(a, dtype=ac), reps, wu)
             sum_global_rows.append(_row3(dname, shape, t_prod, t_nk, t_np))
 
-            # sum per-channel
             t_prod = median_ms(lambda a=arr: reduce_sum(a, "per_channel"), reps, wu)
             t_cv2 = median_ms(lambda a=arr: _cv2_reduce_sum_per_channel(a), reps, wu)
             t_nk   = median_ms(lambda a=arr: _nk_sum_per_channel(a), reps, wu)
             t_np   = median_ms(lambda a=arr, ax=axes, ac=acc: np.sum(a, axis=ax, dtype=ac), reps, wu)
             sum_pc_rows.append(_row_candidates(dname, shape, t_prod, t_cv2, t_nk, t_np))
 
-            # mean global — prod vs nk.sum/n vs nk.moments/n vs numpy
             t_prod    = median_ms(lambda a=arr: mean(a, "global"), reps, wu)
             t_sum     = median_ms(lambda a=arr: _nk_mean_via_sum(a), reps, wu)
             t_moments = median_ms(lambda a=arr: _nk_mean_via_moments(a), reps, wu)
             t_np      = median_ms(lambda a=arr: float(np.mean(a, dtype=np.float64)), reps, wu)
             mean_global_rows.append(_row4(dname, shape, t_prod, t_sum, t_moments, t_np))
 
-            # mean per-channel — prod vs nk.sum(spatial)/n vs numpy
             t_prod = median_ms(lambda a=arr: mean(a, "per_channel"), reps, wu)
             t_cv2 = median_ms(lambda a=arr: _cv2_reduce_mean_per_channel(a), reps, wu)
             t_nk   = median_ms(lambda a=arr: _nk_mean_per_channel(a), reps, wu)
             t_np   = median_ms(lambda a=arr, ax=axes: np.mean(a, axis=ax, dtype=np.float64), reps, wu)
             mean_pc_rows.append(_row_candidates(dname, shape, t_prod, t_cv2, t_nk, t_np))
 
-            # std per-channel — prod vs nk two-pass vs numpy
             t_prod = median_ms(lambda a=arr: std(a, "per_channel"), reps, wu)
             t_nk   = median_ms(lambda a=arr: _nk_std_per_channel(a), reps, wu)
             t_np   = median_ms(lambda a=arr, ax=axes: np.std(a, axis=ax, dtype=np.float64) + DEFAULT_EPS, reps, wu)
             std_pc_rows.append(_row3(dname, shape, t_prod, t_nk, t_np))
 
         print(f"\n## {dname}")
-        _section3("sum global", sum_global_rows)
-        _section_candidates("sum per-channel", sum_pc_rows)
-        _section4("mean global  (prod=moments/n · nk_sum=sum/n · nk_moments=moments/n)", mean_global_rows)
-        _section_candidates("mean per-channel  (nk_new = nk.sum(spatial)/n)", mean_pc_rows)
-        _section3("std per-channel  (nk_new = sqrt(sum2/n - (sum/n)^2) + eps)", std_pc_rows)
+        _section("sum global", HDR3, SEP3, sum_global_rows)
+        _section("sum per-channel", HDR_CAND, SEP_CAND, sum_pc_rows)
+        _section(
+            "mean global  (prod=moments/n · nk_sum=sum/n · nk_moments=moments/n)",
+            HDR4,
+            SEP4,
+            mean_global_rows,
+        )
+        _section("mean per-channel  (nk_new = nk.sum(spatial)/n)", HDR_CAND, SEP_CAND, mean_pc_rows)
+        _section("std per-channel  (nk_new = sqrt(sum2/n - (sum/n)^2) + eps)", HDR3, SEP3, std_pc_rows)
 
 
 if __name__ == "__main__":

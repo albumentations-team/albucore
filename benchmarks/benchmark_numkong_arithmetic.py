@@ -91,7 +91,6 @@ def main() -> None:
     print("Median ms; **prod** = saturating uint8 / raw float32 public API. **NK scale** = `α·x+β` on ravel.")
     print()
 
-    # --- scalar multiply ---
     print("## `multiply` — scalar")
     print()
     print("| dtype | H×W | C | prod | NK scale (alloc) | NK scale (inplace) | fastest |")
@@ -113,7 +112,6 @@ def main() -> None:
                 print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_nk:.4f} | {t_nk_ip:.4f} | {best} |")
     print()
 
-    # --- scalar multiply-add ---
     print("## `multiply_add` — scalar affine `factor * img + value`")
     print()
     print("| dtype | H×W | C | prod | NumPy | NK scale (alloc) | OpenCV `addWeighted` | fastest |")
@@ -134,7 +132,6 @@ def main() -> None:
             print(f"| float32 | {h}×{w} | {c} | {t_prod:.4f} | {t_np:.4f} | {t_nk:.4f} | {t_cv:.4f} | {best} |")
     print()
 
-    # --- scalar add ---
     print("## `add` — scalar")
     print()
     print("| dtype | H×W | C | prod | NK scale (alloc) | NK scale (inplace) | fastest |")
@@ -160,7 +157,6 @@ def main() -> None:
                 print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_sc:.4f} | {t_sc_ip:.4f} | {best} |")
     print()
 
-    # --- full-array elementwise multiply ---
     print("## `multiply` — elementwise `img * value`")
     print()
     print("| dtype | H×W | C | prod (OpenCV) | NK `fma` (a·b+0·z) | NumPy (`_numpy_pointwise` path) | fastest |")
@@ -199,7 +195,6 @@ def main() -> None:
                 print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {fma_s} | {t_np:.4f} | {best} |")
     print()
 
-    # --- full-array elementwise add ---
     print("## `add` — elementwise `img + value`")
     print()
     print("| dtype | H×W | C | prod (OpenCV) | NK `_blend_numkong` (`blend`) | fastest |")
@@ -221,7 +216,6 @@ def main() -> None:
                 print(f"| {dname} | {h}×{w} | {c} | {t_prod:.4f} | {t_nk:.4f} | {best} |")
     print()
 
-    # --- per-channel vector (length C) ---
     print("## `multiply` / `add` — per-channel constants (broadcast)")
     print()
     print(
