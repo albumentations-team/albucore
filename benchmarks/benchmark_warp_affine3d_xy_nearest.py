@@ -183,6 +183,8 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--rss", choices=("baseline", "current"), help="Measure the pair in a fresh process.")
     args = parser.parse_args()
+    if args.output.with_suffix(".csv").is_symlink():
+        parser.error("Timings CSV path must not be a symlink.")
     if Path(albucore.__file__).resolve().parent.parent != Path(__file__).resolve().parents[1]:
         raise RuntimeError("Benchmark the checkout with PYTHONPATH set to its repository root.")
     threads = benchmark_threads.configure_libraries(torch, cv2, args.threads)

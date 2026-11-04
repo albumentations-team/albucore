@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import stat
 import subprocess
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -102,3 +104,34 @@ def test_atomic_report_preserves_previous_result_on_serialization_failure(tmp_pa
 
     assert output.read_text() == '{"previous": true}\n'
     assert not list(tmp_path.glob(".report.json.*.tmp"))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX access modes")
+def test_atomic_report_preserves_existing_permissions(tmp_path: Path) -> None:
+    output = tmp_path / "report.json"
+    output.write_text("{}\n")
+    output.chmod(0o640)
+
+    write_json_atomic(output, {"rows": [1]})
+
+    assert stat.S_IMODE(output.stat().st_mode) == 0o640
+    assert json.loads(output.read_text()) == {"rows": [1]}
+
+
+def test_xy_benchmark_rejects_symlinked_csv_before_loading_baseline(tmp_path: Path) -> None:
+    unrelated = tmp_path / "unrelated.txt"
+    unrelated.write_text("keep this data")
+    results = REPO_ROOT / "benchmarks/results"
+    results.mkdir(exist_ok=True)
+    with TemporaryDirectory(dir=results, prefix="csv-path-test-") as directory:
+        output = Path(directory) / "report.json"
+        try:
+            output.with_suffix(".csv").symlink_to(unrelated)
+        except (OSError, NotImplementedError):
+            pytest.skip("Creating file symlinks is unavailable")
+        result = _run_script("benchmark_warp_affine3d_xy_nearest.py", "--baseline", "missing.py", "--output", str(output))
+
+    assert result.returncode == 2
+    assert "Timings CSV path must not be a symlink" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert unrelated.read_text() == "keep this data"
