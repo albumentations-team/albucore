@@ -104,7 +104,7 @@ def test_rgb_batch_matches_packed_opencv_transform(dtype: type[np.generic], layo
 
     actual = core.linear_transformation_rgb(batch, MATRIX)
 
-    # Match the legacy single-call SIMD/tail rounding across packed batch items.
+    # One OpenCV call preserves SIMD/tail rounding across packed batch items.
     expected = _reference(batch, "linear_transformation_rgb")
     np.testing.assert_array_equal(actual, expected)
     assert actual.dtype == batch.dtype
@@ -186,7 +186,7 @@ def test_floating_filters_preserve_nonfinite_and_signed_zero_bits(
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("ksize", [1, 3, 15])
-def test_convolve_matches_legacy_workspace_on_unaligned_inputs(dtype: type[np.generic], ksize: int) -> None:
+def test_convolve_matches_inplace_opencv_on_unaligned_inputs(dtype: type[np.generic], ksize: int) -> None:
     shape = (13, 17, 3)
     storage = bytearray(np.prod(shape) * np.dtype(dtype).itemsize + 1)
     image = np.ndarray(shape, dtype=dtype, buffer=storage, offset=1)
