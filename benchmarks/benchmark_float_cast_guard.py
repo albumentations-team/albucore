@@ -83,6 +83,12 @@ def _memory_worker(layer: str, variant: str) -> dict[str, object]:
     return {"layer": layer, "variant": variant, "input_bytes": image.nbytes, "output_bytes": 0 if destination is None else destination.nbytes, "peak_rss_bytes": peak, "steady_rss_bytes": steady}
 
 
+def _check_resume_profile(previous: dict[str, Any], current: dict[str, Any]) -> None:
+    for key in sorted((previous.keys() | current.keys()) - {"case_list"}):
+        if key not in previous or key not in current or previous[key] != current[key]:
+            raise RuntimeError(f"Output belongs to a different benchmark {key}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -111,6 +117,7 @@ def main() -> None:
     )
     metadata = {
         "baseline_commit": "3c8769246c0f870145dbb8ba9416025940e92811",
+        "benchmark_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "baseline": "FP16 exponent-mask guard from published 0.3.3; other public-router code shared",
         "candidate_source_sha256": hashlib.sha256(Path(cast_router.__file__).read_bytes()).hexdigest(),
         "core_source": albucore.__file__,
@@ -129,6 +136,7 @@ def main() -> None:
             for name in ("albucore", "numpy", "opencv-python-headless", "numkong", "stringzilla", "torch")
         },
         "samples": args.samples,
+        "minimum_count": args.minimum_count,
     }
     if args.memory_worker:
         result = _memory_worker(args.memory_worker, args.variant)
@@ -138,8 +146,7 @@ def main() -> None:
     rows: list[dict[str, Any]] = []
     if args.output.exists():
         previous = json.loads(args.output.read_text())
-        if previous["metadata"]["candidate_source_sha256"] != metadata["candidate_source_sha256"]:
-            raise RuntimeError("Output belongs to different candidate source")
+        _check_resume_profile(previous["metadata"], metadata)
         rows = previous["rows"]
     completed = {row["case"] for row in rows}
     candidate_guard = cast_router._numkong_cast_preserves_numpy_errors
