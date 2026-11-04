@@ -1,6 +1,7 @@
 """Dtype-preserving OpenCV image filters, morphology and RGB transforms.
 
-FP16 storage casts, layout packing and writable workspaces belong to these kernels.
+Callers validate metadata and operation controls. Kernels own float16 promotion,
+layout packing and writable workspaces.
 """
 
 from __future__ import annotations
@@ -43,7 +44,6 @@ def box_blur(img: ImageArrayT, ksize: int) -> ImageArrayT:
     Returns:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
-    The caller validates metadata and kernel controls.
     Images use HWC with an explicit trailing channel, including C=1.
     """
     result = _opencv_working_image(img, copy=True)
@@ -63,7 +63,6 @@ def erode(img: ImageArrayT, kernel: NDArray[Any]) -> ImageArrayT:
     Returns:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
-    The caller validates metadata and kernel controls.
     Images use HWC with an explicit trailing channel, including C=1.
     """
     if img.dtype.type is np.float16:
@@ -86,7 +85,6 @@ def dilate(img: ImageArrayT, kernel: NDArray[Any]) -> ImageArrayT:
     Returns:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
-    The caller validates metadata and kernel controls.
     Images use HWC with an explicit trailing channel, including C=1.
     """
     if img.dtype.type is np.float16:
@@ -110,7 +108,6 @@ def convolve(img: ImageArrayT, kernel: NDArray[Any], border_mode: int = cv2.BORD
     Returns:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
-    The caller validates metadata and kernel controls.
     Images use HWC with an explicit trailing channel, including C=1.
     """
     input_dtype = img.dtype
@@ -143,7 +140,6 @@ def linear_transformation_rgb(img: ImageArrayT, transformation_matrix: NDArray[A
     Returns:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
-    The caller validates metadata and kernel controls.
     RGB images use HWC or NHWC with one shared matrix.
     """
     input_dtype = img.dtype
@@ -183,7 +179,6 @@ def unsharp_mask(image: ImageArrayT, ksize: int, sigma: float, alpha: float, thr
     Returns:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
-    The caller validates metadata and kernel controls.
     Images use HWC with an explicit trailing channel, including C=1.
     """
     input_dtype = image.dtype

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import importlib
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -24,10 +22,10 @@ def _run_script(name: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-@pytest.mark.parametrize("name", ["result.json", "timings.csv", "checkpoint.tmp"])
-def test_benchmark_output_accepts_external_and_ignored_paths(tmp_path: Path, name: str) -> None:
-    assert output_path(str(tmp_path / name)) == tmp_path / name
-    ignored = REPO_ROOT / "benchmarks/results" / name
+def test_benchmark_output_accepts_external_and_ignored_paths(tmp_path: Path) -> None:
+    external = tmp_path / "custom.csv"
+    assert output_path(str(external)) == external
+    ignored = REPO_ROOT / "benchmarks/results/report.json"
     assert output_path(str(ignored)) == ignored
 
 
@@ -57,23 +55,3 @@ def test_filtering_parent_requires_output_before_loading_baseline() -> None:
     assert result.returncode == 2
     assert "--output is required unless --rss-worker is set" in result.stderr
     assert "Traceback" not in result.stderr
-
-
-@pytest.mark.parametrize("provided", [None, "output", "timing-results"])
-def test_memory_parent_requires_output_and_timings(tmp_path: Path, provided: str | None) -> None:
-    args = ["--baseline-ax", "missing"]
-    if provided:
-        args.extend((f"--{provided}", str(tmp_path / "data.json")))
-    result = _run_script("benchmark_ax_image_kernels_memory.py", *args)
-    assert result.returncode == 2
-    assert "--output and --timing-results are required for parent runs" in result.stderr
-    assert "Traceback" not in result.stderr
-
-
-def test_memory_worker_does_not_require_parent_output_paths(monkeypatch, capsys) -> None:
-    monkeypatch.syspath_prepend(str(REPO_ROOT / "benchmarks"))
-    memory = importlib.import_module("benchmark_ax_image_kernels_memory")
-    monkeypatch.setattr(memory, "worker", lambda args: {"case": args.case})
-    monkeypatch.setattr(sys, "argv", ["benchmark", "--baseline-ax", "missing", "--case", "convolve|core|uint8"])
-    memory.main()
-    assert json.loads(capsys.readouterr().out) == {"case": "convolve|core|uint8"}

@@ -162,7 +162,7 @@ target still compares quantization work for both floating source dtypes.
 Generated results are local output and must not be committed or force-added. Preserve raw runs as external
 artifacts. Keep only current routing decisions in the existing docs, with the source revision and a link to evidence.
 
-The router, XY-nearest, filtering cleanup and image-kernel memory runners accept output paths outside the checkout
+The router, XY-nearest and filtering cleanup runners accept output paths outside the checkout
 or under ignored `benchmarks/results/`. Other paths inside the checkout are rejected before measurement.
 
 [Archived benchmark measurements](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) contain the removed historical reports and data. The archive manifest

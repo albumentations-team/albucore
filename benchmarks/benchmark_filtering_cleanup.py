@@ -38,6 +38,7 @@ from benchmark_output import output_path
 from benchmark_router_synthetic import _bench_interleaved_pair
 from timing import _check_resume_profile
 
+
 def cases():
     for op in ("convolve", "convolve_channels", "unsharp_mask"):
         for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024)):
@@ -160,11 +161,11 @@ def main():
             continue
         source, first = workload(baseline, case)
         second = partial(getattr(core, first.func.__name__), *first.args, **first.keywords)
+        original = source.tobytes()
         expected, actual = first(), second()
         if expected.tobytes() != actual.tobytes() or expected.dtype != actual.dtype or expected.shape != actual.shape:
             raise RuntimeError(f"Bitwise mismatch: {label}")
         assert not np.shares_memory(actual, source)
-        original = source.tobytes()
         del expected, actual
         row = {"case": label, "bitwise_equal": True, **measure(first, second, 11, 3_000_000)}
         if row["ratio"] > 1.05:
