@@ -41,6 +41,7 @@ import sys
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,7 @@ import cv2
 import numkong as nk
 import numpy as np
 import torch
+from benchmark_output import output_path
 from shape_grids import (
     ROUTER_BATCH_STATS_FULL_HW,
     ROUTER_BATCH_STATS_QUICK_HW,
@@ -79,6 +81,7 @@ _GEOMETRIC_API_ALIASES = {
     "remap_nearest": "remap",
     "warp_perspective_nearest": "warp_perspective",
 }
+
 
 @dataclass
 class BenchRow:
@@ -190,7 +193,7 @@ def _bench_interleaved_pair(
     first_times: list[float] = []
     second_times: list[float] = []
     for iteration in range(warmup):
-        calls = ((second, first) if iteration % 2 else (first, second))
+        calls = (second, first) if iteration % 2 else (first, second)
         for fn in calls:
             fn()
     for iteration in range(repeats):
@@ -493,7 +496,6 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
             values.flat[2::3] = 1.25
         return lambda: alb.clip(values, img.dtype)
 
-
     def add_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = _channel_vector(img)
 
@@ -525,7 +527,6 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
             alb.multiply(img, v)
 
         return thunk
-
 
     def mul_vec(alb: Any, img: np.ndarray) -> Callable[[], object]:
         v = _channel_vector(img)
@@ -710,6 +711,24 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         return thunk
 
     return [
+        ("box_blur", lambda alb, img: partial(alb.box_blur, img, 3)),
+        ("erode", lambda alb, img: partial(alb.erode, img, np.ones((3, 3), dtype=np.uint8))),
+        ("dilate", lambda alb, img: partial(alb.dilate, img, np.ones((3, 3), dtype=np.uint8))),
+        (
+            "convolve",
+            lambda alb, img: partial(
+                alb.convolve, img, np.array([[0, -0.25, 0], [-0.25, 2, -0.25], [0, -0.25, 0]], dtype=np.float32)
+            ),
+        ),
+        ("unsharp_mask", lambda alb, img: partial(alb.unsharp_mask, img, 3, 1.0, 0.5, 10)),
+        (
+            "linear_transformation_rgb",
+            lambda alb, img: partial(
+                alb.linear_transformation_rgb,
+                img,
+                np.array([[1.125, 0.125, 0], [0, 0.875, 0.125], [-0.125, 0.25, 1]], dtype=np.float32),
+            ),
+        ),
         ("add", add_c),
         ("add_field", add_arr),
         ("apply_uint8_lut", apply_ul),
@@ -817,7 +836,7 @@ def _pairwise_bench(alb: Any, dtype: np.dtype, repeats: int, warmup: int) -> Ben
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--output-json", type=str, default="", help="Write full results JSON")
+    p.add_argument("--output-json", type=output_path, help="Write full results JSON")
     p.add_argument("--quick", action="store_true", help="Smaller shape/channel grid (no 1024 HWC)")
     p.add_argument(
         "--with-geometric",
@@ -927,6 +946,8 @@ def main() -> None:
         half_img = paired_half_images.get(pair_key) if dtype == np.float32 else None
         if args.interleave_float16 and half_img is not None:
             for op_name, build in fn_reg:
+                if op_name == "linear_transformation_rgb" and shape[-1] != 3:
+                    continue
                 if (_api_name(op_name) not in export_names and op_name not in stats_ops) or op_name in skip_ops:
                     continue
                 if op_name in skip_uint8_only:
@@ -953,6 +974,8 @@ def main() -> None:
                 )
             continue
         for op_name, build in fn_reg:
+            if op_name == "linear_transformation_rgb" and shape[-1] != 3:
+                continue
             if _api_name(op_name) not in export_names and op_name not in stats_ops:
                 continue
             if op_name in skip_ops:
@@ -1078,8 +1101,12 @@ def main() -> None:
                 )
                 rows.extend(
                     (
-                        _bench_row("pairwise_distances_squared", "points", (24, 16, 3), "float16", timing_half, "ok", ""),
-                        _bench_row("pairwise_distances_squared", "points", (24, 16, 3), "float32", timing_float32, "ok", ""),
+                        _bench_row(
+                            "pairwise_distances_squared", "points", (24, 16, 3), "float16", timing_half, "ok", ""
+                        ),
+                        _bench_row(
+                            "pairwise_distances_squared", "points", (24, 16, 3), "float32", timing_float32, "ok", ""
+                        ),
                     ),
                 )
             except Exception as e:  # noqa: BLE001 — benchmark harness
@@ -1136,6 +1163,7 @@ def main() -> None:
     txt = json.dumps(payload, indent=2)
     if args.output_json:
         path = args.output_json
+        path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(txt)
         print(f"Wrote {path}", file=sys.stderr)

@@ -1,7 +1,7 @@
 """Compare complete XY nearest calls with an unmodified affine3d.py baseline.
 
 Export the baseline with ``git show <revision>:albucore/affine3d.py > /tmp/affine3d_before.py``, then run
-``python benchmarks/benchmark_warp_affine3d_xy_nearest.py --baseline /tmp/affine3d_before.py --output result.json``.
+``python benchmarks/benchmark_warp_affine3d_xy_nearest.py --baseline /tmp/affine3d_before.py --output /tmp/result.json``.
 Timings use the same stem with ``.csv``; JSON holds environment and source metadata.
 """
 
@@ -11,7 +11,6 @@ import argparse
 import csv
 import hashlib
 import importlib.metadata
-import json
 import os
 import platform
 import resource
@@ -26,6 +25,7 @@ import benchmark_threads
 import cv2
 import numpy as np
 import torch
+from benchmark_output import atomic_report, output_path, write_json_atomic
 from benchmark_warp_affine3d_batch import Timing, _time_candidates
 
 import albucore
@@ -115,7 +115,7 @@ def _summary(timings: dict[str, Timing]) -> dict[str, str | int]:
 
 def _write_results(path: Path, metadata: dict, rows: list[dict]) -> None:
     timings_path = path.with_suffix(".csv")
-    with timings_path.open("w", newline="") as timings_file:
+    with atomic_report(timings_path) as timings_file:
         writer = csv.DictWriter(timings_file, fieldnames=TIMING_COLUMNS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
@@ -127,7 +127,7 @@ def _write_results(path: Path, metadata: dict, rows: list[dict]) -> None:
         "cases": sum(row["run"] == "main" for row in rows),
         "timing_rows": len(rows),
     }
-    path.write_text(json.dumps(metadata, indent=2) + "\n")
+    write_json_atomic(path, metadata)
 
 
 def _measure(
@@ -174,7 +174,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument(
-        "--output", type=Path, required=True, help="Metadata JSON path; timings use the same stem with .csv."
+        "--output", type=output_path, required=True, help="Metadata JSON path; timings use the same stem with .csv."
     )
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--threads", type=int, default=1)
@@ -182,6 +182,10 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--rss", choices=("baseline", "current"), help="Measure the pair in a fresh process.")
     args = parser.parse_args()
+    if not args.rss and args.output.suffix.lower() == ".csv":
+        parser.error("Metadata JSON and timings CSV need different output paths.")
+    if args.output.with_suffix(".csv").is_symlink():
+        parser.error("Timings CSV path must not be a symlink.")
     if Path(albucore.__file__).resolve().parent.parent != Path(__file__).resolve().parents[1]:
         raise RuntimeError("Benchmark the checkout with PYTHONPATH set to its repository root.")
     threads = benchmark_threads.configure_libraries(torch, cv2, args.threads)
@@ -210,16 +214,13 @@ def main() -> None:
             volume_result[mask_result == 0] = 0
         peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         steady_kib = int(subprocess.check_output(["ps", "-o", "rss=", "-p", str(os.getpid())], text=True))
-        args.output.write_text(
-            json.dumps(
-                {
-                    "metadata": metadata,
-                    "peak_rss_mib": peak / (1024**2 if platform.system() == "Darwin" else 1024),
-                    "steady_rss_mib": steady_kib / 1024,
-                },
-                indent=2,
-            )
-            + "\n"
+        write_json_atomic(
+            args.output,
+            {
+                "metadata": metadata,
+                "peak_rss_mib": peak / (1024**2 if platform.system() == "Darwin" else 1024),
+                "steady_rss_mib": steady_kib / 1024,
+            },
         )
         return
 
