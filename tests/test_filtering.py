@@ -139,3 +139,18 @@ def test_unsharp_threshold_selects_between_clipped_candidate_and_original(
 
     np.testing.assert_array_equal(actual, _reference(image, "unsharp_mask", threshold=threshold))
     assert actual.dtype == image.dtype
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("channels", [3, 4])
+def test_unsharp_positive_threshold_applies_to_every_channel(dtype: type[np.generic], channels: int) -> None:
+    image = np.full((9, 11, channels), 100, dtype=np.float32)
+    image[4, 5] = 102
+    if dtype != np.uint8:
+        image /= 255
+    image = image.astype(dtype)
+    image.flags.writeable = False
+
+    actual = core.unsharp_mask(image, 3, 1.0, 0.5, 10)
+
+    np.testing.assert_array_equal(actual, image)
