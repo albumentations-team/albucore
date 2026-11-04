@@ -28,11 +28,10 @@ __all__ = ["warp_affine3d"]
 def _normalize_matrix(matrix: np.ndarray) -> np.ndarray:
     """Convert prevalidated forward affine control data to homogeneous float64 form."""
     matrix_array = np.asarray(matrix, dtype=np.float64)
-    if matrix_array.shape == (3, 4):
-        homogeneous = np.eye(4, dtype=np.float64)
-        homogeneous[:3] = matrix_array
-    else:
-        homogeneous = matrix_array
+    if matrix_array.shape != (3, 4):
+        return matrix_array
+    homogeneous = np.eye(4, dtype=np.float64)
+    homogeneous[:3] = matrix_array
     return homogeneous
 
 
@@ -362,26 +361,25 @@ def warp_affine3d(
         A volume or batch in the input container, dtype, and layout. An exact identity
         matrix with unchanged spatial shape returns ``volume`` itself.
     """
-    output_size = size
     homogeneous_matrix = _normalize_matrix(matrix)
     if isinstance(volume, np.ndarray):
         if volume.ndim == 5:
             return _warp_affine3d_batch(
                 volume,
                 homogeneous_matrix,
-                output_size,
+                size,
                 interpolation,
                 border_mode,
                 border_value,
             )
         border_values = _normalize_border_value(border_value, volume.shape[-1])
-        if volume.shape[:3] == output_size and _is_identity_matrix(homogeneous_matrix):
+        if volume.shape[:3] == size and _is_identity_matrix(homogeneous_matrix):
             return volume
         inverse_matrix = _inverse_matrix(homogeneous_matrix)
         return _warp_affine3d_numpy(
             volume,
             inverse_matrix,
-            output_size,
+            size,
             interpolation,
             border_mode,
             border_values,
@@ -391,20 +389,20 @@ def warp_affine3d(
         return _warp_affine3d_batch(
             volume,
             homogeneous_matrix,
-            output_size,
+            size,
             interpolation,
             border_mode,
             border_value,
         )
 
     border_values = _normalize_border_value(border_value, volume.shape[0])
-    if tuple(volume.shape[1:]) == output_size and _is_identity_matrix(homogeneous_matrix):
+    if tuple(volume.shape[1:]) == size and _is_identity_matrix(homogeneous_matrix):
         return volume
     inverse_matrix = _inverse_matrix(homogeneous_matrix)
     return _warp_affine3d_torch_cpu(
         volume,
         inverse_matrix,
-        output_size,
+        size,
         interpolation,
         border_mode,
         border_values,

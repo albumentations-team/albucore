@@ -308,11 +308,9 @@ def _prepare_scalar_value(
     num_channels = get_num_channels(img)
     if num_channels > MAX_OPENCV_WORKING_CHANNELS:
         if operation == "add":
-            # Cast to float32 if value is negative to handle potential underflow issues
             cast_type = np.float32 if value < 0 else img.dtype
             return np.full(img.shape, value, dtype=cast_type)
-        if operation == "multiply":
-            return np.full(img.shape, value, dtype=np.float32)
+        return np.full(img.shape, value, dtype=np.float32)
     return value
 
 
@@ -997,10 +995,9 @@ def _torch_half_control(
             return None
 
     try:
-        scalar = float(operand)
+        return float(operand)
     except (TypeError, ValueError):
         return None
-    return scalar
 
 
 def _torch_half_pointwise_tensor(

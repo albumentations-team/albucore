@@ -1531,9 +1531,6 @@ def resize3d(
 
     Returns:
         Resized volume in the same container and layout as ``volume``. An identity resize returns ``volume`` itself.
-
-    The caller validates the container, layout, dtype, output size, interpolation,
-    device, autograd state, and antialias contract before entering Albucore.
     """
     if isinstance(volume, np.ndarray):
         if volume.shape[:3] == size:
