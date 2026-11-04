@@ -165,7 +165,6 @@ def test_remap3d_matches_an_independent_scalar_reference_for_normalized_coordina
 
 
 def test_remap3d_axis_impulses_confirm_x_y_z_grid_order() -> None:
-    """Each grid coordinate selects the matching source spatial axis rather than a permuted axis."""
     volume = np.zeros((3, 4, 5, 1), dtype=np.uint8)
     volume[2, 1, 3, 0] = 255
     source_x = np.full((1, 1, 1), 3, dtype=np.float32)
@@ -193,7 +192,6 @@ def test_remap3d_borders_apply_to_outside_coordinates(
     border_value: float | tuple[float, ...] | None,
     expected: np.ndarray,
 ) -> None:
-    """Outside pulls use constant fill or the nearest source voxel for all channels."""
     volume = _volume(np.float32, channels=3)
     grid = np.array([[[[-1.5, -1.5, -1.5]]]], dtype=np.float32)
 
@@ -214,7 +212,6 @@ def test_remap3d_numpy_and_tensor_grid_storage_match(
     dtype: type[np.uint8 | np.float32],
     interpolation: int,
 ) -> None:
-    """The NumPy route reads equal caller-owned NumPy and CPU Tensor grid storage identically."""
     volume = _volume(dtype, channels=5)
     grid = _identity_grid(volume.shape[:3])
     grid[:, :, :, 0] += np.float32(0.2)
@@ -237,7 +234,6 @@ def test_remap3d_tensor_volume_preserves_cdhw_and_matches_numpy_route(
     grid_container: str,
     layout: str,
 ) -> None:
-    """The public Tensor route preserves CDHW without mutating either caller-owned input."""
     numpy_volume = _volume(dtype, channels)
     volume = torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
     if layout == "contiguous":
@@ -262,7 +258,6 @@ def test_remap3d_tensor_volume_preserves_cdhw_and_matches_numpy_route(
 
 
 def test_remap3d_tensor_result_feeds_a_trainable_module() -> None:
-    """The no-grad resampling result remains valid input for a downstream trainable module."""
     volume = torch.from_numpy(_volume(np.float32, channels=3)).permute(3, 0, 1, 2).contiguous()
     result = remap3d(volume, _identity_grid((2, 3, 4)), interpolation=cv2.INTER_LINEAR)
     module = torch.nn.Conv3d(3, 1, kernel_size=1)
@@ -313,7 +308,6 @@ def test_remap3d_uses_one_grid_sample_per_volume(
 
 
 def test_remap3d_uint8_restores_after_one_float32_sampling_pass() -> None:
-    """Half-voxel trilinear values receive the documented final saturating round once."""
     volume = np.array([[[[0], [255]]]], dtype=np.uint8)
     grid = _voxel_grid(
         np.array([[[0.5]]], dtype=np.float32),

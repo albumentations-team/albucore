@@ -70,7 +70,6 @@ def test_remap3d_batch_matches_stacked_single_volume_calls(  # noqa: PLR0913, PL
     border_mode: int,
     fill: float | tuple[float, ...] | None,
 ) -> None:
-    """One shared NumPy or Tensor pull grid preserves every single-volume result."""
     source = _volume(dtype, channels=channels, batch=batch_size)
     volumes = source if volume_container == "numpy" else _tensor_batch(source)
     grid_numpy = _grid((2, 5, 4))
@@ -143,7 +142,6 @@ def test_remap3d_batch_identity_grid_allocates_and_empty_batch_uses_grid_shape(c
 
 
 def test_remap3d_batch_accepts_positive_strides_and_preserves_inputs() -> None:
-    """Strided shared grids and non-contiguous volume batches remain unchanged by remap."""
     source = _volume(np.float32, channels=3, batch=2)
     volumes = source[:, :, :, ::-1, :]
     original = volumes.copy()
@@ -175,7 +173,6 @@ def test_remap3d_batch_accepts_read_only_numpy_input() -> None:
 
 
 def test_remap3d_batch_tensor_result_can_feed_a_trainable_torch_module() -> None:
-    """The no-grad sampling result is a normal Tensor for later training layers."""
     volumes = _tensor_batch(_volume(np.float32, channels=3, batch=2)).contiguous()
     volumes_original = volumes.clone()
     grid = torch.from_numpy(_grid((3, 4, 5)))

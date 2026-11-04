@@ -56,7 +56,6 @@ def test_warp_affine3d_batch_property_matches_numpy_and_tensor_single_volume_ref
     size: tuple[int, int, int],
     interpolation: int,
 ) -> None:
-    """Random layouts, channels, dtypes, and sizes preserve per-volume affine results."""
     matrix = np.array(((1.0, 0.03, 0.0, 0.2), (0.0, 0.95, 0.02, -0.15), (0.01, 0.0, 1.0, 0.1)), dtype=np.float32)
     numpy_result = warp_affine3d(volumes, matrix, size, interpolation=interpolation, border_value=3.0)
     expected = np.stack(
@@ -85,7 +84,6 @@ def test_remap3d_batch_property_matches_numpy_and_tensor_single_volume_reference
     sampling_grid: np.ndarray,
     interpolation: int,
 ) -> None:
-    """Random shared grids preserve each source's scalar, border, dtype, and layout behavior."""
     fill = tuple(float(2 + channel) for channel in range(volumes.shape[-1]))
     numpy_result = remap3d(volumes, sampling_grid, interpolation=interpolation, border_value=fill)
     expected = np.stack(

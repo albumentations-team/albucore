@@ -28,7 +28,6 @@ def test_flip_volume_numpy_preserves_dhwc_contract(
     channels: int,
     axes: int | tuple[int, ...],
 ) -> None:
-    """NumPy volume flips preserve the requested native axes and view storage."""
     volume = _numpy_volume(dtype, channels)
 
     result = flip_volume(volume, axes)
@@ -52,7 +51,6 @@ def test_flip_volume_tensor_preserves_cdhw_contract(
     channels: int,
     axes: int | tuple[int, ...],
 ) -> None:
-    """CPU Tensor volume flips preserve the requested native axes, layout, and dtype."""
     volume = torch.arange(channels * 2 * 3 * 5, dtype=torch.int32).reshape(channels, 2, 3, 5).to(dtype)
 
     result = flip_volume(volume, axes)
@@ -73,7 +71,6 @@ def test_transpose_volume_numpy_preserves_dhwc_contract(
     axis1: int,
     axis2: int,
 ) -> None:
-    """NumPy transpose swaps the requested native axes and preserves view storage."""
     volume = _numpy_volume(dtype, channels)
 
     result = transpose_volume(volume, axis1, axis2)
@@ -95,7 +92,6 @@ def test_transpose_volume_tensor_preserves_cdhw_contract(
     axis1: int,
     axis2: int,
 ) -> None:
-    """Tensor transpose swaps the requested native axes with native view stride semantics."""
     volume = torch.arange(channels * 2 * 3 * 5, dtype=torch.int32).reshape(channels, 2, 3, 5).to(dtype)
 
     result = transpose_volume(volume, axis1, axis2)
@@ -118,7 +114,6 @@ def test_rot90_volume_numpy_preserves_dhwc_contract(
     k: int,
     axes: tuple[int, int],
 ) -> None:
-    """NumPy quarter-turns rotate the requested native plane and preserve view storage."""
     volume = _numpy_volume(dtype, channels)
 
     result = rot90_volume(volume, k, axes)
@@ -141,7 +136,6 @@ def test_rot90_volume_tensor_preserves_cdhw_contract(
     k: int,
     axes: tuple[int, int],
 ) -> None:
-    """Tensor quarter-turns rotate the requested native plane with native stride semantics."""
     volume = torch.arange(channels * 2 * 3 * 5, dtype=torch.int32).reshape(channels, 2, 3, 5).to(dtype)
 
     result = rot90_volume(volume, k, axes)
@@ -172,7 +166,6 @@ def test_float16_volume_views_preserve_special_value_bits() -> None:
 
 @pytest.mark.parametrize("operation", ["flip", "transpose", "rot90"])
 def test_volume_geometry_tensor_accepts_strided_cdhw_input(operation: Literal["flip", "transpose", "rot90"]) -> None:
-    """Native Tensor geometry accepts the caller-permitted strided CDHW layout."""
     volume = torch.arange(3 * 2 * 5 * 7, dtype=torch.float32).reshape(3, 2, 5, 7)[:, :, :, ::2]
 
     if operation == "flip":

@@ -41,7 +41,6 @@ def test_warp_affine3d_property_preserves_shape_dtype_range_and_cross_container_
     translation: tuple[float, float, float],
     interpolation: int,
 ) -> None:
-    """Every supported single volume keeps its contract through both public container routes."""
     matrix = _translation(translation)
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
 

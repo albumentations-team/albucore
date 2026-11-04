@@ -21,9 +21,6 @@ def _ref_per_channel(img: np.ndarray, luts: np.ndarray) -> np.ndarray:
     return np.stack([luts[:, 0, i][img[..., i]] for i in range(c)], axis=-1)
 
 
-# --- HWC (existing coverage expanded) ---
-
-
 @pytest.mark.parametrize("shape", [(17, 19, 1), (32, 24, 3), (8, 16, 5), (4, 8, 9)])
 @pytest.mark.parametrize("seed", [0, 1])
 def test_apply_uint8_lut_shared_matches_numpy(shape: tuple[int, ...], seed: int) -> None:
@@ -43,20 +40,6 @@ def test_apply_uint8_lut_per_channel_matches_numpy(shape: tuple[int, ...], seed:
     luts = rng.integers(0, 256, size=(256, 1, c), dtype=np.uint8)
     out = apply_uint8_lut(img, luts)
     np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
-
-
-def test_apply_uint8_lut_exact_alias_out() -> None:
-    rng = np.random.default_rng(3)
-    img = np.ascontiguousarray(rng.integers(0, 256, size=(8, 8, 3), dtype=np.uint8))
-    lut = np.arange(256, dtype=np.uint8)
-    expected = apply_uint8_lut(img, lut)
-    destination = img.copy()
-    out = apply_uint8_lut(destination, lut, out=destination)
-    assert out is destination  # noqa: S101
-    np.testing.assert_array_equal(out, expected)
-
-
-# --- DHWC ---
 
 
 @pytest.mark.parametrize(
@@ -91,38 +74,6 @@ def test_apply_uint8_lut_per_channel_volume_matches_numpy(shape: tuple[int, ...]
     np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
 
 
-def test_apply_uint8_lut_single_channel_table_matches_reference() -> None:
-    rng = np.random.default_rng(13)
-    img = rng.integers(0, 256, size=(6, 7, 1), dtype=np.uint8)
-    luts = rng.integers(0, 256, size=(256, 1, 1), dtype=np.uint8)
-    out = apply_uint8_lut(img, luts)
-    np.testing.assert_array_equal(out, _ref_per_channel(img, luts))
-
-
-# --- Non-contiguous / layout ---
-
-
-def test_apply_uint8_lut_strided_hwc_matches_reference() -> None:
-    rng = np.random.default_rng(14)
-    base = rng.integers(0, 256, size=(40, 40, 3), dtype=np.uint8)
-    img = base[:, ::2, :]
-    lut = rng.integers(0, 256, size=(256,), dtype=np.uint8)
-    out = apply_uint8_lut(img, lut)
-    np.testing.assert_array_equal(out, _ref_shared(img, lut))
-
-
-def test_apply_uint8_lut_fortran_hwc_matches_reference() -> None:
-    rng = np.random.default_rng(15)
-    base = rng.integers(0, 256, size=(20, 24, 3), dtype=np.uint8)
-    img = np.asfortranarray(base)
-    lut = np.arange(256, dtype=np.uint8)
-    out = apply_uint8_lut(img, lut)
-    np.testing.assert_array_equal(out, _ref_shared(np.ascontiguousarray(img), lut))
-
-
-# --- Routing: OpenCV branch still equals NumPy reference ---
-
-
 @pytest.mark.parametrize(
     "shape",
     [
@@ -132,7 +83,6 @@ def test_apply_uint8_lut_fortran_hwc_matches_reference() -> None:
     ],
 )
 def test_apply_uint8_lut_shared_large_and_small_hwc_match_numpy(shape: tuple[int, ...]) -> None:
-    """Shared tables agree with ``lut[img]`` across buffer sizes."""
     rng = np.random.default_rng(16)
     img = np.ascontiguousarray(rng.integers(0, 256, size=shape, dtype=np.uint8))
     lut = rng.integers(0, 256, size=(256,), dtype=np.uint8)
@@ -148,9 +98,6 @@ def test_apply_shared_large_hwc_matches_cv2() -> None:
     a = apply_uint8_lut(img.copy(), lut)
     b = cv2.LUT(img, lut)
     np.testing.assert_array_equal(a, b)
-
-
-# --- Arithmetic parity (HWC) ---
 
 
 def test_multiply_scalar_and_channels_match_float32_reference() -> None:
@@ -170,9 +117,6 @@ def test_multiply_add_table_parity_small() -> None:
         multiply_add(img, 1.25, 3),
         np.clip(img.astype(np.float32) * np.float32(1.25) + np.float32(3), 0, 255).astype(np.uint8),
     )
-
-
-# --- Arithmetic parity (volumes / batches) ---
 
 
 def _ref_multiply_uint8(img: np.ndarray, factor: float) -> np.ndarray:

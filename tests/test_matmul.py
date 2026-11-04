@@ -9,8 +9,6 @@ from albucore import matmul, pairwise_distances_squared
 
 
 class TestMatmul:
-    """Test matmul function."""
-
     @pytest.mark.parametrize(
         "m,k,n",
         [
@@ -26,7 +24,6 @@ class TestMatmul:
     )
     @pytest.mark.parametrize("dtype", [np.float32, np.float64])
     def test_matmul_matches_cv2_gemm(self, m: int, k: int, n: int, dtype: type) -> None:
-        """Verify matmul gives identical results to cv2.gemm."""
         a = np.random.randn(m, k).astype(dtype)
         b = np.random.randn(k, n).astype(dtype)
 
@@ -138,7 +135,6 @@ class TestMatmul:
         np.testing.assert_array_equal(result, expected)
 
     def test_tall_float32_inputs_do_not_emit_runtime_warnings(self) -> None:
-        """Verify finite tall inputs do not trigger spurious NumPy matmul warnings."""
         points = np.linspace(0, 1, 4096 * 2, dtype=np.float32).reshape(4096, 2)
         control_points = np.array(
             [[0, 0], [0, 1], [1, 0], [1, 1], [0.5, 0.5]],
@@ -168,7 +164,6 @@ class TestMatmul:
         b_shape: tuple[int, ...],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Verify the macOS warning gate preserves NumPy's vector matmul behavior."""
         monkeypatch.setattr("albucore.ops_misc._IS_MACOS_ARM64", True)
         a = np.arange(np.prod(a_shape), dtype=np.float32).reshape(a_shape)
         b = np.arange(np.prod(b_shape), dtype=np.float32).reshape(b_shape)
@@ -179,8 +174,6 @@ class TestMatmul:
 
 
 class TestPairwiseDistancesSquared:
-    """Test pairwise_distances_squared function."""
-
     @pytest.mark.parametrize("n,m", [(1, 999), (1, 1000), (25, 40)])
     @pytest.mark.parametrize("as_tensor", [False, True], ids=["numpy", "tensor"])
     def test_zero_coordinates(self, n: int, m: int, as_tensor: bool) -> None:
@@ -263,7 +256,6 @@ class TestPairwiseDistancesSquared:
         np.testing.assert_array_equal(result, expected)
 
     def test_matches_manual_computation(self) -> None:
-        """Verify against manual distance computation."""
         points1 = np.array([[0, 0], [1, 0], [0, 1]], dtype=np.float32)
         points2 = np.array([[0, 0], [1, 1]], dtype=np.float32)
 
@@ -281,9 +273,7 @@ class TestPairwiseDistancesSquared:
         np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-7)
 
     def test_matches_old_cv2_implementation(self) -> None:
-        """Verify against old cv2.multiply + cv2.gemm implementation."""
-
-        # This is what's currently in AlbumentationsX
+        # Former AlbumentationsX implementation.
         def old_implementation(
             points1: np.ndarray,
             points2: np.ndarray,
@@ -339,7 +329,6 @@ class TestPairwiseDistancesSquared:
         np.testing.assert_allclose(result, result.T, rtol=1e-5, atol=1e-7)
 
     def test_triangle_inequality(self) -> None:
-        """Verify triangle inequality: sqrt(d(a,c)) <= sqrt(d(a,b)) + sqrt(d(b,c))."""
         points = np.array([[0, 0], [1, 0], [0.5, 0.5]], dtype=np.float32)
 
         distances_sq = pairwise_distances_squared(points, points)
@@ -348,7 +337,6 @@ class TestPairwiseDistancesSquared:
         for i in range(3):
             for j in range(3):
                 for k in range(3):
-                    # d(i,k) <= d(i,j) + d(j,k)
                     assert distances[i, k] <= distances[i, j] + distances[j, k] + 1e-5
 
     def test_output_dtype_float32(self) -> None:
@@ -406,7 +394,6 @@ class TestPairwiseDistancesSquared:
             np.testing.assert_allclose(result[i, j], expected_dist, rtol=1e-5, atol=1e-6)
 
     def test_tall_float32_inputs_do_not_emit_runtime_warnings(self) -> None:
-        """Verify finite tall inputs do not trigger spurious NumPy matmul warnings."""
         points1 = np.linspace(0, 1, 4096 * 2, dtype=np.float32).reshape(4096, 2)
         points2 = np.array(
             [[0, 0], [0, 1], [1, 0], [1, 1], [0.5, 0.5]],

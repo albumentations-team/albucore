@@ -31,22 +31,6 @@ def hwc_images(
 
 
 @st.composite
-def xhwc_images(draw: st.DrawFn) -> np.ndarray:
-    x_dim = draw(st.sampled_from((2, 3)))
-    height, width = draw(st.sampled_from(NON_SQUARE_HW))
-    channels = draw(st.sampled_from((1, 3)))
-    shape = (x_dim, height, width, channels)
-    arr = draw(
-        hnp.arrays(
-            dtype=np.dtype("float32"),
-            shape=shape,
-            elements=st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False, width=32),
-        ),
-    )
-    return np.ascontiguousarray(arr)
-
-
-@st.composite
 def dhwc_volumes(draw: st.DrawFn) -> np.ndarray:
     """Generate supported non-empty single volumes, including unit axes and high channels."""
     dtype = cast("np.dtype[Any]", draw(st.sampled_from((np.dtype(np.uint8), np.dtype(np.float32)))))

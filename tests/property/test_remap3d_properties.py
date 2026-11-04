@@ -40,7 +40,6 @@ def test_remap3d_property_preserves_shape_dtype_range_and_cross_container_parity
     interpolation: int,
     border_mode: int,
 ) -> None:
-    """Every supported volume and NumPy/Tensor grid preserves the documented public contract."""
     numpy_result = ac.remap3d(
         volume,
         sampling_grid,

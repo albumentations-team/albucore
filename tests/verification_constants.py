@@ -176,21 +176,12 @@ ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
     VALUE_TARGET_DTYPE,
 )
 
-HWC_XHWC: Final[tuple[LayoutName, ...]] = (LAYOUT_HWC, LAYOUT_XHWC)
 ARRAY_IMAGE_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_HWC, LAYOUT_XHWC, LAYOUT_DHWC, LAYOUT_NDHWC)
-IMAGE_ROUTER_LAYOUTS: Final[tuple[LayoutName, ...]] = (
-    *ARRAY_IMAGE_LAYOUTS,
-    LAYOUT_CHW,
-    LAYOUT_NCHW,
-    LAYOUT_CDHW,
-    LAYOUT_NCDHW,
-)
 TENSOR_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CHW, LAYOUT_NCHW, LAYOUT_CDHW, LAYOUT_NCDHW)
 TENSOR_IMAGE_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CHW, LAYOUT_NCHW)
 TENSOR_VOLUME_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CDHW,)
 TENSOR_VOLUME_BATCH_LAYOUTS: Final[tuple[LayoutName, ...]] = (LAYOUT_CDHW, LAYOUT_NCDHW)
 IMAGE_DTYPES: Final[tuple[DTypeName, ...]] = (DTYPE_UINT8, DTYPE_FLOAT16, DTYPE_FLOAT32)
-FLOATING_DTYPES: Final[tuple[DTypeName, ...]] = (DTYPE_FLOAT16, DTYPE_FLOAT32)
 IMAGE_CHANNELS: Final[tuple[ChannelSpec, ...]] = (CHANNEL_1, CHANNEL_3, CHANNEL_4, CHANNEL_GT4)
 SCALAR_VECTOR_ARRAY: Final[tuple[ValueKind, ...]] = (
     VALUE_SCALAR,

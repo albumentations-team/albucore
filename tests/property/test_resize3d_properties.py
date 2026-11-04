@@ -47,7 +47,6 @@ def test_resize3d_numpy_property_preserves_shape_dtype_and_uint8_range(
     volume: np.ndarray,
     size: tuple[int, int, int],
 ) -> None:
-    """Every supported NumPy volume returns the requested DHWC shape under linear antialiasing."""
     result = ac.resize3d(volume, size, interpolation=cv2.INTER_LINEAR, antialias=True)
 
     assert result.shape == (*size, volume.shape[-1])

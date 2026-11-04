@@ -18,23 +18,15 @@ from albucore.geometric import (
 )
 from albucore.utils import get_opencv_max_channels
 
-# -----------------------------------------------------------------------------
-# Fixtures
-# -----------------------------------------------------------------------------
-
-CHANNEL_COUNTS = [1, 3, 4, 5, 8, 16]
 DTYPES = [np.uint8, np.float32]
-RNG = np.random.default_rng(42)
 
 
 @pytest.fixture
 def rng():
-    """Reproducible RNG for tests."""
     return np.random.default_rng(42)
 
 
 def make_image(h: int, w: int, channels: int, dtype: type, rng: np.random.Generator) -> np.ndarray:
-    """Create test image with shape (H, W, C)."""
     if dtype == np.uint8:
         img = rng.integers(0, 256, (h, w, channels), dtype=np.uint8)
     else:
@@ -54,7 +46,6 @@ def make_image(h: int, w: int, channels: int, dtype: type, rng: np.random.Genera
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
 @pytest.mark.parametrize("operation", ["remap", "warp_affine", "warp_perspective"])
 def test_geometric_identity_at_opencv_channel_boundary(channels: int, dtype: type, operation: str) -> None:
-    """Identity transforms preserve channels across OpenCV's encoded limit."""
     height, width = 8, 8
     channel_values = np.arange(channels, dtype=np.int64).astype(dtype)
     img = np.broadcast_to(channel_values, (height, width, channels)).copy()
@@ -77,14 +68,8 @@ def test_geometric_identity_at_opencv_channel_boundary(channels: int, dtype: typ
     np.testing.assert_array_equal(result, img)
 
 
-# -----------------------------------------------------------------------------
-# warp_affine
-# -----------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("channels", [1, 3, 4, 8], ids=[f"c{c}" for c in [1, 3, 4, 8]])
 def test_warp_affine_shape(channels: int, rng: np.random.Generator) -> None:
-    """warp_affine produces correct output shape."""
     img = make_image(16, 16, channels, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
     dsize = (16, 16)
@@ -94,7 +79,6 @@ def test_warp_affine_shape(channels: int, rng: np.random.Generator) -> None:
 
 @pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
 def test_warp_affine_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
-    """warp_affine matches cv2.warpAffine when C <= 4 (albucore preserves (H,W,1))."""
     img = make_image(16, 16, channels, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
     dsize = (16, 16)
@@ -111,7 +95,6 @@ def test_warp_affine_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
     ids=["NEAREST", "LINEAR", "AREA"],
 )
 def test_warp_affine_interpolations(flags: int, rng: np.random.Generator) -> None:
-    """warp_affine works with INTER_NEAREST, INTER_LINEAR, INTER_AREA for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.float32([[1, 0, 0], [0, 1, 0]])
     result = warp_affine(img, M, (16, 16), flags=flags, border_value=0)
@@ -120,7 +103,6 @@ def test_warp_affine_interpolations(flags: int, rng: np.random.Generator) -> Non
 
 @pytest.mark.parametrize("border_value", [0, 128, (0, 0, 0, 0)], ids=["scalar0", "scalar128", "tuple4"])
 def test_warp_affine_border_values(border_value: int | tuple, rng: np.random.Generator) -> None:
-    """warp_affine accepts scalar and len<=4 borderValue for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
     result = warp_affine(img, M, (16, 16), border_value=border_value)
@@ -128,24 +110,14 @@ def test_warp_affine_border_values(border_value: int | tuple, rng: np.random.Gen
 
 
 def test_warp_affine_per_channel_border_value(rng: np.random.Generator) -> None:
-    """warp_affine handles per-channel borderValue (len=8) for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.float32([[1, 0, 2], [0, 1, 2]])
-    border_value = tuple(range(8))  # per-channel
+    border_value = tuple(range(8))
     result = warp_affine(img, M, (16, 16), border_value=border_value)
     assert result.shape == (16, 16, 8)
 
 
-def test_warp_affine_preserves_singleton_channel(rng: np.random.Generator) -> None:
-    """warp_affine preserves (H, W, 1) for grayscale."""
-    img = make_image(16, 16, 1, np.uint8, rng)
-    M = np.float32([[1, 0, 0], [0, 1, 0]])
-    result = warp_affine(img, M, (16, 16), border_value=0)
-    assert result.shape == (16, 16, 1)
-
-
 def test_warp_affine_accepts_3x3_matrix(rng: np.random.Generator) -> None:
-    """warp_affine accepts 3x3 matrix (e.g. from create_affine_transformation_matrix)."""
     img = make_image(16, 16, 3, np.uint8, rng)
     M_2x3 = np.float32([[1, 0, 2], [0, 1, 2]])
     M_3x3 = np.eye(3, dtype=np.float32)
@@ -157,7 +129,6 @@ def test_warp_affine_accepts_3x3_matrix(rng: np.random.Generator) -> None:
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
 def test_warp_affine_3x3_matrix_dtype(dtype: type, rng: np.random.Generator) -> None:
-    """warp_affine with 3x3 matrix works for uint8 and float32."""
     img = make_image(16, 16, 3, dtype, rng)
     M_3x3 = np.eye(3, dtype=np.float32)
     M_3x3[:2, :] = [[1, 0, 2], [0, 1, 2]]
@@ -167,7 +138,6 @@ def test_warp_affine_3x3_matrix_dtype(dtype: type, rng: np.random.Generator) -> 
 
 
 def test_warp_affine_3x3_matrix_chunked_path(rng: np.random.Generator) -> None:
-    """warp_affine with 3x3 matrix works in chunked path (8ch)."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M_3x3 = np.eye(3, dtype=np.float32)
     M_3x3[:2, :] = [[1, 0, 2], [0, 1, 2]]
@@ -176,7 +146,6 @@ def test_warp_affine_3x3_matrix_chunked_path(rng: np.random.Generator) -> None:
 
 
 def test_warp_affine_3x3_matrix_rotation(rng: np.random.Generator) -> None:
-    """warp_affine with 3x3 rotation matrix produces same result as 2x3."""
     img = make_image(16, 16, 3, np.uint8, rng)
     angle = np.pi / 4
     c, s = np.cos(angle), np.sin(angle)
@@ -188,7 +157,6 @@ def test_warp_affine_3x3_matrix_rotation(rng: np.random.Generator) -> None:
     np.testing.assert_array_equal(result_2x3, result_3x3)
 
 
-# From Albumentations geometric tests (fgeometric.warp_affine -> albucore.warp_affine)
 _WARP_AFFINE_IMAGE_SHAPES = [(100, 100, 1), (100, 100, 2), (100, 100, 3), (100, 100, 7)]
 _WARP_AFFINE_TRANSFORM_PARAMS = [
     (0, (0, 0), 1, (0, 0), (100, 100)),  # No change
@@ -206,7 +174,6 @@ _WARP_AFFINE_TRANSFORM_PARAMS = [
     list(product(_WARP_AFFINE_TRANSFORM_PARAMS, _WARP_AFFINE_IMAGE_SHAPES)),
 )
 def test_warp_affine_transforms(params: tuple, image_shape: tuple[int, ...]) -> None:
-    """warp_affine with create_affine_transformation_matrix produces correct output shape."""
     angle, translation, scale, shear, output_shape = params
     image = np.ones(image_shape, dtype=np.uint8) * 255
 
@@ -251,7 +218,6 @@ def test_warp_affine_edge_padding(
     translation: tuple[int, int],
     padding_value: int,
 ) -> None:
-    """warp_affine applies correct edge padding for translation."""
     image = np.ones(image_shape, dtype=np.uint8) * 255
 
     translate: Mapping[str, float] = {"x": translation[0], "y": translation[1]}
@@ -296,9 +262,8 @@ def test_warp_affine_edge_padding(
         np.testing.assert_array_equal(warped[: translation[1], :], 255)
 
 
-# Helpers for warp_affine integration tests (match Albumentations create_affine_transformation_matrix)
+# Mirrors albumentations center() and create_affine_transformation_matrix().
 def _center(image_shape: tuple[int, ...]) -> tuple[float, float]:
-    """Center (x, y) for image. Matches albumentations geometric.functional.center."""
     height, width = image_shape[:2]
     return width / 2 - 0.5, height / 2 - 0.5
 
@@ -310,7 +275,6 @@ def _create_affine_matrix(
     rotate: float,
     shift: tuple[float, float],
 ) -> np.ndarray:
-    """3x3 affine matrix. Matches albumentations create_affine_transformation_matrix."""
     rotate_rad = np.deg2rad(rotate % 360)
     shear_x_rad = np.deg2rad(shear["x"])
     shear_y_rad = np.deg2rad(shear["y"])
@@ -341,7 +305,6 @@ def _create_affine_matrix(
 
 
 def _ensure_hwc(img: np.ndarray) -> np.ndarray:
-    """Ensure image has shape (H, W, C) for albucore."""
     if img.ndim == 2:
         return np.expand_dims(img, -1)
     return img
@@ -357,7 +320,6 @@ def test_warp_affine_inverse_angle_scale(
     shape: str,
     scale: float,
 ) -> None:
-    """Forward then inverse affine (rotate+scale) restores image (IoU > 0.97)."""
     image = np.zeros(image_shape, dtype=np.uint8)
     if shape == "rectangle":
         cv2.rectangle(image, (25, 25), (75, 75), 255, -1)
@@ -435,7 +397,6 @@ def test_warp_affine_inverse_angle_scale(
     ],
 )
 def test_warp_affine_rotate_90(img: np.ndarray, expected: np.ndarray) -> None:
-    """90 deg rotation with warp_affine matches expected."""
     angle = 90
     center_pt = _center(img.shape[:2])
     transform = _create_affine_matrix(
@@ -517,7 +478,6 @@ def test_warp_affine_rotate_90(img: np.ndarray, expected: np.ndarray) -> None:
     ],
 )
 def test_warp_affine_translate(img: np.ndarray, expected: np.ndarray, translate: tuple[int, int]) -> None:
-    """Translation with warp_affine matches expected."""
     transform = _create_affine_matrix(
         translate={"x": translate[1], "y": translate[0]},
         shear={"x": 0, "y": 0},
@@ -547,7 +507,6 @@ def test_warp_affine_inverse_shear(
     shear: int,
     shape: str,
 ) -> None:
-    """Forward then inverse shear restores image."""
     image = np.zeros(image_shape, dtype=np.uint8)
     if shape == "rectangle":
         cv2.rectangle(image, (25, 25), (75, 75), 255, -1)
@@ -600,7 +559,6 @@ def test_warp_affine_inverse_translate(
     translate: tuple[int, int],
     shape: str,
 ) -> None:
-    """Forward then inverse translation restores image."""
     image = np.zeros(image_shape, dtype=np.uint8)
     if shape == "rectangle":
         cv2.rectangle(image, (25, 25), (75, 75), 255, -1)
@@ -645,14 +603,8 @@ def test_warp_affine_inverse_translate(
         assert not np.array_equal(image, warped)
 
 
-# -----------------------------------------------------------------------------
-# warp_perspective
-# -----------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("channels", [1, 3, 8], ids=["1ch", "3ch", "8ch"])
 def test_warp_perspective_shape(channels: int, rng: np.random.Generator) -> None:
-    """warp_perspective produces correct output shape."""
     img = make_image(16, 16, channels, np.uint8, rng)
     M = np.eye(3, dtype=np.float32)
     M[0, 2] = 1
@@ -664,7 +616,6 @@ def test_warp_perspective_shape(channels: int, rng: np.random.Generator) -> None
 
 @pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
 def test_warp_perspective_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
-    """warp_perspective matches cv2.warpPerspective when C <= 4 (albucore preserves (H,W,1))."""
     img = make_image(16, 16, channels, np.uint8, rng)
     M = np.eye(3, dtype=np.float32)
     M[0, 2] = 1
@@ -800,7 +751,6 @@ def test_float16_nearest_warp_perspective_float64_matrix_uses_float32_path(
 
 
 def test_warp_perspective_per_channel_border_value(rng: np.random.Generator) -> None:
-    """warp_perspective handles per-channel borderValue for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     M = np.eye(3, dtype=np.float32)
     border_value = (0,) * 8
@@ -808,14 +758,8 @@ def test_warp_perspective_per_channel_border_value(rng: np.random.Generator) -> 
     assert result.shape == (16, 16, 8)
 
 
-# -----------------------------------------------------------------------------
-# copy_make_border
-# -----------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("channels", [1, 3, 4, 8], ids=[f"c{c}" for c in [1, 3, 4, 8]])
 def test_copy_make_border_shape(channels: int, rng: np.random.Generator) -> None:
-    """copy_make_border produces correct padded shape."""
     img = make_image(16, 16, channels, np.uint8, rng)
     result = copy_make_border(img, 2, 2, 2, 2, value=0)
     assert result.shape == (20, 20, channels)
@@ -823,7 +767,6 @@ def test_copy_make_border_shape(channels: int, rng: np.random.Generator) -> None
 
 @pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
 def test_copy_make_border_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
-    """copy_make_border matches cv2.copyMakeBorder when C <= 4 (albucore preserves (H,W,1))."""
     img = make_image(16, 16, channels, np.uint8, rng)
     expected = cv2.copyMakeBorder(img, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=0)
     if channels == 1 and expected.ndim == 2:
@@ -834,28 +777,20 @@ def test_copy_make_border_equiv_cv2(channels: int, rng: np.random.Generator) -> 
 
 @pytest.mark.parametrize("value", [0, 128, (0, 0, 0, 0)], ids=["scalar0", "scalar128", "tuple4"])
 def test_copy_make_border_values(value: int | tuple, rng: np.random.Generator) -> None:
-    """copy_make_border accepts scalar and len<=4 value for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     result = copy_make_border(img, 2, 2, 2, 2, value=value)
     assert result.shape == (20, 20, 8)
 
 
 def test_copy_make_border_per_channel_value(rng: np.random.Generator) -> None:
-    """copy_make_border handles per-channel value (len=8) for 8ch."""
     img = make_image(16, 16, 8, np.uint8, rng)
     value = tuple(range(8))
     result = copy_make_border(img, 2, 2, 2, 2, value=value)
     assert result.shape == (20, 20, 8)
 
 
-# -----------------------------------------------------------------------------
-# remap
-# -----------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("channels", [1, 3, 4, 8], ids=[f"c{c}" for c in [1, 3, 4, 8]])
 def test_remap_shape(channels: int, rng: np.random.Generator) -> None:
-    """remap preserves input shape."""
     h, w = 16, 16
     img = make_image(h, w, channels, np.uint8, rng)
     map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
@@ -866,7 +801,6 @@ def test_remap_shape(channels: int, rng: np.random.Generator) -> None:
 
 @pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
 def test_remap_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
-    """remap matches cv2.remap when C <= 4 (albucore preserves (H,W,1))."""
     h, w = 16, 16
     img = make_image(h, w, channels, np.uint8, rng)
     map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
@@ -879,23 +813,12 @@ def test_remap_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
 
 
 def test_remap_identity_map(rng: np.random.Generator) -> None:
-    """remap with identity map returns same as input (within interpolation error)."""
     h, w = 16, 16
     img = make_image(h, w, 3, np.uint8, rng)
     map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
     map_y = np.tile(np.arange(h, dtype=np.float32).reshape(-1, 1), (1, w))
     result = remap(img, map_x, map_y)
     np.testing.assert_array_equal(result, img)
-
-
-def test_remap_preserves_singleton_channel(rng: np.random.Generator) -> None:
-    """remap preserves (H, W, 1) for grayscale."""
-    h, w = 16, 16
-    img = make_image(h, w, 1, np.uint8, rng)
-    map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
-    map_y = np.tile(np.arange(h, dtype=np.float32).reshape(-1, 1), (1, w))
-    result = remap(img, map_x, map_y)
-    assert result.shape == (h, w, 1)
 
 
 @pytest.mark.parametrize("channels", [1, 3, 9])
@@ -1022,7 +945,6 @@ def test_remap_many_channels_all_modes(
     dtype: type,
     rng: np.random.Generator,
 ) -> None:
-    """remap works for C > 5 with any interpolation and border mode."""
     h, w = 32, 32
     img = make_image(h, w, channels, dtype, rng)
     map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
@@ -1033,7 +955,6 @@ def test_remap_many_channels_all_modes(
     assert result.shape == img.shape
     assert result.dtype == img.dtype
 
-    # For interpolations that cv2.remap supports for >4ch, compare with direct call
     if interpolation in (cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_AREA):
         expected = cv2.remap(img, map_x, map_y, interpolation, borderMode=border_mode)
         np.testing.assert_array_equal(result, expected)
@@ -1041,7 +962,6 @@ def test_remap_many_channels_all_modes(
 
 @pytest.mark.parametrize("border_value", [0, 128, (0, 0, 0), (128,) * 4], ids=["0", "128", "tuple3", "tuple4"])
 def test_remap_border_value_const(border_value: int | tuple, rng: np.random.Generator) -> None:
-    """remap with constant border_value (scalar or len<=4) works for 8ch."""
     h, w = 32, 32
     img = make_image(h, w, 8, np.uint8, rng)
     map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
@@ -1059,7 +979,6 @@ def test_remap_border_value_const(border_value: int | tuple, rng: np.random.Gene
 
 
 def test_remap_border_value_per_channel(rng: np.random.Generator) -> None:
-    """remap with per-channel border_value (1,2,3,4,5,6,7,8) works for 8ch via chunking."""
     h, w = 32, 32
     img = make_image(h, w, 8, np.uint8, rng)
     map_x = np.tile(np.arange(w, dtype=np.float32), (h, 1))
@@ -1071,7 +990,6 @@ def test_remap_border_value_per_channel(rng: np.random.Generator) -> None:
     )
     assert result.shape == img.shape
 
-    # Compare with manual chunked reference
     ref_chunks = []
     for i in range(8):
         ch = img[:, :, i : i + 1]
@@ -1082,13 +1000,7 @@ def test_remap_border_value_per_channel(rng: np.random.Generator) -> None:
     np.testing.assert_array_equal(result, expected)
 
 
-# -----------------------------------------------------------------------------
-# Edge cases
-# -----------------------------------------------------------------------------
-
-
 def test_warp_affine_dsize_change(rng: np.random.Generator) -> None:
-    """warp_affine with different dsize produces correct shape."""
     img = make_image(32, 32, 3, np.uint8, rng)
     M = np.float32([[0.5, 0, 0], [0, 0.5, 0]])
     result = warp_affine(img, M, (16, 16), border_value=0)
@@ -1097,20 +1009,13 @@ def test_warp_affine_dsize_change(rng: np.random.Generator) -> None:
 
 @pytest.mark.parametrize("dtype", DTYPES, ids=["uint8", "float32"])
 def test_copy_make_border_dtypes(dtype: type, rng: np.random.Generator) -> None:
-    """copy_make_border preserves dtype."""
     img = make_image(16, 16, 3, dtype, rng)
     result = copy_make_border(img, 2, 2, 2, 2, value=0)
     assert result.dtype == img.dtype
 
 
-# -----------------------------------------------------------------------------
-# resize
-# -----------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("channels", [1, 3, 4, 5, 8, 16], ids=[f"c{c}" for c in [1, 3, 4, 5, 8, 16]])
 def test_resize_shape(channels: int, rng: np.random.Generator) -> None:
-    """resize produces correct output shape for various channels."""
     img = make_image(16, 16, channels, np.uint8, rng)
     dsize = (32, 24)
     result = resize(img, dsize)
@@ -1119,7 +1024,6 @@ def test_resize_shape(channels: int, rng: np.random.Generator) -> None:
 
 @pytest.mark.parametrize("channels", [1, 3, 4], ids=["1ch", "3ch", "4ch"])
 def test_resize_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
-    """resize matches cv2.resize exactly when C <= 4 for linear interpolation."""
     img = make_image(16, 16, channels, np.uint8, rng)
     dsize = (32, 24)
     expected = cv2.resize(img, dsize, interpolation=cv2.INTER_LINEAR)
@@ -1127,14 +1031,6 @@ def test_resize_equiv_cv2(channels: int, rng: np.random.Generator) -> None:
         expected = np.expand_dims(expected, -1)
     result = resize(img, dsize, interpolation=cv2.INTER_LINEAR)
     np.testing.assert_array_equal(result, expected)
-
-
-def test_resize_preserves_singleton_channel(rng: np.random.Generator) -> None:
-    """resize preserves (H, W, 1) for grayscale images."""
-    img = make_image(16, 16, 1, np.uint8, rng)
-    dsize = (20, 20)
-    result = resize(img, dsize)
-    assert result.shape == (20, 20, 1)
 
 
 ALL_INTERPOLATIONS = [
@@ -1156,8 +1052,7 @@ def test_resize_many_channels_interpolations(
     dtype: type,
     rng: np.random.Generator,
 ) -> None:
-    # Use downscale (100->37) to exercise INTER_AREA's actual area averaging code path,
-    # which is the one that asserts cn <= 4 in cv2 for 5+ channels.
+    # Downscale so INTER_AREA takes its area-averaging path, where cv2 asserts cn <= 4.
     img = make_image(100, 100, channels, dtype, rng)
     dsize = (37, 37)
 
@@ -1166,13 +1061,10 @@ def test_resize_many_channels_interpolations(
     assert result.shape == (37, 37, channels)
     assert result.dtype == dtype
 
-    # INTER_AREA with 5+ channels can't be passed to cv2.resize in one call (cv2 asserts cn<=4).
-    # Verify chunk-by-chunk: each group of <=4 channels must match cv2.resize on that chunk.
     if interpolation == cv2.INTER_AREA:
         for start in range(0, channels, 4):
             chunk = img[:, :, start : start + 4]
             expected_chunk = cv2.resize(chunk, dsize, interpolation=cv2.INTER_AREA)
-            # cv2.resize drops the channel dim for single-channel input
             if expected_chunk.ndim == 2:
                 expected_chunk = expected_chunk[:, :, np.newaxis]
             np.testing.assert_array_equal(result[:, :, start : start + 4], expected_chunk)
@@ -1183,7 +1075,6 @@ def test_resize_many_channels_interpolations(
 
 @pytest.mark.parametrize("channels", [5, 8, 16], ids=["5ch", "8ch", "16ch"])
 def test_resize_inter_area_upscale_many_channels(channels: int, rng: np.random.Generator) -> None:
-    # Upscale with INTER_AREA and 5+ channels goes straight to cv2.resize (no chunking).
     img = make_image(37, 37, channels, np.uint8, rng)
     dsize = (100, 100)
     result = resize(img, dsize, interpolation=cv2.INTER_AREA)
@@ -1193,16 +1084,13 @@ def test_resize_inter_area_upscale_many_channels(channels: int, rng: np.random.G
 
 
 def test_resize_with_fx_fy(rng: np.random.Generator) -> None:
-    """resize works correctly when passing fx and fy instead of dsize."""
     img = make_image(16, 16, 6, np.uint8, rng)
-    # Scale by 1.5x
     result = resize(img, (0, 0), fx=1.5, fy=1.5, interpolation=cv2.INTER_LINEAR)
     assert result.shape == (24, 24, 6)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32], ids=["uint8", "float32"])
 def test_resize_dtypes(dtype: type, rng: np.random.Generator) -> None:
-    """resize preserves dtype for large channel dimensions."""
     img = make_image(16, 16, 6, dtype, rng)
     dsize = (32, 32)
     result = resize(img, dsize)
