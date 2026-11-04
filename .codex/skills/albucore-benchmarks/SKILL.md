@@ -5,6 +5,13 @@ description: Running Albucore micro-benchmarks under benchmarks/, synthetic rout
 
 # Albucore Benchmarks
 
+## Albucore benchmark scope
+
+Measure Albucore public operations only, including Core-owned dispatch, conversions, allocations and memory costs.
+AX functional, transform, Compose and DataLoader performance campaigns require an explicit user request and never
+become automatic acceptance gates for Core. Choose a matrix for the affected operations and routing boundaries;
+the canonical guide below defines the detailed scope.
+
 Before designing a performance comparison, read `../performance-optimization/SKILL.md` and
 `../../../docs/performance-optimization.md` completely. Extend the benchmark along the dimension that controls the
 candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random

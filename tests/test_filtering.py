@@ -154,3 +154,70 @@ def test_unsharp_positive_threshold_applies_to_every_channel(dtype: type[np.gene
     actual = core.unsharp_mask(image, 3, 1.0, 0.5, 10)
 
     np.testing.assert_array_equal(actual, image)
+
+
+@pytest.mark.parametrize(
+    ("name", "channels"),
+    [
+        ("convolve", 3),
+        ("unsharp_mask", 1),
+        ("unsharp_mask", 2),
+        ("unsharp_mask", 9),
+    ],
+)
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+def test_floating_filters_preserve_nonfinite_and_signed_zero_bits(
+    name: str, channels: int, dtype: type[np.generic]
+) -> None:
+    image = _source(dtype, channels, "contiguous")
+    image.flat[:4] = [np.nan, np.inf, -np.inf, -0.0]
+    image.flags.writeable = False
+    original = image.tobytes()
+
+    with np.errstate(all="ignore"):
+        expected = _reference(image, name)
+        actual = OPERATIONS[name](image)
+
+    unsigned = np.uint16 if dtype == np.float16 else np.uint32
+    np.testing.assert_array_equal(actual.view(unsigned), expected.view(unsigned))
+    assert image.tobytes() == original
+    assert not np.shares_memory(actual, image)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("ksize", [1, 3, 15])
+def test_convolve_matches_legacy_workspace_on_unaligned_inputs(dtype: type[np.generic], ksize: int) -> None:
+    shape = (13, 17, 3)
+    storage = bytearray(np.prod(shape) * np.dtype(dtype).itemsize + 1)
+    image = np.ndarray(shape, dtype=dtype, buffer=storage, offset=1)
+    image[...] = _source(dtype, 3, "contiguous")
+    image.flags.writeable = False
+    original = image.tobytes()
+    working = image.astype(np.float32, order="C") if dtype == np.float16 else image.copy(order="C")
+    kernel = np.full((ksize, ksize), 1 / (ksize * ksize), dtype=np.float32)
+    cv2.filter2D(working, -1, kernel, dst=working)
+    np.clip(working, 0, 255 if dtype == np.uint8 else 1, out=working)
+    actual = core.convolve(image, kernel)
+
+    expected = working.astype(dtype)
+    unsigned = {np.uint8: np.uint8, np.float16: np.uint16, np.float32: np.uint32}[dtype]
+    np.testing.assert_array_equal(actual.view(unsigned), expected.view(unsigned))
+    assert image.tobytes() == original
+    assert not np.shares_memory(actual, image)
+
+
+@pytest.mark.parametrize("channels", [2, 9])
+@pytest.mark.parametrize("threshold", [1, 10, 137, 255])
+def test_unsharp_selection_near_threshold(channels: int, threshold: int) -> None:
+    image = np.zeros((5, 7, channels), dtype=np.float32)
+    gaussian = cv2.getGaussianKernel(3, 1.0, cv2.CV_32F)
+    center = np.float32((threshold / 255) / (1 - gaussian[1, 0] ** 2))
+    image[2, 3] = center
+    image[2, 3, 0] = np.nextafter(center, np.float32(-np.inf))
+    image[2, 3, -1] = np.nextafter(center, np.float32(np.inf))
+    image.flags.writeable = False
+
+    actual = core.unsharp_mask(image, 3, 1.0, 0.5, threshold)
+
+    expected = _reference(image, "unsharp_mask", threshold=threshold)
+    np.testing.assert_array_equal(actual.view(np.uint32), expected.view(np.uint32))

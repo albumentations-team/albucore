@@ -5,6 +5,10 @@ description: Systematic performance audit for Albucore runtime code. Use wheneve
 
 # Performance Optimization
 
+Benchmark Albucore changes through Core public operations only, including their Core-owned dispatch, conversions,
+allocations and memory use. AX functional/transform/Compose performance checks require an explicit user request and
+are not an automatic gate for Core changes. Follow the benchmark scope in the canonical guide below.
+
 Read `../../../docs/performance-optimization.md` completely before inspecting or changing runtime code. That document
 is the canonical shared workflow for Albucore and AlbumentationsX.
 

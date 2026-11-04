@@ -65,7 +65,8 @@ do not write input data; returning a view or the input object is allowed. Return
 when `out` is present. The caller validates its shape, dtype, device, strides, writeability, and supported overlap.
 
 AX owns reusable buffers and any protective copies needed before writing shared storage. Include those copies in
-full AX timing and memory measurements. Do not add hidden pools or caches of large arrays. `clip` follows this
+AX timing and memory only when the user explicitly requests AX performance validation. Albucore performance checks
+cover Core public operations only. Do not add hidden pools or caches of large arrays. `clip` follows this
 contract through keyword-only `out`.
 `multiply_add` follows the same explicit output contract; Tensor calls require layout and compound control aliases must preserve read-before-write order.
 `normalize` writes result-dtype `out`: float16 for float16 input, float32 for uint8/float32. Exact floating source

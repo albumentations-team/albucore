@@ -17,8 +17,6 @@ from albucore.convert import convert_dtype
 from albucore.utils import clip
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from numpy.typing import NDArray
 
     from albucore._types import ImageArrayT
@@ -119,20 +117,23 @@ def convolve(img: ImageArrayT, kernel: NDArray[Any], border_mode: int = cv2.BORD
     Images use HWC with an explicit trailing channel, including C=1.
     """
     input_dtype = img.dtype
-    working = _opencv_working_image(img, copy=True)
+    is_half = img.dtype.type is np.float16
+    reuse_working = is_half or kernel.ndim == 3 or not img.flags.c_contiguous
+    working = _opencv_working_image(img, copy=reuse_working)
+    result = working if reuse_working else np.empty_like(working)
     if kernel.ndim == 2:
-        cv2.filter2D(working, ddepth=-1, kernel=kernel, dst=working, borderType=border_mode)
+        cv2.filter2D(working, ddepth=-1, kernel=kernel, dst=result, borderType=border_mode)
     else:
         for channel, channel_kernel in enumerate(kernel):
-            working[..., channel] = cv2.filter2D(
+            result[..., channel] = cv2.filter2D(
                 working[..., channel],
                 ddepth=-1,
                 kernel=channel_kernel,
                 borderType=border_mode,
             )
-    if input_dtype.type is np.float16:
-        return cast("ImageArrayT", clip(working, dtype=cast("np.dtype[np.float16]", input_dtype)))
-    return cast("ImageArrayT", clip(working, out=working))
+    if is_half:
+        return cast("ImageArrayT", clip(result, dtype=cast("np.dtype[np.float16]", input_dtype)))
+    return cast("ImageArrayT", clip(result, out=result))
 
 
 def linear_transformation_rgb(img: ImageArrayT, transformation_matrix: NDArray[Any]) -> ImageArrayT:
@@ -197,16 +198,10 @@ def unsharp_mask(image: ImageArrayT, ksize: int, sigma: float, alpha: float, thr
     cv2.addWeighted(working, 1.0 + alpha, blurred, -alpha, 0, dst=sharpened)
     if working.dtype == np.float32:
         np.clip(sharpened, 0, 1, out=sharpened)
-    if threshold <= 0:
-        result = sharpened
-    else:
-        diff = cast("np.ndarray", cv2.absdiff(working, blurred))
+    if threshold > 0:
+        cv2.absdiff(working, blurred, dst=blurred)
         threshold_value = threshold / 255.0 if working.dtype == np.float32 else threshold
-        if working.shape[-1] not in {1, 3, 4}:
-            result = np.where(diff > threshold_value, sharpened, working)
-        else:
-            compare = cast("Callable[..., np.ndarray]", cv2.compare)
-            mask = compare(diff, threshold_value, cv2.CMP_GT)
-            result = working if input_dtype.type is np.float16 else working.copy()
-            cv2.copyTo(sharpened, mask, result)
-    return cast("ImageArrayT", convert_dtype(result, input_dtype) if input_dtype.type is np.float16 else result)
+        mask = cv2.compare(blurred, np.array(threshold_value, dtype=np.float64), cv2.CMP_GT)
+        np.bitwise_not(mask, out=mask)
+        cv2.copyTo(working, mask, sharpened)
+    return cast("ImageArrayT", convert_dtype(sharpened, input_dtype) if input_dtype.type is np.float16 else sharpened)

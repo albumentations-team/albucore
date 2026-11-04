@@ -9,7 +9,9 @@ Read [`docs/torch-performance-optimization.md`](../../../docs/torch-performance-
 
 Use Python 3.11 and the newest stable CPU PyTorch release with Python 3.11 wheels on the target platform for final
 acceptance. The recorded release is 2.15.0 on macOS ARM64 and `2.15.0+cpu` on Linux x86-64. Record the exact package
-inventory and confirm the imported Albucore and AX paths before running tests or benchmarks.
+inventory and confirm the imported Albucore path before running tests or benchmarks. Albucore Tensor performance
+checks cover Core public calls and Core-owned bridges only. AX performance validation requires an explicit user
+request; verify AX source paths only for that requested scope.
 
 ## Workflow
 
@@ -26,7 +28,8 @@ inventory and confirm the imported Albucore and AX paths before running tests or
   Use the canonical performance guide for the agreed simplification allowance. Float16/float32 comparisons are
   mandatory diagnostics, while same-dtype measurements determine architecture acceptance.
 - AX owns reusable buffers. Input writes require explicit `out=img`; without `out`, views and identity returns may
-  share storage but must not write it. Count necessary AX protective copies in full-path timing and memory.
+  share storage but must not write it. Measure the Core call with the supplied buffers. Count AX protective copies
+  only when the user explicitly requests AX performance validation.
 - Torch is a required dependency. Assume it is already imported for benchmarks.
 - Current public Tensor routes are eager CPU paths that do not record autograd inside the primitive and do not use `torch.compile`. Do not add device routes, graph-preserving primitive fallbacks, compilation, or their benchmark candidates.
 - Tensor layouts are explicit and independent of NumPy layouts. Do not infer `NCHW` versus `CDHW` from shape sizes.
