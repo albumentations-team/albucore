@@ -33,17 +33,10 @@ import albucore as core
 import cv2
 import numkong as nk
 import numpy as np
-import psutil
 import torch
+from benchmark_output import output_path
 from benchmark_router_synthetic import _bench_interleaved_pair
 from timing import _check_resume_profile
-
-cv2.setNumThreads(0)
-torch.set_num_threads(1)
-torch.set_num_interop_threads(1)
-if sys.platform == "darwin" and not nk.get_capabilities().get("neon"):
-    raise RuntimeError("Native NumKong NEON is required")
-
 
 def cases():
     for op in ("convolve", "convolve_channels", "unsharp_mask"):
@@ -104,16 +97,25 @@ def measure(first, second, samples, target_ns):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-source", type=Path, required=True)
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--output", type=output_path)
     parser.add_argument("--operations", nargs="+", default=["convolve", "convolve_channels", "unsharp_mask"])
     parser.add_argument("--rss-worker", choices=("baseline", "candidate"))
     parser.add_argument("--rss-operation", default="unsharp_mask")
     parser.add_argument("--rss-dtype", default="float32")
     args = parser.parse_args()
+    if not args.rss_worker and args.output is None:
+        parser.error("--output is required unless --rss-worker is set")
+    cv2.setNumThreads(0)
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+    if sys.platform == "darwin" and not nk.get_capabilities().get("neon"):
+        raise RuntimeError("Native NumKong NEON is required")
     spec = importlib.util.spec_from_file_location("filtering_baseline", args.baseline_source)
     baseline = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(baseline)
     if args.rss_worker:
+        import psutil
+
         image, call = workload(
             baseline if args.rss_worker == "baseline" else core,
             (args.rss_operation, 768, 1024, 9, args.rss_dtype, "contiguous", 10),

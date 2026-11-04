@@ -53,6 +53,7 @@ import cv2
 import numkong as nk
 import numpy as np
 import torch
+from benchmark_output import output_path
 from shape_grids import (
     ROUTER_BATCH_STATS_FULL_HW,
     ROUTER_BATCH_STATS_QUICK_HW,
@@ -835,7 +836,7 @@ def _pairwise_bench(alb: Any, dtype: np.dtype, repeats: int, warmup: int) -> Ben
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--output-json", type=str, default="", help="Write full results JSON")
+    p.add_argument("--output-json", type=output_path, help="Write full results JSON")
     p.add_argument("--quick", action="store_true", help="Smaller shape/channel grid (no 1024 HWC)")
     p.add_argument(
         "--with-geometric",
@@ -1162,6 +1163,7 @@ def main() -> None:
     txt = json.dumps(payload, indent=2)
     if args.output_json:
         path = args.output_json
+        path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(txt)
         print(f"Wrote {path}", file=sys.stderr)

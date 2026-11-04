@@ -15,6 +15,8 @@ import tracemalloc
 from itertools import product
 from pathlib import Path
 
+from benchmark_output import output_path
+
 
 def worker(args: argparse.Namespace) -> dict:
     for variable in (
@@ -90,7 +92,7 @@ def worker(args: argparse.Namespace) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-ax", type=Path, required=True)
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--output", type=output_path)
     parser.add_argument("--timing-results", type=Path)
     parser.add_argument("--case")
     parser.add_argument("--variant", choices=("baseline", "candidate"))
@@ -101,6 +103,8 @@ def main() -> None:
     if args.case:
         print(json.dumps(worker(args)))
         return
+    if args.output is None or args.timing_results is None:
+        parser.error("--output and --timing-results are required for parent runs")
     from benchmark_ax_image_kernels import OWNER_MODULES
 
     sys.path.insert(0, str(args.baseline_ax.resolve() / "tools"))

@@ -1,7 +1,7 @@
 """Compare complete XY nearest calls with an unmodified affine3d.py baseline.
 
 Export the baseline with ``git show <revision>:albucore/affine3d.py > /tmp/affine3d_before.py``, then run
-``python benchmarks/benchmark_warp_affine3d_xy_nearest.py --baseline /tmp/affine3d_before.py --output result.json``.
+``python benchmarks/benchmark_warp_affine3d_xy_nearest.py --baseline /tmp/affine3d_before.py --output /tmp/result.json``.
 Timings use the same stem with ``.csv``; JSON holds environment and source metadata.
 """
 
@@ -26,6 +26,7 @@ import benchmark_threads
 import cv2
 import numpy as np
 import torch
+from benchmark_output import output_path
 from benchmark_warp_affine3d_batch import Timing, _time_candidates
 
 import albucore
@@ -174,7 +175,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument(
-        "--output", type=Path, required=True, help="Metadata JSON path; timings use the same stem with .csv."
+        "--output", type=output_path, required=True, help="Metadata JSON path; timings use the same stem with .csv."
     )
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--threads", type=int, default=1)
