@@ -17,7 +17,30 @@ import sys
 from pathlib import Path
 from typing import Any
 
-FACADE_SOURCE = "def box_blur(img, ksize):\n    return albucore.box_blur(img, ksize)\n\ndef convolve(img, kernel, border_mode=cv2.BORDER_DEFAULT):\n    if kernel.ndim not in (2, 3):\n        raise ValueError(f'kernel must have 2 or 3 dimensions, got {kernel.ndim}')\n    channels = 1 if img.ndim == 2 else img.shape[-1]\n    if kernel.ndim == 3 and kernel.shape[0] != channels:\n        raise ValueError(f'Expected one kernel per channel ({channels}), got {kernel.shape[0]}')\n    return albucore.convolve(img, kernel, border_mode)\n\ndef erode(img, kernel):\n    return albucore.erode(img, kernel)\n\ndef dilate(img, kernel):\n    return albucore.dilate(img, kernel)\n\ndef linear_transformation_rgb(img, transformation_matrix):\n    if img.ndim not in (3, 4):\n        raise ValueError(f'Expected input shape (H, W, 3) or (B, H, W, 3), got {img.shape}')\n    return albucore.linear_transformation_rgb(img, transformation_matrix)\n\ndef unsharp_mask(image, ksize, sigma, alpha, threshold):\n    return albucore.unsharp_mask(image, ksize, sigma, alpha, threshold)"
+FACADE_SOURCE = """def box_blur(img, ksize):
+    return albucore.box_blur(img, ksize)
+
+def convolve(img, kernel, border_mode=cv2.BORDER_DEFAULT):
+    if kernel.ndim not in (2, 3):
+        raise ValueError(f'kernel must have 2 or 3 dimensions, got {kernel.ndim}')
+    channels = 1 if img.ndim == 2 else img.shape[-1]
+    if kernel.ndim == 3 and kernel.shape[0] != channels:
+        raise ValueError(f'Expected one kernel per channel ({channels}), got {kernel.shape[0]}')
+    return albucore.convolve(img, kernel, border_mode)
+
+def erode(img, kernel):
+    return albucore.erode(img, kernel)
+
+def dilate(img, kernel):
+    return albucore.dilate(img, kernel)
+
+def linear_transformation_rgb(img, transformation_matrix):
+    if img.ndim not in (3, 4):
+        raise ValueError(f'Expected input shape (H, W, 3) or (B, H, W, 3), got {img.shape}')
+    return albucore.linear_transformation_rgb(img, transformation_matrix)
+
+def unsharp_mask(image, ksize, sigma, alpha, threshold):
+    return albucore.unsharp_mask(image, ksize, sigma, alpha, threshold)"""
 OWNER_MODULES = {
     "box_blur": "albumentations.augmentations.blur.functional",
     "convolve": "albumentations.augmentations.pixel._functional_sharpness",
