@@ -1,5 +1,6 @@
 """Exact storage casts, backend boundaries, and allocation contracts."""
 
+import tracemalloc
 import warnings
 from unittest.mock import Mock
 
@@ -286,3 +287,24 @@ def test_float_cast_output_preserves_numpy_errors(kind, numkong_calls):
             actual = cast_mod._cast_float_numpy(source, np.float16, out=output)
             np.testing.assert_array_equal(actual.view(np.uint16), expected.view(np.uint16))
     assert not numkong_calls
+
+
+@pytest.mark.parametrize("bits", [0x0000, 0x8000, 0x0001, 0x8001, 0x3C00, 0xBC00, 0x7BFF, 0xFBFF, 0x7C00, 0xFC00, 0x7C01, 0xFC01, 0x7E00, 0xFE00, 0x7FFF, 0xFFFF])
+@pytest.mark.parametrize("context", [[0x0000], [0x8000], [0x3C00, 0xBC00], [0x7BFF, 0xFBFF]])
+def test_half_cast_guard_matches_ieee_finiteness(bits: int, context: list[int]) -> None:
+    source = np.array([*context, bits], dtype=np.uint16).view(np.float16).reshape(1, -1, 1)
+
+    assert cast_mod._numkong_cast_preserves_numpy_errors(source) == bool(np.isfinite(source).all())
+
+
+def test_half_cast_guard_has_bounded_temporary_storage() -> None:
+    source = np.linspace(-2, 2, 1024 * 1024 * 3, dtype=np.float32).reshape(1024, 1024, 3).astype(np.float16)
+    cast_mod._numkong_cast_preserves_numpy_errors(source)
+    tracemalloc.start()
+    try:
+        assert cast_mod._numkong_cast_preserves_numpy_errors(source)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < 64 * 1024

@@ -1,8 +1,10 @@
+
+from numpy.typing import NDArray
 import pytest
 import numpy as np
 from albucore import arithmetic
 from albucore import multiply_add
-from albucore._types import ImageType
+
 
 
 @pytest.mark.parametrize(
@@ -123,7 +125,7 @@ def test_multiply_add_float16_numkong_scale_matches_all_non_nan_binary16_values(
     calls = []
     original_numkong = arithmetic._scale_numkong
 
-    def record_numkong(img: ImageType, factor: float, value: float, *, out=None) -> ImageType:
+    def record_numkong(img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], factor: float, value: float, *, out=None) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         calls.append((factor, value))
         return original_numkong(img, factor, value, out=out)
 

@@ -10,7 +10,7 @@ import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ImageType, SupportedDType
+from albucore._types import SupportedDType
 from albucore.lut import _cv2_lut_channel_last
 from albucore.torch_backend import quantize_uint8_torch
 from albucore.utils import MAX_VALUES_BY_DTYPE, get_max_value
@@ -97,7 +97,7 @@ def _convert_dtype_torch(
 
 @overload
 def convert_dtype(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dtype: np.dtype[np.uint8] | type[np.uint8],
     *,
     max_value: float | None = None,
@@ -107,7 +107,7 @@ def convert_dtype(
 
 @overload
 def convert_dtype(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dtype: np.dtype[np.float16] | type[np.float16],
     *,
     max_value: float | None = None,
@@ -117,7 +117,7 @@ def convert_dtype(
 
 @overload
 def convert_dtype(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dtype: np.dtype[np.float32] | type[np.float32],
     *,
     max_value: float | None = None,
@@ -127,7 +127,7 @@ def convert_dtype(
 
 @overload
 def convert_dtype(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dtype: np.dtype[np.uint8] | np.dtype[np.float32] | type[np.uint8] | type[np.float32],
     *,
     max_value: float | None = None,
@@ -137,17 +137,17 @@ def convert_dtype(
 
 @overload
 def convert_dtype(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dtype: SupportedDType,
     *,
     max_value: float | None = None,
     out: None = None,
-) -> ImageType: ...
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: ...
 
 
 @overload
 def convert_dtype(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dtype: np.dtype[_OutputDTypeT] | type[_OutputDTypeT],
     *,
     max_value: float | None = None,
@@ -166,11 +166,11 @@ def convert_dtype(
 
 
 def convert_dtype(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     dtype: np.dtype | type[np.generic] | torch.dtype,
     *,
     max_value: float | None = None,
-    out: ImageType | torch.Tensor | None = None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> np.ndarray | torch.Tensor:
     """Convert an image among uint8, float16, and float32 with intensity scaling.
 
@@ -203,12 +203,16 @@ def convert_dtype(
     numpy_dtype = np.dtype(cast("SupportedDType", dtype))
     if img.dtype == numpy_dtype:
         if out is not None and out is not img:
-            np.copyto(cast("ImageType", out), img)
+            np.copyto(cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", out), img)
         return img if out is None else out
     if img.dtype == np.uint8:
         divisor = MAX_VALUES_BY_DTYPE[img.dtype] if max_value is None else max_value
         lut = (np.arange(256, dtype=np.float32) / divisor).astype(numpy_dtype)
-        return _cv2_lut_channel_last(cast("NDArray[np.uint8]", img), lut, out=cast("ImageType | None", out))
+        return _cv2_lut_channel_last(
+            cast("NDArray[np.uint8]", img),
+            lut,
+            out=cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out),
+        )
     if numpy_dtype.type in (np.float16, np.float32):
         floating_dtype = cast("np.dtype[np.float16 | np.float32]", numpy_dtype)
         return _cast_float_numpy(img, floating_dtype, out=cast("NDArray[np.float16] | NDArray[np.float32] | None", out))

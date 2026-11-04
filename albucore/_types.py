@@ -7,10 +7,10 @@ import torch
 from numpy.typing import NDArray
 
 NormalizationType = Literal["image", "image_per_channel", "min_max", "min_max_per_channel"]
-ImageType: TypeAlias = NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
-ImageInput: TypeAlias = ImageType | torch.Tensor
+
+ImageInput: TypeAlias = NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor
 ImageInputT = TypeVar("ImageInputT", bound=ImageInput)
-ImageArrayT = TypeVar("ImageArrayT", bound=ImageType)
+ImageArrayT = TypeVar("ImageArrayT", bound=NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32])
 ArrayT = TypeVar("ArrayT", bound=np.ndarray)
 TensorLayout: TypeAlias = Literal["CHW", "NCHW", "CDHW", "NCDHW"]
 TensorImageLayout: TypeAlias = Literal["CHW", "NCHW"]
@@ -28,7 +28,6 @@ ValueType = np.ndarray | float | int
 __all__ = [
     "ImageInput",
     "ImageInputT",
-    "ImageType",
     "NormalizationType",
     "SupportedDType",
     "TensorImageLayout",

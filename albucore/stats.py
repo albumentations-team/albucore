@@ -9,7 +9,6 @@ import torch
 from numpy.typing import DTypeLike, NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ImageType
 from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
 from albucore.torch_backend import reduce_sum_torch
 from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, get_opencv_max_channels
@@ -62,11 +61,13 @@ _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.generic)
 __all__ = ["DEFAULT_EPS", "mean", "mean_std", "reduce_sum", "std"]
 
 
-def _is_uint8_image(arr: ImageType) -> TypeGuard[NDArray[np.uint8]]:
+def _is_uint8_image(arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> TypeGuard[NDArray[np.uint8]]:
     return arr.dtype == np.uint8
 
 
-def _is_float32_image(arr: ImageType) -> TypeGuard[NDArray[np.float32]]:
+def _is_float32_image(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+) -> TypeGuard[NDArray[np.float32]]:
     return arr.dtype == np.float32
 
 
@@ -85,7 +86,11 @@ def _per_channel_spatial_axes(arr: np.ndarray) -> tuple[int, ...]:
     return tuple(range(arr.ndim - 1))
 
 
-def _numkong_float16_hwc_stats_eligible(arr: ImageType, axes: tuple[int, ...], keepdims: bool) -> bool:
+def _numkong_float16_hwc_stats_eligible(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    axes: tuple[int, ...],
+    keepdims: bool,
+) -> bool:
     return (
         _NUMKONG_NEON_HALF
         and arr.dtype == np.float16
@@ -99,7 +104,7 @@ def _numkong_float16_hwc_stats_eligible(arr: ImageType, axes: tuple[int, ...], k
 
 
 def _float16_per_channel_torch_minimum(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...] | None,
     keepdims: bool,
 ) -> int | None:
@@ -186,7 +191,7 @@ def _reduce_sum_per_channel_float32(arr: NDArray[np.float32], axes: tuple[int, .
 
 
 def _reduce_sum_per_channel_float16_fastpath(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...] | None,
     *,
     keepdims: bool,
@@ -217,7 +222,7 @@ def _reduce_sum_per_channel_float16_fastpath(
 
 
 def _reduce_sum_float16_torch(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...] | None,
     *,
     keepdims: bool,
@@ -233,7 +238,11 @@ def _reduce_sum_float16_torch(
     return reduce_sum_torch(arr, torch_axes, keepdims=keepdims, minimum_elements=minimum_elements)
 
 
-def _reduce_sum_global_float16_numpy(arr: ImageType, *, keepdims: bool) -> np.float64 | None:
+def _reduce_sum_global_float16_numpy(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    *,
+    keepdims: bool,
+) -> np.float64 | None:
     if (
         arr.dtype != np.float16
         or keepdims
@@ -402,7 +411,7 @@ def reduce_sum(
 
 
 def reduce_sum(
-    arr: ImageType | torch.Tensor,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
@@ -493,7 +502,10 @@ def _global_mean_uint8_only(arr: NDArray[np.uint8]) -> float:
     return float(nk.sum(arr)) / arr.size
 
 
-def _mean_std_per_channel_float64(arr: ImageType, eps: float) -> tuple[np.ndarray, np.ndarray]:
+def _mean_std_per_channel_float64(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    eps: float,
+) -> tuple[np.ndarray, np.ndarray]:
     axes = tuple(range(arr.ndim - 1))
     mean_values = np.asarray(np.mean(arr, axis=axes, dtype=np.float64), dtype=np.float64)
     std_values = np.asarray(np.std(arr, axis=axes, dtype=np.float64) + eps, dtype=np.float64)
@@ -524,7 +536,10 @@ def _mean_std_per_channel_float32(arr: NDArray[np.float32], eps: float) -> tuple
     return means, stds
 
 
-def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarray, np.ndarray]:
+def _mean_std_per_channel_numkong(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    eps: float,
+) -> tuple[np.ndarray, np.ndarray]:
     """Per-channel population mean/std via one NumKong moments call per channel."""
     if arr.dtype == np.float16:
         magnitude_bits = np.bitwise_and(arr.view(np.uint16), 0x7FFF)
@@ -552,7 +567,10 @@ def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarra
     return means, stds
 
 
-def _mean_std_per_channel_opencv(arr: ImageType, eps: float) -> tuple[np.ndarray, np.ndarray]:
+def _mean_std_per_channel_opencv(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    eps: float,
+) -> tuple[np.ndarray, np.ndarray]:
     """Widen half inputs because CV_16F statistics lose subnormal precision."""
     is_half = arr.dtype == np.float16
     work = _cast_float_numpy(arr, np.float32) if is_half else arr
@@ -564,7 +582,10 @@ def _mean_std_per_channel_opencv(arr: ImageType, eps: float) -> tuple[np.ndarray
     return mean_values, std_values
 
 
-def _mean_std_global_float16_opencv(arr: ImageType, eps: float) -> tuple[float, float] | None:
+def _mean_std_global_float16_opencv(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    eps: float,
+) -> tuple[float, float] | None:
     channels = arr.shape[-1]
     if (
         arr.dtype != np.float16
@@ -596,7 +617,10 @@ def _mean_std_global_float16_opencv(arr: ImageType, eps: float) -> tuple[float, 
     return mean_value, float(np.sqrt(max(variance, 0.0))) + eps
 
 
-def _mean_std_global_float16_fallback(arr: ImageType, eps: float) -> tuple[float, float]:
+def _mean_std_global_float16_fallback(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    eps: float,
+) -> tuple[float, float]:
     mean_value = float(np.mean(arr, dtype=np.float64))
     std_value = float(np.std(arr, dtype=np.float64)) + eps
     return mean_value, std_value
@@ -635,7 +659,7 @@ def _mean_std_global_float16_tensor(
 
 
 def _mean_std_global(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     *,
     keepdims: bool,
     eps: float,
@@ -659,7 +683,11 @@ def _mean_std_global(
     return mean_value, std_value
 
 
-def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.ndarray:
+def _mean_global(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    *,
+    keepdims: bool,
+) -> np.floating | float | np.ndarray:
     if _is_uint8_image(arr):
         m = _global_mean_uint8_only(arr)
         if keepdims:
@@ -743,7 +771,12 @@ def _std_global_float16_tensor(
     return result.reshape((1,) * arr.ndim) if keepdims else result
 
 
-def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | float | np.ndarray:
+def _std_global(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    *,
+    keepdims: bool,
+    eps: float,
+) -> np.floating | float | np.ndarray:
     std_value: np.floating | float
     if _is_uint8_image(arr):
         std_value = _global_mean_std_uint8(arr, eps)[1]
@@ -765,7 +798,7 @@ def _std_global(arr: ImageType, *, keepdims: bool, eps: float) -> np.floating | 
 
 
 def _mean_std_per_channel(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...],
     *,
     keepdims: bool,
@@ -813,7 +846,12 @@ def _mean_per_channel_uint8(arr: NDArray[np.uint8], axes: tuple[int, ...], *, ke
     return result
 
 
-def _mean_per_channel_rank4(arr: ImageType, axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
+def _mean_per_channel_rank4(
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    axes: tuple[int, ...],
+    *,
+    keepdims: bool,
+) -> np.ndarray:
     c = arr.shape[-1]
     if arr.dtype == np.float16:
         if c == 1 and arr.size <= _FLOAT16_RANK4_C1_MEAN_TORCH_MAX_ELEMENTS:
@@ -840,7 +878,7 @@ def _mean_per_channel_rank4(arr: ImageType, axes: tuple[int, ...], *, keepdims: 
 
 
 def _mean_per_channel(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...],
     *,
     keepdims: bool,
@@ -876,7 +914,7 @@ def _mean_per_channel(
 
 
 def _std_per_channel(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...],
     *,
     keepdims: bool,
@@ -992,7 +1030,7 @@ def mean_std(
 
 
 def mean_std(
-    arr: ImageType | torch.Tensor,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
@@ -1151,7 +1189,7 @@ def mean(
 
 
 def mean(
-    arr: ImageType | torch.Tensor,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,
@@ -1296,7 +1334,7 @@ def std(
 
 
 def std(
-    arr: ImageType | torch.Tensor,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     axis: AxisSpec = None,
     *,
     keepdims: bool = False,

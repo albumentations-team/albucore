@@ -16,7 +16,7 @@ import torch.nn.functional as torch_f
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ArrayT, ImageType, TensorImageLayout
+from albucore._types import ArrayT, TensorImageLayout
 from albucore.affine3d import warp_affine3d
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
 from albucore.pad3d import pad3d
@@ -202,9 +202,12 @@ def _border_value_for_cv2(
 
 
 def _apply_in_chunks(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     channel_values: np.ndarray,
-    fn: Callable[[ImageType, tuple[float, ...]], ImageType],
+    fn: Callable[
+        [NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], tuple[float, ...]],
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    ],
     dst: np.ndarray | None = None,
 ) -> np.ndarray:
     """Apply fn(chunk, border_value) over groups of ≤4 channels.
@@ -225,7 +228,7 @@ def _apply_in_chunks(
     result: np.ndarray | None = dst
     offset = 0
 
-    def apply(chunk: ImageType, bv: tuple[float, ...]) -> None:
+    def apply(chunk: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], bv: tuple[float, ...]) -> None:
         nonlocal result, offset
         out = np.atleast_3d(fn(chunk, bv))
         if result is None:
@@ -248,21 +251,21 @@ def _apply_in_chunks(
 
 
 def _warp_affine_chunked(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Chunk warpAffine when per-channel border_value has len > 4."""
     channel_values = np.array(border_value, dtype=np.float64).flatten()
     return _apply_in_chunks(
         img,
         channel_values,
         lambda chunk, bv: cast(
-            "ImageType",
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
             cv2.warpAffine(chunk, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv),
         ),
         dst=dst,
@@ -285,8 +288,8 @@ def _warp_affine_float16_nearest(
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | None,
-) -> ImageType | None:
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
     if (
         not img.flags.c_contiguous
         or flags != cv2.INTER_NEAREST
@@ -312,7 +315,7 @@ def _warp_affine_float16_nearest(
         borderValue=0,
         dst=destination,
     )
-    return cast("ImageType", result.view(np.float16))
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result.view(np.float16))
 
 
 def _warp_affine_float16(
@@ -322,8 +325,8 @@ def _warp_affine_float16(
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | None,
-) -> ImageType:
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     result = _warp_affine_float16_nearest(img, m, dsize, flags, border_mode, border_value, dst)
     if result is None:
         wide_result = warp_affine(
@@ -363,23 +366,23 @@ def warp_affine(
     flags: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
 ) -> torch.Tensor: ...
 
 
 def warp_affine(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Affine warp. Drop-in for cv2.warpAffine with multi-channel support.
 
     Accepts 2x3 or 3x3 affine matrix (3x3 uses first two rows).
@@ -426,7 +429,7 @@ def warp_affine(
         )
         return dst if isinstance(dst, torch.Tensor) else result
 
-    dst = cast("ImageType | None", dst)
+    dst = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", dst)
 
     if img.dtype == np.float16:
         return _warp_affine_float16(cast("NDArray[np.float16]", img), m, dsize, flags, border_mode, border_value, dst)
@@ -457,7 +460,7 @@ def warp_affine(
         )(img)
 
     return cast(
-        "ImageType",
+        "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
         cv2.warpAffine(
             img,
             m,
@@ -471,21 +474,21 @@ def warp_affine(
 
 
 def _warp_perspective_chunked(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Chunk warpPerspective when per-channel border_value has len > 4."""
     channel_values = np.array(border_value, dtype=np.float64).flatten()
     return _apply_in_chunks(
         img,
         channel_values,
         lambda chunk, bv: cast(
-            "ImageType",
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
             cv2.warpPerspective(chunk, m, dsize, flags=flags, borderMode=border_mode, borderValue=bv),
         ),
         dst=dst,
@@ -499,8 +502,8 @@ def _warp_perspective_float16_nearest(
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | None,
-) -> ImageType | None:
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
     if (
         not img.flags.c_contiguous
         or m.dtype != np.float32
@@ -527,7 +530,7 @@ def _warp_perspective_float16_nearest(
         borderValue=0,
         dst=destination,
     )
-    return cast("ImageType", result.view(np.float16))
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result.view(np.float16))
 
 
 @overload
@@ -552,23 +555,23 @@ def warp_perspective(
     flags: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
 ) -> torch.Tensor: ...
 
 
 def warp_perspective(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     m: np.ndarray,
     dsize: tuple[int, int],
     flags: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Perspective warp. Drop-in for cv2.warpPerspective with multi-channel support.
 
     OpenCV warpPerspective accepts >4 channels up to its encoded channel limit when:
@@ -599,7 +602,7 @@ def warp_perspective(
     """
     result: np.ndarray | torch.Tensor
     if img.dtype == np.float16:
-        dst = cast("ImageType | None", dst)
+        dst = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", dst)
         nearest_result = _warp_perspective_float16_nearest(
             cast("NDArray[np.float16]", img),
             m,
@@ -641,7 +644,7 @@ def warp_perspective(
         )
         return dst if isinstance(dst, torch.Tensor) else result
 
-    dst = cast("ImageType | None", dst)
+    dst = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", dst)
 
     if img.shape[-1] == 1 and dst is None and dsize[0] > 0 and dsize[1] > 0:
         dst = np.empty((dsize[1], dsize[0], 1), dtype=img.dtype)
@@ -669,7 +672,7 @@ def warp_perspective(
         )(img)
 
     return cast(
-        "ImageType",
+        "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
         cv2.warpPerspective(
             img,
             m,
@@ -683,7 +686,7 @@ def warp_perspective(
 
 
 def _copy_make_border_chunked(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     top: int,
     bottom: int,
     left: int,
@@ -691,14 +694,14 @@ def _copy_make_border_chunked(
     border_type: int,
     value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Chunk copyMakeBorder when per-channel value has len > 4."""
     channel_values = np.array(value, dtype=np.float64).flatten()
     return _apply_in_chunks(
         img,
         channel_values,
         lambda chunk, bv: cast(
-            "ImageType",
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
             cv2.copyMakeBorder(chunk, top, bottom, left, right, borderType=border_type, value=bv),
         ),
         dst=dst,
@@ -729,24 +732,24 @@ def copy_make_border(
     right: int,
     border_type: int = cv2.BORDER_CONSTANT,
     value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
 ) -> torch.Tensor: ...
 
 
 def copy_make_border(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     top: int,
     bottom: int,
     left: int,
     right: int,
     border_type: int = cv2.BORDER_CONSTANT,
     value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Pad image with border. Drop-in for cv2.copyMakeBorder with multi-channel support.
 
     Chunks only when C > 4 AND value is per-channel (len>4, non-uniform). Otherwise
@@ -783,7 +786,7 @@ def copy_make_border(
         )
         return dst if isinstance(dst, torch.Tensor) else result
 
-    dst = cast("ImageType | None", dst)
+    dst = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", dst)
 
     if img.shape[-1] == 1 and dst is None:
         output_height = img.shape[0] + top + bottom
@@ -804,7 +807,7 @@ def copy_make_border(
     border_value_arg = 0.0 if value is None else cast("float | tuple[float, ...]", border_value_cv2)
 
     return cast(
-        "ImageType",
+        "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
         cv2.copyMakeBorder(
             img,
             top,
@@ -819,21 +822,21 @@ def copy_make_border(
 
 
 def _remap_chunked(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     map_x: np.ndarray,
     map_y: np.ndarray,
     interpolation: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray,
     dst: np.ndarray | None = None,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Chunk remap when per-channel border_value has len > 4."""
     channel_values = np.array(border_value, dtype=np.float64).flatten()
     return _apply_in_chunks(
         img,
         channel_values,
         lambda chunk, bv: cast(
-            "ImageType",
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
             cv2.remap(chunk, map_x, map_y, interpolation, borderMode=border_mode, borderValue=bv),
         ),
         dst=dst,
@@ -847,8 +850,8 @@ def _remap_float16_nearest(
     interpolation: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | None,
-) -> ImageType | None:
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
     if (
         not img.flags.c_contiguous
         or not map_x.flags.c_contiguous
@@ -876,7 +879,7 @@ def _remap_float16_nearest(
         borderValue=0,
         dst=destination,
     )
-    return cast("ImageType", result.view(np.float16))
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result.view(np.float16))
 
 
 @overload
@@ -901,23 +904,23 @@ def remap(
     interpolation: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
 ) -> torch.Tensor: ...
 
 
 def remap(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     map_x: np.ndarray,
     map_y: np.ndarray,
     interpolation: int = cv2.INTER_LINEAR,
     border_mode: int = cv2.BORDER_CONSTANT,
     border_value: float | tuple[float, ...] | np.ndarray | None = None,
-    dst: ImageType | torch.Tensor | None = None,
+    dst: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Remap image. Drop-in for cv2.remap with multi-channel support.
 
     cv2.remap works for >4 channels up to its encoded channel limit when
@@ -960,7 +963,7 @@ def remap(
         )
         return dst if isinstance(dst, torch.Tensor) else result
 
-    dst = cast("ImageType | None", dst)
+    dst = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", dst)
 
     if img.dtype == np.float16:
         nearest_result = _remap_float16_nearest(
@@ -1014,7 +1017,7 @@ def remap(
         )(img)
 
     return cast(
-        "ImageType",
+        "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
         cv2.remap(
             img,
             map_x,
@@ -1028,12 +1031,12 @@ def remap(
 
 
 def _resize_float16_nearest(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dsize: tuple[int, int],
     fx: float,
     fy: float,
     interpolation: int,
-) -> ImageType | None:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
     if interpolation != cv2.INTER_NEAREST or dsize[0] <= 0 or dsize[1] <= 0:
         return None
 
@@ -1054,7 +1057,7 @@ def _resize_float16_nearest(
     source_u16 = img.view(np.uint16)
     destination = np.empty((dsize[1], dsize[0], img.shape[-1]), dtype=np.uint16)
     result_u16 = cv2.resize(source_u16, dsize, fx=fx, fy=fy, interpolation=interpolation, dst=destination)
-    return cast("ImageType", result_u16.view(np.float16))
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result_u16.view(np.float16))
 
 
 def _resolve_resize_dsize(
@@ -1082,19 +1085,22 @@ def _resolve_resize_dsize(
 
 
 def _resize_numpy(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dsize: tuple[int, int],
     fx: float,
     fy: float,
     interpolation: int,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if img.shape[-1] == 1 and dsize[0] > 0 and dsize[1] > 0:
         destination = np.empty((dsize[1], dsize[0], 1), dtype=img.dtype)
         return cast(
-            "ImageType",
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
             cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation, dst=destination),
         )
-    return cast("ImageType", cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation))
+    return cast(
+        "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
+        cv2.resize(img, dsize, fx=fx, fy=fy, interpolation=interpolation),
+    )
 
 
 def _resize_tensor_float16(
@@ -1157,14 +1163,14 @@ def resize(
 
 
 def resize(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     dsize: tuple[int, int],
     fx: float = 0.0,
     fy: float = 0.0,
     interpolation: int = cv2.INTER_LINEAR,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Resize image. Drop-in for cv2.resize with full multi-channel support.
 
     cv2.resize with INTER_AREA asserts cn <= 4 internally on downscale, so 5+ channel images

@@ -9,7 +9,7 @@ import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ImageArrayT, ImageType, TensorLayout
+from albucore._types import ImageArrayT, TensorLayout
 from albucore.tensor_bridge import _CHANNEL_LAST_TO_TENSOR, tensor_to_numpy_channel_last
 from albucore.utils import get_num_channels, get_opencv_max_channels
 
@@ -22,7 +22,7 @@ _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 def _blend_numkong(
     img1: ImageArrayT,
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
     out: ImageArrayT | None = None,
@@ -45,7 +45,7 @@ def _blend_numkong(
 def _blend_opencv(
     img1: ImageArrayT,
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
     out: ImageArrayT | None = None,
@@ -61,9 +61,9 @@ def _blend_opencv(
 
 
 def _blend_numpy(
-    img1: ImageType,
+    img1: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
     out: NDArray[np.float32] | None = None,
@@ -84,13 +84,13 @@ def _blend_numpy(
 
 
 def _blend_array(
-    img1: ImageType,
+    img1: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
-    out: ImageType | None,
-) -> ImageType:
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if img1.size == 0:
         return img1 if out is None else out
     if img1.dtype == np.float16:
@@ -120,13 +120,13 @@ def _blend_array(
 
 
 def _blend_batch(
-    first: ImageType,
+    first: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight1: float,
-    second: ImageType,
+    second: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
-    out: ImageType | None,
-) -> ImageType:
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     result = np.empty_like(first, order="C") if out is None else out
     for index in range(first.shape[0]):
         _blend_array(first[index], weight1, second[index], weight2, out=result[index])
@@ -174,7 +174,7 @@ def _blend_tensor(
 def add_weighted(
     img1: NDArray[np.uint8],
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
     out: NDArray[np.uint8] | None = None,
@@ -186,7 +186,7 @@ def add_weighted(
 def add_weighted(
     img1: NDArray[np.float16],
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
     out: NDArray[np.float16] | None = None,
@@ -198,7 +198,7 @@ def add_weighted(
 def add_weighted(
     img1: NDArray[np.float32],
     weight1: float,
-    img2: ImageType,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
     *,
     out: NDArray[np.float32] | None = None,
@@ -219,14 +219,14 @@ def add_weighted(
 
 
 def add_weighted(
-    img1: ImageType | torch.Tensor,
+    img1: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     weight1: float,
-    img2: ImageType | torch.Tensor,
+    img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     weight2: float,
     *,
-    out: ImageType | torch.Tensor | None = None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     layout: TensorLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Blend matching images as ``img1 * weight1 + img2 * weight2``.
 
     Both operands have the same shape, dtype and container. NumPy arrays are channel-last;
@@ -267,4 +267,10 @@ def add_weighted(
             cast("TensorLayout", layout),
             out=cast("torch.Tensor | None", out),
         )
-    return _blend_array(img1, weight1, cast("ImageType", img2), weight2, out=cast("ImageType | None", out))
+    return _blend_array(
+        img1,
+        weight1,
+        cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", img2),
+        weight2,
+        out=cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out),
+    )

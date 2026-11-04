@@ -180,7 +180,10 @@ from albucore.utils import (
 Use clear docstrings with examples:
 
 ```python
-def function_name(img: ImageType, param: ValueType) -> ImageType:
+def function_name(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    param: ValueType,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Brief description.
 
     Detailed explanation of what the function does and when to use it.

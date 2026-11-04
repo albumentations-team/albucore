@@ -9,7 +9,7 @@ import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ImageType, NormalizationType, ValueType
+from albucore._types import NormalizationType, ValueType
 from albucore.lut import _apply_float_lut
 from albucore.stats import DEFAULT_EPS, mean_std
 from albucore.tensor_bridge import (
@@ -38,7 +38,7 @@ def _single_channel_stats(img: NDArray[np.float32]) -> tuple[float, float]:
     return float(img.mean()), float(img.std()) + DEFAULT_EPS
 
 
-def _channel_stats(img: ImageType) -> tuple[np.ndarray, np.ndarray]:
+def _channel_stats(img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> tuple[np.ndarray, np.ndarray]:
     center, std = mean_std(img, "per_channel", eps=DEFAULT_EPS)
     return np.asarray(center, dtype=np.float64), np.asarray(std, dtype=np.float64)
 
@@ -252,7 +252,7 @@ def normalize_per_image(
 
 
 def normalize_per_image(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     normalization: NormalizationType,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
@@ -309,7 +309,7 @@ def normalize_per_image(
 
 
 def _affine_numpy(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     mean: float | np.ndarray,
     denominator: float | np.ndarray,
     *,
@@ -621,7 +621,7 @@ def normalize(
 
 
 def normalize(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     mean: ValueType | torch.Tensor,
     denominator: ValueType | torch.Tensor,
     *,

@@ -118,7 +118,7 @@ operands use the native CPU operation when that preserves the declared result dt
 - `warp_affine3d` and `remap3d` retain their `DHWC`/`CDHW` single-volume calls and also accept NumPy `NDHWC` and CPU Torch `NCDHW` batches. Other 3D routers continue to accept one volume per call.
 - **3D constant padding:** `pad3d` takes NumPy DHWC or CPU Torch CDHW and spatial padding `(front, back, top, bottom, left, right)`. It supports uint8/float16/float32 volumes and int16 masks, preserves dtype and channel count, and follows NumPy fill semantics.
 - **Utils:** see `utils.__all__` in [`albucore/utils.py`](../albucore/utils.py)
-- **Types / constants:** `ImageInput`, `ImageInputT`, `ImageType`, `SupportedDType`, `TensorLayout`, `NormalizationType`, `ValueType`, and shared routing constants.
+- **Types / constants:** `ImageInput`, `ImageInputT`, `SupportedDType`, `TensorLayout`, `NormalizationType`, `ValueType`, and shared routing constants.
 - **Metadata:** `__version__`, `__author__`, `__maintainer__`
 
 `add_weighted(img1, weight1, img2, weight2, *, out=...)` preserves the matching input dtype and container.
