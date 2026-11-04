@@ -66,6 +66,7 @@ def worker(args: argparse.Namespace) -> dict:
         _, allocation_peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
     steady = process.memory_info().rss
+    # Includes imports and input preparation; this is not a call-scoped peak.
     high_water = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     high_water *= 1 if sys.platform == "darwin" else 1024
     result = call()

@@ -122,6 +122,7 @@ def main():
         gc.collect()
         before = process.memory_info().rss
         repeat(call, 10)
+        # Includes imports and input preparation; this is not a call-scoped peak.
         peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024)
         print(json.dumps({"before": before, "peak": peak, "steady": process.memory_info().rss}))
         return
