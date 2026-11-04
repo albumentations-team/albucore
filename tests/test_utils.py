@@ -174,7 +174,6 @@ def test_get_num_channels_and_is_grayscale_consistency(shape):
     num_channels = get_num_channels(image)
     is_grayscale = is_grayscale_image(image)
 
-    # is_grayscale should be True if and only if num_channels == 1
     assert (num_channels == 1) == is_grayscale, (
         f"Inconsistency for shape {shape}: num_channels={num_channels}, is_grayscale={is_grayscale}"
     )
@@ -219,9 +218,8 @@ def test_get_image_data_batch_of_images(dtype, shape):
 
     assert isinstance(result, dict)
     assert result["dtype"] == dtype
-    # For batch of images, should return actual image dimensions
-    assert result["height"] == shape[1]  # Actual height
-    assert result["width"] == shape[2]  # Actual width
+    assert result["height"] == shape[1]
+    assert result["width"] == shape[2]
 
 
 @pytest.mark.parametrize(
@@ -239,9 +237,8 @@ def test_get_image_data_volume(dtype, shape):
 
     assert isinstance(result, dict)
     assert result["dtype"] == dtype
-    # For a volume, return the image dimensions after the depth axis.
-    assert result["height"] == shape[1]  # Actual height
-    assert result["width"] == shape[2]  # Actual width
+    assert result["height"] == shape[1]
+    assert result["width"] == shape[2]
 
 
 @pytest.mark.parametrize(
@@ -395,11 +392,6 @@ def test_get_image_data_returns_correct_keys():
 def test_get_image_data_shape_extraction_behavior(
     key, shape, expected_height, expected_width, expected_num_channels, description
 ):
-    """Test documenting the correct behavior of shape extraction.
-
-    The implementation should correctly identify image dimensions by skipping
-    batch and depth dimensions based on the key type.
-    """
     arr = np.zeros(shape)
     result = get_image_data({key: arr})
     assert (result["height"], result["width"], result["num_channels"]) == (

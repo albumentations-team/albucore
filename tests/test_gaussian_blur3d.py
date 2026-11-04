@@ -11,7 +11,6 @@ from albucore import gaussian_blur3d, separable_filter3d
 
 
 def test_gaussian_blur3d_smooths_the_depth_axis_without_touching_channels() -> None:
-    """An anisotropic depth-only sigma produces the documented discrete 1D Gaussian."""
     volume = np.zeros((5, 1, 1, 2), dtype=np.float32)
     volume[2, 0, 0, 0] = 1.0
 
@@ -57,7 +56,6 @@ def test_gaussian_blur3d_numpy_and_torch_paths_have_one_contract(
     dtype: type[np.uint8 | np.float32],
     channels: int,
 ) -> None:
-    """Both documented layouts execute the same three-pass kernel without changing the input."""
     rng = np.random.default_rng(20260805)
     shape = (3, 5, 7, channels)
     volume: np.ndarray
@@ -81,7 +79,6 @@ def test_gaussian_blur3d_numpy_and_torch_paths_have_one_contract(
 
 @pytest.mark.parametrize("container", ["numpy", "torch"])
 def test_gaussian_blur3d_zero_sigmas_return_the_original_container(container: str) -> None:
-    """A no-op Gaussian has no allocation or hidden container conversion."""
     numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3), dtype=np.float32)
     volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
 
@@ -90,7 +87,6 @@ def test_gaussian_blur3d_zero_sigmas_return_the_original_container(container: st
 
 @pytest.mark.parametrize("container", ["numpy", "torch"])
 def test_gaussian_blur3d_float64_falls_back_to_float32(container: str) -> None:
-    """An unexpected float64 input follows the documented float32 working/output contract."""
     numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3)).astype(np.float64)
     volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
     expected = gaussian_blur3d(numpy_volume.astype(np.float32), sigma=(0.75, 1.25, 0.0), kernel_size=(5, 0, 0))
@@ -109,7 +105,6 @@ def test_gaussian_blur3d_float64_falls_back_to_float32(container: str) -> None:
 
 @pytest.mark.parametrize("container", ["numpy", "torch"])
 def test_separable_filter3d_identity_converts_float64_to_float32(container: str) -> None:
-    """The no-op fast path has the same float64 fallback as a non-identity filter."""
     numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3)).astype(np.float64)
     volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
     identity = np.ones(1, dtype=np.float32)
@@ -148,7 +143,6 @@ def test_separable_filter3d_converts_float64_kernels_to_float32(container: str) 
 
 
 def test_separable_filter3d_restores_uint8_once_after_all_passes() -> None:
-    """The uint8 path clips only the final float32 result and keeps all input channels."""
     volume = np.full((3, 5, 7, 5), 255, dtype=np.uint8)
     kernel = np.array((2.0,), dtype=np.float32)
     kernels = kernel, kernel, kernel
@@ -160,7 +154,6 @@ def test_separable_filter3d_restores_uint8_once_after_all_passes() -> None:
 
 
 def test_separable_filter3d_does_not_clip_uint8_between_passes() -> None:
-    """A value above 255 between passes is restored only after the final pass."""
     volume = np.full((3, 5, 7, 1), 200, dtype=np.uint8)
     kernels = (
         np.array((2.0,), dtype=np.float32),

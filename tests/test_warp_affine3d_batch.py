@@ -62,7 +62,6 @@ def test_warp_affine3d_batch_matches_stacked_single_volume_calls(  # noqa: PLR09
     border_mode: int,
     fill: tuple[float, ...] | None,
 ) -> None:
-    """One shared matrix preserves every single-volume result across the batch axis."""
     volumes = _volume(dtype, channels, batch=batch_size)
     volumes = volumes if container == "numpy" else _tensor_batch(volumes)
     matrix = _matrix()
@@ -116,7 +115,6 @@ def test_warp_affine3d_batch_matches_stacked_single_volume_calls(  # noqa: PLR09
 
 @pytest.mark.parametrize("container", ["numpy", "tensor"])
 def test_warp_affine3d_batch_identity_aliases_and_empty_batch_uses_requested_shape(container: str) -> None:
-    """Exact identity preserves storage, while a real empty warp returns its requested shape."""
     volumes = _volume(np.float32, channels=3, batch=0)
     matrix = np.eye(4, dtype=np.float32)
     volumes = volumes if container == "numpy" else _tensor_batch(volumes)
@@ -133,7 +131,6 @@ def test_warp_affine3d_batch_identity_aliases_and_empty_batch_uses_requested_sha
 
 @pytest.mark.parametrize("container", ["numpy", "tensor"])
 def test_warp_affine3d_batch_accepts_homogeneous_matrix_and_preserves_input(container: str) -> None:
-    """The 4x4 encoding matches the 3x4 transform without mutating the batch."""
     volumes = _volume(np.float32, channels=3)
     source = volumes.copy()
     volumes = volumes if container == "numpy" else _tensor_batch(volumes).contiguous()
@@ -157,7 +154,6 @@ def test_warp_affine3d_batch_accepts_homogeneous_matrix_and_preserves_input(cont
 
 
 def test_warp_affine3d_batch_supports_strided_numpy_and_tensor_batches() -> None:
-    """Positive and negative NumPy strides and non-contiguous NCDHW views match the reference."""
     source = _volume(np.float32, channels=3, batch=2)
     numpy_volumes = source[:, :, :, ::-1, :]
     expected = np.stack([warp_affine3d(item, _matrix(), (2, 3, 5)) for item in numpy_volumes])
@@ -183,7 +179,6 @@ def test_warp_affine3d_batch_accepts_read_only_numpy_input() -> None:
 
 @pytest.mark.parametrize("shape", [(1, 3, 5), (3, 1, 5), (3, 4, 1)], ids=("unit_d", "unit_h", "unit_w"))
 def test_warp_affine3d_batch_preserves_unit_input_axes(shape: tuple[int, int, int]) -> None:
-    """Sampling accepts a unit depth, height, or width axis in both declared layouts."""
     source = np.arange(2 * np.prod(shape) * 3, dtype=np.float32).reshape((2, *shape, 3))
     matrix = np.eye(4, dtype=np.float32)
     matrix[0, 3] = 0.25
@@ -198,7 +193,6 @@ def test_warp_affine3d_batch_preserves_unit_input_axes(shape: tuple[int, int, in
 
 
 def test_warp_affine3d_batch_result_can_feed_a_trainable_torch_module() -> None:
-    """Sampling runs without autograd while its result remains usable by downstream training layers."""
     volumes = _tensor_batch(_volume(np.float32, channels=1, batch=2))
     layer = torch.nn.Conv3d(1, 1, kernel_size=1)
 

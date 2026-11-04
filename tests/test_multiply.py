@@ -61,7 +61,6 @@ from albucore import convert_value, multiply
                 [[[-0.1, 0.1, -0.075], [0.2, -0.5, 0.9]], [[-1.05, 1.6, -0.45], [0.25, -0.825, 1.2]]], dtype=np.float32
             ),
         ),
-        # Clipping effect test for uint8
         (
             np.array([[[100, 150, 200], [250, 255, 100]], [[50, 75, 125], [175, 200, 225]]], dtype=np.uint8),
             2.0,
@@ -72,7 +71,6 @@ from albucore import convert_value, multiply
             2.0,
             np.array([[[0.2, 0.4, 0.6], [0.8, 1.0, 1.2]], [[1.4, 1.6, 1.8], [2.0, 2.2, 2.4]]], dtype=np.float32),
         ),
-        # New test case 7: Multiplier as a vector, image of type uint8 with 4 channels
         (
             np.array([[[1, 2, 3, 4], [5, 6, 7, 8]], [[9, 10, 11, 12], [13, 14, 15, 16]]], dtype=np.uint8),
             np.array([0.5, 1.5, 2.0, 2.5], dtype=np.float32),
@@ -83,7 +81,6 @@ from albucore import convert_value, multiply
             np.array([-0.5, 1.5, 2.0, -2.5], dtype=np.float32),
             np.array([[[0, 3, 6, 0], [0, 9, 14, 0]], [[0, 15, 22, 0], [0, 21, 30, 0]]], dtype=np.uint8),
         ),
-        # New test case 8: Multiplier as a vector, image of type float32 with 4 channels
         (
             np.array(
                 [[[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], [[0.9, 1.0, 1.1, 1.2], [1.3, 1.4, 1.5, 1.6]]],

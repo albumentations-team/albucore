@@ -88,7 +88,6 @@ def test_warp_affine3d_identity_preserves_public_container_dtype_and_aliasing(
     dtype: type[np.uint8 | np.float32],
     channels: int,
 ) -> None:
-    """Exact identity is a no-allocation fast path for both documented single-volume layouts."""
     volume = _volume(dtype, channels)
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     matrix = np.eye(4, dtype=np.float32)
@@ -143,7 +142,6 @@ def test_warp_affine3d_replicate_border_uses_the_nearest_edge_voxel() -> None:
 
 @pytest.mark.parametrize("axis", [0, 1, 2], ids=["depth", "height", "width"])
 def test_warp_affine3d_nearest_reflection_matches_numpy_flip(axis: int) -> None:
-    """Forward reflections in x/y/z map to the corresponding explicit volume axis."""
     volume = _volume(np.uint8, channels=5)
     matrix = np.eye(4, dtype=np.float32)
     coordinate_axis = 2 - axis
@@ -181,7 +179,6 @@ def test_warp_affine3d_nearest_90_degree_rotations_match_numpy_rot90(
     size: tuple[int, int, int],
     axes: tuple[int, int],
 ) -> None:
-    """A 90-degree rotation over every spatial-axis pair uses the documented x/y/z order."""
     volume = _volume(np.uint8, channels=5)
 
     result = warp_affine3d(volume, matrix, size, interpolation=cv2.INTER_NEAREST)
@@ -190,7 +187,6 @@ def test_warp_affine3d_nearest_90_degree_rotations_match_numpy_rot90(
 
 
 def test_warp_affine3d_in_plane_d1_rotation_matches_2d_warp_affine() -> None:
-    """The D=1 in-plane convention agrees with the existing public 2D geometric router."""
     volume = _volume(np.uint8, channels=3)[:1]
     matrix_3d = np.array(((0.0, 1.0, 0.0, 0.0), (-1.0, 0.0, 0.0, 4.0), (0.0, 0.0, 1.0, 0.0)), dtype=np.float32)
     matrix_2d = matrix_3d[:2, (0, 1, 3)]
@@ -207,7 +203,6 @@ def test_warp_affine3d_numpy_and_torch_paths_match_after_layout_conversion(
     dtype: type[np.uint8 | np.float32],
     interpolation: int,
 ) -> None:
-    """The NumPy bridge and direct CPU Tensor path have one shared sampling contract."""
     volume = _volume(dtype, channels=5)
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
     matrix = np.array(
@@ -229,7 +224,6 @@ def test_warp_affine3d_numpy_and_torch_paths_match_after_layout_conversion(
 
 
 def test_warp_affine3d_linear_matches_an_independent_numpy_trilinear_reference() -> None:
-    """Arbitrary trilinear sampling follows the public forward matrix and constant fill semantics."""
     volume = _volume(np.float32, channels=3)
     matrix = np.array(
         (
@@ -307,7 +301,6 @@ def test_warp_affine3d_accepts_read_only_numpy_storage_with_a_repair_copy() -> N
 
 
 def test_warp_affine3d_accepts_noncontiguous_torch_cdhw() -> None:
-    """Torch sampling consumes an existing strided CDHW view without a public layout repair."""
     volume = torch.from_numpy(_volume(np.float32, channels=5)).permute(3, 0, 1, 2)[:, :, :, ::2]
 
     result = warp_affine3d(volume, _translation(), (2, 3, 4))
@@ -317,7 +310,6 @@ def test_warp_affine3d_accepts_noncontiguous_torch_cdhw() -> None:
 
 
 def test_warp_affine3d_output_can_feed_a_trainable_torch_module() -> None:
-    """A non-autograd input still produces a normal Tensor usable by later training layers."""
     volume = torch.from_numpy(_volume(np.float32, channels=1)).permute(3, 0, 1, 2)
     layer = torch.nn.Conv3d(1, 1, kernel_size=1)
 
@@ -329,7 +321,6 @@ def test_warp_affine3d_output_can_feed_a_trainable_torch_module() -> None:
 
 
 def test_warp_affine3d_3x4_and_homogeneous_4x4_matrices_are_equivalent() -> None:
-    """The two documented affine matrix encodings produce the same output."""
     volume = _volume(np.float32, channels=3)
     matrix_3x4 = _translation(x=0.75, y=-0.25, z=0.5)
     matrix_4x4 = np.eye(4, dtype=np.float32)

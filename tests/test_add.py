@@ -139,7 +139,6 @@ from albucore import add, arithmetic, convert_value
             np.array([[[0.1, -0.2, 0.3], [-0.4, 0.5, -0.6]], [[-0.7, 0.8, -0.9], [1.0, -1.1, 1.2]]], dtype=np.float32),
             np.array([[[0.2, 0.0, 0.6], [0.0, 1.0, 0.0]], [[0.0, 1.6, 0.0], [2.0, 0.0, 2.4]]], dtype=np.float32),
         ),
-        # Clipping effect test for uint8
         (
             np.array([[[100, 150, 200], [250, 255, 100]], [[50, 75, 125], [175, 200, 225]]], dtype=np.uint8),
             60,

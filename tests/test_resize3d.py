@@ -47,7 +47,6 @@ def test_resize3d_numpy_preserves_public_contract(
     size: tuple[int, int, int],
     interpolation: int,
 ) -> None:
-    """NumPy DHWC accepts 1 and high channel counts while preserving dtype and requested shape."""
     volume = _numpy_volume(dtype, channels)
 
     result = resize3d(volume, size, interpolation=interpolation)
@@ -92,7 +91,6 @@ def test_resize3d_numpy_falls_back_when_joint_hw_packing_exceeds_opencv_limit() 
 
 
 def test_resize3d_numpy_accepts_noncontiguous_dhwc() -> None:
-    """Axis packing correctly handles a valid DHWC view with non-contiguous spatial strides."""
     volume = _numpy_volume(np.float32, channels=5)[:, :, ::2, :]
 
     result = resize3d(volume, (4, 6, 8))
@@ -102,7 +100,6 @@ def test_resize3d_numpy_accepts_noncontiguous_dhwc() -> None:
 
 
 def test_resize3d_numpy_identity_returns_input() -> None:
-    """A NumPy identity resize neither allocates nor changes the input container."""
     volume = _numpy_volume(np.uint8, channels=3)
 
     assert resize3d(volume, volume.shape[:3]) is volume
@@ -221,7 +218,6 @@ def test_resize3d_numpy_accepts_every_unit_input_axis(
     dtype: type[np.uint8 | np.float32],
     source_shape: tuple[int, int, int],
 ) -> None:
-    """Every valid singleton input spatial axis retains DHWC layout, dtype, and independent output storage."""
     rng = np.random.default_rng(20260803)
     shape = (*source_shape, 5)
     volume: np.ndarray
@@ -276,7 +272,6 @@ def test_resize3d_cross_container_unit_output_contract(
     dtype: type[np.uint8 | np.float32],
     size: tuple[int, int, int],
 ) -> None:
-    """NumPy DHWC and Torch CDHW keep the documented shape, dtype, and bounded cross-container difference."""
     volume = _numpy_volume(dtype, channels=3)
     tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
 
@@ -300,7 +295,6 @@ def test_resize3d_torch_linear_matches_native_cpu_interpolate_outside_all_axis_u
     channels: int,
     size: tuple[int, int, int],
 ) -> None:
-    """Non-upscale CPU CDHW Tensor regions retain the exact native Torch result."""
     if dtype == torch.uint8:
         volume = torch.arange(channels * 5 * 7 * 9, dtype=dtype).reshape(channels, 5, 7, 9)
     else:
@@ -388,7 +382,6 @@ def test_resize3d_torch_nearest_matches_native_cpu_interpolate(dtype: torch.dtyp
 
 
 def test_resize3d_torch_noncontiguous_and_identity_contract() -> None:
-    """Non-contiguous CPU CDHW Tensor views work, while identity preserves the original Tensor."""
     volume = torch.rand((5, 5, 7, 9), dtype=torch.float32)[:, :, :, ::2]
 
     result = resize3d(volume, (4, 6, 8))
