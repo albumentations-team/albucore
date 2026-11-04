@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import stat
 import subprocess
@@ -135,3 +136,33 @@ def test_xy_benchmark_rejects_symlinked_csv_before_loading_baseline(tmp_path: Pa
     assert "Timings CSV path must not be a symlink" in result.stderr
     assert "Traceback" not in result.stderr
     assert unrelated.read_text() == "keep this data"
+
+
+@pytest.mark.parametrize("suffix", [".csv", ".json"])
+def test_xy_report_writer_does_not_follow_late_symlinks(tmp_path: Path, monkeypatch, suffix: str) -> None:
+    monkeypatch.syspath_prepend(str(REPO_ROOT / "benchmarks"))
+    benchmark = importlib.import_module("benchmark_warp_affine3d_xy_nearest")
+    unrelated = tmp_path / "unrelated.txt"
+    unrelated.write_text("keep this data")
+    output = tmp_path / "report.json"
+    try:
+        output.with_suffix(suffix).symlink_to(unrelated)
+    except (OSError, NotImplementedError):
+        pytest.skip("Creating file symlinks is unavailable")
+
+    benchmark._write_results(output, {}, [])
+
+    assert unrelated.read_text() == "keep this data"
+    assert not output.is_symlink()
+    assert not output.with_suffix(".csv").is_symlink()
+    assert json.loads(output.read_text())["timings"] == "report.csv"
+    assert output.with_suffix(".csv").read_text().startswith("phase,run,")
+
+
+@pytest.mark.parametrize("suffix", [".csv", ".CSV"])
+def test_xy_benchmark_rejects_colliding_output_paths(tmp_path: Path, suffix: str) -> None:
+    output = REPO_ROOT / "benchmarks/results" / tmp_path.name / f"metadata{suffix}"
+    result = _run_script("benchmark_warp_affine3d_xy_nearest.py", "--baseline", "missing.py", "--output", str(output))
+    assert result.returncode == 2
+    assert "Metadata JSON and timings CSV need different output paths" in result.stderr
+    assert "Traceback" not in result.stderr
