@@ -90,19 +90,6 @@ def test_kernels_match_opencv_without_input_writes(
     assert image.tobytes() == original
 
 
-@pytest.mark.parametrize("name", [name for name in OPERATIONS if name != "linear_transformation_rgb"])
-@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
-def test_spatial_kernels_preserve_2d_grayscale(name: str, dtype: type[np.generic]) -> None:
-    image = _source(dtype, 1, "negative")[..., 0]
-    image.flags.writeable = False
-
-    actual = OPERATIONS[name](image)
-
-    np.testing.assert_array_equal(actual, _reference(image, name))
-    assert actual.shape == image.shape
-    assert actual.dtype == image.dtype
-
-
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "negative", "readonly"])
 def test_rgb_batch_matches_packed_opencv_transform(dtype: type[np.generic], layout: str) -> None:

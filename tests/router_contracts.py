@@ -94,7 +94,7 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "box_blur": RouterContract(
         name="box_blur",
         dtypes=IMAGE_DTYPES,
-        layouts=(LAYOUT_2D, LAYOUT_HWC),
+        layouts=(LAYOUT_HWC,),
         channels=IMAGE_CHANNELS,
         values=(VALUE_KERNEL_SIZE,),
         output_shape="same as input",
@@ -110,7 +110,7 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "erode": RouterContract(
         name="erode",
         dtypes=IMAGE_DTYPES,
-        layouts=(LAYOUT_2D, LAYOUT_HWC),
+        layouts=(LAYOUT_HWC,),
         channels=IMAGE_CHANNELS,
         values=(VALUE_MATRIX,),
         output_shape="same as input",
@@ -126,7 +126,7 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "dilate": RouterContract(
         name="dilate",
         dtypes=IMAGE_DTYPES,
-        layouts=(LAYOUT_2D, LAYOUT_HWC),
+        layouts=(LAYOUT_HWC,),
         channels=IMAGE_CHANNELS,
         values=(VALUE_MATRIX,),
         output_shape="same as input",
@@ -142,7 +142,7 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "convolve": RouterContract(
         name="convolve",
         dtypes=IMAGE_DTYPES,
-        layouts=(LAYOUT_2D, LAYOUT_HWC),
+        layouts=(LAYOUT_HWC,),
         channels=IMAGE_CHANNELS,
         values=(VALUE_MATRIX, VALUE_BORDER_MODE),
         output_shape="same as input",
@@ -174,7 +174,7 @@ ROUTER_CONTRACTS: dict[str, RouterContract] = {
     "unsharp_mask": RouterContract(
         name="unsharp_mask",
         dtypes=IMAGE_DTYPES,
-        layouts=(LAYOUT_2D, LAYOUT_HWC),
+        layouts=(LAYOUT_HWC,),
         channels=IMAGE_CHANNELS,
         values=(VALUE_KERNEL_SIZE, VALUE_ALPHA, VALUE_SCALAR),
         output_shape="same as input",

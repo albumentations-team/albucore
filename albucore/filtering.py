@@ -49,7 +49,7 @@ def box_blur(img: ImageArrayT, ksize: int) -> ImageArrayT:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
     The caller validates metadata and kernel controls.
-    Images use HWC; 2D grayscale arrays retain their shape.
+    Images use HWC with an explicit trailing channel, including C=1.
     """
     result = _opencv_working_image(img, copy=True)
     cv2.blur(result, (ksize, ksize), dst=result)
@@ -69,13 +69,13 @@ def erode(img: ImageArrayT, kernel: NDArray[Any]) -> ImageArrayT:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
     The caller validates metadata and kernel controls.
-    Images use HWC; 2D grayscale arrays retain their shape.
+    Images use HWC with an explicit trailing channel, including C=1.
     """
     if img.dtype.type is np.float16:
         working = _opencv_working_image(img, copy=False)
         cv2.erode(working, kernel, dst=working, iterations=1)
         return cast("ImageArrayT", convert_dtype(working, cast("np.dtype[np.float16]", img.dtype)))
-    if img.ndim == 3 and img.shape[-1] == 1:
+    if img.shape[-1] == 1:
         destination = np.empty_like(img, order="C")
         return cast("ImageArrayT", cv2.erode(img, kernel, dst=destination, iterations=1))
     return cast("ImageArrayT", cv2.erode(img, kernel, iterations=1))
@@ -92,13 +92,13 @@ def dilate(img: ImageArrayT, kernel: NDArray[Any]) -> ImageArrayT:
         A writable result with the input shape and dtype. Input storage is unchanged.
 
     The caller validates metadata and kernel controls.
-    Images use HWC; 2D grayscale arrays retain their shape.
+    Images use HWC with an explicit trailing channel, including C=1.
     """
     if img.dtype.type is np.float16:
         working = _opencv_working_image(img, copy=False)
         cv2.dilate(working, kernel, dst=working, iterations=1)
         return cast("ImageArrayT", convert_dtype(working, cast("np.dtype[np.float16]", img.dtype)))
-    if img.ndim == 3 and img.shape[-1] == 1:
+    if img.shape[-1] == 1:
         destination = np.empty_like(img, order="C")
         return cast("ImageArrayT", cv2.dilate(img, kernel, dst=destination, iterations=1))
     return cast("ImageArrayT", cv2.dilate(img, kernel, iterations=1))
@@ -116,23 +116,20 @@ def convolve(img: ImageArrayT, kernel: NDArray[Any], border_mode: int = cv2.BORD
         A writable result with the input shape and dtype. Input storage is unchanged.
 
     The caller validates metadata and kernel controls.
-    Images use HWC; 2D grayscale arrays retain their shape.
+    Images use HWC with an explicit trailing channel, including C=1.
     """
     input_dtype = img.dtype
     working = _opencv_working_image(img, copy=True)
     if kernel.ndim == 2:
         cv2.filter2D(working, ddepth=-1, kernel=kernel, dst=working, borderType=border_mode)
-    elif kernel.ndim == 3:
-        if working.ndim == 2:
-            cv2.filter2D(working, ddepth=-1, kernel=kernel[0], dst=working, borderType=border_mode)
-        else:
-            for channel, channel_kernel in enumerate(kernel):
-                working[..., channel] = cv2.filter2D(
-                    working[..., channel],
-                    ddepth=-1,
-                    kernel=channel_kernel,
-                    borderType=border_mode,
-                )
+    else:
+        for channel, channel_kernel in enumerate(kernel):
+            working[..., channel] = cv2.filter2D(
+                working[..., channel],
+                ddepth=-1,
+                kernel=channel_kernel,
+                borderType=border_mode,
+            )
     if input_dtype.type is np.float16:
         return cast("ImageArrayT", clip(working, dtype=cast("np.dtype[np.float16]", input_dtype)))
     return cast("ImageArrayT", clip(working, out=working))
@@ -189,7 +186,7 @@ def unsharp_mask(image: ImageArrayT, ksize: int, sigma: float, alpha: float, thr
         A writable result with the input shape and dtype. Input storage is unchanged.
 
     The caller validates metadata and kernel controls.
-    Images use HWC; 2D grayscale arrays retain their shape.
+    Images use HWC with an explicit trailing channel, including C=1.
     """
     input_dtype = image.dtype
     working = _opencv_working_image(image, copy=False)
@@ -205,7 +202,7 @@ def unsharp_mask(image: ImageArrayT, ksize: int, sigma: float, alpha: float, thr
     else:
         diff = cast("np.ndarray", cv2.absdiff(working, blurred))
         threshold_value = threshold / 255.0 if working.dtype == np.float32 else threshold
-        if working.ndim == 3 and working.shape[2] not in {1, 3, 4}:
+        if working.shape[-1] not in {1, 3, 4}:
             result = np.where(diff > threshold_value, sharpened, working)
         else:
             compare = cast("Callable[..., np.ndarray]", cv2.compare)

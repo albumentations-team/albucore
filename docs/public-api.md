@@ -132,7 +132,7 @@ policy; zero weights do not add a new identity shortcut. Caller prevalidation ow
 `box_blur`, `convolve`, `erode`, `dilate`, `linear_transformation_rgb` and `unsharp_mask` live in
 `albucore.filtering` and are exported from the package root. They preserve the input NumPy dtype and shape,
 return independent writable storage, and never write input data. Supported image dtypes are uint8, float16 and
-float32; float16 computes in float32 and restores half storage. Spatial filters accept HWC and legacy 2D grayscale.
+float32; float16 computes in float32 and restores half storage. Spatial filters accept HWC with an explicit singleton channel for grayscale.
 RGB transforms accept HWC/NHWC with one shared matrix. AX validates ranks and kernel controls before dispatch.
 
 `convolve` accepts a shared `(K, K)` kernel or `(C, K, K)` kernels and clips floating output to [0,1]. RGB transforms
