@@ -133,14 +133,13 @@ def remap3d(
         A newly sampled volume or batch with the input container, dtype, layout, and channels.
     """
     if isinstance(volume, np.ndarray):
+        channels = volume.shape[-1]
         if volume.ndim == 5:
             output_size = tuple(sampling_grid.shape[:3])
-            channels = volume.shape[-1]
             if volume.shape[0] == 0:
                 return np.empty((0, *output_size, channels), dtype=volume.dtype)
             border_values = _normalize_border_value(border_value, channels)
             return _remap3d_numpy_batch(volume, sampling_grid, interpolation, border_mode, border_values)
-        channels = volume.shape[-1]
         border_values = _normalize_border_value(border_value, channels)
         return _remap3d_numpy(volume, sampling_grid, interpolation, border_mode, border_values)
 

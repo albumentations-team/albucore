@@ -76,8 +76,7 @@ def _float16_unary(
 ) -> NDArray[np.float16]:
     if array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS and operation != "sqrt":
         if operation == "log":
-            working = _cast_float_numpy(array, np.float32)
-            result = _log_opencv(working)
+            result = _log_opencv(_cast_float_numpy(array, np.float32))
         else:
             result = _opencv_unary(_cast_float_numpy(array, np.float32), cv2.exp)
         return _cast_float_numpy(result, np.float16, out=out)

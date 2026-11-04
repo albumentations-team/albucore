@@ -33,18 +33,6 @@ def _cv2_lut_channel_last(img: NDArray[np.uint8], lut: np.ndarray, *, out: np.nd
     return result
 
 
-def _apply_float_lut_per_channel_loop(
-    img: NDArray[np.uint8],
-    lut: np.ndarray,
-    *,
-    out: NDArray[np.float32] | None = None,
-) -> NDArray[np.float32]:
-    result = np.empty_like(img, dtype=np.float32) if out is None else out
-    for i in range(img.shape[-1]):
-        result[..., i] = cv2.LUT(img[..., i], lut[:, 0, i])
-    return result
-
-
 def _apply_float_lut(
     img: NDArray[np.uint8],
     lut: np.ndarray,
@@ -68,7 +56,10 @@ def _apply_float_lut(
         return cast("NDArray[np.float32]", _cv2_lut_channel_last(img, lut, out=out))
 
     # CHW-derived views avoid interleaving the full input and float32 output.
-    return _apply_float_lut_per_channel_loop(img, lut, out=out)
+    result = np.empty_like(img, dtype=np.float32) if out is None else out
+    for i in range(num_channels):
+        result[..., i] = cv2.LUT(img[..., i], lut[:, 0, i])
+    return result
 
 
 def _strided_uint8_lut_out(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: NDArray[np.uint8]) -> NDArray[np.uint8]:
@@ -79,14 +70,6 @@ def _strided_uint8_lut_out(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: 
         apply_uint8_lut(working, lut, out=working)
         np.copyto(out, working)
     return out
-
-
-def _translate_contiguous_uint8_lut(img: NDArray[np.uint8], lut: NDArray[np.uint8], out: NDArray[np.uint8]) -> None:
-    sz.translate(
-        memoryview(cast("Any", img)),
-        memoryview(cast("Any", lut)),
-        out=memoryview(cast("Any", out)),
-    )
 
 
 def _apply_per_channel_uint8_luts(
@@ -176,11 +159,7 @@ def apply_uint8_lut(
         output_view = None
         if tensor_out is not None:
             output_view = image_view if tensor_out is img else tensor_to_numpy_channel_last(tensor_out, layout)
-        result = _apply_per_channel_uint8_luts(
-            image_view,
-            lut,
-            out=output_view,
-        )
+        result = _apply_per_channel_uint8_luts(image_view, lut, out=output_view)
         return numpy_to_tensor_layout(result, cast("TensorLayout", layout)) if tensor_out is None else tensor_out
     if lut.ndim != 1:
         return _apply_per_channel_uint8_luts(img, lut, out=cast("NDArray[np.uint8] | None", out))
@@ -189,7 +168,11 @@ def apply_uint8_lut(
         if not numpy_out.flags.c_contiguous:
             return _strided_uint8_lut_out(img, lut, numpy_out)
         if img is not numpy_out and img.flags.c_contiguous:
-            _translate_contiguous_uint8_lut(img, lut, numpy_out)
+            sz.translate(
+                memoryview(cast("Any", img)),
+                memoryview(cast("Any", lut)),
+                out=memoryview(cast("Any", numpy_out)),
+            )
         else:
             if numpy_out is not img:
                 np.copyto(numpy_out, img)

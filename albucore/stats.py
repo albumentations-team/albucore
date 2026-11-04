@@ -28,7 +28,6 @@ _FLOAT16_GLOBAL_TENSOR_STD_MIN_ELEMENTS = 40_960
 _FLOAT16_GLOBAL_TENSOR_STD_F32_MIN_STD = 1e-3
 # OpenCV #25019 tracks CV_16F meanStdDev accuracy; revisit this cap when that issue is resolved.
 _FLOAT16_OPENCV_STATS_MAX_CHANNELS = min(get_opencv_max_channels(), MAX_OPENCV_WORKING_CHANNELS)
-_FLOAT16_OPENCV_MEAN_MIN_ELEMENTS = 512_000
 _FLOAT16_GLOBAL_MEAN_OPENCV_MIN_ELEMENTS = 4_096
 _FLOAT16_GLOBAL_TENSOR_MOMENTS_MIN_ELEMENTS = 20_480
 # The rank-4 C=3 Torch reduction wins for the measured NHWC/DHWC region.
@@ -506,7 +505,7 @@ def _mean_std_per_channel_float64(
     arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     eps: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    axes = tuple(range(arr.ndim - 1))
+    axes = _per_channel_spatial_axes(arr)
     mean_values = np.asarray(np.mean(arr, axis=axes, dtype=np.float64), dtype=np.float64)
     std_values = np.asarray(np.std(arr, axis=axes, dtype=np.float64) + eps, dtype=np.float64)
     return mean_values, std_values
@@ -700,8 +699,6 @@ def _mean_global(
         if keepdims:
             return mean_value.reshape((1,) * arr.ndim)
         return mean_value
-    if _is_float32_image(arr):
-        return np.mean(arr, dtype=np.float64, keepdims=keepdims)
     return np.mean(arr, dtype=np.float64, keepdims=keepdims)
 
 
@@ -887,7 +884,7 @@ def _mean_per_channel(
     if _is_uint8_image(arr) and axes == spatial_axes:
         return _mean_per_channel_uint8(arr, axes, keepdims=keepdims)
     c = arr.shape[-1]
-    # HWC, C ≤ 4: cv2.mean is fastest; half inputs widen for accuracy.
+    # HWC, C ≤ 4: cv2.mean is fastest.
     if arr.ndim == 3 and not keepdims and axes == spatial_axes and c <= MAX_OPENCV_WORKING_CHANNELS:
         # CV_16F mean can lose precision on skewed and subnormal inputs.
         mu = cv2.mean(_cast_float_numpy(arr, np.float32)) if arr.dtype == np.float16 else cv2.mean(arr)
@@ -895,18 +892,8 @@ def _mean_per_channel(
     if arr.ndim == 4 and axes == spatial_axes and 1 <= c <= MAX_OPENCV_WORKING_CHANNELS:
         return _mean_per_channel_rank4(arr, axes, keepdims=keepdims)
     if c > MAX_OPENCV_WORKING_CHANNELS and axes == spatial_axes and arr.size // c >= 16_384:
-        if (
-            arr.dtype == np.float16
-            and arr.ndim == 3
-            and not keepdims
-            and c == 9
-            and c <= _FLOAT16_OPENCV_STATS_MAX_CHANNELS
-            and arr.size >= _FLOAT16_OPENCV_MEAN_MIN_ELEMENTS
-        ):
-            result, _ = _mean_std_per_channel_opencv(arr, 0.0)
-        else:
-            work = _cast_float_numpy(arr, np.float32) if arr.dtype == np.float16 else arr
-            result = _cv2_reduce_mean_per_channel(work)
+        work = _cast_float_numpy(arr, np.float32) if arr.dtype == np.float16 else arr
+        result = _cv2_reduce_mean_per_channel(work)
         if keepdims:
             return result.reshape((1,) * (arr.ndim - 1) + (c,))
         return result

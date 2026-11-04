@@ -117,19 +117,7 @@ def _flip_multichannel(
     img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     flip_code: int,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
-    """Process images with more than OpenCV's flip channel limit.
-
-    OpenCV's maximum encoded channel count depends on the major version. This
-    function works around the active build's limit by splitting wider images
-    into safe chunks, flipping each chunk separately, and then joining the results.
-
-    Args:
-        img: Input image with many channels
-        flip_code: OpenCV flip code (0 for vertical, 1 for horizontal, -1 for both)
-
-    Returns:
-        Flipped image with all channels preserved
-    """
+    """Flip with OpenCV, chunking channels beyond the active build's flip limit."""
     num_channels = img.shape[2]
 
     if num_channels <= MAX_OPENCV_FLIP_CHANNELS:
@@ -243,9 +231,6 @@ def median_blur(
             "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
             cv2.medianBlur(img, ksize, dst=destination),
         )
-    elif img.dtype == np.float32:
-        quantized = convert_dtype(cast("NDArray[np.float32]", img), dtype=np.dtype(np.uint8))
-        result = convert_dtype(_median_blur_uint8(quantized, ksize), np.float32)
     elif (
         img.dtype == np.float16
         and ksize == 5
@@ -341,17 +326,15 @@ def pairwise_distances_squared(
     - Other sets: NumPy coordinate differences accumulated into one distance matrix.
 
     Args:
-        points1: First set of points, shape (N, D), dtype float32
-        points2: Second set of points, shape (M, D), dtype float32
+        points1: First set of points, shape (N, D), dtype float32.
+        points2: Second set of points, shape (M, D), dtype float32.
 
     Returns:
-        Matrix of squared distances, shape (N, M), dtype float32
-        Element [i, j] contains ||points1[i] - points2[j]||²
+        Float32 matrix of shape (N, M) where element [i, j] is ||points1[i] - points2[j]||².
 
     Examples:
         >>> import numpy as np
         >>> from albucore import pairwise_distances_squared
-        >>> # Control points for thin plate spline
         >>> src_points = np.array([[0, 0], [1, 0], [0, 1]], dtype=np.float32)
         >>> dst_points = np.array([[0.1, 0.1], [0.9, 0.1]], dtype=np.float32)
         >>> distances_sq = pairwise_distances_squared(src_points, dst_points)
@@ -362,18 +345,11 @@ def pairwise_distances_squared(
         The caller validates matching coordinate counts. NumPy arithmetic follows
         the caller's floating-point error settings.
 
-        Returns SQUARED distances (not Euclidean distances).
-        This is often what's needed (e.g., for RBF kernels in TPS),
-        and avoids the expensive sqrt operation.
-
-        For actual Euclidean distances: np.sqrt(result)
-
         Subtracting coordinates before squaring avoids overflow and cancellation
         from large common offsets. Squared distances exceeding the float32 range
         are returned as infinity. The NumPy route uses one scratch matrix of
         shape (N, M), rather than a temporary of shape (N, M, D).
     """
-    # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
     if isinstance(points1, torch.Tensor) and isinstance(points2, torch.Tensor):
         tensor_output = True
         points1_array = points1.numpy()

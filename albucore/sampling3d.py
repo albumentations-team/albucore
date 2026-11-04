@@ -105,31 +105,10 @@ def _sample3d_torch_cpu(
     border_values: np.ndarray,
 ) -> torch.Tensor:
     """Sample one prevalidated CPU ``CDHW`` volume through one normalized ``DHW3`` pull grid."""
-    mode = _INTERPOLATIONS[interpolation]
-    padding_mode = _BORDERS[border_mode]
-    working_volume = volume if volume.dtype == torch.float32 else volume.to(torch.float32)
-    grid = sampling_grid.unsqueeze(0)
-
-    with torch.no_grad():
-        if border_mode == cv2.BORDER_CONSTANT and np.any(border_values):
-            fill = torch.from_numpy(border_values).reshape(1, volume.shape[0], 1, 1, 1)
-            result = torch_f.grid_sample(
-                working_volume.unsqueeze(0) - fill,
-                grid,
-                mode=mode,
-                padding_mode=padding_mode,
-                align_corners=False,
-            ).add_(fill)
-        else:
-            result = torch_f.grid_sample(
-                working_volume.unsqueeze(0),
-                grid,
-                mode=mode,
-                padding_mode=padding_mode,
-                align_corners=False,
-            )
-        if volume.dtype == torch.uint8:
-            result = _restore_uint8(result)
-        elif volume.dtype == torch.float16:
-            result = result.to(torch.float16)
-    return result.squeeze(0)
+    return _sample3d_torch_cpu_batch_native(
+        volume.unsqueeze(0),
+        sampling_grid,
+        interpolation,
+        border_mode,
+        border_values,
+    ).squeeze(0)
