@@ -56,12 +56,15 @@ def worker(args: argparse.Namespace) -> dict:
     process = psutil.Process()
     gc.collect()
     before = process.memory_info().rss
-    tracemalloc.start()
+    if args.mode == "allocation":
+        tracemalloc.start()
     for _ in range(10):
         result = call()
         del result
-    _, allocation_peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
+    allocation_peak = None
+    if args.mode == "allocation":
+        _, allocation_peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
     steady = process.memory_info().rss
     high_water = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     high_water *= 1 if sys.platform == "darwin" else 1024
@@ -72,6 +75,7 @@ def worker(args: argparse.Namespace) -> dict:
     return {
         "case": args.case,
         "variant": args.variant,
+        "mode": args.mode,
         "shape": list(image.shape),
         "output_sha256": digest,
         "output_bytes": result.nbytes,
@@ -90,17 +94,32 @@ def main() -> None:
     parser.add_argument("--case")
     parser.add_argument("--variant", choices=("baseline", "candidate"))
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--mode", choices=("rss", "allocation"), default="rss")
+    parser.add_argument("--case-list", type=Path)
     args = parser.parse_args()
     if args.case:
         print(json.dumps(worker(args)))
         return
     from benchmark_ax_image_kernels import OWNER_MODULES
 
+    sys.path.insert(0, str(args.baseline_ax.resolve() / "tools"))
+    from benchmark_conversion_cleanup import _source_hash
+
+    profile = json.loads(args.timing_results.read_text())["metadata"]
+    root = Path(__file__).resolve().parents[1]
+    if (
+        _source_hash(root / "albucore") != profile["candidate_source"]
+        or _source_hash(args.baseline_ax / "albumentations") != profile["baseline_source"]
+        or hashlib.sha256((root / "benchmarks/benchmark_ax_image_kernels.py").read_bytes()).hexdigest()
+        != profile["benchmark_source"]
+    ):
+        raise RuntimeError("Timing profile does not match the selected sources")
     metadata = {
-        "timing_profile": json.loads(args.timing_results.read_text())["metadata"],
+        "timing_profile": profile,
         "memory_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "repeats": args.repeats,
         "calls_per_worker": 10,
+        "mode": args.mode,
     }
     rows = []
     if args.output.exists():
@@ -110,8 +129,11 @@ def main() -> None:
         rows = previous["rows"]
     completed_units = {(row["case"], row["repeat"], row["variant"]) for row in rows}
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    selected = set(json.loads(args.case_list.read_text())) if args.case_list else None
     for name, layer, dtype in product(OWNER_MODULES, ("core", "compose"), ("uint8", "float16", "float32")):
         case = f"{name}|{layer}|{dtype}"
+        if selected is not None and case not in selected:
+            continue
         for repeat in range(args.repeats):
             for variant in ("baseline", "candidate"):
                 if (case, repeat, variant) in completed_units:
@@ -126,6 +148,8 @@ def main() -> None:
                         case,
                         "--variant",
                         variant,
+                        "--mode",
+                        args.mode,
                     ],
                     capture_output=True,
                     text=True,
