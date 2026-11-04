@@ -289,7 +289,13 @@ def test_float_cast_output_preserves_numpy_errors(kind, numkong_calls):
     assert not numkong_calls
 
 
-@pytest.mark.parametrize("bits", [0x0000, 0x8000, 0x0001, 0x8001, 0x3C00, 0xBC00, 0x7BFF, 0xFBFF, 0x7C00, 0xFC00, 0x7C01, 0xFC01, 0x7E00, 0xFE00, 0x7FFF, 0xFFFF])
+@pytest.mark.parametrize(
+    "bits",
+    [
+        0x0000, 0x8000, 0x0001, 0x8001, 0x3C00, 0xBC00, 0x7BFF, 0xFBFF,
+        0x7C00, 0xFC00, 0x7C01, 0xFC01, 0x7E00, 0xFE00, 0x7FFF, 0xFFFF,
+    ],
+)
 @pytest.mark.parametrize("context", [[0x0000], [0x8000], [0x3C00, 0xBC00], [0x7BFF, 0xFBFF]])
 def test_half_cast_guard_matches_ieee_finiteness(bits: int, context: list[int]) -> None:
     source = np.array([*context, bits], dtype=np.uint16).view(np.float16).reshape(1, -1, 1)

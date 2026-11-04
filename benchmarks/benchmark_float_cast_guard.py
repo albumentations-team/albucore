@@ -80,7 +80,14 @@ def _memory_worker(layer: str, variant: str) -> dict[str, object]:
         steady = int(Path("/proc/self/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE")
     else:
         steady = int(subprocess.check_output(["ps", "-o", "rss=", "-p", str(os.getpid())], text=True).strip()) * 1024
-    return {"layer": layer, "variant": variant, "input_bytes": image.nbytes, "output_bytes": 0 if destination is None else destination.nbytes, "peak_rss_bytes": peak, "steady_rss_bytes": steady}
+    return {
+        "layer": layer,
+        "variant": variant,
+        "input_bytes": image.nbytes,
+        "output_bytes": 0 if destination is None else destination.nbytes,
+        "peak_rss_bytes": peak,
+        "steady_rss_bytes": steady,
+    }
 
 
 def _check_resume_profile(previous: dict[str, Any], current: dict[str, Any]) -> None:

@@ -1,11 +1,9 @@
-
-from numpy.typing import NDArray
 import numpy as np
 import pytest
 import torch
+from numpy.typing import NDArray
 
 from albucore import add, add_weighted, weighted
-
 
 
 def test_add_weighted_does_not_clip_float32_result_to_unit_range():
@@ -71,8 +69,13 @@ def test_add_weighted_float16_numkong_half_route_matches_binary16_domain(monkeyp
     original_numkong = weighted._blend_numkong
 
     def record_numkong(
-        img1: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], weight1: float, img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], weight2: float, *, out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None
-    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+        img1: NDArray[np.float16],
+        weight1: float,
+        img2: NDArray[np.float16],
+        weight2: float,
+        *,
+        out: NDArray[np.float16] | None = None,
+    ) -> NDArray[np.float16]:
         calls.append((weight1, weight2))
         return original_numkong(img1, weight1, img2, weight2, out=out)
 
@@ -135,8 +138,13 @@ def test_add_weighted_float16_numkong_tensor_route_preserves_layout(
     original_numkong = weighted._blend_numkong
 
     def record_numkong(
-        img1: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], weight1: float, img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], weight2: float, *, out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None
-    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+        img1: NDArray[np.float16],
+        weight1: float,
+        img2: NDArray[np.float16],
+        weight2: float,
+        *,
+        out: NDArray[np.float16] | None = None,
+    ) -> NDArray[np.float16]:
         calls.append((weight1, weight2))
         return original_numkong(img1, weight1, img2, weight2, out=out)
 
