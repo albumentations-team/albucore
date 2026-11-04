@@ -34,13 +34,15 @@ import cv2
 import numkong as nk
 import numpy as np
 import torch
-from benchmark_output import output_path
+from benchmark_output import output_path, write_json_atomic
 from benchmark_router_synthetic import _bench_interleaved_pair
 from timing import _check_resume_profile
 
+OPERATIONS = ("convolve", "convolve_channels", "unsharp_mask")
+
 
 def cases():
-    for op in ("convolve", "convolve_channels", "unsharp_mask"):
+    for op in OPERATIONS:
         for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024)):
             for channels in (1, 3, 9):
                 for dtype in ("uint8", "float16", "float32"):
@@ -77,6 +79,13 @@ def repeat(call, count):
         call()
 
 
+def current_rss_bytes() -> int:
+    """Read the process's current resident memory in bytes."""
+    if sys.platform == "linux":
+        return int(Path("/proc/self/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+    return int(subprocess.check_output(["ps", "-o", "rss=", "-p", str(os.getpid())], text=True)) * 1024
+
+
 def measure(first, second, samples, target_ns):
     pilot = []
     for call in (first, second):
@@ -99,9 +108,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-source", type=Path, required=True)
     parser.add_argument("--output", type=output_path)
-    parser.add_argument("--operations", nargs="+", default=["convolve", "convolve_channels", "unsharp_mask"])
+    parser.add_argument("--operations", nargs="+", choices=OPERATIONS, default=OPERATIONS)
     parser.add_argument("--rss-worker", choices=("baseline", "candidate"))
-    parser.add_argument("--rss-operation", default="unsharp_mask")
+    parser.add_argument("--rss-operation", choices=OPERATIONS, default="unsharp_mask")
     parser.add_argument("--rss-dtype", default="float32")
     args = parser.parse_args()
     if not args.rss_worker and args.output is None:
@@ -115,19 +124,16 @@ def main():
     baseline = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(baseline)
     if args.rss_worker:
-        import psutil
-
         image, call = workload(
             baseline if args.rss_worker == "baseline" else core,
             (args.rss_operation, 768, 1024, 9, args.rss_dtype, "contiguous", 10),
         )
-        process = psutil.Process()
         gc.collect()
-        before = process.memory_info().rss
+        before = current_rss_bytes()
         repeat(call, 10)
         # Includes imports and input preparation; this is not a call-scoped peak.
         peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == "darwin" else 1024)
-        print(json.dumps({"before": before, "peak": peak, "steady": process.memory_info().rss}))
+        print(json.dumps({"before": before, "peak": peak, "steady": current_rss_bytes()}))
         return
     metadata = {
         "python": sys.version,
@@ -165,7 +171,8 @@ def main():
         expected, actual = first(), second()
         if expected.tobytes() != actual.tobytes() or expected.dtype != actual.dtype or expected.shape != actual.shape:
             raise RuntimeError(f"Bitwise mismatch: {label}")
-        assert not np.shares_memory(actual, source)
+        if np.shares_memory(actual, source):
+            raise RuntimeError(f"Output aliases input: {label}")
         del expected, actual
         row = {"case": label, "bitwise_equal": True, **measure(first, second, 11, 3_000_000)}
         if row["ratio"] > 1.05:
@@ -173,9 +180,7 @@ def main():
         if source.tobytes() != original:
             raise RuntimeError(f"Input was modified: {label}")
         rows.append(row)
-        temporary = args.output.with_suffix(".tmp")
-        temporary.write_text(json.dumps({"metadata": metadata, "rows": rows}, indent=2) + "\n")
-        temporary.replace(args.output)
+        write_json_atomic(args.output, {"metadata": metadata, "rows": rows})
     allocations = []
     for op in args.operations:
         for dtype in ("uint8", "float16", "float32"):
@@ -209,9 +214,7 @@ def main():
                 ]
                 row = json.loads(subprocess.check_output(command, text=True))
                 rss.append({"op": op, "dtype": dtype, "variant": variant, "sample": sample, **row})
-    args.output.write_text(
-        json.dumps({"metadata": metadata, "rows": rows, "allocations": allocations, "rss": rss}, indent=2) + "\n"
-    )
+    write_json_atomic(args.output, {"metadata": metadata, "rows": rows, "allocations": allocations, "rss": rss})
     flags = [row["case"] for row in rows if row.get("repeat", row)["ratio"] > 1.05]
     print(
         json.dumps(

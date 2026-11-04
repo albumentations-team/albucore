@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from benchmarks.benchmark_output import REPO_ROOT, output_path
+from benchmarks import benchmark_output
+from benchmarks.benchmark_output import REPO_ROOT, output_path, write_json_atomic
 
 
 def _run_script(name: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -22,10 +24,12 @@ def _run_script(name: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_benchmark_output_accepts_external_and_ignored_paths(tmp_path: Path) -> None:
+def test_benchmark_output_accepts_external_and_ignored_paths(tmp_path: Path, monkeypatch) -> None:
+    checkout = tmp_path / "checkout"
+    monkeypatch.setattr(benchmark_output, "REPO_ROOT", checkout)
     external = tmp_path / "custom.csv"
     assert output_path(str(external)) == external
-    ignored = REPO_ROOT / "benchmarks/results/report.json"
+    ignored = checkout / "benchmarks/results/report.json"
     assert output_path(str(ignored)) == ignored
 
 
@@ -55,3 +59,46 @@ def test_filtering_parent_requires_output_before_loading_baseline() -> None:
     assert result.returncode == 2
     assert "--output is required unless --rss-worker is set" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("flag", ["--operations", "--rss-operation"])
+def test_filtering_rejects_unknown_operations_before_loading_baseline(flag: str) -> None:
+    result = _run_script("benchmark_filtering_cleanup.py", "--baseline-source", "missing.py", flag, "box_blur")
+    assert result.returncode == 2
+    assert "invalid choice" in result.stderr
+    assert "box_blur" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("symlink", [False, True])
+def test_atomic_report_preserves_unrelated_temporary_file(tmp_path: Path, symlink: bool) -> None:
+    unrelated = tmp_path / "unrelated.txt"
+    unrelated.write_text("keep this data")
+    output = tmp_path / "report.json"
+    fixed_temporary = output.with_suffix(".tmp")
+    if symlink:
+        try:
+            fixed_temporary.symlink_to(unrelated)
+        except (OSError, NotImplementedError):
+            pytest.skip("Creating file symlinks is unavailable")
+    else:
+        fixed_temporary.write_text("keep this temporary file")
+
+    write_json_atomic(output, {"rows": [1, 2]})
+
+    assert json.loads(output.read_text()) == {"rows": [1, 2]}
+    assert not output.is_symlink()
+    assert unrelated.read_text() == "keep this data"
+    assert fixed_temporary.read_text() == ("keep this data" if symlink else "keep this temporary file")
+    assert not list(tmp_path.glob(".report.json.*.tmp"))
+
+
+def test_atomic_report_preserves_previous_result_on_serialization_failure(tmp_path: Path) -> None:
+    output = tmp_path / "report.json"
+    output.write_text('{"previous": true}\n')
+
+    with pytest.raises(TypeError):
+        write_json_atomic(output, {"invalid": object()})
+
+    assert output.read_text() == '{"previous": true}\n'
+    assert not list(tmp_path.glob(".report.json.*.tmp"))
