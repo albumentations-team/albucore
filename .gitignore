@@ -172,3 +172,11 @@ conda_build/
 # Benchmark comparison reports (generated locally, not for version control)
 benchmarks/results/REPORT_router_compare.md
 benchmarks/results/router-*.json
+
+# Generated benchmark artifacts are local output, never version-controlled.
+/benchmarks/results/
+/benchmark/results/
+/benchmark/albucore_benchmark/results/
+/Benchmark.md
+/array_operations_benchmark_results.json
+/lut_benchmark_results.csv

@@ -156,3 +156,11 @@ Fixed floating targets are measured independently in the NumPy router harness. T
 interleaved float16/float32 and Tensor paired harnesses mark these targets as skipped:
 one source dtype would return by identity while the other allocates a cast. The uint8
 target still compares quantization work for both floating source dtypes.
+
+## External measurements
+
+Generated results are local output and must not be committed or force-added. Preserve raw runs as external
+artifacts. Keep only current routing decisions in the existing docs, with the source revision and a link to evidence.
+
+[Archived benchmark measurements](https://github.com/albumentations-team/albucore/releases/download/0.3.4/albucore-benchmark-data-20261104.zip) contain the removed historical reports and data. The archive manifest
+maps original paths to all preserved content versions. Scripts may still write to ignored `benchmarks/results/`.

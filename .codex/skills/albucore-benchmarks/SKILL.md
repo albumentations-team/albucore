@@ -5,6 +5,13 @@ description: Running Albucore micro-benchmarks under benchmarks/, synthetic rout
 
 # Albucore Benchmarks
 
+## Albucore benchmark scope
+
+Measure Albucore public operations only, including Core-owned dispatch, conversions, allocations and memory costs.
+AX functional, transform, Compose and DataLoader performance campaigns require an explicit user request and never
+become automatic acceptance gates for Core. Choose a matrix for the affected operations and routing boundaries;
+the canonical guide below defines the detailed scope.
+
 Before designing a performance comparison, read `../performance-optimization/SKILL.md` and
 `../../../docs/performance-optimization.md` completely. Extend the benchmark along the dimension that controls the
 candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random
@@ -74,7 +81,7 @@ DHWC volumes:
 - `96x128x160x1` - deep single-channel slab.
 - `48x240x320x3` - large in-plane, multi-channel.
 
-For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; record any resulting routing decision in `docs/numkong-performance.md` or a focused report under `benchmarks/results/`.
+For `resize3d`, also include `C=5`, unit input/output spatial axes, and an explicit `D*C` value on both sides of the OpenCV encoded-channel boundary. Time its public NumPy route end-to-end, including channel packing, Torch conversions, and output repair. For Tensor input, sweep contiguous and channel-last-strided `CDHW`, direct interpolation, the zero-copy bridge, and the public router. Use `uv run python benchmarks/benchmark_resize3d.py --quick` and `uv run python benchmarks/benchmark_resize3d_tensor.py --quick` while iterating; record any resulting routing decision in `docs/numkong-performance.md` with a link to external measurements.
 
 For `warp_affine3d`, benchmark both NumPy `DHWC`/`NDHWC` and CPU Tensor `CDHW`/`NCDHW`. The single-volume matrix
 uses uint8/float16/float32, `C=1/3/5/9`, canonical output sizes, nearest/trilinear interpolation, one 3×4 forward matrix,
@@ -114,5 +121,12 @@ shape/channel grids while iterating, and do not accumulate version-specific base
 ## Docs
 
 - Current NumKong route decisions: `docs/numkong-performance.md`
-- Generated benchmark evidence: `benchmarks/results/`
+- Generated output: ignored local directories; archive measurements outside Git.
 - General performance policy: `docs/performance-optimization.md`
+
+## Generated benchmark artifacts
+
+Keep generated benchmark reports, CSV/JSON/GZ data, profiler output and run logs outside Git. Local outputs may
+use ignored results directories. Never force-add them, including when publishing a PR or preserving evidence.
+Keep reproducible benchmark code and concise current route decisions in the existing documentation. Preserve raw
+measurements as external artifacts and link them from PR descriptions or the archive index in benchmarks/README.md.

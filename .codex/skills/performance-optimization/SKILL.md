@@ -5,6 +5,10 @@ description: Systematic performance audit for Albucore runtime code. Use wheneve
 
 # Performance Optimization
 
+Benchmark Albucore changes through Core public operations only, including their Core-owned dispatch, conversions,
+allocations and memory use. AX functional/transform/Compose performance checks require an explicit user request and
+are not an automatic gate for Core changes. Follow the benchmark scope in the canonical guide below.
+
 Read `../../../docs/performance-optimization.md` completely before inspecting or changing runtime code. That document
 is the canonical shared workflow for Albucore and AlbumentationsX.
 
@@ -57,3 +61,10 @@ Report:
 - routing thresholds and safe `out=` alias decisions;
 - AlbumentationsX duplicates replaced or follow-up extraction opportunities;
 - correctness evidence, benchmark matrix, regressions, and rejected candidates.
+
+## Generated benchmark artifacts
+
+Keep generated benchmark reports, CSV/JSON/GZ data, profiler output and run logs outside Git. Local outputs may
+use ignored results directories. Never force-add them, including when publishing a PR or preserving evidence.
+Keep reproducible benchmark code and concise current route decisions in the existing documentation. Preserve raw
+measurements as external artifacts and link them from PR descriptions or the archive index in benchmarks/README.md.
