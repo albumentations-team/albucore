@@ -96,12 +96,65 @@ def _check_resume_profile(previous: dict[str, Any], current: dict[str, Any]) -> 
             raise RuntimeError(f"Output belongs to a different benchmark {key}")
 
 
+def _raw_unit_scale_pairs(args: argparse.Namespace, metadata: dict[str, object]) -> None:
+    from albucore.lut import _cv2_lut_channel_last
+    import albucore.convert as conversion
+
+    metadata["conversion_source_sha256"] = hashlib.sha256(Path(conversion.__file__).read_bytes()).hexdigest()
+    metadata["baseline"] = "Published 0.3.3 unit-scale float32 LUT; candidate is the complete public converter"
+    rows = []
+    if args.output.exists():
+        previous = json.loads(args.output.read_text())
+        _check_resume_profile(previous["metadata"], metadata)
+        rows = previous["rows"]
+    completed = {row["case"] for row in rows}
+    for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024)):
+        for channels in (1, 3, 9):
+            image = np.resize(np.arange(256, dtype=np.uint8), (height, width, channels))
+            expected = image.astype(np.float32)
+            for layer in ("allocate", "out"):
+                if f"{height}x{width}x{channels}/{layer}" in completed:
+                    continue
+                output = np.empty_like(expected) if layer == "out" else None
+                calls = {
+                    "baseline": lambda: _cv2_lut_channel_last(
+                        image, (np.arange(256, dtype=np.float32) / 1).astype(np.float32), out=output
+                    ),
+                    "candidate": lambda: convert_dtype(image, np.float32, max_value=1, out=output),
+                }
+                for call in calls.values():
+                    np.testing.assert_array_equal(call(), expected)
+                    for _ in range(10):
+                        call()
+                pilot = max(_sample(call, 10) for call in calls.values())
+                count = max(args.minimum_count, min(100_000, math.ceil(25_000_000 / pilot)))
+                samples = {name: [] for name in calls}
+                for repetition in range(args.samples):
+                    for name in ("baseline", "candidate") if repetition % 2 == 0 else ("candidate", "baseline"):
+                        samples[name].append(_sample(calls[name], count))
+                medians = {name: statistics.median(values) for name, values in samples.items()}
+                row = {
+                    "case": f"{height}x{width}x{channels}/{layer}",
+                    "median_ns": medians,
+                    "samples_ns": samples,
+                    "calls_per_sample": count,
+                    "candidate_over_baseline": medians["candidate"] / medians["baseline"],
+                    "bitwise_equal": True,
+                }
+                rows.append(row)
+                temporary = args.output.with_suffix(".tmp")
+                temporary.write_text(json.dumps({"metadata": metadata, "rows": rows}, indent=2) + "\n")
+                temporary.replace(args.output)
+                print(row["case"], round(row["candidate_over_baseline"], 4), flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--samples", type=int, default=21)
     parser.add_argument("--minimum-count", type=int, default=1)
     parser.add_argument("--case-list", type=Path)
+    parser.add_argument("--raw-unit-scale", action="store_true")
     parser.add_argument("--memory-worker", choices=("guard", "allocate", "out"))
     parser.add_argument("--variant", choices=("baseline", "candidate"), default="candidate")
     args = parser.parse_args()
@@ -145,6 +198,9 @@ def main() -> None:
         "samples": args.samples,
         "minimum_count": args.minimum_count,
     }
+    if args.raw_unit_scale:
+        _raw_unit_scale_pairs(args, metadata)
+        return
     if args.memory_worker:
         result = _memory_worker(args.memory_worker, args.variant)
         args.output.write_text(json.dumps({"metadata": metadata, "memory": result}, indent=2) + "\n")

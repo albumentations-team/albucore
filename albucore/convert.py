@@ -95,6 +95,20 @@ def _convert_dtype_torch(
     return rounded.to(torch.uint8) if out is None else out.copy_(rounded)
 
 
+def _convert_uint8_numpy(
+    image: NDArray[np.uint8],
+    dtype: np.dtype[np.float16] | np.dtype[np.float32],
+    divisor: float,
+    *,
+    out: NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.float16] | NDArray[np.float32]:
+    """Select raw casting or normalized lookup without changing output storage rules."""
+    if divisor == 1 and dtype == np.float32 and image.flags.c_contiguous:
+        return _cast_float_numpy(image, np.float32, out=cast("NDArray[np.float32] | None", out))
+    lut = (np.arange(256, dtype=np.float32) / divisor).astype(dtype)
+    return _cv2_lut_channel_last(image, lut, out=out)
+
+
 @overload
 def convert_dtype(
     img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
@@ -207,11 +221,11 @@ def convert_dtype(
         return img if out is None else out
     if img.dtype == np.uint8:
         divisor = MAX_VALUES_BY_DTYPE[img.dtype] if max_value is None else max_value
-        lut = (np.arange(256, dtype=np.float32) / divisor).astype(numpy_dtype)
-        return _cv2_lut_channel_last(
+        return _convert_uint8_numpy(
             cast("NDArray[np.uint8]", img),
-            lut,
-            out=cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out),
+            cast("np.dtype[np.float16] | np.dtype[np.float32]", numpy_dtype),
+            divisor,
+            out=cast("NDArray[np.float16] | NDArray[np.float32] | None", out),
         )
     if numpy_dtype.type in (np.float16, np.float32):
         floating_dtype = cast("np.dtype[np.float16 | np.float32]", numpy_dtype)

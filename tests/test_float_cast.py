@@ -314,3 +314,30 @@ def test_half_cast_guard_has_bounded_temporary_storage() -> None:
         tracemalloc.stop()
 
     assert peak < 64 * 1024
+
+
+@pytest.mark.parametrize("channels", [1, 3, 9])
+@pytest.mark.parametrize("layout", ["C", "F", "negative", "readonly"])
+@pytest.mark.parametrize("with_output", [False, True])
+def test_raw_byte_float32_cast_preserves_values_and_output(channels: int, layout: str, with_output: bool) -> None:
+    source = np.resize(np.arange(256, dtype=np.uint8), (16, 32, channels))
+    if layout == "F":
+        source = np.asfortranarray(source)
+    elif layout == "negative":
+        source = source[:, ::-1]
+    elif layout == "readonly":
+        source.flags.writeable = False
+    original = source.tobytes()
+    storage = np.full((16, 64, channels), -137, dtype=np.float32)
+    output = storage[:, ::2] if with_output else None
+
+    result = convert_dtype(source, np.float32, max_value=1, out=output)
+
+    np.testing.assert_array_equal(result.view(np.uint32), source.astype(np.float32).view(np.uint32))
+    assert source.tobytes() == original
+    if output is not None:
+        assert result is output
+        np.testing.assert_array_equal(storage[:, 1::2], np.full((16, 32, channels), -137, dtype=np.float32))
+    else:
+        assert result.flags.c_contiguous
+        assert not np.shares_memory(result, source)

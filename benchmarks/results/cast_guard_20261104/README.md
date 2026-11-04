@@ -32,3 +32,22 @@ python benchmarks/benchmark_float_cast_guard.py --memory-worker out --variant ca
 The script asserts its imported Core path, verifies native NEON on ARM, preserves every completed row atomically,
 and records package versions, capabilities, thread settings and the exact candidate cast-source hash.
 [macos.csv](macos.csv) and [linux.csv](linux.csv) retain every cell; [metadata.json](metadata.json) identifies the profiles.
+
+## Unit-scale byte conversion
+
+Contiguous `uint8 → float32` with `max_value=1` now casts directly instead of building a normalization LUT.
+The target dtype, C-order allocation and explicit-output contract stay unchanged; other scales/layouts retain their routes.
+The 24 paired cells per platform cover the same four non-square sizes and C=1/3/9, allocating and explicit-output calls.
+All outputs match the full byte-domain reference bitwise.
+
+| Platform | Median new/old time | Maximum new/old time |
+| --- | ---: | ---: |
+| Apple M4 Max | 0.989 | 1.008 |
+| Intel Xeon 2.80 GHz | 0.406 | 0.661 |
+
+```bash
+python benchmarks/benchmark_float_cast_guard.py --raw-unit-scale --output raw-pairs.json
+```
+
+[raw-macos.csv](raw-macos.csv) and [raw-linux.csv](raw-linux.csv) retain every cell. The candidate converter source hash
+is recorded alongside the complete runtime profile in metadata.json.

@@ -11,6 +11,7 @@ from benchmarks.benchmark_float_cast_guard import _check_resume_profile
 def profile() -> dict[str, Any]:
     return {
         "candidate_source_sha256": "source",
+        "conversion_source_sha256": "conversion",
         "benchmark_source_sha256": "benchmark",
         "baseline_commit": "commit",
         "baseline": "method",
@@ -31,6 +32,7 @@ def profile() -> dict[str, Any]:
     "field,value",
     [
         ("candidate_source_sha256", "other-source"),
+        ("conversion_source_sha256", "other-conversion"),
         ("benchmark_source_sha256", "other-benchmark"),
         ("baseline_commit", "other-commit"),
         ("baseline", "other-method"),
