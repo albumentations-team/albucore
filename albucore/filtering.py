@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2017 Vladimir Iglovikov, Alexander Buslaev, Alexander Parinov,
 """Dtype-preserving OpenCV image filters, morphology and RGB transforms.
 
-Algorithms derive from legacy MIT-licensed Albumentations. FP16 storage casts,
-layout packing and writable workspaces belong to these kernels.
+FP16 storage casts, layout packing and writable workspaces belong to these kernels.
 """
+
+# Retained third-party notice for portions derived from Albumentations 2.0.8.
+# Albucore's project copyright is recorded separately in LICENSE.
+# Copyright (c) 2017 Vladimir Iglovikov, Alexander Buslaev, Alexander Parinov,
 
 from __future__ import annotations
 

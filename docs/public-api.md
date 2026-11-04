@@ -138,8 +138,9 @@ RGB transforms accept HWC/NHWC with one shared matrix. AX validates ranks and ke
 `convolve` accepts a shared `(K, K)` kernel or `(C, K, K)` kernels and clips floating output to [0,1]. RGB transforms
 also clip floating output to [0,1]. Unsharp masking clips floating sharpened candidates before threshold selection;
 its threshold uses byte units, divided by 255 for floating images. Box blur and morphology do not add clipping.
-These functions retain the legacy MIT-licensed Albumentations algorithms; the original copyright notice is preserved
-in `filtering.py`, with the MIT grant in the packaged `LICENSE`.
+The notice in `filtering.py` covers only portions inherited from MIT-licensed Albumentations 2.0.8.
+It does not identify the authors or start date of Albucore. Albucore's project copyright is
+`2024 Vladimir Iglovikov`, as recorded in the packaged `LICENSE`.
 
 ## Image dtype conversion
 
