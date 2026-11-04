@@ -127,6 +127,20 @@ The second image has the same shape, dtype and container as the first. Tensor ca
 Strided outputs may require a temporary. The existing NumKong/OpenCV region keeps its rounding and non-finite
 policy; zero weights do not add a new identity shortcut. Caller prevalidation owns metadata and overlap checks.
 
+## NumPy image kernels
+
+`box_blur`, `convolve`, `erode`, `dilate`, `linear_transformation_rgb` and `unsharp_mask` live in
+`albucore.filtering` and are exported from the package root. They preserve the input NumPy dtype and shape,
+return independent writable storage, and never write input data. Supported image dtypes are uint8, float16 and
+float32; float16 computes in float32 and restores half storage. Spatial filters accept HWC and legacy 2D grayscale.
+RGB transforms accept HWC/NHWC with one shared matrix. AX validates ranks and kernel controls before dispatch.
+
+`convolve` accepts a shared `(K, K)` kernel or `(C, K, K)` kernels and clips floating output to [0,1]. RGB transforms
+also clip floating output to [0,1]. Unsharp masking clips floating sharpened candidates before threshold selection;
+its threshold uses byte units, divided by 255 for floating images. Box blur and morphology do not add clipping.
+These functions retain the legacy MIT-licensed Albumentations algorithms; the original copyright notice is preserved
+in `filtering.py`, with the MIT grant in the packaged `LICENSE`.
+
 ## Image dtype conversion
 
 `convert_dtype(img, dtype, *, max_value=None, out=None)` accepts NumPy arrays and eager CPU Tensors.
