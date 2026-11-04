@@ -142,6 +142,11 @@ The notice in `filtering.py` covers only portions inherited from MIT-licensed Al
 It does not identify the authors or start date of Albucore. Albucore's project copyright is
 `2024 Vladimir Iglovikov`, as recorded in the packaged `LICENSE`.
 
+Shared-kernel convolution uses a separate destination for contiguous uint8/float32 input; per-channel and
+packed working-buffer paths retain their measured implementation. Unsharp masking reuses its blur buffer for
+residuals and its sharpened buffer for the result. Threshold inversion preserves source pixels on NaN residuals.
+Performance validation for these operations uses Core public calls only; raw measurements live outside Git.
+
 ## Image dtype conversion
 
 `convert_dtype(img, dtype, *, max_value=None, out=None)` accepts NumPy arrays and eager CPU Tensors.

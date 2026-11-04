@@ -13,6 +13,11 @@ ci:
 repos:
   - repo: local
     hooks:
+      - id: check-benchmark-artifacts
+        name: Reject generated benchmark artifacts
+        entry: python tools/check_benchmark_artifacts.py
+        language: system
+        always_run: true
       - id: uv-lock-check
         name: uv lock --check
         entry: uv lock --check

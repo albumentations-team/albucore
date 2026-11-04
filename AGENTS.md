@@ -298,3 +298,10 @@ The key to working with Albucore is:
 3. **Type safety** - handle dtypes carefully
 4. **Test thoroughly** - many dtypes, shapes, and edge cases
 5. **Follow patterns** - consistency makes the codebase maintainable
+
+## Generated benchmark artifacts
+
+Keep generated benchmark reports, CSV/JSON/GZ data, profiler output and run logs outside Git. Local outputs may
+use ignored results directories. Never force-add them, including when publishing a PR or preserving evidence.
+Keep reproducible benchmark code and concise current route decisions in the existing documentation. Preserve raw
+measurements as external artifacts and link them from PR descriptions or the archive index in benchmarks/README.md.
