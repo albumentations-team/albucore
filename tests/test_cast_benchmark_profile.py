@@ -1,10 +1,23 @@
 """Resumed benchmark rows retain their measured source and execution profile."""
 
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from benchmarks.benchmark_float_cast_guard import _check_resume_profile
+from benchmarks.timing import _check_resume_profile
+
+
+_OPENCV_PACKAGES = (
+    "opencv-python",
+    "opencv-python-headless",
+    "opencv-contrib-python",
+    "opencv-contrib-python-headless",
+)
 
 
 @pytest.fixture
@@ -77,3 +90,53 @@ def test_resume_accepts_matching_profile_and_different_subsets(
         current["case_list"] = current_cases
 
     _check_resume_profile(previous, current)
+
+
+def test_profile_collection_preserves_thread_settings() -> None:
+    variables = (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "VECLIB_MAXIMUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+    )
+    code = (
+        "import os\n"
+        "import tests.test_cast_benchmark_profile\n"
+        f"assert all(os.environ[name] == '3' for name in {variables!r})\n"
+    )
+
+    subprocess.run([sys.executable, "-c", code], env={**os.environ, **dict.fromkeys(variables, "3")}, check=True)
+
+
+@pytest.mark.parametrize("opencv_package", _OPENCV_PACKAGES)
+def test_benchmark_accepts_opencv_distribution(opencv_package: str, tmp_path: Path) -> None:
+    code = """
+import importlib.metadata as metadata
+import runpy
+import sys
+from types import SimpleNamespace
+
+benchmark = runpy.run_path('benchmarks/benchmark_float_cast_guard.py')
+opencv_package = sys.argv[1]
+installed = [dist for dist in metadata.distributions() if not dist.metadata['Name'].startswith('opencv-')]
+installed.append(SimpleNamespace(metadata={'Name': opencv_package}, version='test-version'))
+original_version = metadata.version
+
+def version(name):
+    if name.startswith('opencv-') and name != opencv_package:
+        raise metadata.PackageNotFoundError(name)
+    return original_version(name)
+
+metadata.version = version
+metadata.distributions = lambda: installed
+sys.argv = [sys.argv[0], '--memory-worker', 'guard', '--output', sys.argv[2]]
+benchmark['main']()
+"""
+    output = tmp_path / "metadata.json"
+
+    subprocess.run([sys.executable, "-c", code, opencv_package, str(output)], check=True)
+
+    packages = json.loads(output.read_text())["metadata"]["packages"]
+    assert set(packages) & set(_OPENCV_PACKAGES) == {opencv_package}
+    assert packages[opencv_package] == "test-version"

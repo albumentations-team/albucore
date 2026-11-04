@@ -39,6 +39,7 @@ sys.path.insert(0, str(repo_root))
 import albucore
 import albucore._float_cast as cast_router
 from albucore import convert_dtype
+from benchmarks.timing import _check_resume_profile
 
 
 def _masked_guard(image: NDArray[np.float16]) -> bool:
@@ -88,12 +89,6 @@ def _memory_worker(layer: str, variant: str) -> dict[str, object]:
         "peak_rss_bytes": peak,
         "steady_rss_bytes": steady,
     }
-
-
-def _check_resume_profile(previous: dict[str, Any], current: dict[str, Any]) -> None:
-    for key in sorted((previous.keys() | current.keys()) - {"case_list"}):
-        if key not in previous or key not in current or previous[key] != current[key]:
-            raise RuntimeError(f"Output belongs to a different benchmark {key}")
 
 
 def _raw_unit_scale_pairs(args: argparse.Namespace, metadata: dict[str, object]) -> None:
@@ -191,10 +186,7 @@ def main() -> None:
             "torch": torch.get_num_threads(),
             "torch_interop": torch.get_num_interop_threads(),
         },
-        "packages": {
-            name: importlib.metadata.version(name)
-            for name in ("albucore", "numpy", "opencv-python-headless", "numkong", "stringzilla", "torch")
-        },
+        "packages": {dist.metadata["Name"]: dist.version for dist in importlib.metadata.distributions()},
         "samples": args.samples,
         "minimum_count": args.minimum_count,
     }
