@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from albucore._types import ImageArrayT, ImageInput, ImageType, SupportedDType, TensorLayout, ValueType
+from albucore._types import ImageArrayT, ImageInput, SupportedDType, TensorLayout, ValueType
 
 P = ParamSpec("P")
 
@@ -224,7 +224,7 @@ def clip(
     dtype: SupportedDType,
     *,
     out: None = None,
-) -> ImageType: ...
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: ...
 
 
 @overload

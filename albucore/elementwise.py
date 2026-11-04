@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-    from albucore._types import ImageType
 
 __all__ = ["exp", "log", "sqrt"]
 
@@ -127,7 +126,7 @@ def exp(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tensor
 
 
 def exp(
-    array: ImageType | torch.Tensor,
+    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
@@ -185,7 +184,7 @@ def log(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tensor
 
 
 def log(
-    array: ImageType | torch.Tensor,
+    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
@@ -256,7 +255,7 @@ def sqrt(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tenso
 
 
 def sqrt(
-    array: ImageType | torch.Tensor,
+    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:

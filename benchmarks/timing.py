@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -56,3 +57,9 @@ def bench_wall_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) 
 def median_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) -> float:
     """Median wall time in milliseconds over ``repeats`` runs after ``warmup`` discards."""
     return bench_wall_ms(fn, repeats=repeats, warmup=warmup).median
+
+
+def _check_resume_profile(previous: dict[str, Any], current: dict[str, Any]) -> None:
+    for key in sorted((previous.keys() | current.keys()) - {"case_list"}):
+        if key not in previous or key not in current or previous[key] != current[key]:
+            raise RuntimeError(f"Output belongs to a different benchmark {key}")

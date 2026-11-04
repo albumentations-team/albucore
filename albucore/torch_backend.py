@@ -15,7 +15,6 @@ import torch
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from albucore._types import ImageType
 
 TORCH_MIN_ELEMENTS = 512 * 1024
 TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS = 12_288
@@ -279,7 +278,7 @@ def normalize_float16_torch(
 
 
 def reduce_sum_torch(
-    arr: ImageType,
+    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     axes: tuple[int, ...],
     *,
     keepdims: bool,

@@ -11,7 +11,7 @@ import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ArrayT, ImageArrayT, ImageType, TensorImageLayout
+from albucore._types import ArrayT, ImageArrayT, TensorImageLayout
 from albucore.convert import convert_dtype
 from albucore.tensor_bridge import dispatch_tensor_image
 from albucore.utils import (
@@ -48,7 +48,9 @@ def hflip(img: ImageArrayT) -> ImageArrayT: ...
 def hflip(img: torch.Tensor) -> torch.Tensor: ...
 
 
-def hflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
+def hflip(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Flip image horizontally (mirror left-right).
 
     Routing:
@@ -90,7 +92,9 @@ def vflip(img: ImageArrayT) -> ImageArrayT: ...
 def vflip(img: torch.Tensor) -> torch.Tensor: ...
 
 
-def vflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
+def vflip(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Flip image vertically (mirror top-bottom).
 
     Routing:
@@ -109,7 +113,10 @@ def vflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
     return vflip_numpy(img)
 
 
-def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
+def _flip_multichannel(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    flip_code: int,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Process images with more than OpenCV's flip channel limit.
 
     OpenCV's maximum encoded channel count depends on the major version. This
@@ -126,7 +133,7 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     num_channels = img.shape[2]
 
     if num_channels <= MAX_OPENCV_FLIP_CHANNELS:
-        return cast("ImageType", cv2.flip(img, flip_code))
+        return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", cv2.flip(img, flip_code))
 
     result: np.ndarray | None = None
     offset = 0
@@ -148,7 +155,7 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     if result is None:
         msg = "Flip chunking produced no output."
         raise RuntimeError(msg)
-    return cast("ImageType", result)
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result)
 
 
 def _median_blur_uint8(
@@ -200,11 +207,11 @@ def median_blur(img: torch.Tensor, ksize: int, *, layout: TensorImageLayout | No
 
 
 def median_blur(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     ksize: int,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Median blur with dtype- and kernel-aware OpenCV routing.
 
     uint8 images use OpenCV directly, chunking high-channel inputs for kernels 7 and larger. Float32 kernels 3 and 5
@@ -225,14 +232,17 @@ def median_blur(
         return dispatch_tensor_image(img, layout, median_blur, ksize)
 
     if not img.flags["C_CONTIGUOUS"]:
-        img = cast("ImageType", np.ascontiguousarray(img))
+        img = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", np.ascontiguousarray(img))
 
-    result: ImageType
+    result: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
     if img.dtype == np.uint8:
         result = _median_blur_uint8(cast("NDArray[np.uint8]", img), ksize)
     elif img.dtype == np.float32 and ksize in (3, 5):
         destination = np.empty_like(img, order="C") if img.shape[-1] == 1 else None
-        result = cast("ImageType", cv2.medianBlur(img, ksize, dst=destination))
+        result = cast(
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
+            cv2.medianBlur(img, ksize, dst=destination),
+        )
     elif img.dtype == np.float32:
         quantized = convert_dtype(cast("NDArray[np.float32]", img), dtype=np.dtype(np.uint8))
         result = convert_dtype(_median_blur_uint8(quantized, ksize), np.float32)
