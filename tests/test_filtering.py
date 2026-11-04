@@ -105,7 +105,7 @@ def test_spatial_kernels_preserve_2d_grayscale(name: str, dtype: type[np.generic
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "negative", "readonly"])
-def test_rgb_batch_matches_per_image_transform(dtype: type[np.generic], layout: str) -> None:
+def test_rgb_batch_matches_packed_opencv_transform(dtype: type[np.generic], layout: str) -> None:
     image = _source(dtype, 3, layout)
     batch = np.stack((image, image[:, ::-1]))
     if layout == "fortran":
@@ -117,7 +117,8 @@ def test_rgb_batch_matches_per_image_transform(dtype: type[np.generic], layout: 
 
     actual = core.linear_transformation_rgb(batch, MATRIX)
 
-    expected = np.stack([_reference(item, "linear_transformation_rgb") for item in batch])
+    # Match the legacy single-call SIMD/tail rounding across packed batch items.
+    expected = _reference(batch, "linear_transformation_rgb")
     np.testing.assert_array_equal(actual, expected)
     assert actual.dtype == batch.dtype
     assert batch.tobytes() == original
