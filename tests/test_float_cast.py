@@ -1,5 +1,6 @@
 """Exact storage casts, backend boundaries, and allocation contracts."""
 
+import tracemalloc
 import warnings
 from unittest.mock import Mock
 
@@ -286,3 +287,57 @@ def test_float_cast_output_preserves_numpy_errors(kind, numkong_calls):
             actual = cast_mod._cast_float_numpy(source, np.float16, out=output)
             np.testing.assert_array_equal(actual.view(np.uint16), expected.view(np.uint16))
     assert not numkong_calls
+
+
+@pytest.mark.parametrize(
+    "bits",
+    [
+        0x0000, 0x8000, 0x0001, 0x8001, 0x3C00, 0xBC00, 0x7BFF, 0xFBFF,
+        0x7C00, 0xFC00, 0x7C01, 0xFC01, 0x7E00, 0xFE00, 0x7FFF, 0xFFFF,
+    ],
+)
+@pytest.mark.parametrize("context", [[0x0000], [0x8000], [0x3C00, 0xBC00], [0x7BFF, 0xFBFF]])
+def test_half_cast_guard_matches_ieee_finiteness(bits: int, context: list[int]) -> None:
+    source = np.array([*context, bits], dtype=np.uint16).view(np.float16).reshape(1, -1, 1)
+
+    assert cast_mod._numkong_cast_preserves_numpy_errors(source) == bool(np.isfinite(source).all())
+
+
+def test_half_cast_guard_has_bounded_temporary_storage() -> None:
+    source = np.linspace(-2, 2, 1024 * 1024 * 3, dtype=np.float32).reshape(1024, 1024, 3).astype(np.float16)
+    cast_mod._numkong_cast_preserves_numpy_errors(source)
+    tracemalloc.start()
+    try:
+        assert cast_mod._numkong_cast_preserves_numpy_errors(source)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < 64 * 1024
+
+
+@pytest.mark.parametrize("channels", [1, 3, 9])
+@pytest.mark.parametrize("layout", ["C", "F", "negative", "readonly"])
+@pytest.mark.parametrize("with_output", [False, True])
+def test_raw_byte_float32_cast_preserves_values_and_output(channels: int, layout: str, with_output: bool) -> None:
+    source = np.resize(np.arange(256, dtype=np.uint8), (16, 32, channels))
+    if layout == "F":
+        source = np.asfortranarray(source)
+    elif layout == "negative":
+        source = source[:, ::-1]
+    elif layout == "readonly":
+        source.flags.writeable = False
+    original = source.tobytes()
+    storage = np.full((16, 64, channels), -137, dtype=np.float32)
+    output = storage[:, ::2] if with_output else None
+
+    result = convert_dtype(source, np.float32, max_value=1, out=output)
+
+    np.testing.assert_array_equal(result.view(np.uint32), source.astype(np.float32).view(np.uint32))
+    assert source.tobytes() == original
+    if output is not None:
+        assert result is output
+        np.testing.assert_array_equal(storage[:, 1::2], np.full((16, 32, channels), -137, dtype=np.float32))
+    else:
+        assert result.flags.c_contiguous
+        assert not np.shares_memory(result, source)

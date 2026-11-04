@@ -10,7 +10,7 @@ import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ImageArrayT, ImageType, ValueType
+from albucore._types import ImageArrayT, ValueType
 from albucore.lut import apply_uint8_lut as _apply_uint8_lut
 from albucore.tensor_bridge import (
     TensorLayout,
@@ -74,15 +74,19 @@ def _scale_numkong(
     return cast("ImageArrayT", np.asarray(result, dtype=img.dtype).reshape(img.shape))
 
 
-def _is_uint8_image(img: ImageType) -> TypeGuard[NDArray[np.uint8]]:
+def _is_uint8_image(img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> TypeGuard[NDArray[np.uint8]]:
     return img.dtype == np.uint8
 
 
-def _is_float32_image(img: ImageType) -> TypeGuard[NDArray[np.float32]]:
+def _is_float32_image(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+) -> TypeGuard[NDArray[np.float32]]:
     return img.dtype == np.float32
 
 
-def _is_float16_image(img: ImageType) -> TypeGuard[NDArray[np.float16]]:
+def _is_float16_image(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+) -> TypeGuard[NDArray[np.float16]]:
     return img.dtype == np.float16
 
 
@@ -283,7 +287,7 @@ def _apply_lut(
 
 
 def _prepare_value_opencv(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: np.ndarray | float,
     operation: Literal["add", "multiply"],
 ) -> np.ndarray | float | int:
@@ -295,7 +299,7 @@ def _prepare_value_opencv(
 
 
 def _prepare_scalar_value(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: float,
     operation: Literal["add", "multiply"],
 ) -> np.ndarray | float | int:
@@ -313,7 +317,7 @@ def _prepare_scalar_value(
 
 
 def _prepare_array_value(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: np.ndarray,
     operation: Literal["add", "multiply"],
 ) -> np.ndarray:
@@ -324,7 +328,10 @@ def _prepare_array_value(
     value = np.broadcast_to(value, img.shape)
     if operation == "add" and img.dtype == np.uint8:
         if np.all(value >= 0):
-            return cast("np.ndarray", clip(cast("ImageType", value), np.dtype(np.uint8)))
+            return cast(
+                "np.ndarray",
+                clip(cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", value), np.dtype(np.uint8)),
+            )
         return cast("np.ndarray", np.trunc(value).astype(np.float32, copy=False))
     return value
 
@@ -353,7 +360,7 @@ def _prepare_numpy_value(value: ValueType | np.floating[Any]) -> _PreparedValue:
 
 
 def _apply_numpy(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: ValueType | np.floating[Any],
     operation: Literal["add", "multiply", "power"],
     *,
@@ -380,12 +387,12 @@ def _apply_numpy(
 
 
 def _numpy_pointwise(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: float | np.ndarray,
     operation: Literal["add", "multiply", "power"],
     *,
-    out: ImageType | None = None,
-) -> ImageType:
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_float16_image(img):
         destination = cast("NDArray[np.float16] | None", out)
         result = _float16_numpy_ufunc(img, value, operation, out=destination)
@@ -407,7 +414,12 @@ def _multiply_uint8_opencv(
     return clip(result, np.uint8, out=out)
 
 
-def _multiply_scalar(img: ImageType, value: float, *, out: ImageType | None = None) -> ImageType:
+def _multiply_scalar(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: float,
+    *,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
         return _apply_lut(img, value, "multiply", out=cast("NDArray[np.uint8] | None", out))
     if _is_float16_image(img):
@@ -423,7 +435,12 @@ def _multiply_scalar(img: ImageType, value: float, *, out: ImageType | None = No
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
-def _multiply_channels(img: ImageType, value: np.ndarray, *, out: ImageType | None = None) -> ImageType:
+def _multiply_channels(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: np.ndarray,
+    *,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
         return _apply_lut(img, value, "multiply", out=cast("NDArray[np.uint8] | None", out))
     if _is_float16_image(img):
@@ -448,7 +465,12 @@ def _multiply_channels(img: ImageType, value: np.ndarray, *, out: ImageType | No
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
-def _multiply_field(img: ImageType, value: np.ndarray, *, out: ImageType | None = None) -> ImageType:
+def _multiply_field(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: np.ndarray,
+    *,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
         return _multiply_uint8_opencv(img, value, out=cast("NDArray[np.uint8] | None", out))
     if _is_float16_image(img) and not (value.dtype == np.float32 and value.ndim == img.ndim):
@@ -464,7 +486,10 @@ def _multiply_field(img: ImageType, value: np.ndarray, *, out: ImageType | None 
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
-def _prepare_pointwise_operand(img: ImageType, value: ValueType) -> float | np.ndarray:
+def _prepare_pointwise_operand(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: ValueType,
+) -> float | np.ndarray:
     channels = get_num_channels(img)
     if isinstance(value, np.ndarray) and value.ndim == 1 and len(value) == channels:
         return value
@@ -512,12 +537,12 @@ def multiply(
 
 
 def multiply(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     value: ValueType | torch.Tensor,
     *,
-    out: ImageType | torch.Tensor | None = None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     layout: TensorLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Multiply by a scalar, channel vector or broadcastable field.
 
     Without ``out``, input storage is unchanged; views and identity are allowed.
@@ -537,7 +562,7 @@ def multiply(
         ):
             return torch.mul(img, value) if tensor_out is None else torch.mul(img, value, out=tensor_out)
         return _tensor_pointwise(img, value, "multiply", layout, out=tensor_out)
-    destination = cast("ImageType | None", out)
+    destination = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out)
     value = _prepare_pointwise_operand(img, cast("ValueType", value))
     if img.size == 0:
         return img if destination is None else destination
@@ -574,7 +599,12 @@ def _add_uint8_opencv(
     return cast("NDArray[np.uint8]", result) if out is None else out
 
 
-def _add_scalar(img: ImageType, value: float, *, out: ImageType | None = None) -> ImageType:
+def _add_scalar(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: float,
+    *,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if value == 0:
         if out is not None:
             np.copyto(out, img)
@@ -599,7 +629,12 @@ def _add_scalar(img: ImageType, value: float, *, out: ImageType | None = None) -
     return _numpy_pointwise(img, value, "add", out=out)
 
 
-def _add_channels(img: ImageType, value: np.ndarray, *, out: ImageType | None = None) -> ImageType:
+def _add_channels(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: np.ndarray,
+    *,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
         return _apply_lut(img, value, "add", out=cast("NDArray[np.uint8] | None", out))
     if _is_float16_image(img):
@@ -624,7 +659,12 @@ def _add_channels(img: ImageType, value: np.ndarray, *, out: ImageType | None = 
     return _numpy_pointwise(img, value, "add", out=out)
 
 
-def _add_field(img: ImageType, value: np.ndarray, *, out: ImageType | None = None) -> ImageType:
+def _add_field(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: np.ndarray,
+    *,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if value.shape == img.shape and value.dtype == img.dtype:
@@ -650,7 +690,7 @@ def _add_field(img: ImageType, value: np.ndarray, *, out: ImageType | None = Non
         else:
             nk.add(img, value, out=destination_f16)
             numkong_output = destination_f16
-        return cast("ImageType", numkong_output)
+        return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", numkong_output)
     if _is_float16_image(img) and not (value.dtype == np.float32 and value.ndim == img.ndim):
         torch_result = float16_pointwise_torch(
             img,
@@ -664,7 +704,11 @@ def _add_field(img: ImageType, value: np.ndarray, *, out: ImageType | None = Non
     return _numpy_pointwise(img, value, "add", out=out)
 
 
-def _add_numpy_fast_path(img: ImageType, value: ValueType, out: ImageType | None) -> ImageType | None:
+def _add_numpy_fast_path(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: ValueType,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
     if (
         img.size
         and img.dtype == np.float32
@@ -672,7 +716,10 @@ def _add_numpy_fast_path(img: ImageType, value: ValueType, out: ImageType | None
         and value.dtype == np.float32
         and value.shape == img.shape
     ):
-        return cast("ImageType", np.add(img, value, out=cast("NDArray[np.float32] | None", out)))
+        return cast(
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
+            np.add(img, value, out=cast("NDArray[np.float32] | None", out)),
+        )
     if (
         img.size
         and img.dtype == np.uint8
@@ -690,7 +737,11 @@ def _add_numpy_fast_path(img: ImageType, value: ValueType, out: ImageType | None
     return None
 
 
-def _add_numkong_float16_scalar(img: ImageType, value: float | None, out: ImageType | None) -> ImageType | None:
+def _add_numkong_float16_scalar(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: float | None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
     if value is None or value == 0 or not _is_float16_image(img):
         return None
     if (
@@ -707,7 +758,11 @@ def _add_numkong_float16_scalar(img: ImageType, value: float | None, out: ImageT
     return _scale_numkong(img, 1.0, scalar, out=cast("NDArray[np.float16] | None", out))
 
 
-def _add_numpy(img: ImageType, value: ValueType, out: ImageType | None) -> ImageType:
+def _add_numpy(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: ValueType,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     raw_scalar: float | None = None
     if isinstance(value, (float, int, np.floating)) or (isinstance(value, np.ndarray) and value.shape == ()):
         raw_scalar = float(value)
@@ -772,12 +827,12 @@ def add(
 
 
 def add(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     value: ValueType | torch.Tensor,
     *,
-    out: ImageType | torch.Tensor | None = None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     layout: TensorLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Add a scalar, channel vector or broadcastable field.
 
     Without ``out``, input storage is unchanged; views and identity are allowed.
@@ -793,7 +848,11 @@ def add(
             result = torch.add(img, value) if tensor_out is None else torch.add(img, value, out=tensor_out)
             return result if result.dtype == img.dtype else result.to(img.dtype)
         return _tensor_pointwise(img, value, "add", layout, out=tensor_out)
-    return _add_numpy(img, cast("ValueType", value), cast("ImageType | None", out))
+    return _add_numpy(
+        img,
+        cast("ValueType", value),
+        cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out),
+    )
 
 
 def _power_opencv(
@@ -857,12 +916,12 @@ def power(
 
 
 def power(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     exponent: ValueType | torch.Tensor,
     *,
-    out: ImageType | torch.Tensor | None = None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     layout: TensorLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Raise pixels to a power, preserving shape, dtype and container.
 
     Uint8 scalar/channel exponents use clipped float32 lookup tables and truncate to uint8.
@@ -997,7 +1056,11 @@ def _is_all_zero_param(x: _PreparedValue) -> bool:
     return float(x) == 0.0
 
 
-def _use_numkong_scalar_multiply_add(img: ImageType, factor: ValueType, value: ValueType) -> bool:
+def _use_numkong_scalar_multiply_add(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    factor: ValueType,
+    value: ValueType,
+) -> bool:
     return (
         _is_float32_image(img)
         and isinstance(factor, (float, int))
@@ -1008,7 +1071,7 @@ def _use_numkong_scalar_multiply_add(img: ImageType, factor: ValueType, value: V
 
 
 def _multiply_add_numpy(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     factor: ValueType,
     value: ValueType,
 ) -> NDArray[np.float32]:
@@ -1213,13 +1276,13 @@ def multiply_add(
 
 
 def multiply_add(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     factor: ValueType | torch.Tensor,
     value: ValueType | torch.Tensor,
     *,
-    out: ImageType | torch.Tensor | None = None,
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
     layout: TensorLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Compute ``img * factor + value`` with the existing fused or two-rounding route.
 
     Uint8 scalar/channel controls saturate and truncate one float32 table.
@@ -1242,7 +1305,7 @@ def multiply_add(
             cast("TensorLayout", layout),
             out=cast("torch.Tensor | None", out),
         )
-    destination = cast("ImageType | None", out)
+    destination = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out)
     if img.size == 0:
         return img if destination is None else destination
     channels = get_num_channels(img)

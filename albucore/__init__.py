@@ -52,7 +52,6 @@ except ModuleNotFoundError as e:
 from ._types import (
     ImageInput,
     ImageInputT,
-    ImageType,
     NormalizationType,
     SupportedDType,
     TensorImageLayout,
@@ -135,7 +134,6 @@ __all__ = [
     "TWO",
     "ImageInput",
     "ImageInputT",
-    "ImageType",
     "NormalizationType",
     "SupportedDType",
     "TensorImageLayout",

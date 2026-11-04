@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove the public `ImageType` alias (breaking change). Use `NDArray[np.uint8]`, `NDArray[np.float16]`, or
+  `NDArray[np.float32]` from `numpy.typing`; use a union when supporting multiple dtypes.
 - Replace implicit mutation flags with explicit `out=` buffers across array operations. Tensor calls require `layout=`;
   calls without `out` leave input storage unchanged, though identity and view returns are allowed.
 - Add float16 image support across NumPy and eager CPU Torch routers, preserving documented output dtype and
