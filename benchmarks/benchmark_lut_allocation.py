@@ -169,8 +169,9 @@ def main():
         image, table, out, first = workload(baseline, shape, layout, destination)
         second = partial(core.apply_uint8_lut, image, table, out=out)
         original = image.tobytes()
-        expected, actual = first(), second()
-        np.testing.assert_array_equal(expected, table[image])
+        expected = table[image]
+        np.testing.assert_array_equal(first(), expected)
+        actual = second()
         np.testing.assert_array_equal(actual, expected)
         assert actual.flags.writeable
         assert actual.shape == image.shape and actual.dtype == np.uint8
