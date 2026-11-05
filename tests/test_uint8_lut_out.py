@@ -118,11 +118,14 @@ def test_tensor_lut_output_storage(shape, layout, permutation, contiguous, per_c
     result = apply_uint8_lut(image, table, out=out, layout=layout if per_channel else None)
 
     torch.testing.assert_close(result, expected, rtol=0, atol=0)
-    np.testing.assert_array_equal(table, original_table)
     assert result.shape == image.shape
     assert result.dtype == torch.uint8
     if out is not None:
         assert result is out
+    else:
+        result.zero_()
+        torch.testing.assert_close(result, torch.zeros_like(result), rtol=0, atol=0)
+    np.testing.assert_array_equal(table, original_table)
     if destination != "alias":
         torch.testing.assert_close(image, before, rtol=0, atol=0)
     if backing is not None:

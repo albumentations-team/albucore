@@ -170,9 +170,11 @@ def main():
         second = partial(core.apply_uint8_lut, image, table, out=out)
         original = image.tobytes()
         expected = table[image]
-        np.testing.assert_array_equal(first(), expected)
-        actual = second()
-        np.testing.assert_array_equal(actual, expected)
+        for call in (first, second):
+            if out is not None:
+                np.bitwise_not(expected, out=out)
+            actual = call()
+            np.testing.assert_array_equal(actual, expected)
         assert actual.flags.writeable
         assert actual.shape == image.shape and actual.dtype == np.uint8
         assert not np.shares_memory(actual, image)
