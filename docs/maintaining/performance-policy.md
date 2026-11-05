@@ -46,7 +46,9 @@ Targeted local mode:
 Compare baseline and candidate with the same input dtype, container, layout, controls, and allocation contract.
 Correctness, runtime, and memory acceptance apply independently on Linux x86-64 and macOS ARM64.
 A substantial code simplification may slow an individual public operation by at most 5% only when numerical accuracy
-is preserved, memory does not increase, and the full AlbumentationsX route has no sustained slowdown.
+is preserved and memory does not increase. For Albucore-only changes, assess these conditions on Core public operations.
+The full AX route must also have no sustained slowdown when downstream AX validation is explicitly requested, as defined
+by the [canonical benchmark scope](../performance-optimization.md#albucore-benchmark-scope).
 The 5% allowance does not apply to the complete AX pipeline or to memory growth.
 Fixed resident library-code pages are reported separately when a memory map identifies them. The no-growth gate
 continues to cover inputs, outputs, workspace, backend heap, and retained arrays; it is not a general RSS allowance.
