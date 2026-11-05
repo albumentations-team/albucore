@@ -51,10 +51,15 @@ def test_numpy_lut_output_storage(shape, source_layout, per_channel, destination
     result = apply_uint8_lut(image, table, out=out)
 
     np.testing.assert_array_equal(result, expected)
-    np.testing.assert_array_equal(table, original_table)
     assert result.dtype == np.uint8
+    assert result.flags.writeable
     if out is not None:
         assert result is out
+    else:
+        assert not np.shares_memory(result, image)
+        result[...] = 0
+        np.testing.assert_array_equal(result, 0)
+    np.testing.assert_array_equal(table, original_table)
     if destination != "alias":
         np.testing.assert_array_equal(image, original)
     if backing is not None:
