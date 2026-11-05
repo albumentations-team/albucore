@@ -68,6 +68,7 @@ The two-step half routes retain product rounding before addition; selected NumKo
 Supplying output may still require an intermediate to preserve that numerical policy and read-before-write order.
 
 `apply_uint8_lut` maps uint8 images through a shared `(256,)` or per-channel `(256, 1, C)` table.
+Without `out`, it returns independent writable storage and leaves the input unchanged.
 It accepts writable strided `out` buffers and `out=image`, returning that exact object. Other overlapping
 views and overlap with the table are unsupported. Shared Tensor tables do not require layout; per-channel
 Tensor calls declare `layout=`. Strided paths may use a temporary. Values match integer table lookup exactly.

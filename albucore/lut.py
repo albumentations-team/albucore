@@ -142,7 +142,7 @@ def apply_uint8_lut(
 ) -> NDArray[np.uint8] | torch.Tensor:
     """Map uint8 values through a shared ``(256,)`` or per-channel ``(256, 1, C)`` table.
 
-    Without ``out``, input storage is never written. A supplied output has the same shape,
+    Without ``out``, allocate a writable result without writing input storage. A supplied output has the same shape,
     uint8 dtype, container and logical layout as the input and is returned by identity.
     Writable strided outputs and ``out=img`` are supported; other overlapping views and
     overlap with the table are outside the contract. Strides may require a temporary.
@@ -179,5 +179,10 @@ def apply_uint8_lut(
             sz.translate(memoryview(cast("Any", numpy_out)), memoryview(cast("Any", lut)), inplace=True)
         return numpy_out
     source = np.ascontiguousarray(img)
-    raw = sz.translate(memoryview(cast("Any", source)), memoryview(cast("Any", lut)), inplace=False)
-    return np.frombuffer(raw, dtype=np.uint8).reshape(img.shape)
+    result = np.empty(img.shape, dtype=np.uint8)
+    sz.translate(
+        memoryview(cast("Any", source)),
+        memoryview(cast("Any", lut)),
+        out=memoryview(cast("Any", result)),
+    )
+    return result

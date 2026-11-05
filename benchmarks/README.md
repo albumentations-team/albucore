@@ -35,6 +35,7 @@ NumKong exposes **`out=`** on some APIs, but **`nk.zeros` + `out=`** can cost an
 
 | Script | Purpose |
 |--------|---------|
+| [`benchmark_lut_allocation.py`](benchmark_lut_allocation.py) | Paired public uint8 LUT timings against a saved `lut.py`, including tiny/HWC/batch/volume inputs, strides, explicit outputs, traced allocations and fresh-process RSS. |
 | [`benchmark_add_weighted.py`](benchmark_add_weighted.py) | Public `add_weighted` and NumPy/OpenCV/NumKong float32 backends on the issue #130 `[0, 255]` matrix. |
 | [`benchmark_numkong_vs_albucore_backends.py`](benchmark_numkong_vs_albucore_backends.py) | Large Markdown tables: `add_weighted`, global mean/std, per-channel stats — matches methodology in [`docs/numkong-performance.md`](../docs/numkong-performance.md). |
 | [`benchmark_numkong_arithmetic.py`](benchmark_numkong_arithmetic.py) | Scalar/array multiply & add: production APIs vs `nk.scale` / `blend` / `fma`. |
@@ -112,6 +113,21 @@ policy.
 | [`benchmark_elementwise.py`](benchmark_elementwise.py) | **Yes** | `minmax` guard candidate | **Yes** | — | **Yes** |
 
 The **router** JSON is the regression guard vs an older wheel; it does **not** sweep alternate backends for the same op. Use the **multi-backend** scripts when checking “are we missing a faster library path?”.
+
+## LUT allocation
+
+Shared uint8 LUT allocation writes directly into a NumPy-owned buffer through StringZilla `translate(out=...)`.
+To compare the public router with the read-only allocation path from [#219](https://github.com/albumentations-team/albucore/issues/219):
+
+```bash
+git show 4d798c76385f964b7688ce2ec1bf5f75f2bb72a3:albucore/lut.py > /tmp/lut-before.py
+python benchmarks/benchmark_lut_allocation.py --baseline-source /tmp/lut-before.py \
+  --output benchmarks/results/lut-allocation.json
+```
+
+The report records paired timings, source hashes, dependency versions, imported paths, thread settings,
+and three fresh-process memory samples per variant for contiguous and strided inputs. Completed timing cells resume
+only when the recorded environment and sources match. Run macOS ARM64 measurements outside the sandbox as described above.
 
 ## 3D benchmark entry points
 

@@ -166,3 +166,41 @@ def test_xy_benchmark_rejects_colliding_output_paths(tmp_path: Path, suffix: str
     assert result.returncode == 2
     assert "Metadata JSON and timings CSV need different output paths" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("destination", ["contiguous", "strided"])
+@pytest.mark.parametrize("partial_write", [False, True])
+def test_lut_benchmark_rejects_incomplete_output(tmp_path: Path, destination: str, partial_write: bool) -> None:
+    code = """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path('benchmarks').resolve()))
+import benchmark_lut_allocation as benchmark
+
+destination, partial_write, output = sys.argv[1:]
+original = benchmark.core.apply_uint8_lut
+
+def incomplete(image, table, *, out=None):
+    if out is None:
+        return original(image, table)
+    if partial_write == 'True':
+        out.flat[0] = table[image.flat[0]]
+    return out
+
+benchmark.core.apply_uint8_lut = incomplete
+benchmark.cases = lambda quick: [((5, 7, 3), 'readonly', destination)]
+sys.argv = [sys.argv[0], '--baseline-source', 'albucore/lut.py', '--output', output, '--skip-memory']
+benchmark.main()
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code, destination, str(partial_write), str(tmp_path / "report.json")],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode != 0
+    assert "AssertionError" in result.stderr
+    assert "Arrays are not equal" in result.stderr

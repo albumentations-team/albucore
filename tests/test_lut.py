@@ -40,6 +40,7 @@ def test_shared_lut_matches_cv2_lut(shape: tuple[int, ...], lut_type: str, alias
     buf = img_base.copy()
     got = apply_uint8_lut(buf, lut, out=buf if alias else None)
 
+    assert got.flags.writeable
     if alias:
         assert got is buf  # noqa: S101
     np.testing.assert_array_equal(got, expected)
