@@ -29,6 +29,7 @@ from albucore.torch_backend import (
 from albucore.utils import (
     _FLOAT32_MAX,
     MAX_OPENCV_WORKING_CHANNELS,
+    NUM_RGB_CHANNELS,
     _batch_operand,
     _broadcast_channel_vector,
     clip,
@@ -578,12 +579,47 @@ def multiply(
     )
 
 
+def _add_shared_uint8_rgb(
+    img: NDArray[np.uint8],
+    value: NDArray[np.float32],
+    out: NDArray[np.uint8] | None,
+) -> NDArray[np.uint8] | None:
+    # Mixed-depth addition uses a signed integer intermediate.
+    if not (np.min(value) >= -(2**30) and np.max(value) < 2**30):
+        return None
+    operand = np.trunc(value, order="C")
+    result = np.empty(img.shape, dtype=np.uint8) if out is None else out
+    plane = np.empty(img.shape[:2], dtype=np.uint8)
+    for channel in range(NUM_RGB_CHANNELS):
+        cv2.extractChannel(img, channel, dst=plane)
+        cv2.add(plane, operand, dst=plane, dtype=cv2.CV_8U)
+        cv2.insertChannel(plane, result, channel)
+    return result
+
+
 def _add_uint8_opencv(
     img: NDArray[np.uint8],
     value: float | np.ndarray,
     *,
     out: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
+    if (
+        isinstance(value, np.ndarray)
+        and value.dtype == np.float32
+        and value.ndim == 3
+        and img.ndim == 3
+        and img.shape[-1] == NUM_RGB_CHANNELS
+        and img.size >= 4_096 * NUM_RGB_CHANNELS
+        and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
+        and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
+        and (out is None or out.flags.c_contiguous)
+        and value.shape[:2] == img.shape[:2]
+        and (value.shape[-1] == 1 or (value.shape[-1] == NUM_RGB_CHANNELS and value.strides[-1] == 0))
+    ):
+        shared = _add_shared_uint8_rgb(img, value[..., 0], out)
+        if shared is not None:
+            return shared
+
     prepared = _prepare_value_opencv(img, value, "add")
     if (isinstance(prepared, (float, int)) and prepared < 0) or (
         isinstance(prepared, np.ndarray) and prepared.dtype != np.uint8

@@ -4,6 +4,50 @@ import pytest
 from albucore import add, arithmetic, convert_value
 
 
+@pytest.mark.parametrize("layout", ["dense", "crop", "flipped"])
+@pytest.mark.parametrize("output", ["allocate", "separate", "alias", "strided"])
+@pytest.mark.parametrize("broadcast", [False, True])
+def test_add_shared_uint8_float32_field(layout: str, output: str, broadcast: bool) -> None:
+    rng = np.random.default_rng(137)
+    source = rng.integers(0, 256, (81, 91, 3), dtype=np.uint8)
+    image = source[:, 2:-2]
+    if layout == "dense":
+        image = image.copy()
+    elif layout == "flipped":
+        image = image[:, ::-1]
+    before = image.copy()
+    plane = rng.normal(0, 112.2, (*image.shape[:2], 1)).astype(np.float32)
+    plane_before = plane.copy()
+    field = np.broadcast_to(plane, image.shape)
+    expected = add(image, field.copy())
+    destination = None
+    if output == "alias":
+        destination = image
+    elif output == "separate":
+        destination = np.full_like(image, 137)
+    elif output == "strided":
+        destination = np.full_like(source, 137)[:, 2:-2]
+
+    result = add(image, field if broadcast else plane, out=destination)
+
+    np.testing.assert_array_equal(result, expected, strict=True)
+    np.testing.assert_array_equal(plane, plane_before, strict=True)
+    if destination is not None:
+        assert result is destination
+    if output != "alias":
+        np.testing.assert_array_equal(image, before, strict=True)
+
+
+@pytest.mark.parametrize("value", [-500.75, 500.75, -(2**31), float("inf"), float("nan")])
+def test_add_shared_uint8_field_preserves_saturation(value: float) -> None:
+    image = np.full((65, 65, 3), 137, dtype=np.uint8)
+    field = np.full((65, 65, 1), value, dtype=np.float32)
+    with np.errstate(invalid="ignore"):
+        expected = add(image, np.broadcast_to(field, image.shape).copy())
+        result = add(image, field)
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+
 @pytest.mark.parametrize(
     "img, value, expected_output",
     [
