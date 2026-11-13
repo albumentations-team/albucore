@@ -166,6 +166,33 @@ def test_add_consistency(img, value, expected_output):
     assert result.dtype == img.dtype
 
 
+@pytest.mark.parametrize("channels", [1, 3, 5])
+@pytest.mark.parametrize("out_mode", ["allocated", "alias", "strided"])
+@pytest.mark.parametrize("extreme", [False, True])
+def test_uint8_add_float32_field_preserves_truncation_and_saturation(
+    channels: int,
+    out_mode: str,
+    extreme: bool,
+) -> None:
+    image = np.resize(np.array([0, 1, 127, 254, 255], dtype=np.uint8), (17, 19, channels))
+    values = [-256.75, -255.5, -127.9, -1.9, -0.9, 0.9, 1.9, 127.9, 255.5, 256.75]
+    if extreme:
+        values += [np.inf, -np.inf, float(2**31), float(-(2**31))]
+    field = np.resize(np.array(values, dtype=np.float32), image.shape)
+    expected = np.clip(image.astype(np.float32) + np.trunc(field), 0, 255).astype(np.uint8)
+    out = None
+    if out_mode == "alias":
+        out = image
+    elif out_mode == "strided":
+        out = np.empty((17, 38, channels), dtype=np.uint8)[:, ::2]
+
+    actual = add(image, field, out=out)
+
+    if out is not None:
+        assert actual is out
+    np.testing.assert_array_equal(actual, expected, strict=True)
+
+
 @pytest.mark.parametrize("value", [0, 2, 255])
 def test_add_uint8_single_channel_vector_preserves_output_contract(value: int) -> None:
     image = np.array([0, 1, 254, 255], dtype=np.uint8).reshape(1, 4, 1)

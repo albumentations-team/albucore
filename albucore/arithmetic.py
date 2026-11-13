@@ -586,6 +586,16 @@ def _add_uint8_opencv(
         isinstance(prepared, np.ndarray) and prepared.dtype != np.uint8
     ):
         operand: Any = prepared.astype(np.float32, copy=False) if isinstance(prepared, np.ndarray) else prepared
+        if (
+            isinstance(prepared, np.ndarray)
+            and prepared.dtype == np.float32
+            and img.ndim == 3
+            and (out is None or out.flags.c_contiguous)
+            and np.min(operand) >= -(2**30)
+            and np.max(operand) < 2**30
+        ):
+            result = cv2.add(img, operand, dst=out, dtype=cv2.CV_8U)
+            return cast("NDArray[np.uint8]", result.reshape(img.shape) if out is None else out)
         float_result = cast("NDArray[np.float32]", cv2.add(img.astype(np.float32), operand).reshape(img.shape))
         return clip(float_result, np.uint8, out=out)
     if out is not None and not out.flags.c_contiguous:
