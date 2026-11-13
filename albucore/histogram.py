@@ -1,0 +1,128 @@
+"""Histogram equalization for channel-last uint8 images."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
+
+import cv2
+import numpy as np
+
+from albucore.lut import apply_uint8_lut
+from albucore.stats import reduce_sum
+from albucore.utils import NUM_RGB_CHANNELS
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
+__all__ = ["equalize_uint8"]
+
+_LARGE_CV_IMAGE_PIXELS = 1024 * 1024
+
+
+def _histogram(img: NDArray[np.uint8], mask: NDArray[np.uint8] | None = None) -> np.ndarray:
+    histogram = cv2.calcHist([img], [0], mask, [256], (0, 256))
+    return np.asarray(histogram, dtype=np.float32).ravel()
+
+
+def _pillow_lut(histogram: np.ndarray) -> NDArray[np.uint8] | None:
+    nonzero = np.flatnonzero(histogram)
+    if nonzero.size <= 1:
+        return None
+    # The final occupied bin does not contribute to Pillow's step.
+    counts = histogram.astype(np.int64)
+    step = int(counts.sum() - counts[nonzero[-1]]) // 255
+    if step == 0:
+        return None
+
+    before_bin = np.cumsum(counts) - counts
+    return ((before_bin + step // 2) // step).clip(0, 255).astype(np.uint8)
+
+
+def _opencv_lut(histogram: np.ndarray) -> NDArray[np.uint8] | None:
+    nonzero = np.flatnonzero(histogram)
+    if nonzero.size <= 1:
+        return None
+
+    first = nonzero[0]
+    denominator = reduce_sum(histogram) - histogram[first]
+    if denominator == 0:
+        return None
+    cumulative = np.cumsum(histogram)
+    scaled = (cumulative - cumulative[first]) * (255.0 / denominator)
+    return np.asarray(np.clip(scaled.round(), 0, 255), dtype=np.uint8)
+
+
+def _equalize_cv_unmasked(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    channels = img.shape[-1]
+    if channels == 1:
+        return np.asarray(cv2.equalizeHist(img), dtype=np.uint8).reshape(img.shape)
+    if channels == NUM_RGB_CHANNELS and img.shape[0] * img.shape[1] < _LARGE_CV_IMAGE_PIXELS:
+        return np.asarray(cv2.merge([cv2.equalizeHist(plane) for plane in cv2.split(img)]), dtype=np.uint8)
+
+    if channels < NUM_RGB_CHANNELS:
+        return np.stack([cv2.equalizeHist(img[..., channel]) for channel in range(channels)], axis=-1)
+
+    luts = np.empty((256, 1, channels), dtype=np.uint8)
+    identity = np.arange(256, dtype=np.uint8)
+    for channel in range(channels):
+        lut = _opencv_lut(_histogram(img[..., channel]))
+        luts[:, 0, channel] = identity if lut is None else lut
+    return apply_uint8_lut(img, luts)
+
+
+def _equalize_pillow_rgb(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    result = np.empty_like(img, order="C")
+    plane = np.empty(img.shape[:2], dtype=np.uint8)
+    for channel in range(NUM_RGB_CHANNELS):
+        cv2.extractChannel(img, channel, dst=plane)
+        lut = _pillow_lut(_histogram(plane))
+        if lut is not None:
+            apply_uint8_lut(plane, lut, out=plane)
+        cv2.insertChannel(plane, result, channel)
+    return result
+
+
+def equalize_uint8(
+    img: NDArray[np.uint8],
+    *,
+    mode: Literal["cv", "pil"] = "cv",
+    mask: NDArray[np.uint8] | None = None,
+) -> NDArray[np.uint8]:
+    """Equalize each channel of a prevalidated HWC uint8 image independently.
+
+    Args:
+        img: Input image with an explicit channel axis.
+        mode: OpenCV or Pillow histogram mapping.
+        mask: Optional uint8 histogram selection of shape HW, HWC with one
+            shared channel, or HWC with one mask per image channel. Nonzero
+            values select pixels for the histogram. The mapping applies to
+            every pixel in that image channel.
+
+    Returns:
+        An independent writable uint8 array with the input shape.
+    """
+    if not img.size:
+        return img.copy()
+    if mode == "cv" and mask is None:
+        return _equalize_cv_unmasked(img)
+
+    channels = img.shape[-1]
+    if (
+        mask is None
+        and channels == NUM_RGB_CHANNELS
+        and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
+        and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
+    ):
+        return _equalize_pillow_rgb(img)
+
+    lut_for = _pillow_lut if mode == "pil" else _opencv_lut
+    if mask is not None and mask.ndim == 3 and mask.shape[-1] == 1:
+        mask = mask[..., 0]
+    result = np.empty_like(img)
+    for channel in range(channels):
+        plane = img[..., channel]
+        selection = mask[..., channel] if mask is not None and mask.ndim == 3 else mask
+        lut = lut_for(_histogram(plane, selection))
+        result[..., channel] = plane if lut is None else apply_uint8_lut(plane, lut)
+    return result

@@ -26,6 +26,8 @@ ValueKind: TypeAlias = Literal[
     "dsize",
     "eps",
     "explicit_axis",
+    "equalize_mode",
+    "histogram_mask",
     "factor",
     "gamma",
     "global_axis",
@@ -88,6 +90,8 @@ VALUE_DENOMINATOR: Final[ValueKind] = "denominator"
 VALUE_DSIZE: Final[ValueKind] = "dsize"
 VALUE_EPS: Final[ValueKind] = "eps"
 VALUE_EXPLICIT_AXIS: Final[ValueKind] = "explicit_axis"
+VALUE_EQUALIZE_MODE: Final[ValueKind] = "equalize_mode"
+VALUE_HISTOGRAM_MASK: Final[ValueKind] = "histogram_mask"
 VALUE_FACTOR: Final[ValueKind] = "factor"
 VALUE_GAMMA: Final[ValueKind] = "gamma"
 VALUE_GLOBAL_AXIS: Final[ValueKind] = "global_axis"
@@ -148,6 +152,8 @@ ALL_VALUE_KINDS: Final[tuple[ValueKind, ...]] = (
     VALUE_DSIZE,
     VALUE_EPS,
     VALUE_EXPLICIT_AXIS,
+    VALUE_EQUALIZE_MODE,
+    VALUE_HISTOGRAM_MASK,
     VALUE_FACTOR,
     VALUE_GAMMA,
     VALUE_GLOBAL_AXIS,

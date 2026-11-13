@@ -64,6 +64,7 @@ from timing import WallTimingMs, bench_wall_ms
 
 _OPERATION_API_NAMES = {
     "add_channel": "add",
+    "equalize_uint8_pil": "equalize_uint8",
     "add_field": "add",
     "multiply_channel": "multiply",
     "multiply_field": "multiply",
@@ -732,6 +733,8 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("add", add_c),
         ("add_field", add_arr),
         ("apply_uint8_lut", apply_ul),
+        ("equalize_uint8", lambda alb, img: partial(alb.equalize_uint8, img)),
+        ("equalize_uint8_pil", lambda alb, img: partial(alb.equalize_uint8, img, mode="pil")),
         ("add_channel", add_vec),
         ("add_weighted", aw),
         ("clip", saturate),
@@ -923,7 +926,7 @@ def main() -> None:
         "mean_std_per_channel",
         "reduce_sum_per_channel",
     }
-    skip_uint8_only = {"apply_uint8_lut"}
+    skip_uint8_only = {"apply_uint8_lut", "equalize_uint8", "equalize_uint8_pil"}
 
     public_exports = list(alb.__all__)
     export_names = set(public_exports)

@@ -94,6 +94,7 @@ from .geometric import (
     warp_affine3d,
     warp_perspective,
 )
+from .histogram import equalize_uint8
 from .lut import (
     apply_uint8_lut,
 )
@@ -160,6 +161,7 @@ __all__ = [
     "convolve",
     "copy_make_border",
     "dilate",
+    "equalize_uint8",
     "erode",
     "exp",
     "flip_volume",
