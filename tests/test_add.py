@@ -168,13 +168,17 @@ def test_add_consistency(img, value, expected_output):
 
 @pytest.mark.parametrize("channels", [1, 3, 5])
 @pytest.mark.parametrize("out_mode", ["allocated", "alias", "strided"])
+@pytest.mark.parametrize("layout", ["dense", "flipped"])
 @pytest.mark.parametrize("extreme", [False, True])
 def test_uint8_add_float32_field_preserves_truncation_and_saturation(
     channels: int,
     out_mode: str,
     extreme: bool,
+    layout: str,
 ) -> None:
     image = np.resize(np.array([0, 1, 127, 254, 255], dtype=np.uint8), (17, 19, channels))
+    if layout == "flipped":
+        image = image[:, ::-1]
     values = [-256.75, -255.5, -127.9, -1.9, -0.9, 0.9, 1.9, 127.9, 255.5, 256.75]
     if extreme:
         values += [np.inf, -np.inf, float(2**31), float(-(2**31))]
