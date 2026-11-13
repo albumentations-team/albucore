@@ -189,9 +189,11 @@ def _write_swapped_planes(
 def _can_split_channels(array: np.ndarray) -> bool:
     channels = array.shape[-1]
     minimum = _MIN_ORIENTED_SPLIT_PIXELS if channels == 5 else _MIN_SPLIT_PIXELS
-    if not (minimum * channels <= array.size <= _OPENCV_INT_MAX):
-        return False
-    if array.dtype not in _OPENCV_COPY_DTYPES or not array.flags.aligned:
+    if (
+        not minimum * channels <= array.size <= _OPENCV_INT_MAX
+        or array.dtype not in _OPENCV_COPY_DTYPES
+        or not array.flags.aligned
+    ):
         return False
     if array.flags.c_contiguous:
         return True
