@@ -1,6 +1,8 @@
 """Pointwise arithmetic: add, multiply, power and multiply-add."""
 
 import math
+import platform
+import sys
 from typing import Any, Literal, TypeAlias, TypeGuard, cast, overload
 
 import cv2
@@ -50,6 +52,7 @@ _TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
+_MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if sys.platform == "darwin" and platform.machine() == "arm64" else 1_048_576
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
 
 
@@ -586,6 +589,22 @@ def _add_uint8_opencv(
         isinstance(prepared, np.ndarray) and prepared.dtype != np.uint8
     ):
         operand: Any = prepared.astype(np.float32, copy=False) if isinstance(prepared, np.ndarray) else prepared
+        if (
+            isinstance(prepared, np.ndarray)
+            and prepared.dtype == np.float32
+            and img.ndim == 3
+            and img.size >= _MIXED_UINT8_ADD_MIN_ELEMENTS
+            and img.strides[-1] == 1
+            and img.strides[-2] == img.shape[-1]
+            and img.strides[0] >= img.shape[1] * img.shape[-1]
+            and (out is None or out.flags.c_contiguous)
+            and np.min(operand) >= -(2**30)
+            and np.max(operand) < 2**30
+        ):
+            # The operand is truncated already. Explicit dtype enables mixed-depth addition.
+            destination = None if out is None else out.reshape(-1).reshape(img.shape)
+            result = cv2.add(img, operand, dst=destination, dtype=cv2.CV_8U)
+            return cast("NDArray[np.uint8]", result.reshape(img.shape) if out is None else out)
         float_result = cast("NDArray[np.float32]", cv2.add(img.astype(np.float32), operand).reshape(img.shape))
         return clip(float_result, np.uint8, out=out)
     if out is not None and not out.flags.c_contiguous:
