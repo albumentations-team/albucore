@@ -32,7 +32,12 @@ from albucore import (
     vflip,
 )
 from albucore._types import TensorLayout
-from albucore.tensor_bridge import dispatch_tensor_image, numpy_to_tensor_layout, tensor_to_numpy_channel_last
+from albucore.tensor_bridge import (
+    dispatch_tensor_image,
+    numpy_to_tensor_layout,
+    numpy_to_tensor_storage,
+    tensor_to_numpy_channel_last,
+)
 
 
 @pytest.mark.parametrize(
@@ -63,6 +68,147 @@ def test_tensor_bridge_uses_views_and_restores_declared_layout(
     assert restored.dtype == tensor.dtype
     assert restored.data_ptr() == tensor.data_ptr()
     torch.testing.assert_close(restored, tensor)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32, np.int32])
+@pytest.mark.parametrize(
+    ("layout", "shape", "axes"),
+    [
+        ("CHW", (75, 83, 3), (2, 0, 1)),
+        ("NCHW", (4, 75, 83, 2), (0, 3, 1, 2)),
+        ("CDHW", (4, 37, 43, 4), (3, 0, 1, 2)),
+        ("NCDHW", (2, 4, 37, 43, 3), (0, 4, 1, 2, 3)),
+    ],
+)
+@pytest.mark.parametrize("storage", ["packed", "crop", "reverse", "foreign"])
+def test_contiguous_tensor_layout_preserves_bits(
+    dtype: type[np.generic],
+    layout: TensorLayout,
+    shape: tuple[int, ...],
+    axes: tuple[int, ...],
+    storage: str,
+) -> None:
+    rng = np.random.default_rng(137)
+    bits = {np.uint8: np.uint8, np.float16: np.uint16, np.float32: np.uint32, np.int32: np.uint32}[dtype]
+    array = rng.integers(0, np.iinfo(bits).max, shape, dtype=bits, endpoint=True).view(dtype)
+    if storage == "crop":
+        array = array[..., 1:-1, :]
+    elif storage == "reverse":
+        array = array[..., ::-1, :]
+    elif storage == "foreign":
+        array = array.byteswap().view(array.dtype.newbyteorder("S"))
+    array.setflags(write=False)
+
+    result = numpy_to_tensor_layout(array, layout, contiguous=True)
+
+    expected = np.ascontiguousarray(array.transpose(axes), dtype=np.dtype(dtype))
+    assert result.is_contiguous()
+    assert result.numpy().dtype == dtype
+    np.testing.assert_array_equal(result.numpy().view(bits), expected.view(bits))
+    assert not np.shares_memory(result.numpy(), array)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32, np.int16])
+@pytest.mark.parametrize("channels", [3, 5])
+@pytest.mark.parametrize("layout", ["CHW", "NCHW", "CDHW", "NCDHW"])
+@pytest.mark.parametrize("view", ["vertical", "double", "transpose", "rotate90"])
+def test_contiguous_tensor_layout_preserves_oriented_planes(
+    dtype: type[np.generic],
+    channels: int,
+    layout: TensorLayout,
+    view: str,
+) -> None:
+    batch = layout.startswith("N")
+    shape = (*((2,) if batch else ()), *((2,) if "D" in layout else ()), 181, 193, channels)
+    bits = {np.uint8: np.uint8, np.float16: np.uint16, np.float32: np.uint32, np.int16: np.uint16}[dtype]
+    rng = np.random.default_rng(137)
+    original = rng.integers(0, np.iinfo(bits).max, shape, dtype=bits, endpoint=True).view(dtype)
+    array = {
+        "vertical": original[..., ::-1, :, :],
+        "double": original[..., ::-1, ::-1, :],
+        "transpose": original.swapaxes(-3, -2),
+        "rotate90": np.rot90(original, axes=(-3, -2)),
+    }[view]
+    array.setflags(write=False)
+
+    result = numpy_to_tensor_layout(array, layout, contiguous=True)
+
+    assert result.is_contiguous()
+    assert result.numpy().dtype == array.dtype
+    np.testing.assert_array_equal(result.numpy().view(bits), np.moveaxis(array, -1, int(batch)).view(bits))
+
+
+def test_contiguous_tensor_layout_shares_dense_singleton_spatial_storage() -> None:
+    array = np.arange(8192 * 3, dtype=np.uint8).reshape(8192, 1, 1, 3)
+
+    result = numpy_to_tensor_layout(array, "NCHW", contiguous=True)
+
+    assert result.is_contiguous()
+    assert np.shares_memory(result.numpy(), array)
+    np.testing.assert_array_equal(result.numpy(), array.transpose(0, 3, 1, 2), strict=True)
+
+
+def test_contiguous_tensor_layout_repairs_odd_singleton_stride() -> None:
+    array = np.ndarray((3, 1, 1), dtype=np.int16, strides=(2, 1, 2))
+    array[:, 0, 0] = [17, 29, 53]
+
+    result = numpy_to_tensor_layout(array, "CHW", contiguous=True)
+
+    assert result.is_contiguous()
+    np.testing.assert_array_equal(result.numpy(), array.transpose(2, 0, 1), strict=True)
+
+
+def test_contiguous_tensor_storage_wraps_dense_scalar_data() -> None:
+    array = np.arange(19, dtype=np.int64).reshape(19, 1)
+
+    assert np.shares_memory(numpy_to_tensor_storage(array, contiguous=True).numpy(), array)
+    flipped = numpy_to_tensor_storage(array[:, ::-1], contiguous=True)
+    np.testing.assert_array_equal(flipped.numpy(), array)
+    assert not np.shares_memory(flipped.numpy(), array)
+
+
+def test_tensor_layout_copies_read_only_array_in_memory_order() -> None:
+    source = np.arange(7 * 11 * 3, dtype=np.float32).reshape(7, 11, 3)
+    source.setflags(write=False)
+
+    result = numpy_to_tensor_layout(source, "CHW")
+
+    assert result.stride() == (1, 33, 3)
+    assert not np.shares_memory(result.numpy(), source)
+    np.testing.assert_array_equal(result.numpy(), source.transpose(2, 0, 1))
+
+
+@pytest.mark.parametrize("contiguous", [False, True])
+@pytest.mark.parametrize("byte_order", ["=", "S"])
+@pytest.mark.parametrize(("shape", "strides"), [((3, 5), (11, 2)), ((3, 1), (2, 1))])
+def test_tensor_storage_normalizes_byte_order_and_unaligned_strides(
+    contiguous: bool,
+    byte_order: str,
+    shape: tuple[int, int],
+    strides: tuple[int, int],
+) -> None:
+    dtype = np.dtype(np.int16).newbyteorder(byte_order)
+    source = np.ndarray(shape, dtype=dtype, buffer=bytearray(32), strides=strides)
+    source[...] = np.arange(source.size, dtype=np.int16).reshape(source.shape) + 137
+
+    result = numpy_to_tensor_storage(source, contiguous=contiguous)
+
+    assert result.dtype == torch.int16
+    assert result.is_contiguous()
+    np.testing.assert_array_equal(result.numpy(), source)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.int16, np.int32, np.int64])
+@pytest.mark.parametrize("rows", [slice(None), slice(None, None, -1)])
+def test_contiguous_tensor_storage_preserves_reversed_label_bits(dtype: type[np.generic], rows: slice) -> None:
+    limits = np.iinfo(dtype)
+    labels = np.random.default_rng(137).integers(limits.min, limits.max, (3, 181, 193), dtype=dtype, endpoint=True)
+    labels = labels[..., rows, ::-1]
+
+    result = numpy_to_tensor_storage(labels, contiguous=True)
+
+    assert result.is_contiguous()
+    np.testing.assert_array_equal(result.numpy(), labels, strict=True)
 
 
 @pytest.mark.parametrize("layout", ["CHW", "NCHW", "CDHW", "NCDHW"])

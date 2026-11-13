@@ -64,6 +64,19 @@ jobs:
           git fetch origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" --depth=1
           git worktree add ../albucore-base "origin/${GITHUB_BASE_REF}"
 
+      - name: Run CPU Tensor bridge benchmark
+        run: |
+          if git diff --quiet "origin/${GITHUB_BASE_REF}...HEAD" -- \
+            albucore/tensor_bridge.py benchmarks/benchmark_tensor_bridge.py; then
+            exit 0
+          fi
+          PYTHONPATH="$PWD" uv run --no-project --python 3.11 \
+            --index "https://download.pytorch.org/whl/cpu" \
+            --with "torch>=2.14.1" --with "numpy>=1.24.4" --with "numkong>=7.8.7" \
+            --with "stringzilla>=5.3.2" --with "opencv-python-headless>=5.0.0.93" \
+            python benchmarks/benchmark_tensor_bridge.py --quick \
+            --metadata-json benchmarks/results/tensor-bridge-metadata.json > benchmarks/results/tensor-bridge.csv
+
       - name: Run base quick router benchmark
         working-directory: ../albucore-base
         run: |
@@ -110,6 +123,8 @@ jobs:
           path: |
             benchmarks/results/router-pr.json
             benchmarks/results/router-base.json
+            benchmarks/results/tensor-bridge.csv
+            benchmarks/results/tensor-bridge-metadata.json
             benchmarks/results/REPORT_router_pr_regressions.md
             benchmarks/results/REPORT_router_pr_summary.md
           if-no-files-found: warn

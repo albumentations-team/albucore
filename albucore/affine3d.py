@@ -18,6 +18,7 @@ from albucore.sampling3d import (
     _sample3d_torch_cpu_batch,
     _sample3d_torch_cpu_batch_native,
 )
+from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
 
 if TYPE_CHECKING:
     from albucore._types import ImageArrayT
@@ -251,11 +252,9 @@ def _warp_affine3d_numpy(
     border_values: np.ndarray,
 ) -> np.ndarray:
     """Bridge one ``DHWC`` NumPy volume through the native CPU Torch kernel."""
-    if not volume.flags.writeable or any(stride < 0 for stride in volume.strides):
-        volume = np.array(volume, copy=True, order="C")
-    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    tensor = numpy_to_tensor_layout(volume, "CDHW")
     result = _warp_affine3d_torch_cpu(tensor, inverse_matrix, size, interpolation, border_mode, border_values)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return tensor_to_numpy_channel_last(result, "CDHW")
 
 
 def _warp_affine3d_batch(
@@ -276,9 +275,7 @@ def _warp_affine3d_batch(
             return np.empty((0, *size, channels), dtype=volumes.dtype)
         border_values = _normalize_border_value(border_value, channels)
         inverse_matrix = _inverse_matrix(homogeneous_matrix)
-        if not volumes.flags.writeable or any(stride < 0 for stride in volumes.strides):
-            volumes = np.array(volumes, copy=True, order="C")
-        tensor = torch.from_numpy(volumes).permute(0, 4, 1, 2, 3)
+        tensor = numpy_to_tensor_layout(volumes, "NCDHW")
         result = _warp_affine3d_torch_cpu_batch(
             tensor,
             inverse_matrix,
@@ -287,7 +284,7 @@ def _warp_affine3d_batch(
             border_mode,
             border_values,
         )
-        return np.asarray(result.permute(0, 2, 3, 4, 1).numpy())
+        return tensor_to_numpy_channel_last(result, "NCDHW")
 
     input_size = tuple(volumes.shape[2:5])
     if input_size == size and _is_identity_matrix(homogeneous_matrix):

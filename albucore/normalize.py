@@ -13,8 +13,8 @@ from albucore._types import NormalizationType, ValueType
 from albucore.lut import _apply_float_lut
 from albucore.stats import DEFAULT_EPS, mean_std
 from albucore.tensor_bridge import (
-    _CHANNEL_LAST_TO_TENSOR,
     TensorLayout,
+    numpy_to_tensor_layout,
     tensor_operand_to_numpy,
     tensor_to_numpy_channel_last,
 )
@@ -194,7 +194,7 @@ def _adaptive_tensor_batch(
     del first
     for index in range(1, image.shape[0]):
         normalize_per_image(image[index], normalization, out=result[index])
-    return torch.from_numpy(result).permute(_CHANNEL_LAST_TO_TENSOR[layout])
+    return numpy_to_tensor_layout(result, layout)
 
 
 def _adaptive_tensor(
@@ -214,7 +214,7 @@ def _adaptive_tensor(
     result = normalize_per_image(image, normalization, out=direct_out)
     if out is not None and result is destination:
         return out
-    tensor = torch.from_numpy(result).permute(_CHANNEL_LAST_TO_TENSOR[layout])
+    tensor = numpy_to_tensor_layout(result, layout)
     if out is not None:
         out.copy_(tensor)
         return out
@@ -580,7 +580,7 @@ def _normalize_tensor(
         result = normalize(image, mean_value, denominator_value, out=kernel_out)
     if out is not None and result is destination:
         return out
-    tensor = img if result is image else torch.from_numpy(result).permute(_CHANNEL_LAST_TO_TENSOR[layout])
+    tensor = img if result is image else numpy_to_tensor_layout(result, layout)
     if out is not None:
         out.copy_(tensor)
         return out

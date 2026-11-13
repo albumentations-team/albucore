@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as torch_f
 
 from albucore._types import ArrayT
+from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
 
 __all__ = ["pad3d"]
 
@@ -132,6 +133,6 @@ def pad3d(
         return _pad3d_numpy(volume, padding, value)
     # Interleaved channels make the native CDHW copy strided; retain DHWC storage.
     if isinstance(value, tuple) or (volume.shape[0] > 1 and volume.stride(0) == 1):
-        result = _pad3d_numpy(np.asarray(volume.permute(1, 2, 3, 0).numpy()), padding, value)
-        return torch.from_numpy(result).permute(3, 0, 1, 2)
+        result = _pad3d_numpy(tensor_to_numpy_channel_last(volume, "CDHW"), padding, value)
+        return numpy_to_tensor_layout(result, "CDHW")
     return _pad3d_torch(volume, padding, value)
