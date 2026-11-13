@@ -21,13 +21,17 @@ def _reference(image, table):
 
 
 @pytest.mark.parametrize("shape", [(5, 7, 1), (5, 7, 3), (5, 7, 9), (2, 5, 7, 3), (2, 3, 5, 7, 3)])
-@pytest.mark.parametrize("source_layout", ["contiguous", "strided", "fortran"])
+@pytest.mark.parametrize("source_layout", ["contiguous", "row_crop", "strided", "fortran"])
 @pytest.mark.parametrize("per_channel", [False, True])
 @pytest.mark.parametrize("destination", ["allocate", "alias", "contiguous", "strided"])
 def test_numpy_lut_output_storage(shape, source_layout, per_channel, destination):
     original = np.arange(np.prod(shape), dtype=np.uint8).reshape(shape)
     source_backing = None
-    if source_layout == "strided":
+    if source_layout == "row_crop":
+        source_backing = np.full((*shape[:-2], shape[-2] + 2, shape[-1]), 173, dtype=np.uint8)
+        image = source_backing[..., 1:-1, :]
+        image[...] = original
+    elif source_layout == "strided":
         source_backing = np.full((*shape[:-2], shape[-2] * 2, shape[-1]), 173, dtype=np.uint8)
         image = source_backing[..., ::2, :]
         image[...] = original
@@ -64,7 +68,9 @@ def test_numpy_lut_output_storage(shape, source_layout, per_channel, destination
         np.testing.assert_array_equal(image, original)
     if backing is not None:
         np.testing.assert_array_equal(backing[..., ::2, :], 219)
-    if source_backing is not None:
+    if source_layout == "row_crop":
+        np.testing.assert_array_equal(source_backing[..., (0, -1), :], 173)
+    elif source_layout == "strided":
         np.testing.assert_array_equal(source_backing[..., 1::2, :], 173)
 
 
