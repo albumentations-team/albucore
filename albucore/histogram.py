@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 from albucore.lut import apply_uint8_lut
-from albucore.utils import NUM_RGB_CHANNELS
+from albucore.utils import NUM_RGB_CHANNELS, get_opencv_max_channels
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 __all__ = ["equalize_uint8"]
 
-_LARGE_CV_IMAGE_PIXELS = 1024 * 1024
+_OPENCV_MAX_CHANNELS = get_opencv_max_channels()
 _MAX_EXACT_HISTOGRAM_PIXELS = 2**24
 
 
@@ -64,18 +64,14 @@ def _equalize_cv_unmasked(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
     channels = img.shape[-1]
     if channels == 1:
         return np.asarray(cv2.equalizeHist(img[..., 0]), dtype=np.uint8)[..., None]
-    if channels == NUM_RGB_CHANNELS and img.shape[0] * img.shape[1] < _LARGE_CV_IMAGE_PIXELS:
-        return np.asarray(cv2.merge([cv2.equalizeHist(plane) for plane in cv2.split(img)]), dtype=np.uint8)
+    if channels <= _OPENCV_MAX_CHANNELS:
+        planes = [cv2.equalizeHist(plane) for plane in cv2.split(img)]
+        return np.asarray(cv2.merge(planes), dtype=np.uint8)
 
-    if channels < NUM_RGB_CHANNELS:
-        return np.stack([cv2.equalizeHist(img[..., channel]) for channel in range(channels)], axis=-1)
-
-    luts = np.empty((256, 1, channels), dtype=np.uint8)
-    identity = np.arange(256, dtype=np.uint8)
+    result = np.empty_like(img)
     for channel in range(channels):
-        lut = _opencv_lut(_histogram(img[..., channel]))
-        luts[:, 0, channel] = identity if lut is None else lut
-    return apply_uint8_lut(img, luts)
+        result[..., channel] = cv2.equalizeHist(img[..., channel])
+    return result
 
 
 def _equalize_pillow_rgb(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
