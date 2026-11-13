@@ -138,6 +138,26 @@ def test_contiguous_tensor_layout_preserves_oriented_planes(
     np.testing.assert_array_equal(result.numpy().view(bits), np.moveaxis(array, -1, int(batch)).view(bits))
 
 
+def test_contiguous_tensor_layout_shares_dense_singleton_spatial_storage() -> None:
+    array = np.arange(8192 * 3, dtype=np.uint8).reshape(8192, 1, 1, 3)
+
+    result = numpy_to_tensor_layout(array, "NCHW", contiguous=True)
+
+    assert result.is_contiguous()
+    assert np.shares_memory(result.numpy(), array)
+    np.testing.assert_array_equal(result.numpy(), array.transpose(0, 3, 1, 2), strict=True)
+
+
+def test_contiguous_tensor_layout_repairs_odd_singleton_stride() -> None:
+    array = np.ndarray((3, 1, 1), dtype=np.int16, strides=(2, 1, 2))
+    array[:, 0, 0] = [17, 29, 53]
+
+    result = numpy_to_tensor_layout(array, "CHW", contiguous=True)
+
+    assert result.is_contiguous()
+    np.testing.assert_array_equal(result.numpy(), array.transpose(2, 0, 1), strict=True)
+
+
 def test_contiguous_tensor_storage_wraps_dense_scalar_data() -> None:
     array = np.arange(19, dtype=np.int64).reshape(19, 1)
 
@@ -160,10 +180,16 @@ def test_tensor_layout_copies_read_only_array_in_memory_order() -> None:
 
 @pytest.mark.parametrize("contiguous", [False, True])
 @pytest.mark.parametrize("byte_order", ["=", "S"])
-def test_tensor_storage_normalizes_byte_order_and_unaligned_strides(contiguous: bool, byte_order: str) -> None:
+@pytest.mark.parametrize(("shape", "strides"), [((3, 5), (11, 2)), ((3, 1), (2, 1))])
+def test_tensor_storage_normalizes_byte_order_and_unaligned_strides(
+    contiguous: bool,
+    byte_order: str,
+    shape: tuple[int, int],
+    strides: tuple[int, int],
+) -> None:
     dtype = np.dtype(np.int16).newbyteorder(byte_order)
-    source = np.ndarray((3, 5), dtype=dtype, buffer=bytearray(32), strides=(11, 2))
-    source[...] = np.arange(15, dtype=np.int16).reshape(source.shape) + 137
+    source = np.ndarray(shape, dtype=dtype, buffer=bytearray(32), strides=strides)
+    source[...] = np.arange(source.size, dtype=np.int16).reshape(source.shape) + 137
 
     result = numpy_to_tensor_storage(source, contiguous=contiguous)
 

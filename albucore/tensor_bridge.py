@@ -49,7 +49,19 @@ _CHANNEL_LAST_TO_TENSOR: dict[TensorLayout, tuple[int, ...]] = {
 
 
 def tensor_to_numpy_channel_last(image: torch.Tensor, layout: TensorLayout | None) -> np.ndarray:
-    """Return a channel-last NumPy view for one prevalidated CPU Tensor layout."""
+    """Move the channel axis of a CPU Tensor to the end as a NumPy view.
+
+    Args:
+        image: A CPU Tensor compatible with `Tensor.numpy()`, such as uint8, float16, or float32.
+        layout: The input's explicit CHW, NCHW, CDHW, or NCDHW layout.
+
+    Returns:
+        A NumPy array with the same dtype and shared storage in channel-last order.
+
+    Examples:
+        >>> tensor_to_numpy_channel_last(torch.zeros((3, 5, 7)), "CHW").shape
+        (5, 7, 3)
+    """
     if layout is None:
         msg = "Tensor image calls require an explicit layout."
         raise TypeError(msg)
@@ -57,7 +69,18 @@ def tensor_to_numpy_channel_last(image: torch.Tensor, layout: TensorLayout | Non
 
 
 def tensor_to_numpy_storage(tensor: torch.Tensor) -> np.ndarray:
-    """Expose a prevalidated CPU Tensor as a NumPy view in the same axis order."""
+    """Expose a CPU Tensor's storage without moving its axes.
+
+    Args:
+        tensor: A CPU Tensor compatible with `Tensor.numpy()`, such as int64 labels.
+
+    Returns:
+        A NumPy view with the same shape and dtype. The conversion does not copy data.
+
+    Examples:
+        >>> tensor_to_numpy_storage(torch.arange(4)).shape
+        (4,)
+    """
     return tensor.numpy()
 
 
@@ -80,20 +103,33 @@ def numpy_to_tensor_layout(
 ) -> torch.Tensor:
     """Expose a channel-last NumPy array as a CPU Tensor in the declared layout.
 
-    The caller supplies an array with an explicit channel axis and a rank matching
-    CHW, NCHW, CDHW, or NCDHW. The default wraps compatible storage as a view.
-    With contiguous=True, the result uses native byte order and dense channel-first
-    storage. Dtypes supported by torch.from_numpy are preserved.
+    Args:
+        array: An array with an explicit trailing channel axis and a dtype accepted by
+            `torch.from_numpy`, such as uint8, float16, or float32.
+        layout: The output layout, CHW for HWC, NCHW for NHWC, CDHW for DHWC,
+            or NCDHW for NDHWC.
+        contiguous: Require a dense channel-first result. The default permits strided views.
+
+    Returns:
+        A CPU Tensor with the input dtype in native byte order. Compatible writable storage
+        is shared. If a dense layout requires a copy, eligible interleaved inputs are written
+        directly into the final channel planes.
+
+    Examples:
+        >>> numpy_to_tensor_layout(np.zeros((5, 7, 3), dtype=np.uint8), "CHW", contiguous=True).shape
+        torch.Size([3, 5, 7])
     """
     axes = _CHANNEL_LAST_TO_TENSOR[layout]
     channel_first = array.transpose(axes)
     if not contiguous:
         return numpy_to_tensor_storage(channel_first)
+    if channel_first.flags.c_contiguous:
+        return numpy_to_tensor_storage(channel_first, contiguous=True)
     if 2 <= array.shape[-1] <= 5 and _can_split_channels(array, layout):
         return torch.from_numpy(
             _split_channel_last(array, channel_first.shape, batched=layout in ("NCHW", "NCDHW")),
         )
-    if channel_first.flags.c_contiguous or channel_first.strides[-1] == -channel_first.itemsize:
+    if channel_first.strides[-1] == -channel_first.itemsize:
         return torch.from_numpy(_contiguous_storage(channel_first))
     dtype = channel_first.dtype
     return torch.from_numpy(
@@ -104,19 +140,30 @@ def numpy_to_tensor_layout(
 def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> torch.Tensor:
     """Wrap a NumPy array as a CPU Tensor, preserving its axes and dtype.
 
-    With contiguous=True, materialize C storage when required. Both modes return
-    writable native-order storage and preserve views with compatible strides.
+    Args:
+        array: An array of any rank with a dtype accepted by `torch.from_numpy`, such as
+            uint8, float16, float32, or integer label dtypes such as int64.
+        contiguous: Require C-contiguous storage. The default permits strided views and
+            preserves memory order if a copy is needed.
+
+    Returns:
+        A CPU Tensor backed by writable native-order storage. Compatible arrays share storage.
+        Read-only arrays, foreign byte order, and strides PyTorch cannot represent require a copy.
+
+    Examples:
+        >>> numpy_to_tensor_storage(np.arange(4, dtype=np.int64)[::-1]).tolist()
+        [3, 2, 1, 0]
     """
     if contiguous:
-        return torch.from_numpy(_contiguous_storage(array))
-    if not array.flags.writeable or not array.dtype.isnative or (array.ndim and min(array.strides) < 0):
+        array = _contiguous_storage(array)
+    elif not array.flags.writeable or not array.dtype.isnative or (array.ndim and min(array.strides) < 0):
         array = np.array(array, dtype=array.dtype.newbyteorder("="), copy=True, order="K")
     try:
         return torch.from_numpy(array)
     except ValueError:
         if all(stride % array.itemsize == 0 for stride in array.strides):
             raise
-        return torch.from_numpy(array.copy(order="K"))
+        return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
 
 
 def _opencv_storage(array: np.ndarray) -> np.ndarray:

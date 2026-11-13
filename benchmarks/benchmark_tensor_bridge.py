@@ -1,24 +1,31 @@
-"""Pair dense NumPy-to-Tensor bridge calls against the generic NumPy copy."""
+"""Pair dense NumPy-to-Tensor bridge calls against the generic NumPy copy.
+
+Report median and median absolute deviation per call in microseconds.
+"""
 
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import platform
+import subprocess
 import sys
 from importlib.metadata import version
 from itertools import product
+from pathlib import Path
 from statistics import median
 from timeit import Timer
 
-for variable in (
+_THREAD_VARIABLES = (
     "OMP_NUM_THREADS",
     "OPENBLAS_NUM_THREADS",
     "MKL_NUM_THREADS",
     "VECLIB_MAXIMUM_THREADS",
     "NUMEXPR_NUM_THREADS",
-):
+)
+for variable in _THREAD_VARIABLES:
     os.environ[variable] = "1"
 
 import cv2
@@ -30,6 +37,17 @@ from albucore.tensor_bridge import TensorLayout, numpy_to_tensor_layout, numpy_t
 
 _DTYPES = (np.uint8, np.float16, np.float32)
 _LAYOUTS: tuple[TensorLayout, ...] = ("CHW", "NCHW", "CDHW", "NCDHW")
+
+
+def _cpu_model() -> str:
+    if sys.platform == "darwin":
+        return subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"], text=True).strip()
+    if sys.platform == "linux":
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            key, _, value = line.partition(":")
+            if key.strip() == "model name":
+                return value.strip()
+    return platform.processor() or platform.machine()
 
 
 def _report(writer, operation, layout, name, source, before, after, minimum_seconds):
@@ -49,6 +67,8 @@ def _report(writer, operation, layout, name, source, before, after, minimum_seco
         for index in (repeat % 2, 1 - repeat % 2):
             times[index].append(timers[index].timeit(count) * 1e6 / count)
     baseline, result = map(median, times)
+    baseline_mad = median(abs(sample - baseline) for sample in times[0])
+    result_mad = median(abs(sample - result) for sample in times[1])
     writer.writerow(
         (
             operation,
@@ -61,6 +81,8 @@ def _report(writer, operation, layout, name, source, before, after, minimum_seco
             result,
             baseline / result,
             count,
+            baseline_mad,
+            result_mad,
         )
     )
     sys.stdout.flush()
@@ -100,15 +122,44 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quick", action="store_true", help="Run one representative spatial size.")
     parser.add_argument("--storage-only", action="store_true", help="Measure scalar masks only.")
+    parser.add_argument("--metadata-json", type=Path, help="Write run metadata to this file instead of stderr.")
     args = parser.parse_args()
     cv2.setNumThreads(0)
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
     packages = {name: version(name) for name in ("numpy", "torch", "numkong", "stringzilla")}
-    print(platform.platform(), sys.version.split()[0], albucore.__file__, packages, cv2.__version__, file=sys.stderr)
+    metadata = {
+        "platform": platform.platform(),
+        "cpu": _cpu_model(),
+        "python": platform.python_version(),
+        "albucore_source": albucore.__file__,
+        "versions": {**packages, "opencv": cv2.__version__},
+        "opencv_threads": cv2.getNumThreads(),
+        "torch_threads": torch.get_num_threads(),
+        "torch_interop_threads": torch.get_num_interop_threads(),
+        "thread_environment": {name: os.environ[name] for name in _THREAD_VARIABLES},
+    }
+    metadata_json = json.dumps(metadata, indent=2)
+    if args.metadata_json:
+        args.metadata_json.write_text(metadata_json + "\n", encoding="utf-8")
+    else:
+        print(metadata_json, file=sys.stderr)
     writer = csv.writer(sys.stdout)
     writer.writerow(
-        ("operation", "layout", "view", "shape", "strides", "dtype", "numpy_us", "core_us", "speedup", "iterations")
+        (
+            "operation",
+            "layout",
+            "view",
+            "shape",
+            "strides",
+            "dtype",
+            "numpy_us",
+            "core_us",
+            "speedup",
+            "iterations",
+            "numpy_mad_us",
+            "core_mad_us",
+        )
     )
     rng = np.random.default_rng(137)
     if not args.storage_only:

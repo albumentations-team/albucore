@@ -74,7 +74,8 @@ jobs:
             --index "https://download.pytorch.org/whl/cpu" \
             --with "torch>=2.14.1" --with "numpy>=1.24.4" --with "numkong>=7.8.7" \
             --with "stringzilla>=5.3.2" --with "opencv-python-headless>=5.0.0.93" \
-            python benchmarks/benchmark_tensor_bridge.py --quick > benchmarks/results/tensor-bridge.csv
+            python benchmarks/benchmark_tensor_bridge.py --quick \
+            --metadata-json benchmarks/results/tensor-bridge-metadata.json > benchmarks/results/tensor-bridge.csv
 
       - name: Run base quick router benchmark
         working-directory: ../albucore-base
@@ -123,6 +124,7 @@ jobs:
             benchmarks/results/router-pr.json
             benchmarks/results/router-base.json
             benchmarks/results/tensor-bridge.csv
+            benchmarks/results/tensor-bridge-metadata.json
             benchmarks/results/REPORT_router_pr_regressions.md
             benchmarks/results/REPORT_router_pr_summary.md
           if-no-files-found: warn
