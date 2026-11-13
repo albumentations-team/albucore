@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from albucore import equalize_uint8
+from albucore.histogram import _histogram
 
 
 @pytest.mark.parametrize("mode", ["cv", "pil"])
@@ -68,7 +69,33 @@ def test_equalize_uint8_mask_selects_histogram_and_maps_unselected_pixels(
 
 
 def test_equalize_uint8_empty_image() -> None:
-    result = equalize_uint8(np.empty((0, 5, 3), dtype=np.uint8))
+    image = np.empty((0, 5, 3), dtype=np.uint8)
+    image.flags.writeable = False
+    result = equalize_uint8(image)
+    assert result is not image
     assert result.shape == (0, 5, 3)
     assert result.dtype == np.uint8
     assert result.flags.writeable
+
+
+@pytest.mark.parametrize("repeats", [7, 25])
+@pytest.mark.parametrize("channels", [1, 4])
+def test_cv_equalization_rounding_matches_native_with_full_mask(repeats: int, channels: int) -> None:
+    plane = np.repeat(np.array([20, 100, 180], dtype=np.uint8), [1, repeats, repeats])[None, :]
+    image = np.repeat(plane[..., None], channels, axis=-1)
+    expected = np.repeat(cv2.equalizeHist(plane)[..., None], channels, axis=-1)
+
+    np.testing.assert_array_equal(equalize_uint8(image), expected, strict=True)
+    np.testing.assert_array_equal(equalize_uint8(image, mask=np.ones_like(plane)), expected, strict=True)
+
+
+def test_large_histogram_preserves_counts_beyond_float32_precision() -> None:
+    plane = np.zeros((4096, 4097), dtype=np.uint8)
+    plane[:, -1] = 255
+    plane[0, -1] = 0
+
+    counts = _histogram(plane)
+
+    expected = np.zeros(256, dtype=np.int64)
+    expected[[0, 255]] = [2**24 + 1, 4095]
+    np.testing.assert_array_equal(counts, expected, strict=True)

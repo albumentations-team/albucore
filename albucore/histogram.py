@@ -8,7 +8,6 @@ import cv2
 import numpy as np
 
 from albucore.lut import apply_uint8_lut
-from albucore.stats import reduce_sum
 from albucore.utils import NUM_RGB_CHANNELS
 
 if TYPE_CHECKING:
@@ -18,45 +17,53 @@ if TYPE_CHECKING:
 __all__ = ["equalize_uint8"]
 
 _LARGE_CV_IMAGE_PIXELS = 1024 * 1024
+_MAX_EXACT_HISTOGRAM_PIXELS = 2**24
 
 
-def _histogram(img: NDArray[np.uint8], mask: NDArray[np.uint8] | None = None) -> np.ndarray:
-    histogram = cv2.calcHist([img], [0], mask, [256], (0, 256))
-    return np.asarray(histogram, dtype=np.float32).ravel()
+def _histogram(img: NDArray[np.uint8], mask: NDArray[np.uint8] | None = None) -> NDArray[np.int64]:
+    if img.size <= _MAX_EXACT_HISTOGRAM_PIXELS:
+        return np.asarray(cv2.calcHist([img], [0], mask, [256], (0, 256)), dtype=np.int64).ravel()
+
+    # Sum integer histograms from tiles whose counts fit exactly in float32.
+    rows_per_tile = max(1, _MAX_EXACT_HISTOGRAM_PIXELS // img.shape[1])
+    cols_per_tile = min(img.shape[1], _MAX_EXACT_HISTOGRAM_PIXELS)
+    counts = np.zeros(256, dtype=np.int64)
+    for row in range(0, img.shape[0], rows_per_tile):
+        for col in range(0, img.shape[1], cols_per_tile):
+            tile = np.s_[row : row + rows_per_tile, col : col + cols_per_tile]
+            counts += _histogram(img[tile], None if mask is None else mask[tile])
+    return counts
 
 
-def _pillow_lut(histogram: np.ndarray) -> NDArray[np.uint8] | None:
+def _pillow_lut(histogram: NDArray[np.int64]) -> NDArray[np.uint8] | None:
     nonzero = np.flatnonzero(histogram)
     if nonzero.size <= 1:
         return None
     # The final occupied bin does not contribute to Pillow's step.
-    counts = histogram.astype(np.int64)
-    step = int(counts.sum() - counts[nonzero[-1]]) // 255
+    step = int(histogram.sum() - histogram[nonzero[-1]]) // 255
     if step == 0:
         return None
 
-    before_bin = np.cumsum(counts) - counts
+    before_bin = np.cumsum(histogram) - histogram
     return ((before_bin + step // 2) // step).clip(0, 255).astype(np.uint8)
 
 
-def _opencv_lut(histogram: np.ndarray) -> NDArray[np.uint8] | None:
+def _opencv_lut(histogram: NDArray[np.int64]) -> NDArray[np.uint8] | None:
     nonzero = np.flatnonzero(histogram)
     if nonzero.size <= 1:
         return None
 
     first = nonzero[0]
-    denominator = reduce_sum(histogram) - histogram[first]
-    if denominator == 0:
-        return None
-    cumulative = np.cumsum(histogram)
-    scaled = (cumulative - cumulative[first]) * (255.0 / denominator)
+    scale = np.float32(255) / np.float32(histogram.sum() - histogram[first])
+    counts = np.cumsum(histogram) - histogram[first]
+    scaled = counts.astype(np.float32) * scale
     return np.asarray(np.clip(scaled.round(), 0, 255), dtype=np.uint8)
 
 
 def _equalize_cv_unmasked(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
     channels = img.shape[-1]
     if channels == 1:
-        return np.asarray(cv2.equalizeHist(img), dtype=np.uint8).reshape(img.shape)
+        return np.asarray(cv2.equalizeHist(img[..., 0]), dtype=np.uint8)[..., None]
     if channels == NUM_RGB_CHANNELS and img.shape[0] * img.shape[1] < _LARGE_CV_IMAGE_PIXELS:
         return np.asarray(cv2.merge([cv2.equalizeHist(plane) for plane in cv2.split(img)]), dtype=np.uint8)
 
@@ -101,6 +108,16 @@ def equalize_uint8(
 
     Returns:
         An independent writable uint8 array with the input shape.
+
+    Notes:
+        A mask with no selected pixels leaves the channel values unchanged.
+        Pillow mode reuses a single channel buffer for packed RGB images and
+        row-strided RGB crops.
+
+    Examples:
+        >>> image = np.arange(256, dtype=np.uint8).reshape(16, 16, 1)
+        >>> equalize_uint8(image, mode="cv").shape
+        (16, 16, 1)
     """
     if not img.size:
         return img.copy()
@@ -109,7 +126,8 @@ def equalize_uint8(
 
     channels = img.shape[-1]
     if (
-        mask is None
+        mode == "pil"
+        and mask is None
         and channels == NUM_RGB_CHANNELS
         and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
         and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
