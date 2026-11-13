@@ -198,9 +198,9 @@ byte order, and wrap compatible writable storage directly. The default mode allo
 in memory order when a view is incompatible. `tensor_to_numpy_channel_last` exposes a validated CPU Tensor as a
 channel-last NumPy view. `tensor_to_numpy_storage` keeps its current axes.
 
-For measured interleaved layouts, the dense converter writes into the final channel planes. A spatial transpose or
-quarter-turn can use one frame of scratch storage, reused across the batch or volume. General strides and unmeasured
-layouts use the NumPy copy. See the [paired bridge benchmark](../benchmarks/benchmark_tensor_bridge.py).
+For measured interleaved layouts, the dense converter writes into the final channel planes. Routing depends on the
+platform, dtype, and strides. Spatial transposes, quarter-turns, and other general strides use the NumPy copy.
+See the [paired bridge benchmark](../benchmarks/benchmark_tensor_bridge.py).
 
 ## Backend-specific imports (submodule-only)
 

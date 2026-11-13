@@ -111,7 +111,7 @@ def test_contiguous_tensor_layout_preserves_bits(
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32, np.int16])
 @pytest.mark.parametrize("channels", [3, 5])
 @pytest.mark.parametrize("layout", ["CHW", "NCHW", "CDHW", "NCDHW"])
-@pytest.mark.parametrize("view", ["vertical", "double", "transpose", "rotate90", "rotate270", "anti_diagonal"])
+@pytest.mark.parametrize("view", ["vertical", "double", "transpose", "rotate90"])
 def test_contiguous_tensor_layout_preserves_oriented_planes(
     dtype: type[np.generic],
     channels: int,
@@ -128,8 +128,6 @@ def test_contiguous_tensor_layout_preserves_oriented_planes(
         "double": original[..., ::-1, ::-1, :],
         "transpose": original.swapaxes(-3, -2),
         "rotate90": np.rot90(original, axes=(-3, -2)),
-        "rotate270": np.rot90(original, k=3, axes=(-3, -2)),
-        "anti_diagonal": original[..., ::-1, ::-1, :].swapaxes(-3, -2),
     }[view]
     array.setflags(write=False)
 

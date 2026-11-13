@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+import sys
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import cv2
@@ -21,6 +23,8 @@ __all__ = [
     "tensor_to_numpy_storage",
 ]
 
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _MIN_SPLIT_PIXELS = 8192
 _MIN_ORIENTED_SPLIT_PIXELS = 32768
 _MIN_FLIP_PIXELS = 4096
@@ -83,7 +87,9 @@ def numpy_to_tensor_layout(
     channel_first = array.transpose(axes)
     if not contiguous:
         return numpy_to_tensor_storage(channel_first)
-    if 2 <= array.shape[-1] <= 5 and _can_split_channels(array):
+    if channel_first.flags.c_contiguous:
+        return numpy_to_tensor_storage(channel_first, contiguous=True)
+    if 2 <= array.shape[-1] <= 5 and _can_split_channels(array, layout):
         return torch.from_numpy(
             _split_channel_last(array, channel_first.shape, batched=layout in ("NCHW", "NCDHW")),
         )
@@ -137,17 +143,10 @@ def _split_channel_last(array: np.ndarray, shape: tuple[int, ...], *, batched: b
         _write_channel_planes(source, [planes[:, channel] for channel in range(channels)], mapping)
         return output
 
-    swapped = not _interleaved_rows(source)
-    if swapped:
-        source = source.swapaxes(-3, -2)
     reverse_rows = source.strides[-3] < 0
     reverse_cols = source.strides[-2] < 0
     source = source[..., :: -1 if reverse_rows else 1, :: -1 if reverse_cols else 1, :]
     destinations = np.moveaxis(planes, 1 if batched else 0, -3)
-    if swapped:
-        _write_swapped_planes(source, destinations, mapping, reverse_rows, reverse_cols)
-        return output
-
     for index in np.ndindex(source.shape[:-3]):
         _write_channel_planes(source[index], list(destinations[index]), mapping)
     if reverse_rows:
@@ -166,31 +165,12 @@ def _write_channel_planes(source: np.ndarray, planes: list[np.ndarray], mapping:
         cv2.mixChannels([source], planes, mapping)
 
 
-def _write_swapped_planes(
-    source: np.ndarray,
-    destinations: np.ndarray,
-    mapping: list[int] | None,
-    reverse_rows: bool,
-    reverse_cols: bool,
-) -> None:
-    scratch = list(np.empty((source.shape[-1], *source.shape[-3:-1]), dtype=source.dtype))
-    for index in np.ndindex(source.shape[:-3]):
-        _write_channel_planes(source[index], scratch, mapping)
-        for plane, destination in zip(scratch, destinations[index], strict=True):
-            if reverse_rows != reverse_cols:
-                rotation = cv2.ROTATE_90_CLOCKWISE if reverse_rows else cv2.ROTATE_90_COUNTERCLOCKWISE
-                cv2.rotate(plane, rotation, dst=destination)
-            else:
-                cv2.transpose(plane, dst=destination)
-                if reverse_rows:
-                    cv2.flip(destination, -1, dst=destination)
-
-
-def _can_split_channels(array: np.ndarray) -> bool:
+def _can_split_channels(array: np.ndarray, layout: TensorLayout) -> bool:
     channels = array.shape[-1]
     minimum = _MIN_ORIENTED_SPLIT_PIXELS if channels == 5 else _MIN_SPLIT_PIXELS
     if (
-        not minimum * channels <= array.size <= _OPENCV_INT_MAX
+        not (_MACOS_ARM64 or _LINUX_X86_64)
+        or not minimum * channels <= array.size <= _OPENCV_INT_MAX
         or array.dtype not in _OPENCV_COPY_DTYPES
         or not array.flags.aligned
     ):
@@ -199,19 +179,23 @@ def _can_split_channels(array: np.ndarray) -> bool:
         return True
 
     area = int(array.shape[-3]) * int(array.shape[-2])
+    if area < minimum or not _interleaved_rows(array):
+        return False
+    return _can_split_strided(array, layout, channels, area)
+
+
+def _can_split_strided(array: np.ndarray, layout: TensorLayout, channels: int, area: int) -> bool:
     reverse_rows = array.strides[-3] < 0
     reverse_cols = array.strides[-2] < 0
-    if _interleaved_rows(array):
-        if reverse_rows:
-            if area < _MIN_ORIENTED_SPLIT_PIXELS or (channels == 2 and array.itemsize == 4):
-                return False
-            return not reverse_cols or (array.itemsize < 4 and (channels < 5 or array.itemsize == 1))
-        return area >= minimum
-    return (
-        area >= _MIN_ORIENTED_SPLIT_PIXELS
-        and (array.itemsize < 4 or (channels > 2 and not (reverse_rows or reverse_cols)))
-        and _interleaved_rows(array.swapaxes(-3, -2))
-    )
+    if _LINUX_X86_64:
+        if array.dtype == np.uint8 and channels < 5:
+            return not reverse_rows or area >= _MIN_ORIENTED_SPLIT_PIXELS
+        return channels < 5 and layout in ("CHW", "NCHW") and not (reverse_rows or reverse_cols)
+    if not reverse_rows:
+        return True
+    if area < _MIN_ORIENTED_SPLIT_PIXELS or (channels == 2 and array.itemsize == 4):
+        return False
+    return not reverse_cols or (array.itemsize < 4 and (channels < 5 or array.itemsize == 1))
 
 
 def _contiguous_storage(array: np.ndarray) -> np.ndarray:
