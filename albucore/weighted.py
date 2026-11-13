@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ImageArrayT, TensorLayout
-from albucore.tensor_bridge import _CHANNEL_LAST_TO_TENSOR, tensor_to_numpy_channel_last
+from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
 from albucore.utils import get_num_channels, get_opencv_max_channels
 
 _NUMKONG_NEON = bool(nk.get_capabilities().get("neon", False))
@@ -163,7 +163,7 @@ def _blend_tensor(
         result = _blend_array(first, weight1, second, weight2, out=kernel_out)
     if out is not None and result is destination:
         return out
-    tensor = torch.from_numpy(result).permute(_CHANNEL_LAST_TO_TENSOR[layout])
+    tensor = numpy_to_tensor_layout(result, layout)
     if out is not None:
         out.copy_(tensor)
         return out

@@ -8,6 +8,8 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -127,11 +129,9 @@ def _separable_filter3d_torch_cpu(
 
 def _separable_filter3d_numpy(volume: np.ndarray, kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray:
     """Bridge one ``DHWC`` NumPy volume through the CPU Torch filter without hidden device transfer."""
-    if not volume.flags.writeable or any(stride < 0 for stride in volume.strides):
-        volume = np.array(volume, copy=True, order="C")
-    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    tensor = numpy_to_tensor_layout(volume, "CDHW")
     result = _separable_filter3d_torch_cpu(tensor, kernels)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return tensor_to_numpy_channel_last(result, "CDHW")
 
 
 def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:

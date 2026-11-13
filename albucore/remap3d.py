@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu, _sample3d_torch_cpu_batch
+from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
 
 if TYPE_CHECKING:
     from albucore._types import ImageArrayT
@@ -31,9 +32,7 @@ def _remap3d_numpy(
     border_values: np.ndarray,
 ) -> np.ndarray:
     """Bridge one ``DHWC`` NumPy volume through the shared CPU Torch sampler."""
-    if not volume.flags.writeable or any(stride < 0 for stride in volume.strides):
-        volume = np.array(volume, copy=True, order="C")
-    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    tensor = numpy_to_tensor_layout(volume, "CDHW")
     result = _sample3d_torch_cpu(
         tensor,
         _sampling_grid_to_tensor(sampling_grid),
@@ -41,7 +40,7 @@ def _remap3d_numpy(
         border_mode,
         border_values,
     )
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return tensor_to_numpy_channel_last(result, "CDHW")
 
 
 def _remap3d_numpy_batch(
@@ -52,9 +51,7 @@ def _remap3d_numpy_batch(
     border_values: np.ndarray,
 ) -> np.ndarray:
     """Bridge one ``NDHWC`` NumPy batch through the shared CPU Torch sampler."""
-    if not volumes.flags.writeable or any(stride < 0 for stride in volumes.strides):
-        volumes = np.array(volumes, copy=True, order="C")
-    tensor = torch.from_numpy(volumes).permute(0, 4, 1, 2, 3)
+    tensor = numpy_to_tensor_layout(volumes, "NCDHW")
     result = _remap3d_torch_cpu_batch(
         tensor,
         _sampling_grid_to_tensor(sampling_grid),
@@ -62,7 +59,7 @@ def _remap3d_numpy_batch(
         border_mode,
         border_values,
     )
-    return np.asarray(result.permute(0, 2, 3, 4, 1).numpy())
+    return tensor_to_numpy_channel_last(result, "NCDHW")
 
 
 def _remap3d_torch_cpu_batch(

@@ -21,7 +21,12 @@ from albucore.affine3d import warp_affine3d
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
 from albucore.pad3d import pad3d
 from albucore.remap3d import remap3d
-from albucore.tensor_bridge import dispatch_tensor_image, tensor_operand_to_numpy, tensor_to_numpy_channel_last
+from albucore.tensor_bridge import (
+    dispatch_tensor_image,
+    numpy_to_tensor_layout,
+    tensor_operand_to_numpy,
+    tensor_to_numpy_channel_last,
+)
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     get_num_channels,
@@ -1331,9 +1336,9 @@ def _can_resize3d_numpy_torch(volume: np.ndarray, interpolation: int, antialias:
 
 def _resize3d_numpy_torch_cpu(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
     """Use the measured full NumPy DHWC → Torch CDHW → NumPy route for selected CPU regions."""
-    tensor = torch.from_numpy(volume).permute(3, 0, 1, 2)
+    tensor = numpy_to_tensor_layout(volume, "CDHW")
     result = _resize3d_torch_cpu(tensor, size, cv2.INTER_LINEAR)
-    return np.asarray(result.permute(1, 2, 3, 0).numpy())
+    return tensor_to_numpy_channel_last(result, "CDHW")
 
 
 def _can_resize3d_joint_hw(volume: np.ndarray, size: tuple[int, int, int], antialias: bool) -> bool:
@@ -1459,14 +1464,14 @@ def _resize3d_torch_via_numpy(
     interpolation: int,
 ) -> torch.Tensor:
     """Bridge a prevalidated CPU CDHW Tensor through the faster benchmark-routed DHWC CPU path."""
-    numpy_volume = volume.permute(1, 2, 3, 0).numpy()
+    numpy_volume = tensor_to_numpy_channel_last(volume, "CDHW")
     restore_half = volume.dtype == torch.float16
     if restore_half:
         numpy_volume = _cast_float_numpy(numpy_volume, np.float32)
     resized = _resize3d_numpy(numpy_volume, size, interpolation, antialias=False)
     if restore_half:
         resized = _cast_float_numpy(resized, np.float16)
-    return torch.from_numpy(resized).permute(3, 0, 1, 2)
+    return numpy_to_tensor_layout(resized, "CDHW")
 
 
 def _resize3d_torch_cpu(

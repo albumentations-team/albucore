@@ -189,6 +189,19 @@ Large contiguous NumPy FP16↔FP32 casts use NumKong in the measured AVX-512 reg
 floating-error policy is preserved. Large contiguous macOS ARM Tensor casts use NumPy storage conversion and
 zero-copy Tensor wrapping. These routes also preserve the explicit-output contract.
 
+## NumPy and CPU Tensor bridge
+
+`albucore.tensor_bridge.numpy_to_tensor_layout(array, layout, contiguous=True)` converts a channel-last NumPy array to a
+dense CPU Tensor in CHW, NCHW, CDHW, or NCDHW order. The caller supplies the matching rank and an explicit channel axis.
+`numpy_to_tensor_storage(array, contiguous=True)` keeps the existing axis order. Both preserve the dtype, use native
+byte order, and wrap compatible writable storage directly. The default mode allows strided Tensor views and copies
+in memory order when a view is incompatible. `tensor_to_numpy_channel_last` exposes a validated CPU Tensor as a
+channel-last NumPy view. `tensor_to_numpy_storage` keeps its current axes.
+
+For measured interleaved layouts, the dense converter writes into the final channel planes. A spatial transpose or
+quarter-turn can use one frame of scratch storage, reused across the batch or volume. General strides and unmeasured
+layouts use the NumPy copy. See the [paired bridge benchmark](../benchmarks/benchmark_tensor_bridge.py).
+
 ## Backend-specific imports (submodule-only)
 
 Public calls use `from albucore import <operation>`. Package `__all__` is explicit; the implementation is imported
