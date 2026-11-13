@@ -29,8 +29,10 @@ _MIN_SPLIT_PIXELS = 8192
 _MIN_ORIENTED_SPLIT_PIXELS = 32768
 _MIN_FLIP_PIXELS = 4096
 _OPENCV_INT_MAX = 2**31 - 1
-_OPENCV_COPY_DTYPES = (np.uint8, np.uint16, np.int16, np.int32, np.float16, np.float32)
-_OPENCV_FLIP_DTYPES = (*_OPENCV_COPY_DTYPES, np.int64)
+_OPENCV_COPY_DTYPES = frozenset(
+    np.dtype(dtype) for dtype in (np.uint8, np.uint16, np.int16, np.int32, np.float16, np.float32)
+)
+_OPENCV_FLIP_DTYPES = _OPENCV_COPY_DTYPES | {np.dtype(np.int64)}
 
 _TENSOR_TO_CHANNEL_LAST: dict[TensorLayout, tuple[int, ...]] = {
     "CHW": (1, 2, 0),
@@ -87,13 +89,16 @@ def numpy_to_tensor_layout(
     channel_first = array.transpose(axes)
     if not contiguous:
         return numpy_to_tensor_storage(channel_first)
-    if channel_first.flags.c_contiguous:
-        return numpy_to_tensor_storage(channel_first, contiguous=True)
     if 2 <= array.shape[-1] <= 5 and _can_split_channels(array, layout):
         return torch.from_numpy(
             _split_channel_last(array, channel_first.shape, batched=layout in ("NCHW", "NCDHW")),
         )
-    return torch.from_numpy(_contiguous_storage(channel_first))
+    if channel_first.flags.c_contiguous or channel_first.strides[-1] == -channel_first.itemsize:
+        return torch.from_numpy(_contiguous_storage(channel_first))
+    dtype = channel_first.dtype
+    return torch.from_numpy(
+        np.ascontiguousarray(channel_first, dtype=dtype if dtype.isnative else dtype.newbyteorder("=")),
+    )
 
 
 def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> torch.Tensor:
@@ -179,9 +184,7 @@ def _can_split_channels(array: np.ndarray, layout: TensorLayout) -> bool:
         return True
 
     area = int(array.shape[-3]) * int(array.shape[-2])
-    if area < minimum or not _interleaved_rows(array):
-        return False
-    return _can_split_strided(array, layout, channels, area)
+    return area >= minimum and _can_split_strided(array, layout, channels, area) and _interleaved_rows(array)
 
 
 def _can_split_strided(array: np.ndarray, layout: TensorLayout, channels: int, area: int) -> bool:
