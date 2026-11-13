@@ -83,7 +83,15 @@ def _apply_per_channel_uint8_luts(
     if num_channels == 1:
         return apply_uint8_lut(img, luts[:, 0, 0], out=out)
 
-    if img.flags["C_CONTIGUOUS"] or num_channels > MAX_OPENCV_WORKING_CHANNELS:
+    if img.flags.c_contiguous or num_channels > MAX_OPENCV_WORKING_CHANNELS:
+        return cast("NDArray[np.uint8]", _cv2_lut_channel_last(img, luts, out=out))
+
+    if (
+        img.ndim == 3
+        and img.strides[1:] == (num_channels, 1)
+        and img.strides[0] >= img.shape[1] * num_channels
+        and (out is None or out.flags.c_contiguous)
+    ):
         return cast("NDArray[np.uint8]", _cv2_lut_channel_last(img, luts, out=out))
 
     result = np.empty_like(img) if out is None else out

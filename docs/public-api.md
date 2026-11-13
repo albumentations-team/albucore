@@ -75,7 +75,8 @@ each histogram independently. The result uses independent writable storage.
 `apply_uint8_lut` maps uint8 images through a shared `(256,)` or per-channel `(256, 1, C)` table.
 Without `out`, it returns independent writable storage and leaves the input unchanged.
 It accepts writable strided `out` buffers and `out=image`, returning that exact object. Other overlapping
-views and overlap with the table are unsupported. Shared Tensor tables do not require layout; per-channel
+views and overlap with the table are unsupported. Shared tables use StringZilla byte translation. Distinct tables
+can use OpenCV directly on packed HWC crops with padded rows. Shared Tensor tables do not require layout; per-channel
 Tensor calls declare `layout=`. Strided paths may use a temporary. Values match integer table lookup exactly.
 
 ## Static return types
