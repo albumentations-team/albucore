@@ -38,7 +38,7 @@ def test_add_shared_uint8_float32_field(layout: str, output: str, broadcast: boo
         np.testing.assert_array_equal(image, before, strict=True)
 
 
-@pytest.mark.parametrize("output", ["allocate", "alias", "strided"])
+@pytest.mark.parametrize("output", ["allocate", "separate", "alias", "strided"])
 @pytest.mark.parametrize("crop", [False, True])
 def test_add_uint8_rgb_channel_vector_preserves_truncation_and_output(output: str, crop: bool) -> None:
     source = np.broadcast_to(np.arange(256, dtype=np.uint8)[None, :, None], (4, 256, 3)).copy()
@@ -50,6 +50,8 @@ def test_add_uint8_rgb_channel_vector_preserves_truncation_and_output(output: st
     destination = None
     if output == "alias":
         destination = image
+    elif output == "separate":
+        destination = np.empty_like(image)
     elif output == "strided":
         destination = np.empty((*image.shape[:2], 6), dtype=np.uint8)[..., ::2]
     else:
