@@ -154,11 +154,11 @@ def _clip_float16_opencv(
         or (out is not None and not out.flags.c_contiguous)
     ):
         return None
-    # Preserve NaN payloads and negative zero through the NumPy route.
+    # Preserve NaN payloads through the NumPy route.
     bits = array.view(np.uint16)
     largest_bits = bits.max()
     signed_bits = bits.view(np.int16)
-    if largest_bits > 0x7C00 and (largest_bits > 0xFC00 or signed_bits.min() == -32768 or signed_bits.max() > 0x7C00):
+    if largest_bits > 0x7C00 and (largest_bits > 0xFC00 or signed_bits.max() > 0x7C00):
         return None
     result = np.empty_like(array) if out is None else out
     if largest_bits <= 0x7C00:
@@ -278,25 +278,34 @@ def clip(
         else:
             tensor_out.copy_(img.clamp(0, max_value))
         return tensor_out
-    numpy_out = None if out is None else cast("np.ndarray", out)
+    return _clip_numpy(img, dtype, cast("np.ndarray | None", out))
+
+
+def _clip_numpy(img: np.ndarray, dtype: np.dtype | type[np.generic] | None, out: np.ndarray | None) -> np.ndarray:
     if dtype is None:
-        inferred_dtype = img.dtype if numpy_out is None else numpy_out.dtype
+        inferred_dtype = img.dtype if out is None else out.dtype
         max_value = MAX_VALUES_BY_DTYPE[inferred_dtype.type]
         dtype = inferred_dtype
     else:
         max_value = MAX_VALUES_BY_DTYPE[dtype]
+    if img.dtype == np.uint8 and dtype == np.uint8:
+        if out is None:
+            return img.copy(order="K")
+        if out is not img:
+            np.copyto(out, img)
+        return out
     if img.dtype == np.float16 and dtype == np.float16:
         result = _clip_float16_opencv(
             cast("NDArray[np.float16]", img),
-            out=cast("NDArray[np.float16] | None", numpy_out),
+            out=cast("NDArray[np.float16] | None", out),
         )
         if result is not None:
             return result
-    if numpy_out is None:
+    if out is None:
         clipped_array: np.ndarray = np.clip(img, 0, max_value)
         return clipped_array if clipped_array.dtype == dtype else clipped_array.astype(dtype, copy=False)
-    np.clip(img, 0, max_value, out=numpy_out, casting="unsafe")
-    return numpy_out
+    np.clip(img, 0, max_value, out=out, casting="unsafe")
+    return out
 
 
 def get_num_channels(image: ImageInput, *, layout: TensorLayout | None = None) -> int:
