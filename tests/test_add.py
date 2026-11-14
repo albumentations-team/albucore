@@ -38,6 +38,47 @@ def test_add_shared_uint8_float32_field(layout: str, output: str, broadcast: boo
         np.testing.assert_array_equal(image, before, strict=True)
 
 
+@pytest.mark.parametrize("output", ["allocate", "separate", "alias", "strided"])
+@pytest.mark.parametrize("crop", [False, True])
+def test_add_uint8_rgb_channel_vector_preserves_truncation_and_output(output: str, crop: bool) -> None:
+    source = np.broadcast_to(np.arange(256, dtype=np.uint8)[None, :, None], (4, 256, 3)).copy()
+    image = source[:, 1:-1] if crop else source
+    before = image.copy()
+    offsets = np.array([99.9, -99.9, -0.9], dtype=np.float32)
+    expected = np.clip(image.astype(np.int16) + np.array([99, -99, 0], dtype=np.int16), 0, 255).astype(np.uint8)
+
+    destination = None
+    if output == "alias":
+        destination = image
+    elif output == "separate":
+        destination = np.empty_like(image)
+    elif output == "strided":
+        destination = np.empty((*image.shape[:2], 6), dtype=np.uint8)[..., ::2]
+    else:
+        image.setflags(write=False)
+
+    result = add(image, offsets, out=destination)
+
+    np.testing.assert_array_equal(result, expected, strict=True)
+    if destination is not None:
+        assert result is destination
+    if output != "alias":
+        np.testing.assert_array_equal(image, before, strict=True)
+
+
+def test_add_uint8_rgb_channel_vector_truncates_extended_precision() -> None:
+    one = np.longdouble(1)
+    almost_one = np.nextafter(one, np.longdouble(0))
+    offsets = np.array([almost_one, -almost_one, one], dtype=np.longdouble)
+    image = np.full((4, 5, 3), 137, dtype=np.uint8)
+
+    result = add(image, offsets)
+
+    expected = image.copy()
+    expected[..., 2] = 138
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+
 @pytest.mark.parametrize("value", [-500.75, 500.75, -(2**31), float("inf"), float("nan")])
 def test_add_shared_uint8_field_preserves_saturation(value: float) -> None:
     image = np.full((65, 65, 3), 137, dtype=np.uint8)
