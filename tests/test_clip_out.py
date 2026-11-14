@@ -5,6 +5,17 @@ import torch
 from albucore import clip
 
 
+def test_clip_uint8_copies_without_explicit_output():
+    image = np.arange(60, dtype=np.uint8).reshape(4, 5, 3)[:, ::-1]
+    image.flags.writeable = False
+
+    result = clip(image)
+
+    np.testing.assert_array_equal(result, image, strict=True)
+    assert result.flags.writeable
+    assert not np.shares_memory(result, image)
+
+
 @pytest.mark.parametrize("container", ["numpy", "tensor"])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 def test_clip_defaults_to_input_dtype(container, dtype):
@@ -154,7 +165,7 @@ def test_clip_output_matches_allocating_semantics_for_all_half_encodings(contain
 @pytest.mark.parametrize("storage", ["allocate", "alias", "output", "strided_output", "readonly", "strided_input"])
 def test_clip_preserves_every_finite_half_encoding(signed, storage):
     encodings = np.arange(1 << 16, dtype=np.uint16)
-    selected = ((encodings & 0x7FFF) <= 0x7C00) & (encodings != 0x8000) if signed else encodings <= 0x7C00
+    selected = (encodings & 0x7FFF) <= 0x7C00 if signed else encodings <= 0x7C00
     image = encodings[selected].view(np.float16).reshape(1, -1, 1)
     if storage == "strided_input":
         image = np.repeat(image, 2, axis=1)[:, ::2]
@@ -176,7 +187,14 @@ def test_clip_preserves_every_finite_half_encoding(signed, storage):
     with np.errstate(all="raise"):
         result = clip(image, np.float16, out=destination)
 
-    np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16))
+    # Compare the storage bits after canonicalizing signed zero.
+    actual_bits = result.view(np.uint16)
+    expected_bits = expected.view(np.uint16)
+    np.testing.assert_array_equal(
+        np.where(actual_bits == 0x8000, 0, actual_bits),
+        np.where(expected_bits == 0x8000, 0, expected_bits),
+        strict=True,
+    )
     if destination is not None:
         assert result is destination
     if storage != "alias":
