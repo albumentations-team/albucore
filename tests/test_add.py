@@ -66,6 +66,19 @@ def test_add_uint8_rgb_channel_vector_preserves_truncation_and_output(output: st
         np.testing.assert_array_equal(image, before, strict=True)
 
 
+def test_add_uint8_rgb_channel_vector_truncates_extended_precision() -> None:
+    one = np.longdouble(1)
+    almost_one = np.nextafter(one, np.longdouble(0))
+    offsets = np.array([almost_one, -almost_one, one], dtype=np.longdouble)
+    image = np.full((4, 5, 3), 137, dtype=np.uint8)
+
+    result = add(image, offsets)
+
+    expected = image.copy()
+    expected[..., 2] = 138
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+
 @pytest.mark.parametrize("value", [-500.75, 500.75, -(2**31), float("inf"), float("nan")])
 def test_add_shared_uint8_field_preserves_saturation(value: float) -> None:
     image = np.full((65, 65, 3), 137, dtype=np.uint8)
