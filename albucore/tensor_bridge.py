@@ -148,8 +148,9 @@ def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> t
 
     Returns:
         A CPU Tensor backed by writable native-order storage. Compatible arrays share storage.
-        Tensor-backed views retain the original Tensor storage when the dtype, offset and strides
-        can be preserved. Read-only arrays, foreign byte order, and incompatible views require a copy.
+        Tensor-backed views, including empty views, retain the original Tensor storage when
+        their dtype, offset, and strides fit that storage. Read-only arrays, foreign byte order,
+        and incompatible views require a copy.
 
     Examples:
         >>> numpy_to_tensor_storage(np.arange(4, dtype=np.int64)[::-1]).tolist()
@@ -168,13 +169,19 @@ def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> t
 
     base = array.base
     owner = _tensor_owner(base) if base is not None else None
-    if owner is None or not array.size:
+    if owner is None:
         return result
 
-    offset, remainder = divmod(result.data_ptr() - owner.data_ptr(), array.itemsize)
-    if remainder or result.dtype != owner.dtype:
-        return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
-    return owner.as_strided(result.shape, result.stride(), owner.storage_offset() + offset)
+    if result.dtype == owner.dtype:
+        if not array.size and not owner.numel():
+            # NumPy supplies its own placeholder address when PyTorch exports an empty tensor.
+            return owner.as_strided(result.shape, result.stride())
+        storage = owner.untyped_storage()
+        view_storage = result.untyped_storage()
+        byte_offset = view_storage.data_ptr() - storage.data_ptr()
+        if 0 <= byte_offset <= storage.nbytes() - view_storage.nbytes() and byte_offset % array.itemsize == 0:
+            return owner.as_strided(result.shape, result.stride(), byte_offset // array.itemsize)
+    return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
 
 
 def _tensor_owner(base: object) -> torch.Tensor | None:
@@ -185,7 +192,11 @@ def _tensor_owner(base: object) -> torch.Tensor | None:
             base = base.obj
         elif isinstance(base, torch.Tensor):
             return base
-        elif type(base).__name__ == "DummyArray" and type(base).__module__.startswith("numpy.lib."):
+        elif (
+            type(base).__name__ == "DummyArray"
+            and isinstance(module := type(base).__module__, str)
+            and module.startswith("numpy.lib.")
+        ):
             # NumPy's stride tricks put a wrapper between the view and its array.
             base = getattr(base, "base", None)
         else:

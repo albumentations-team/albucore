@@ -203,8 +203,9 @@ to a CPU Tensor in CHW, NCHW, CDHW, or NCDHW order. The caller supplies the matc
 `numpy_to_tensor_storage(array, *, contiguous=False)` keeps the existing axis order. Both preserve the dtype, use native
 byte order, and wrap compatible writable storage directly. The default permits strided Tensor views and copies in
 memory order when a view is incompatible. A round trip from a Tensor through a compatible NumPy view keeps the
-original PyTorch storage, so PyTorch can detect overlap as it does for native views. Dtype reinterpretation and byte
-offsets that PyTorch cannot represent over that storage require a copy. Pass `contiguous=True` to require dense storage.
+original PyTorch storage, including for empty views. PyTorch can then detect overlap as it does for native views.
+Dtype reinterpretations, unaligned byte offsets, and views that extend beyond the original Tensor storage require
+a copy. Pass `contiguous=True` to require dense storage.
 
 `tensor_to_numpy_channel_last` exposes a validated CPU Tensor as a channel-last NumPy view.
 `tensor_to_numpy_storage` keeps its current axes.

@@ -1,6 +1,7 @@
-"""Pair dense NumPy-to-Tensor bridge calls against the generic NumPy copy.
+"""Compare dense NumPy-to-Tensor conversions and storage-preserving views.
 
-Report median and median absolute deviation per call in microseconds.
+Report median and median absolute deviation per call in microseconds. Pixel-copy bytes
+count result bytes in storage independent of the input.
 """
 
 from __future__ import annotations
@@ -10,9 +11,10 @@ import csv
 import json
 import os
 import platform
+import runpy
 import subprocess
 import sys
-from importlib.metadata import version
+from importlib.metadata import distributions, version
 from itertools import product
 from pathlib import Path
 from statistics import median
@@ -29,7 +31,9 @@ for variable in _THREAD_VARIABLES:
     os.environ[variable] = "1"
 
 import cv2
+import numkong as nk
 import numpy as np
+import stringzilla as sz
 import torch
 
 import albucore
@@ -50,11 +54,11 @@ def _cpu_model() -> str:
     return platform.processor() or platform.machine()
 
 
-def _report(writer, operation, layout, name, source, before, after, minimum_seconds):
+def _report(writer, operation, layout, name, source, before, after, minimum_seconds, *, dense=True):
     expected = before().numpy()
     candidate = after().numpy()
     if (
-        not candidate.flags.c_contiguous
+        (dense and not candidate.flags.c_contiguous)
         or candidate.dtype != expected.dtype
         or candidate.shape != expected.shape
         or candidate.tobytes() != expected.tobytes()
@@ -83,6 +87,8 @@ def _report(writer, operation, layout, name, source, before, after, minimum_seco
             count,
             baseline_mad,
             result_mad,
+            0 if np.shares_memory(source, expected) else expected.nbytes,
+            0 if np.shares_memory(source, candidate) else candidate.nbytes,
         )
     )
     sys.stdout.flush()
@@ -118,11 +124,45 @@ def _layout_cases(writer, rng, quick):
             _report(writer, "layout", layout, label, source, baseline, candidate, minimum_seconds)
 
 
+def _view_cases(writer, rng, quick, baseline):
+    sizes = ((128, 160), (768, 1024)) if quick else ((128, 160), (240, 320), (480, 640), (768, 1024))
+    minimum_seconds = 0.012 if quick else 0.05
+    for (height, width), channels, dtype in product(sizes, (1, 3, 9), _DTYPES):
+        array = rng.integers(0, 256, (height, width, channels), dtype=np.uint8).astype(dtype, copy=False)
+        owner = torch.from_numpy(array)
+        for name, source in (
+            ("numpy-owning", array),
+            ("numpy-crop", array[1:, 1:]),
+            ("tensor-dense", owner.numpy()),
+            ("tensor-transpose", owner.numpy().swapaxes(0, 1)),
+            ("tensor-crop", owner.numpy()[1:, 1:]),
+        ):
+            result = numpy_to_tensor_storage(source)
+            if name.startswith("tensor-") and result.untyped_storage() != owner.untyped_storage():
+                raise AssertionError((name, source.shape, source.dtype, source.strides))
+            _report(
+                writer,
+                "view",
+                "HWC",
+                name,
+                source,
+                lambda: baseline(source),
+                lambda: numpy_to_tensor_storage(source),
+                minimum_seconds,
+                dense=False,
+            )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quick", action="store_true", help="Run one representative spatial size.")
     parser.add_argument("--storage-only", action="store_true", help="Measure scalar masks only.")
     parser.add_argument("--metadata-json", type=Path, help="Write run metadata to this file instead of stderr.")
+    parser.add_argument(
+        "--baseline-bridge",
+        type=Path,
+        help="Compare storage-preserving views with tensor_bridge.py from a baseline checkout.",
+    )
     args = parser.parse_args()
     cv2.setNumThreads(0)
     torch.set_num_threads(1)
@@ -134,6 +174,10 @@ def main():
         "python": platform.python_version(),
         "albucore_source": albucore.__file__,
         "versions": {**packages, "opencv": cv2.__version__},
+        "package_inventory": {dist.metadata["Name"]: dist.version for dist in distributions()},
+        "source_paths": {module.__name__: module.__file__ for module in (cv2, np, nk, sz, torch)},
+        "numkong_capabilities": nk.get_capabilities(),
+        "baseline_bridge": str(args.baseline_bridge) if args.baseline_bridge else None,
         "opencv_threads": cv2.getNumThreads(),
         "torch_threads": torch.get_num_threads(),
         "torch_interop_threads": torch.get_num_interop_threads(),
@@ -153,14 +197,19 @@ def main():
             "shape",
             "strides",
             "dtype",
-            "numpy_us",
+            "baseline_us",
             "core_us",
             "speedup",
             "iterations",
-            "numpy_mad_us",
+            "baseline_mad_us",
             "core_mad_us",
+            "baseline_pixel_copy_bytes",
+            "core_pixel_copy_bytes",
         )
     )
+    if args.baseline_bridge:
+        baseline = runpy.run_path(str(args.baseline_bridge))["numpy_to_tensor_storage"]
+        _view_cases(writer, np.random.default_rng(137), args.quick, baseline)
     rng = np.random.default_rng(137)
     if not args.storage_only:
         _layout_cases(writer, rng, args.quick)
