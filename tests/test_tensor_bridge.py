@@ -37,6 +37,7 @@ from albucore.tensor_bridge import (
     numpy_to_tensor_layout,
     numpy_to_tensor_storage,
     tensor_to_numpy_channel_last,
+    tensor_to_numpy_storage,
 )
 
 
@@ -66,8 +67,121 @@ def test_tensor_bridge_uses_views_and_restores_declared_layout(
     assert np.shares_memory(array, tensor.numpy())
     assert restored.shape == tensor.shape
     assert restored.dtype == tensor.dtype
+    assert restored.untyped_storage() == tensor.untyped_storage()
     assert restored.data_ptr() == tensor.data_ptr()
     torch.testing.assert_close(restored, tensor)
+
+
+def test_tensor_storage_rejects_overlapping_transpose_copy() -> None:
+    source = torch.arange(48, dtype=torch.float16).reshape(3, 4, 4)[1]
+    before = source.clone()
+
+    result = numpy_to_tensor_storage(tensor_to_numpy_storage(source).T)
+
+    torch.testing.assert_close(result, before.T, atol=0, rtol=0)
+    with pytest.raises(RuntimeError, match="single memory location"):
+        source.copy_(result)
+    torch.testing.assert_close(source, before, atol=0, rtol=0)
+
+
+@pytest.mark.parametrize("view", ["slice", "buffer", "window", "broadcast"])
+def test_tensor_storage_keeps_tensor_owner_through_numpy_views(view: str) -> None:
+    source = torch.arange(60, dtype=torch.int16).reshape(3, 4, 5)[1:]
+    array = tensor_to_numpy_storage(source)
+    if view == "slice":
+        array = array[:, 1:, 1::2]
+        expected = source[:, 1:, 1::2]
+    elif view == "buffer":
+        array = np.frombuffer(array.data, dtype=np.int16)[1:]
+        expected = source.flatten()[1:]
+    elif view == "window":
+        array = np.lib.stride_tricks.sliding_window_view(array, 2, axis=-1, writeable=True)
+        expected = source.unfold(-1, 2, 1)
+    else:
+        array = np.broadcast_to(array[:1], array.shape)
+        array.setflags(write=True)
+        expected = source[:1].expand_as(source)
+
+    result = numpy_to_tensor_storage(array)
+
+    torch.testing.assert_close(result, expected, atol=0, rtol=0, check_stride=True)
+    assert result.storage_offset() == expected.storage_offset()
+    assert result.untyped_storage() == source.untyped_storage()
+
+
+@pytest.mark.parametrize("contiguous", [False, True])
+@pytest.mark.parametrize("empty_owner", [False, True])
+def test_tensor_storage_preserves_empty_view_owner(contiguous: bool, empty_owner: bool) -> None:
+    source = torch.arange(24, dtype=torch.int16).reshape(4, 6)[1:]
+    if empty_owner:
+        source = source[:0, 1:]
+    array = tensor_to_numpy_storage(source)[:0, 1:]
+
+    result = numpy_to_tensor_storage(array, contiguous=contiguous)
+
+    assert result.untyped_storage() == source.untyped_storage()
+    assert result.storage_offset() == source.storage_offset() + (0 if empty_owner else 1)
+    np.testing.assert_array_equal(result.numpy(), array, strict=True)
+
+
+@pytest.mark.parametrize(("step", "contiguous"), [(1, False), (1, True), (2, False)])
+def test_tensor_storage_copies_view_beyond_owner_storage(step: int, contiguous: bool) -> None:
+    backing = np.arange(8, dtype=np.int16)
+    source = torch.from_numpy(backing[:4])
+    expected = backing[::step]
+    # The view extends past the Tensor's storage but stays within the live NumPy allocation.
+    array = np.lib.stride_tricks.as_strided(source.numpy(), shape=expected.shape, strides=expected.strides)
+
+    result = numpy_to_tensor_storage(array, contiguous=contiguous)
+
+    np.testing.assert_array_equal(result.numpy(), expected, strict=True)
+    assert not np.shares_memory(result.numpy(), backing)
+
+
+def test_tensor_storage_wraps_arrays_with_a_non_numpy_owner_named_dummy_array() -> None:
+    backing = np.arange(8, dtype=np.int16)
+    wrapper = type("DummyArray", (), {"__module__": None, "__array_interface__": backing.__array_interface__})()
+    array = np.asarray(wrapper)
+
+    result = numpy_to_tensor_storage(array)
+
+    assert np.shares_memory(result.numpy(), backing)
+
+
+@pytest.mark.parametrize("contiguous", [False, True])
+def test_tensor_storage_copies_reinterpreted_dtype(contiguous: bool) -> None:
+    source = torch.arange(24, dtype=torch.int32).reshape(4, 6)[1:]
+    before = source.clone()
+    array = tensor_to_numpy_storage(source).view(np.float32)
+
+    result = numpy_to_tensor_storage(array, contiguous=contiguous)
+
+    np.testing.assert_array_equal(result.numpy(), array, strict=True)
+    result.fill_(137)
+    torch.testing.assert_close(source, before, atol=0, rtol=0)
+
+
+def test_tensor_storage_copies_unaligned_tensor_offset() -> None:
+    source = torch.arange(8, dtype=torch.int16)
+    before = source.clone()
+    array = np.ndarray((4,), dtype=np.int16, buffer=source.numpy(), offset=1)
+
+    result = numpy_to_tensor_storage(array)
+
+    np.testing.assert_array_equal(result.numpy(), array, strict=True)
+    result.fill_(137)
+    torch.testing.assert_close(source, before, atol=0, rtol=0)
+
+
+def test_contiguous_tensor_storage_reuses_tensor_owner_when_already_dense() -> None:
+    source = torch.arange(24, dtype=torch.int64).reshape(4, 6)[1:]
+    array = tensor_to_numpy_storage(source)
+
+    result = numpy_to_tensor_storage(array, contiguous=True)
+
+    assert result.untyped_storage() == source.untyped_storage()
+    assert result.storage_offset() == source.storage_offset()
+    torch.testing.assert_close(result, source, atol=0, rtol=0)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32, np.int32])

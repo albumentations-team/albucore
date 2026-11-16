@@ -148,7 +148,9 @@ def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> t
 
     Returns:
         A CPU Tensor backed by writable native-order storage. Compatible arrays share storage.
-        Read-only arrays, foreign byte order, and strides PyTorch cannot represent require a copy.
+        Tensor-backed views, including empty views, retain the original Tensor storage when
+        their dtype, offset, and strides fit that storage. Read-only arrays, foreign byte order,
+        and incompatible views require a copy.
 
     Examples:
         >>> numpy_to_tensor_storage(np.arange(4, dtype=np.int64)[::-1]).tolist()
@@ -159,11 +161,47 @@ def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> t
     elif not array.flags.writeable or not array.dtype.isnative or (array.ndim and min(array.strides) < 0):
         array = np.array(array, dtype=array.dtype.newbyteorder("="), copy=True, order="K")
     try:
-        return torch.from_numpy(array)
+        result = torch.from_numpy(array)
     except ValueError:
         if all(stride % array.itemsize == 0 for stride in array.strides):
             raise
         return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
+
+    base = array.base
+    owner = _tensor_owner(base) if base is not None else None
+    if owner is None:
+        return result
+
+    if result.dtype == owner.dtype:
+        if not array.size and not owner.numel():
+            # NumPy supplies its own placeholder address when PyTorch exports an empty tensor.
+            return owner.as_strided(result.shape, result.stride())
+        storage = owner.untyped_storage()
+        view_storage = result.untyped_storage()
+        byte_offset = view_storage.data_ptr() - storage.data_ptr()
+        if 0 <= byte_offset <= storage.nbytes() - view_storage.nbytes() and byte_offset % array.itemsize == 0:
+            return owner.as_strided(result.shape, result.stride(), byte_offset // array.itemsize)
+    return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
+
+
+def _tensor_owner(base: object) -> torch.Tensor | None:
+    while base is not None:
+        if isinstance(base, np.ndarray):
+            base = base.base
+        elif isinstance(base, memoryview):
+            base = base.obj
+        elif isinstance(base, torch.Tensor):
+            return base
+        elif (
+            type(base).__name__ == "DummyArray"
+            and isinstance(module := type(base).__module__, str)
+            and module.startswith("numpy.lib.")
+        ):
+            # NumPy's stride tricks put a wrapper between the view and its array.
+            base = getattr(base, "base", None)
+        else:
+            break
+    return None
 
 
 def _opencv_storage(array: np.ndarray) -> np.ndarray:
