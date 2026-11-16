@@ -148,7 +148,8 @@ def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> t
 
     Returns:
         A CPU Tensor backed by writable native-order storage. Compatible arrays share storage.
-        Read-only arrays, foreign byte order, and strides PyTorch cannot represent require a copy.
+        Tensor-backed views retain the original Tensor storage when the dtype, offset and strides
+        can be preserved. Read-only arrays, foreign byte order, and incompatible views require a copy.
 
     Examples:
         >>> numpy_to_tensor_storage(np.arange(4, dtype=np.int64)[::-1]).tolist()
@@ -159,11 +160,37 @@ def numpy_to_tensor_storage(array: np.ndarray, *, contiguous: bool = False) -> t
     elif not array.flags.writeable or not array.dtype.isnative or (array.ndim and min(array.strides) < 0):
         array = np.array(array, dtype=array.dtype.newbyteorder("="), copy=True, order="K")
     try:
-        return torch.from_numpy(array)
+        result = torch.from_numpy(array)
     except ValueError:
         if all(stride % array.itemsize == 0 for stride in array.strides):
             raise
         return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
+
+    base = array.base
+    owner = _tensor_owner(base) if base is not None else None
+    if owner is None or not array.size:
+        return result
+
+    offset, remainder = divmod(result.data_ptr() - owner.data_ptr(), array.itemsize)
+    if remainder or result.dtype != owner.dtype:
+        return torch.from_numpy(array.copy(order="C" if contiguous else "K"))
+    return owner.as_strided(result.shape, result.stride(), owner.storage_offset() + offset)
+
+
+def _tensor_owner(base: object) -> torch.Tensor | None:
+    while base is not None:
+        if isinstance(base, np.ndarray):
+            base = base.base
+        elif isinstance(base, memoryview):
+            base = base.obj
+        elif isinstance(base, torch.Tensor):
+            return base
+        elif type(base).__name__ == "DummyArray" and type(base).__module__.startswith("numpy.lib."):
+            # NumPy's stride tricks put a wrapper between the view and its array.
+            base = getattr(base, "base", None)
+        else:
+            break
+    return None
 
 
 def _opencv_storage(array: np.ndarray) -> np.ndarray:
