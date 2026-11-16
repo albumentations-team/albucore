@@ -92,7 +92,7 @@ jobs:
             --version "${REQUESTED_VERSION}"
 
       - name: Create or update GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # zizmor: ignore[superfluous-actions] supports create-or-update release semantics; v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # zizmor: ignore[superfluous-actions] supports create-or-update release semantics; v3.0.4
         with:
           tag_name: ${{ inputs.version }}
           target_commitish: ${{ inputs.commit_sha }}
@@ -306,7 +306,7 @@ jobs:
             --version "${PACKAGE_VERSION}"
 
       - name: Attach artifacts to GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # zizmor: ignore[superfluous-actions] supports release-asset attachment semantics; v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # zizmor: ignore[superfluous-actions] supports release-asset attachment semantics; v3.0.4
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: |
