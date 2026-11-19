@@ -628,6 +628,46 @@ def test_warp_perspective_equiv_cv2(channels: int, rng: np.random.Generator) -> 
     np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.parametrize("alias", [False, True])
+def test_float32_nearest_warp_perspective_preserves_ties_with_explicit_output(alias: bool) -> None:
+    image = np.arange(80, dtype=np.float32).reshape(8, 10, 1)
+    matrix = np.array([[1, 0, 0.5], [0, 1, -0.5], [0, 0, 1]], dtype=np.float32)
+    destination = image if alias else np.empty_like(image)
+
+    ipp_before = cv2.ipp.useIPP()
+    result = warp_perspective(
+        image,
+        matrix,
+        (10, 8),
+        flags=cv2.INTER_NEAREST,
+        border_value=-0.75,
+        dst=destination,
+    )
+
+    assert result is destination
+    assert cv2.ipp.useIPP() == ipp_before
+    np.testing.assert_array_equal(result[0, :5, 0], [0, 0, 2, 2, 4])
+    np.testing.assert_array_equal(result[-1, :, 0], np.full(10, -0.75, dtype=np.float32))
+
+
+@pytest.mark.skipif(not cv2.ipp.useIPP(), reason="OpenCV build has no enabled IPP")
+def test_float32_nearest_warp_perspective_with_default_size_preserves_channel_axis() -> None:
+    image = np.arange(80, dtype=np.float32).reshape(8, 10, 1)
+    result = warp_perspective(image, np.eye(3, dtype=np.float32), (0, 0), flags=cv2.INTER_NEAREST)
+    np.testing.assert_array_equal(result, image)
+
+
+@pytest.mark.skipif(not cv2.ipp.useIPP(), reason="OpenCV build has no enabled IPP")
+def test_float32_nearest_warp_perspective_restores_ipp_after_opencv_error() -> None:
+    image = np.zeros((8, 10, 1), dtype=np.float32)
+    invalid_matrix = np.eye(2, dtype=np.float32)
+
+    with pytest.raises(cv2.error):
+        warp_perspective(image, invalid_matrix, (10, 8), flags=cv2.INTER_NEAREST)
+
+    assert cv2.ipp.useIPP()
+
+
 @pytest.mark.parametrize("channels", [1, 3, 9])
 @pytest.mark.parametrize("projective", [False, True], ids=["half-ties", "projective"])
 def test_float16_nearest_warp_perspective_uses_integer_pixel_copy(

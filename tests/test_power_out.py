@@ -147,6 +147,18 @@ def test_power_scalar_output_matches_float32_reference_for_every_half_encoding(e
         np.testing.assert_array_equal(image.view(np.uint16), original.view(np.uint16))
 
 
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("exponent", [0.0, -np.finfo(np.float64).eps / 2])
+def test_power_zero_fills_all_channels_and_preserves_strided_destination(dtype, exponent):
+    image = np.full((3, 7, 9), np.nan, dtype=dtype)
+    storage = np.full((3, 14, 9), 137, dtype=dtype)
+    output = storage[:, ::2]
+    assert power(image, exponent, out=output) is output
+    np.testing.assert_array_equal(output, np.ones_like(output))
+    np.testing.assert_array_equal(storage[:, 1::2], np.full_like(output, 137))
+    assert np.isnan(image).all()
+
+
 def test_power_contiguous_singleton_output_view_is_used_directly():
     image = np.linspace(0.0625, 0.875, 99, dtype=np.float32).reshape(9, 11, 1)
     backing = np.empty((1, 9, 11), dtype=np.float32)
