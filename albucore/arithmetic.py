@@ -53,7 +53,8 @@ _TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
-_MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if sys.platform == "darwin" and platform.machine() == "arm64" else 1_048_576
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_048_576
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
 
 
@@ -130,15 +131,14 @@ def _opencv_float16_three_channel_vector(
     if control0 is None or control1 is None or control2 is None:
         return None
     scalar = (control0, control1, control2, 0.0)
-    # OpenCV stubs: https://github.com/opencv/opencv/issues/30296 (review 2026-11-15).
     if out is not None and not out.flags.c_contiguous:
         return None
     source = img.reshape(-1, img.shape[-2], 3)
     destination = None if out is None else out.reshape(source.shape)
     if operation == "add":
-        result = cv2.add(source, cast("Any", scalar), dtype=cv2.CV_16F, dst=destination)
+        result = cv2.add(source, scalar, dtype=cv2.CV_16F, dst=destination)
     else:
-        result = cv2.multiply(source, cast("Any", scalar), dtype=cv2.CV_16F, dst=destination)
+        result = cv2.multiply(source, scalar, dtype=cv2.CV_16F, dst=destination)
     return cast("NDArray[np.float16]", result.reshape(img.shape)) if out is None else out
 
 
@@ -173,10 +173,12 @@ def _opencv_float16_c9_multiply_vector(
         magnitudes = np.abs(value)
         if np.any(magnitudes > 1.0) or np.any((magnitudes != 0) & (magnitudes < _FLOAT16_MIN_NORMAL)):
             return None
-    control_view = np.broadcast_to(controls.reshape(1, 1, 9), img.shape)
     if out is not None and not out.flags.c_contiguous:
         return None
-    result = cv2.multiply(img, control_view, dtype=cv2.CV_16F, dst=out)
+    controls = controls.reshape(1, 1, 9)
+    if not _MACOS_ARM64 or (out is not None and np.shares_memory(img, out)):
+        controls = np.broadcast_to(controls, img.shape)
+    result = cv2.multiply(img, controls, dtype=cv2.CV_16F, dst=out)
     return cast("NDArray[np.float16]", result) if out is None else out
 
 
@@ -930,6 +932,12 @@ def _power_opencv(
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | None,
 ) -> NDArray[np.float16] | NDArray[np.float32]:
+    # OpenCV treats powers within double epsilon of zero as zero.
+    if abs(exponent) < sys.float_info.epsilon:
+        if out is None:
+            return np.ones(img.shape, dtype=img.dtype)
+        out.fill(1)
+        return out
     if _is_float16_image(img):
         result = cast("NDArray[np.float32]", cv2.pow(_cast_float_numpy(img, np.float32), exponent).reshape(img.shape))
         return _cast_float_numpy(result, np.float16, out=cast("NDArray[np.float16] | None", out))

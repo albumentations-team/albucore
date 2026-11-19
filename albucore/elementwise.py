@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+import sys
 from typing import TYPE_CHECKING, TypeVar, cast, overload
 
 import cv2
@@ -27,6 +29,8 @@ _LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS = 8_192
 _LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS = 65_536
 _FLOAT32_TINY = np.finfo(np.float32).tiny
 _TORCH_FLOAT16_MIN_ELEMENTS = {"exp": 12_288, "log": 12_288, "sqrt": 20_480}
+_NATIVE_HALF_EXP = sys.platform == "linux" and platform.machine() == "x86_64"
+_NATIVE_HALF_LOG = sys.platform == "darwin" and platform.machine() == "arm64"
 
 
 def _numpy_unary(
@@ -42,29 +46,24 @@ def _numpy_unary(
 
 
 def _opencv_unary(
-    array: NDArray[np.float32],
+    array: NDArray[_FloatDTypeT],
     operation: Callable[..., np.ndarray],
     *,
-    out: NDArray[np.float32] | None = None,
-) -> NDArray[np.float32]:
+    out: NDArray[_FloatDTypeT] | None = None,
+) -> NDArray[_FloatDTypeT]:
     if array.size == 0:
         return np.empty_like(array) if out is None else out
     if out is not None:
         operation(array.reshape(-1), dst=out.reshape(-1))
         return out
     result = operation(array)
-    return cast("NDArray[np.float32]", result.reshape(array.shape))
+    return cast("NDArray[_FloatDTypeT]", result.reshape(array.shape))
 
 
 def _log_opencv(array: NDArray[np.float32], *, out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
-    # OpenCV log differs from NumPy for zero, negative, subnormal, and non-finite values.
-    if array.size == 0:
-        return _numpy_unary(array, np.log, out=out)
-    minimum = float(array.min())
-    maximum = float(array.max())
-    if minimum < _FLOAT32_TINY or not np.isfinite(minimum) or not np.isfinite(maximum):
-        return _numpy_unary(array, np.log, out=out)
-    return _opencv_unary(array, cv2.log, out=out)
+    if array.size and float(array.min()) >= _FLOAT32_TINY:
+        return _opencv_unary(array, cv2.log, out=out)
+    return _numpy_unary(array, np.log, out=out)
 
 
 def _float16_unary(
@@ -75,11 +74,16 @@ def _float16_unary(
     out: NDArray[np.float16] | None,
 ) -> NDArray[np.float16]:
     if array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS and operation != "sqrt":
-        if operation == "log":
-            result = _log_opencv(_cast_float_numpy(array, np.float32))
-        else:
-            result = _opencv_unary(_cast_float_numpy(array, np.float32), cv2.exp)
-        return _cast_float_numpy(result, np.float16, out=out)
+        opencv_operation = cv2.log if operation == "log" else cv2.exp
+        native_half = _NATIVE_HALF_LOG if operation == "log" else _NATIVE_HALF_EXP
+        if not native_half:
+            working = _cast_float_numpy(array, np.float32)
+            result = _log_opencv(working) if operation == "log" else _opencv_unary(working, cv2.exp)
+            return _cast_float_numpy(result, np.float16, out=out)
+        if out is None or out.flags.c_contiguous:
+            return _opencv_unary(array, opencv_operation, out=out)
+        np.copyto(out, _opencv_unary(array, opencv_operation))
+        return out
     torch_result = _float16_unary_torch(
         array,
         operation,

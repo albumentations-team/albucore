@@ -35,6 +35,15 @@ def test_log_preserves_singleton_channel_shape_and_float32_dtype() -> None:
     np.testing.assert_allclose(result, np.log(array), rtol=1e-5, atol=1e-7)
 
 
+def test_log_preserves_positive_infinity_with_positive_normal_values() -> None:
+    array = np.ones((64, 64, 3), dtype=np.float32)
+    array[5, 7, 1] = np.inf
+
+    result = ac.log(array)
+
+    np.testing.assert_array_equal(result, np.log(array))
+
+
 def test_sqrt_preserves_singleton_channel_shape_and_float32_dtype() -> None:
     array = np.linspace(0.0, 4.0, 35, dtype=np.float32).reshape(5, 7, 1)
 

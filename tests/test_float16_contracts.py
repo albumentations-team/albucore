@@ -366,11 +366,11 @@ def test_float16_hwc_c9_multiply_uses_cv16f_broadcast_controls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", False)
-    calls: list[tuple[tuple[int, ...], bool, object]] = []
+    calls: list[tuple[tuple[int, ...], object]] = []
     original = arithmetic.cv2.multiply
 
     def record_cv16f(img: np.ndarray, value: np.ndarray, **kwargs: object) -> np.ndarray:
-        calls.append((value.strides, value.flags.writeable, kwargs.get("dtype")))
+        calls.append((value.shape, kwargs.get("dtype")))
         return original(img, value, **kwargs)
 
     monkeypatch.setattr(arithmetic.cv2, "multiply", record_cv16f)
@@ -383,7 +383,8 @@ def test_float16_hwc_c9_multiply_uses_cv16f_broadcast_controls(
 
     result = multiply(image, vector)
 
-    assert calls == [((0, 0, 2), False, cv2.CV_16F)]
+    expected_shape = (1, 1, 9) if arithmetic._MACOS_ARM64 else image.shape
+    assert calls == [(expected_shape, cv2.CV_16F)]
     assert result.shape == image.shape
     assert result.dtype == image.dtype
     np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
@@ -399,7 +400,7 @@ def test_float16_hwc_c9_multiply_allows_safe_inexact_controls(monkeypatch: pytes
     original = arithmetic.cv2.multiply
 
     def record_cv16f(img: np.ndarray, value: np.ndarray, **kwargs: object) -> np.ndarray:
-        calls.append((value.strides, kwargs.get("dtype")))
+        calls.append((value.shape, kwargs.get("dtype")))
         return original(img, value, **kwargs)
 
     monkeypatch.setattr(arithmetic.cv2, "multiply", record_cv16f)
@@ -411,7 +412,8 @@ def test_float16_hwc_c9_multiply_allows_safe_inexact_controls(monkeypatch: pytes
 
     result = multiply(image, vector)
 
-    assert calls == [((0, 0, 2), cv2.CV_16F)]
+    expected_shape = (1, 1, 9) if arithmetic._MACOS_ARM64 else image.shape
+    assert calls == [(expected_shape, cv2.CV_16F)]
     assert result.shape == image.shape
     assert result.dtype == image.dtype
     np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
@@ -1230,9 +1232,9 @@ def test_uint8_tensor_transcendentals_use_raw_values_and_return_float32(
     np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6, equal_nan=True)
 
 
-def test_float16_log_bridge_preserves_special_values_for_large_arrays() -> None:
+def test_float16_log_preserves_special_values_for_large_arrays() -> None:
     values = np.array(
-        [-2.0, -0.0, 0.0, np.nextafter(np.float16(0), np.float16(1)), 0.25, 1.0, np.inf, np.nan],
+        [-2.0, -0.0, 0.0, np.nextafter(np.float16(0), np.float16(1)), 0.0025424957275390625, 0.25, 1.0, np.inf, np.nan],
         dtype=np.float16,
     )
     source = np.resize(values, (64, 64, 1))

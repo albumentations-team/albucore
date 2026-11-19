@@ -216,7 +216,7 @@ jobs:
             "numpy>=1.24.4" \
             "numkong>=7.8.7" \
             "stringzilla>=5.1.2" \
-            "opencv-python-headless>=5.0.0.93" \
+            "opencv-python-headless>=5.1.0.95" \
             hypothesis \
             pytest \
             pytest-randomly

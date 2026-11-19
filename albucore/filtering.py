@@ -192,8 +192,12 @@ def unsharp_mask(image: ImageArrayT, ksize: int, sigma: float, alpha: float, thr
         np.clip(sharpened, 0, 1, out=sharpened)
     if threshold > 0:
         cv2.absdiff(working, blurred, dst=blurred)
-        threshold_value = threshold / 255.0 if working.dtype == np.float32 else threshold
-        mask = cv2.compare(blurred, np.array(threshold_value, dtype=np.float64), cv2.CMP_GT)
+        threshold_value = (
+            np.array(threshold / 255.0, dtype=np.float32)
+            if working.dtype == np.float32
+            else np.array(min(threshold, 255), dtype=np.uint8)
+        )
+        mask = cv2.compare(blurred, threshold_value, cv2.CMP_GT)
         np.bitwise_not(mask, out=mask)
         cv2.copyTo(working, mask, sharpened)
     return cast("ImageArrayT", convert_dtype(sharpened, input_dtype) if input_dtype.type is np.float16 else sharpened)

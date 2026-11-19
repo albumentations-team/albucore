@@ -7,7 +7,7 @@ OpenCV channel limits: see ``benchmarks/README.md``.
 """
 
 from collections.abc import Callable
-from typing import Any, cast, overload
+from typing import cast, overload
 
 import cv2
 import numpy as np
@@ -500,6 +500,32 @@ def _warp_perspective_chunked(
     )
 
 
+def _warp_perspective_fp32_nearest_without_ipp(
+    img: np.ndarray,
+    matrix: np.ndarray,
+    dsize: tuple[int, int],
+    flags: int,
+    border_mode: int,
+    border_value_cv2: float | tuple[float, ...] | None,
+    dst: np.ndarray | None,
+) -> NDArray[np.float32]:
+    # OpenCV 5.1 stores this flag in thread-local storage.
+    cv2.ipp.setUseIPP(False)
+    try:
+        result = cv2.warpPerspective(
+            img,
+            matrix,
+            dsize,
+            flags=flags,
+            borderMode=border_mode,
+            borderValue=border_value_cv2 or 0,
+            dst=dst,
+        )
+        return cast("NDArray[np.float32]", result[..., None] if dst is None else result)
+    finally:
+        cv2.ipp.setUseIPP(True)
+
+
 def _warp_perspective_float16_nearest(
     img: NDArray[np.float16],
     m: np.ndarray,
@@ -656,6 +682,16 @@ def warp_perspective(
 
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
+
+    # OpenCV #30966: IPP rounds FP32 single-channel nearest ties differently.
+    if (
+        num_channels == 1
+        and img.dtype == np.float32
+        and flags & cv2.INTER_MAX == cv2.INTER_NEAREST
+        and border_mode in (cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE)
+        and cv2.ipp.useIPP()
+    ):
+        return _warp_perspective_fp32_nearest_without_ipp(img, m, dsize, flags, border_mode, border_value_cv2, dst)
 
     needs_chunk = num_channels > MAX_OPENCV_WORKING_CHANNELS and (
         num_channels > _MAX_OPENCV_CHANNELS or flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
@@ -874,11 +910,10 @@ def _remap_float16_nearest(
 
     destination = np.empty((*map_x.shape[:2], source.shape[-1]), dtype=source.dtype)
     remap_map_x, _ = cv2.convertMaps(map_x, map_y, cv2.CV_16SC2, nninterpolation=True)
-    # OpenCV stubs: https://github.com/opencv/opencv/issues/30296 (review 2026-11-15).
     result = cv2.remap(
         source,
         remap_map_x,
-        cast("Any", None),
+        None,
         interpolation=interpolation,
         borderMode=border_mode,
         borderValue=0,

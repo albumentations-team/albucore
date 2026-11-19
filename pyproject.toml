@@ -43,10 +43,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-contrib = ["opencv-contrib-python>=5.0.0.93"]
-contrib-headless = ["opencv-contrib-python-headless>=5.0.0.93"]
-gui = ["opencv-python>=5.0.0.93"]
-headless = ["opencv-python-headless>=5.0.0.93"]
+contrib = ["opencv-contrib-python>=5.1.0.95"]
+contrib-headless = ["opencv-contrib-python-headless>=5.1.0.95"]
+gui = ["opencv-python>=5.1.0.95"]
+headless = ["opencv-python-headless>=5.1.0.95"]
 torch = ["torch>=2.14.1"]
 
 [tool.uv.sources]
