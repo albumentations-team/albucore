@@ -932,6 +932,7 @@ def _power_opencv(
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | None,
 ) -> NDArray[np.float16] | NDArray[np.float32]:
+    # OpenCV treats powers within double epsilon of zero as zero.
     if abs(exponent) < sys.float_info.epsilon:
         if out is None:
             return np.ones(img.shape, dtype=img.dtype)
