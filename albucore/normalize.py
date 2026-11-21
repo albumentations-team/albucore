@@ -227,7 +227,10 @@ def _adaptive_tensor_batch_float32(
     else:
         np.divide(result, divisor, out=result)
     np.clip(result, lower, upper, out=result)
-    return torch.from_numpy(result) if out is None else out
+    if out is None:
+        return torch.from_numpy(result)
+    torch.autograd.graph.increment_version(out)
+    return out
 
 
 def _use_tensor_batch_float32_route(

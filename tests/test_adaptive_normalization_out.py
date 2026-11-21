@@ -212,6 +212,7 @@ def test_adaptive_tensor_batch_float32_vectorizes_global_statistics(
     original = image.clone()
     expected = torch.stack([normalize_per_image(item, mode, layout=item_layout) for item in image])
     output = image if output_mode == "alias" else torch.empty_like(image) if output_mode == "output" else None
+    output_version = output._version if output is not None else None
     route_calls = 0
     original_route = normalize_mod._adaptive_tensor_batch_float32  # noqa: SLF001
     should_route = normalize_mod._use_tensor_batch_float32_route(image, mode, layout, output)  # noqa: SLF001
@@ -234,6 +235,8 @@ def test_adaptive_tensor_batch_float32_vectorizes_global_statistics(
     torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-5)
     if output is not None and result is not output:
         pytest.fail("normalization did not return the supplied output")
+    if output is not None and output._version != output_version + 1:
+        pytest.fail("NumPy writes did not increment the Tensor output version")
     if output_mode != "alias":
         torch.testing.assert_close(image, original, rtol=0, atol=0)
 
