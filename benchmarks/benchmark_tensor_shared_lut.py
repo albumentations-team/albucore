@@ -15,12 +15,10 @@ import importlib.metadata
 import json
 import math
 import platform
-import statistics
 import sys
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from time import perf_counter_ns
 from typing import TYPE_CHECKING
 
 import cv2
@@ -33,6 +31,7 @@ from benchmark_threads import THREAD_COUNT, configure_libraries
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmark_output import output_path
+from timing import bench_paired_wall_ms
 
 import albucore as core
 from albucore import apply_uint8_lut
@@ -109,31 +108,6 @@ def numpy_index_route(
     return output
 
 
-def paired_timing(
-    baseline: Callable[[], torch.Tensor],
-    candidate: Callable[[], torch.Tensor],
-    *,
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float, float, float]:
-    times: tuple[list[float], list[float]] = ([], [])
-    calls = (baseline, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            elapsed = (perf_counter_ns() - started) / 1e6
-            if sample >= warmup:
-                times[index].append(elapsed)
-    medians = tuple(statistics.median(samples) for samples in times)
-    deviations = tuple(
-        statistics.median(abs(value - median) for value in samples)
-        for samples, median in zip(times, medians, strict=True)
-    )
-    return medians[0], deviations[0], medians[1], deviations[1]
-
-
 @dataclass(frozen=True, slots=True)
 class Case:
     """One input, expected result, output mode, and timing configuration."""
@@ -159,10 +133,10 @@ def _record_alternative(
     torch.testing.assert_close(case.image, case.source, rtol=0, atol=0)
     if case.output is not None and result is not case.output:
         raise AssertionError(f"{name} LUT route did not return the supplied output")
-    median, mad, _, _ = paired_timing(baseline, candidate, repeats=case.repeats, warmup=case.warmup)
-    row[f"{name}_ms"] = median
-    row[f"{name}_mad_ms"] = mad
-    row[f"{name}_speedup"] = float(row["baseline_ms"]) / median
+    _, timing = bench_paired_wall_ms(baseline, candidate, repeats=case.repeats, warmup=case.warmup)
+    row[f"{name}_ms"] = timing.median
+    row[f"{name}_mad_ms"] = timing.mad
+    row[f"{name}_speedup"] = float(row["baseline_ms"]) / timing.median
 
 
 def _measure_case(case: Case, *, numpy_candidate: bool) -> dict[str, object]:
@@ -175,7 +149,7 @@ def _measure_case(case: Case, *, numpy_candidate: bool) -> dict[str, object]:
     torch.testing.assert_close(case.image, case.source, rtol=0, atol=0)
     if case.output is not None and direct_result is not case.output:
         raise AssertionError("Tensor LUT did not return the supplied output")
-    baseline_ms, baseline_mad_ms, candidate_ms, candidate_mad_ms = paired_timing(
+    baseline_timing, candidate_timing = bench_paired_wall_ms(
         baseline,
         direct,
         repeats=case.repeats,
@@ -185,11 +159,11 @@ def _measure_case(case: Case, *, numpy_candidate: bool) -> dict[str, object]:
         "shape": tuple(case.image.shape),
         "elements": case.image.numel(),
         "storage": "out" if case.output is not None else "allocating",
-        "baseline_ms": baseline_ms,
-        "baseline_mad_ms": baseline_mad_ms,
-        "candidate_ms": candidate_ms,
-        "candidate_mad_ms": candidate_mad_ms,
-        "speedup": baseline_ms / candidate_ms,
+        "baseline_ms": baseline_timing.median,
+        "baseline_mad_ms": baseline_timing.mad,
+        "candidate_ms": candidate_timing.median,
+        "candidate_mad_ms": candidate_timing.mad,
+        "speedup": baseline_timing.median / candidate_timing.median,
         "output_sha256": hashlib.sha256(direct_result.numpy().tobytes()).hexdigest(),
     }
     if numpy_candidate:

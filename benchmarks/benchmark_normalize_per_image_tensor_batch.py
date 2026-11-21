@@ -7,14 +7,8 @@ import argparse
 import json
 import os
 import platform
-import statistics
 import sys
 from pathlib import Path
-from time import perf_counter_ns
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ[variable] = "1"
@@ -28,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from albucore.normalize import normalize_per_image
 from albucore.stats import DEFAULT_EPS
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
+from timing import bench_paired_wall_ms
 
 SHAPES = (
     ("NCHW", (4, 3, 128, 160)),
@@ -79,25 +74,6 @@ def _batch_numpy_route(img: torch.Tensor, mode: str, out: torch.Tensor | None) -
     return torch.from_numpy(result) if out is None else out
 
 
-def _paired_times(
-    baseline: Callable[[], object],
-    candidate: Callable[[], object],
-    *,
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float]:
-    samples: tuple[list[float], list[float]] = ([], [])
-    calls = (baseline, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            if sample >= warmup:
-                samples[index].append((perf_counter_ns() - started) / 1e6)
-    return statistics.median(samples[0]), statistics.median(samples[1])
-
-
 def _per_item_route(img: torch.Tensor, mode: str, layout: str, out: torch.Tensor | None) -> torch.Tensor:
     item_layout = "CHW" if layout == "NCHW" else "CDHW"
     if out is not None:
@@ -136,7 +112,13 @@ def _measure_case(
     np.testing.assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
     if with_output and actual is not out:
         raise AssertionError("normalization candidate did not return the supplied output")
-    baseline_ms, candidate_ms = _paired_times(baseline, candidate, repeats=args.repeats, warmup=args.warmup)
+    baseline_timing, candidate_timing = bench_paired_wall_ms(
+        baseline,
+        candidate,
+        repeats=args.repeats,
+        warmup=args.warmup,
+    )
+    baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
     return {
         "layout": layout,
         "mode": mode,

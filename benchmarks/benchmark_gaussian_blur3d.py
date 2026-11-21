@@ -22,7 +22,6 @@ import platform
 import statistics
 import subprocess
 import sys
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -33,7 +32,7 @@ import numpy as np
 import torch
 import torch.nn.functional as torch_f
 from shape_grids import parse_dhwc_shape
-from timing import WallTimingMs, bench_wall_ms
+from timing import WallTimingMs, bench_paired_wall_ms, bench_wall_ms
 
 import albucore
 from albucore.filter3d import _restore_uint8, _separable_filter3d_torch_cpu, separable_filter3d
@@ -70,44 +69,6 @@ class Row:
     dtype: str
     candidate: str
     timing: WallTimingMs
-
-
-def _paired_wall_ms(
-    first: Callable[[], object],
-    second: Callable[[], object],
-    repeats: int,
-    warmup: int,
-) -> tuple[WallTimingMs, WallTimingMs]:
-    """Alternate full public calls to reduce drift between route timings."""
-    samples = ([], [])
-    for index in range(warmup):
-        order = (first, second) if index % 2 == 0 else (second, first)
-        for fn in order:
-            fn()
-
-    for index in range(repeats):
-        order = (0, 1) if index % 2 == 0 else (1, 0)
-        for candidate in order:
-            fn = first if candidate == 0 else second
-            started = time.perf_counter()
-            fn()
-            samples[candidate].append((time.perf_counter() - started) * 1000.0)
-
-    timings = []
-    for values in samples:
-        array = np.asarray(values, dtype=np.float64)
-        median = float(np.median(array))
-        timings.append(
-            WallTimingMs(
-                raw=tuple(values),
-                median=median,
-                mean=float(array.mean()),
-                std=float(array.std(ddof=1)) if repeats > 1 else 0.0,
-                mad=float(np.median(np.abs(array - median))),
-                n=repeats,
-            ),
-        )
-    return timings[0], timings[1]
 
 
 def _gaussian_kernel(sigma: float) -> np.ndarray:
@@ -352,7 +313,7 @@ def _time_numpy_routes(
         candidates.insert(2, ("opencv_hw_torch_depth", lambda: _opencv_hw_torch_depth(volume, kernels)))
         _assert_equivalent(public(), expected)
         _assert_equivalent(public_opencv(), expected)
-        paired_public = _paired_wall_ms(public, public_opencv, repeats, warmup)
+        paired_public = bench_paired_wall_ms(public, public_opencv, repeats=repeats, warmup=warmup)
     else:
         candidates.append(("albucore_public", public))
     rows: list[Row] = []
@@ -393,7 +354,7 @@ def _time_tensor_routes(
     if tensor.shape[1] * tensor.shape[0] <= get_opencv_max_channels():
         _assert_equivalent(public().permute(1, 2, 3, 0).numpy(), expected.permute(1, 2, 3, 0).numpy())
         _assert_equivalent(public_opencv().permute(1, 2, 3, 0).numpy(), expected.permute(1, 2, 3, 0).numpy())
-        paired_public = _paired_wall_ms(public, public_opencv, repeats, warmup)
+        paired_public = bench_paired_wall_ms(public, public_opencv, repeats=repeats, warmup=warmup)
     else:
         candidates.append(("albucore_public", public))
     container = "Torch CDHW contiguous" if tensor.is_contiguous() else "Torch CDHW channel-last view"

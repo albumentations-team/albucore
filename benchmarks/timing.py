@@ -25,6 +25,19 @@ class WallTimingMs:
     n: int
 
 
+def _summarize_wall_ms(samples: list[float]) -> WallTimingMs:
+    values = np.asarray(samples, dtype=np.float64)
+    median = float(np.median(values))
+    return WallTimingMs(
+        raw=tuple(samples),
+        median=median,
+        mean=float(values.mean()),
+        std=float(values.std(ddof=1)) if len(samples) > 1 else 0.0,
+        mad=float(np.median(np.abs(values - median))),
+        n=len(samples),
+    )
+
+
 def bench_wall_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) -> WallTimingMs:
     """Wall time in ms: ``warmup`` untimed runs, then ``repeats`` timed runs.
 
@@ -46,12 +59,35 @@ def bench_wall_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) 
         fn()
         times.append((time.perf_counter() - t0) * 1000.0)
 
-    arr = np.asarray(times, dtype=np.float64)
-    med = float(np.median(arr))
-    mean = float(arr.mean())
-    std = float(arr.std(ddof=1)) if repeats > 1 else 0.0
-    mad = float(np.median(np.abs(arr - med)))
-    return WallTimingMs(raw=tuple(times), median=med, mean=mean, std=std, mad=mad, n=repeats)
+    return _summarize_wall_ms(times)
+
+
+def bench_paired_wall_ms(
+    first: Callable[[], object],
+    second: Callable[[], object],
+    repeats: int = 11,
+    warmup: int = 3,
+    *,
+    first_starts: bool = True,
+) -> tuple[WallTimingMs, WallTimingMs]:
+    """Time two routes in alternating order, returning a timing summary for each."""
+    if repeats < 1:
+        msg = f"repeats must be >= 1, got {repeats}"
+        raise ValueError(msg)
+    if warmup < 0:
+        msg = f"warmup must be >= 0, got {warmup}"
+        raise ValueError(msg)
+
+    calls = (first, second)
+    samples: tuple[list[float], list[float]] = ([], [])
+    for sample in range(warmup + repeats):
+        order = (0, 1) if (sample % 2 == 0) == first_starts else (1, 0)
+        for index in order:
+            started = time.perf_counter_ns()
+            calls[index]()
+            if sample >= warmup:
+                samples[index].append((time.perf_counter_ns() - started) / 1e6)
+    return _summarize_wall_ms(samples[0]), _summarize_wall_ms(samples[1])
 
 
 def median_ms(fn: Callable[[], object], repeats: int = 11, warmup: int = 3) -> float:

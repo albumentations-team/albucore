@@ -7,11 +7,9 @@ import argparse
 import json
 import os
 import platform
-import statistics
 import sys
 from functools import partial
 from pathlib import Path
-from time import perf_counter_ns
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -26,6 +24,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmark_output import output_path, write_json_atomic
+from timing import bench_paired_wall_ms
 
 from albucore.normalize import _center_scale_numpy, normalize_per_image
 from albucore.stats import DEFAULT_EPS, _mean_std_global_float32_opencv
@@ -56,26 +55,6 @@ def candidate_normalize(image: np.ndarray, out: np.ndarray | None) -> np.ndarray
     return _center_scale_numpy(image, np.float32(center), np.float32(divisor), out=out)
 
 
-def _paired_times(
-    baseline: Callable[[], object],
-    candidate: Callable[[], object],
-    *,
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float]:
-    times: tuple[list[float], list[float]] = ([], [])
-    calls = (baseline, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            elapsed_ms = (perf_counter_ns() - started) / 1e6
-            if sample >= warmup:
-                times[index].append(elapsed_ms)
-    return statistics.median(times[0]), statistics.median(times[1])
-
-
 def _check_case(
     image: np.ndarray,
     *,
@@ -96,7 +75,13 @@ def _check_case(
     candidate_out = None if output is None else output.copy()
     baseline = partial(numpy_image_route, image, baseline_out)
     candidate = partial(candidate_normalize, image, candidate_out)
-    baseline_ms, candidate_ms = _paired_times(baseline, candidate, repeats=repeats, warmup=warmup)
+    baseline_timing, candidate_timing = bench_paired_wall_ms(
+        baseline,
+        candidate,
+        repeats=repeats,
+        warmup=warmup,
+    )
+    baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
     if output is not None:
         candidate_result = candidate_normalize(image, output)
         if candidate_result is not output:

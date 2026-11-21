@@ -7,14 +7,8 @@ import argparse
 import json
 import os
 import platform
-import statistics
 import sys
 from pathlib import Path
-from time import perf_counter_ns
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ[variable] = "1"
@@ -26,32 +20,14 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmark_threads import configure_libraries
+from timing import bench_paired_wall_ms
 
 import albucore
+from albucore.filtering import _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS  # noqa: SLF001
 from albucore.utils import clip
 
 SHAPES = ((128, 160, 1), (128, 160, 3), (240, 320, 3), (480, 640, 3), (480, 640, 9))
 KERNEL_SIZES = (3, 7, 15)
-ROUTE_MIN_ELEMENTS = {(3, 7): 921_600, (3, 15): 230_400, (9, 7): 2_764_800, (9, 15): 2_764_800}
-
-
-def _paired_times(
-    baseline: Callable[[], object],
-    candidate: Callable[[], object],
-    *,
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float]:
-    samples: tuple[list[float], list[float]] = ([], [])
-    calls = (baseline, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            if sample >= warmup:
-                samples[index].append((perf_counter_ns() - started) / 1e6)
-    return statistics.median(samples[0]), statistics.median(samples[1])
 
 
 def _gaussian_kernel(size: int) -> np.ndarray:
@@ -83,7 +59,13 @@ def _measure_case(
     def baseline() -> np.ndarray:
         return _filter2d_baseline(image, kernel)
 
-    baseline_ms, candidate_ms = _paired_times(baseline, candidate, repeats=repeats, warmup=warmup)
+    baseline_timing, candidate_timing = bench_paired_wall_ms(
+        baseline,
+        candidate,
+        repeats=repeats,
+        warmup=warmup,
+    )
+    baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
     return {
         "shape": list(image.shape),
         "kernel": list(kernel.shape),
@@ -93,8 +75,8 @@ def _measure_case(
                 (sys.platform == "linux" and platform.machine() == "x86_64")
                 or (sys.platform == "darwin" and platform.machine() == "arm64")
             )
-            and (image.shape[-1], kernel.shape[0]) in ROUTE_MIN_ELEMENTS
-            and image.size >= ROUTE_MIN_ELEMENTS[(image.shape[-1], kernel.shape[0])]
+            and (image.shape[-1], kernel.shape[0]) in _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS
+            and image.size >= _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS[(image.shape[-1], kernel.shape[0])]
             and cv2.checkRange(image)[0]
         ),
         "baseline_ms": baseline_ms,

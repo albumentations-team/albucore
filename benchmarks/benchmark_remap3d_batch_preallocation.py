@@ -13,7 +13,6 @@ import subprocess
 import sys
 from functools import partial
 from pathlib import Path
-from time import perf_counter_ns
 from typing import TYPE_CHECKING
 
 for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
@@ -26,6 +25,7 @@ from benchmark_threads import THREAD_COUNT, configure_libraries
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmark_output import output_path, write_json_atomic
+from timing import bench_paired_wall_ms
 
 import albucore
 from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu
@@ -109,26 +109,6 @@ def _stacked_batch_reference(
     return torch.stack(
         [_sample3d_torch_cpu(volume, grid, interpolation, border_mode, border_values) for volume in volumes],
     )
-
-
-def _paired_medians(
-    baseline: Callable[[], object],
-    candidate: Callable[[], object],
-    *,
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float]:
-    times: tuple[list[float], list[float]] = ([], [])
-    calls = (baseline, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            elapsed_ms = (perf_counter_ns() - started) / 1e6
-            if sample >= warmup:
-                times[index].append(elapsed_ms)
-    return statistics.median(times[0]), statistics.median(times[1])
 
 
 def _check_case(
@@ -312,12 +292,13 @@ def _timing_report(args: argparse.Namespace) -> dict[str, object]:
                         border_mode,
                         border_value,
                     )
-                    baseline_ms, candidate_ms = _paired_medians(
+                    baseline_timing, candidate_timing = bench_paired_wall_ms(
                         baseline_fn,
                         candidate_fn,
                         repeats=args.repeats,
                         warmup=args.warmup,
                     )
+                    baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
                     row["baseline_ms"] = baseline_ms
                     row["candidate_ms"] = candidate_ms
                     row["speedup"] = baseline_ms / candidate_ms

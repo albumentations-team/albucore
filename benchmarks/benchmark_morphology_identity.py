@@ -8,14 +8,8 @@ import importlib
 import json
 import os
 import platform
-import statistics
 import sys
 from pathlib import Path
-from time import perf_counter_ns
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ[variable] = "1"
@@ -27,31 +21,13 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmark_threads import configure_libraries
+from timing import bench_paired_wall_ms
 
 import albucore
 
 filtering_mod = importlib.import_module("albucore.filtering")
 
 SHAPES = ((128, 160, 1), (128, 160, 3), (480, 640, 3), (480, 640, 9))
-
-
-def _paired_times(
-    baseline: Callable[[], object],
-    candidate: Callable[[], object],
-    *,
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float]:
-    samples: tuple[list[float], list[float]] = ([], [])
-    calls = (baseline, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            if sample >= warmup:
-                samples[index].append((perf_counter_ns() - started) / 1e6)
-    return statistics.median(samples[0]), statistics.median(samples[1])
 
 
 def _kernel(kind: str) -> np.ndarray:
@@ -98,7 +74,13 @@ def _measure_case(
     def candidate() -> np.ndarray:
         return public(image, kernel)
 
-    baseline_ms, candidate_ms = _paired_times(baseline, candidate, repeats=repeats, warmup=warmup)
+    baseline_timing, candidate_timing = bench_paired_wall_ms(
+        baseline,
+        candidate,
+        repeats=repeats,
+        warmup=warmup,
+    )
+    baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
     return {
         "shape": list(image.shape),
         "dtype": image.dtype.name,

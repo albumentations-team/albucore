@@ -8,15 +8,9 @@ import json
 import math
 import os
 import platform
-import statistics
 import sys
 from functools import partial
 from pathlib import Path
-from time import perf_counter_ns
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
     os.environ[variable] = "1"
@@ -27,6 +21,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmark_output import output_path, write_json_atomic
+from timing import bench_paired_wall_ms
 
 from albucore.stats import DEFAULT_EPS, mean_std, std
 
@@ -60,25 +55,6 @@ def cv2_candidate(image: np.ndarray) -> tuple[float, float, bool]:
         mean_value = float(mean_keepdims.reshape(())[()])
         std_value = float(np.std(image, dtype=np.float64, mean=mean_keepdims))
     return mean_value, std_value + DEFAULT_EPS, fallback
-
-
-def paired_times(
-    base: Callable[[], object],
-    candidate: Callable[[], object],
-    repeats: int,
-    warmup: int,
-) -> tuple[float, float]:
-    samples: tuple[list[float], list[float]] = ([], [])
-    calls: tuple[Callable[[], object], Callable[[], object]] = (base, candidate)
-    for sample in range(warmup + repeats):
-        order = (0, 1) if sample % 2 == 0 else (1, 0)
-        for index in order:
-            started = perf_counter_ns()
-            calls[index]()
-            elapsed_ms = (perf_counter_ns() - started) / 1e6
-            if sample >= warmup:
-                samples[index].append(elapsed_ms)
-    return statistics.median(samples[0]), statistics.median(samples[1])
 
 
 def check_values(image: np.ndarray) -> dict[str, object]:
@@ -138,13 +114,20 @@ def main() -> None:
         correctness = check_values(image)
         baseline = partial(numpy_mean_std, image)
         candidate = partial(mean_std, image, "global")
-        baseline_ms, candidate_ms = paired_times(baseline, candidate, args.repeats, args.warmup)
-        std_baseline_ms, std_candidate_ms = paired_times(
+        baseline_timing, candidate_timing = bench_paired_wall_ms(
+            baseline,
+            candidate,
+            repeats=args.repeats,
+            warmup=args.warmup,
+        )
+        std_baseline_timing, std_candidate_timing = bench_paired_wall_ms(
             partial(numpy_std, image),
             partial(std, image, "global"),
-            args.repeats,
-            args.warmup,
+            repeats=args.repeats,
+            warmup=args.warmup,
         )
+        baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
+        std_baseline_ms, std_candidate_ms = std_baseline_timing.median, std_candidate_timing.median
         rows.append(
             {
                 **correctness,
@@ -172,12 +155,13 @@ def main() -> None:
         *constant_cases,
     ):
         correctness = check_values(image)
-        baseline_ms, candidate_ms = paired_times(
+        baseline_timing, candidate_timing = bench_paired_wall_ms(
             partial(numpy_mean_std, image),
             partial(mean_std, image, "global"),
-            args.repeats,
-            args.warmup,
+            repeats=args.repeats,
+            warmup=args.warmup,
         )
+        baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
         guard_cases.append(
             {
                 "name": name,
