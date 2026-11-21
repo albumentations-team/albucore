@@ -255,7 +255,11 @@ def _rss_report(args: argparse.Namespace) -> dict[str, object]:
     return {
         "platform": platform.platform(),
         "python": platform.python_version(),
-        "packages": {name: importlib.metadata.version(name) for name in ("numpy", "opencv-python-headless", "torch")},
+        "packages": {
+            "numpy": importlib.metadata.version("numpy"),
+            "opencv": cv2.__version__,
+            "torch": importlib.metadata.version("torch"),
+        },
         "threads": args.threads,
         "rss": _measure_rss(Path(__file__).resolve(), args.rss_repeats),
     }
@@ -300,16 +304,27 @@ def _timing_report(args: argparse.Namespace) -> dict[str, object]:
                     )
                     baseline_ms, candidate_ms = baseline_timing.median, candidate_timing.median
                     row["baseline_ms"] = baseline_ms
+                    row["baseline_samples_ms"] = baseline_timing.raw
                     row["candidate_ms"] = candidate_ms
+                    row["candidate_samples_ms"] = candidate_timing.raw
                     row["speedup"] = baseline_ms / candidate_ms
                     rows.append(row)
 
     return {
         "platform": platform.platform(),
         "python": platform.python_version(),
-        "packages": {name: importlib.metadata.version(name) for name in ("numpy", "opencv-python-headless", "torch")},
+        "packages": {
+            "numpy": importlib.metadata.version("numpy"),
+            "opencv": cv2.__version__,
+            "torch": importlib.metadata.version("torch"),
+        },
         "threads": args.threads,
-        "benchmark": {"repeats": args.repeats, "warmup": args.warmup, "paired": True},
+        "benchmark": {
+            "repeats": args.repeats,
+            "warmup": args.warmup,
+            "paired": True,
+            "paired_order": "baseline starts first; call order alternates every sample",
+        },
         "rss": _measure_rss(Path(__file__).resolve(), args.rss_repeats) if args.rss else None,
         "rows": rows,
     }

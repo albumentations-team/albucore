@@ -19,6 +19,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from benchmark_output import output_path, write_json_atomic
 from albucore.normalize import normalize_per_image
 from albucore.stats import DEFAULT_EPS
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
@@ -99,18 +100,19 @@ def _measure_case(
     with_output: bool,
     args: argparse.Namespace,
 ) -> dict[str, object]:
-    out = torch.empty_like(tensor) if with_output else None
+    baseline_out = torch.empty_like(tensor) if with_output else None
+    candidate_out = torch.empty_like(tensor) if with_output else None
 
     def baseline() -> torch.Tensor:
-        return _per_item_route(tensor, mode, layout, out)
+        return _per_item_route(tensor, mode, layout, baseline_out)
 
     def candidate() -> torch.Tensor:
-        return _batch_numpy_route(tensor, mode, out)
+        return _batch_numpy_route(tensor, mode, candidate_out)
 
     expected = baseline()
     actual = candidate()
     np.testing.assert_allclose(actual.numpy(), expected.numpy(), rtol=1e-5, atol=1e-5)
-    if with_output and actual is not out:
+    if with_output and actual is not candidate_out:
         raise AssertionError("normalization candidate did not return the supplied output")
     baseline_timing, candidate_timing = bench_paired_wall_ms(
         baseline,
@@ -126,7 +128,9 @@ def _measure_case(
         "elements": tensor.numel(),
         "output": "supplied" if with_output else "allocated",
         "baseline_ms": baseline_ms,
+        "baseline_samples_ms": baseline_timing.raw,
         "candidate_ms": candidate_ms,
+        "candidate_samples_ms": candidate_timing.raw,
         "speedup": baseline_ms / candidate_ms,
     }
 
@@ -135,7 +139,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repeats", type=int, default=51)
     parser.add_argument("--warmup", type=int, default=8)
-    parser.add_argument("--output-json", type=Path, required=True)
+    parser.add_argument("--output-json", type=output_path, required=True)
     args = parser.parse_args()
     if args.repeats < 1 or args.warmup < 0:
         parser.error("repeats must be positive and warmup non-negative")
@@ -168,10 +172,10 @@ def main() -> None:
         "threads": 1,
         "repeats": args.repeats,
         "warmup": args.warmup,
+        "paired_order": "baseline starts first; call order alternates every sample",
         "rows": rows,
     }
-    args.output_json.parent.mkdir(parents=True, exist_ok=True)
-    args.output_json.write_text(json.dumps(result, indent=2) + "\n")
+    write_json_atomic(args.output_json, result)
     print(json.dumps(result, indent=2))  # noqa: T201
 
 

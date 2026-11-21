@@ -24,7 +24,7 @@ import numpy as np
 import stringzilla as sz
 import torch
 from benchmark_threads import THREAD_COUNT, configure_libraries
-from timing import bench_wall_ms
+from timing import bench_paired_wall_ms
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -76,8 +76,7 @@ def main() -> None:
             actual = new_call()
             np.testing.assert_array_equal(actual, expected)
             np.testing.assert_array_equal(volume, source)
-            old_timing = bench_wall_ms(old_call, repeats=31, warmup=5)
-            new_timing = bench_wall_ms(new_call, repeats=31, warmup=5)
+            old_timing, new_timing = bench_paired_wall_ms(old_call, new_call, repeats=31, warmup=5)
             rows.append(
                 {
                     "shape": shape,
@@ -85,8 +84,10 @@ def main() -> None:
                     "dtype": np.dtype(dtype).name,
                     "baseline_ms": old_timing.median,
                     "baseline_mad_ms": old_timing.mad,
+                    "baseline_samples_ms": old_timing.raw,
                     "current_ms": new_timing.median,
                     "current_mad_ms": new_timing.mad,
+                    "current_samples_ms": new_timing.raw,
                     "speedup": old_timing.median / new_timing.median,
                     "output_sha256": hashlib.sha256(actual.tobytes()).hexdigest(),
                 },
@@ -96,14 +97,18 @@ def main() -> None:
         "platform": platform.platform(),
         "python": platform.python_version(),
         "versions": {
-            name: importlib.metadata.version(name)
-            for name in ("numpy", "opencv-python-headless", "numkong", "stringzilla", "torch")
+            "numpy": importlib.metadata.version("numpy"),
+            "opencv": cv2.__version__,
+            "numkong": importlib.metadata.version("numkong"),
+            "stringzilla": importlib.metadata.version("stringzilla"),
+            "torch": importlib.metadata.version("torch"),
         },
         "source_paths": {
             module.__name__: str(Path(module.__file__).resolve()) for module in (core, cv2, np, nk, sz, torch)
         },
         "numkong_capabilities": nk.get_capabilities(),
         "threads": thread_settings,
+        "paired_order": "baseline starts first; call order alternates every sample",
         "rows": rows,
     }
     args.output_json.parent.mkdir(parents=True, exist_ok=True)

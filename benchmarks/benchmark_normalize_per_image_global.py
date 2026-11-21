@@ -48,11 +48,7 @@ def cv2_stats_route(image: np.ndarray, out: np.ndarray | None) -> tuple[np.ndarr
 
 
 def candidate_normalize(image: np.ndarray, out: np.ndarray | None) -> np.ndarray:
-    stats = _mean_std_global_float32_opencv(image, DEFAULT_EPS)
-    if stats is None:
-        return numpy_image_route(image, out)
-    center, divisor = stats
-    return _center_scale_numpy(image, np.float32(center), np.float32(divisor), out=out)
+    return cv2_stats_route(image, out)[0]
 
 
 def _check_case(
@@ -92,7 +88,9 @@ def _check_case(
         "output": "supplied" if output is not None else "allocated",
         "cv2_stats_used": cv2_used,
         "baseline_ms": baseline_ms,
+        "baseline_samples_ms": baseline_timing.raw,
         "candidate_ms": candidate_ms,
+        "candidate_samples_ms": candidate_timing.raw,
         "speedup": baseline_ms / candidate_ms,
     }
 
@@ -129,6 +127,7 @@ def main() -> None:
         "threads": 1,
         "repeats": args.repeats,
         "warmup": args.warmup,
+        "paired_order": "baseline starts first; call order alternates every sample",
         "near_constant_fallback": _mean_std_global_float32_opencv(near_constant, DEFAULT_EPS) is None,
         "rows": rows,
     }

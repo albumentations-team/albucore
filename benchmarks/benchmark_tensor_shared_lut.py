@@ -136,11 +136,13 @@ def _record_alternative(
     _, timing = bench_paired_wall_ms(baseline, candidate, repeats=case.repeats, warmup=case.warmup)
     row[f"{name}_ms"] = timing.median
     row[f"{name}_mad_ms"] = timing.mad
+    row[f"{name}_samples_ms"] = timing.raw
     row[f"{name}_speedup"] = float(row["baseline_ms"]) / timing.median
 
 
 def _measure_case(case: Case, *, numpy_candidate: bool) -> dict[str, object]:
-    baseline = partial(previous_route, case.image, case.table, case.output)
+    baseline_output = torch.empty_like(case.image) if case.output is not None else None
+    baseline = partial(previous_route, case.image, case.table, baseline_output)
     direct = partial(direct_route, case.image, case.table, case.output)
     old_result = baseline()
     direct_result = direct()
@@ -161,8 +163,10 @@ def _measure_case(case: Case, *, numpy_candidate: bool) -> dict[str, object]:
         "storage": "out" if case.output is not None else "allocating",
         "baseline_ms": baseline_timing.median,
         "baseline_mad_ms": baseline_timing.mad,
+        "baseline_samples_ms": baseline_timing.raw,
         "candidate_ms": candidate_timing.median,
         "candidate_mad_ms": candidate_timing.mad,
+        "candidate_samples_ms": candidate_timing.raw,
         "speedup": baseline_timing.median / candidate_timing.median,
         "output_sha256": hashlib.sha256(direct_result.numpy().tobytes()).hexdigest(),
     }
@@ -211,14 +215,18 @@ def main() -> None:
             "numpy_candidate": args.numpy_candidate,
         },
         "versions": {
-            name: importlib.metadata.version(name)
-            for name in ("numpy", "opencv-python-headless", "numkong", "stringzilla", "torch")
+            "numpy": importlib.metadata.version("numpy"),
+            "opencv": cv2.__version__,
+            "numkong": importlib.metadata.version("numkong"),
+            "stringzilla": importlib.metadata.version("stringzilla"),
+            "torch": torch.__version__,
         },
         "numkong_capabilities": capabilities,
         "source_paths": {
             module.__name__: str(Path(module.__file__).resolve()) for module in (core, cv2, nk, np, sz, torch)
         },
         "threads": thread_settings,
+        "paired_order": "baseline starts first; call order alternates every sample",
         "table_sha256": hashlib.sha256(table.tobytes()).hexdigest(),
         "rows": rows,
     }

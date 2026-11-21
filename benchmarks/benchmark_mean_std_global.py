@@ -26,12 +26,19 @@ from timing import bench_paired_wall_ms
 from albucore.stats import DEFAULT_EPS, mean_std, std
 
 RELATIVE_VARIANCE_FLOOR = 1e-4
+_NUMPY_STD_MEAN_SUPPORTED = np.lib.NumpyVersion(np.__version__) >= "2.0.0"
+
+
+def _std_from_mean(image: np.ndarray, mean_keepdims: np.ndarray) -> np.float64:
+    if _NUMPY_STD_MEAN_SUPPORTED:
+        return np.float64(np.std(image, dtype=np.float64, mean=mean_keepdims))
+    return np.float64(np.std(image, dtype=np.float64))
 
 
 def numpy_mean_std(image: np.ndarray) -> tuple[np.float64, np.float64]:
     mean_keepdims = np.asarray(np.mean(image, dtype=np.float64, keepdims=True), dtype=np.float64)
     mean_value = np.float64(mean_keepdims.reshape(())[()])
-    std_value = np.float64(np.std(image, dtype=np.float64, mean=mean_keepdims)) + DEFAULT_EPS
+    std_value = _std_from_mean(image, mean_keepdims) + DEFAULT_EPS
     return mean_value, std_value
 
 
@@ -53,7 +60,7 @@ def cv2_candidate(image: np.ndarray) -> tuple[float, float, bool]:
     if fallback:
         mean_keepdims = np.asarray(np.mean(image, dtype=np.float64, keepdims=True), dtype=np.float64)
         mean_value = float(mean_keepdims.reshape(())[()])
-        std_value = float(np.std(image, dtype=np.float64, mean=mean_keepdims))
+        std_value = float(_std_from_mean(image, mean_keepdims))
     return mean_value, std_value + DEFAULT_EPS, fallback
 
 
@@ -132,10 +139,14 @@ def main() -> None:
             {
                 **correctness,
                 "baseline_ms": baseline_ms,
+                "baseline_samples_ms": baseline_timing.raw,
                 "candidate_ms": candidate_ms,
+                "candidate_samples_ms": candidate_timing.raw,
                 "speedup": baseline_ms / candidate_ms,
                 "std_baseline_ms": std_baseline_ms,
+                "std_baseline_samples_ms": std_baseline_timing.raw,
                 "std_candidate_ms": std_candidate_ms,
+                "std_candidate_samples_ms": std_candidate_timing.raw,
                 "std_speedup": std_baseline_ms / std_candidate_ms,
             },
         )
@@ -167,7 +178,9 @@ def main() -> None:
                 "name": name,
                 **correctness,
                 "baseline_ms": baseline_ms,
+                "baseline_samples_ms": baseline_timing.raw,
                 "candidate_ms": candidate_ms,
+                "candidate_samples_ms": candidate_timing.raw,
                 "speedup": baseline_ms / candidate_ms,
             },
         )
@@ -198,7 +211,12 @@ def main() -> None:
         "opencv": cv2.__version__,
         "torch": torch.__version__,
         "opencv_threads": cv2.getNumThreads(),
-        "benchmark": {"repeats": args.repeats, "warmup": args.warmup, "paired": True},
+        "benchmark": {
+            "repeats": args.repeats,
+            "warmup": args.warmup,
+            "paired": True,
+            "paired_order": "baseline starts first; call order alternates every sample",
+        },
         "guard": {
             "relative_variance_floor": RELATIVE_VARIANCE_FLOOR,
             "fallback_cases": guard_cases,

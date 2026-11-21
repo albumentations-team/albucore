@@ -35,7 +35,8 @@ from shape_grids import parse_dhwc_shape
 from timing import WallTimingMs, bench_paired_wall_ms, bench_wall_ms
 
 import albucore
-from albucore.filter3d import _restore_uint8, _separable_filter3d_torch_cpu, separable_filter3d
+from albucore import separable_filter3d
+from albucore.filter3d import _restore_uint8, _separable_filter3d_torch_cpu
 from albucore.utils import get_opencv_max_channels
 
 if TYPE_CHECKING:
@@ -119,6 +120,8 @@ def _opencv_hw_torch_depth(volume: np.ndarray, kernels: Kernels) -> np.ndarray:
         raise ValueError(msg)
     working = volume.astype(np.float32, copy=False)
     packed = np.ascontiguousarray(working.transpose(1, 2, 0, 3).reshape(height, width, depth * channels))
+    if np.shares_memory(packed, volume):
+        packed = packed.copy()
     del working
     cv2.sepFilter2D(
         packed,

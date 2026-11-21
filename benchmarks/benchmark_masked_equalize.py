@@ -24,7 +24,7 @@ import numpy as np
 import stringzilla as sz
 import torch
 from benchmark_threads import THREAD_COUNT, configure_libraries
-from timing import bench_wall_ms
+from timing import bench_paired_wall_ms
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -63,16 +63,17 @@ def row(image: np.ndarray, mask: np.ndarray, *, storage: str, repeats: int) -> d
     np.testing.assert_array_equal(mask, mask_before)
     if not result.flags.writeable or np.shares_memory(result, image):
         raise AssertionError("Masked equalization must return independent writable storage")
-    old_timing = bench_wall_ms(previous, repeats=repeats, warmup=5)
-    new_timing = bench_wall_ms(public, repeats=repeats, warmup=5)
+    old_timing, new_timing = bench_paired_wall_ms(previous, public, repeats=repeats, warmup=5)
     return {
         "shape": image.shape,
         "storage": storage,
         "mask_shape": mask.shape,
         "baseline_ms": old_timing.median,
         "baseline_mad_ms": old_timing.mad,
+        "baseline_samples_ms": old_timing.raw,
         "current_ms": new_timing.median,
         "current_mad_ms": new_timing.mad,
+        "current_samples_ms": new_timing.raw,
         "speedup": old_timing.median / new_timing.median,
         "output_sha256": hashlib.sha256(result.tobytes()).hexdigest(),
     }
@@ -102,9 +103,13 @@ def main() -> None:
         "platform": platform.platform(),
         "python": platform.python_version(),
         "versions": {
-            name: importlib.metadata.version(name)
-            for name in ("numpy", "opencv-python-headless", "numkong", "stringzilla", "torch")
+            "numpy": importlib.metadata.version("numpy"),
+            "opencv": cv2.__version__,
+            "numkong": importlib.metadata.version("numkong"),
+            "stringzilla": importlib.metadata.version("stringzilla"),
+            "torch": importlib.metadata.version("torch"),
         },
+        "paired_order": "baseline starts first; call order alternates every sample",
         "source_paths": {
             module.__name__: str(Path(module.__file__).resolve()) for module in (core, cv2, np, nk, sz, torch)
         },

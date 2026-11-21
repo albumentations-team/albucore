@@ -80,7 +80,9 @@ def _measure_case(
             and cv2.checkRange(image)[0]
         ),
         "baseline_ms": baseline_ms,
+        "baseline_samples_ms": baseline_timing.raw,
         "separable_ms": candidate_ms,
+        "separable_samples_ms": candidate_timing.raw,
         "speedup": baseline_ms / candidate_ms,
     }
 
@@ -120,6 +122,7 @@ def main() -> None:
         "threads": thread_settings,
         "repeats": args.repeats,
         "warmup": args.warmup,
+        "paired_order": "baseline starts first; call order alternates every sample",
         "rows": rows,
     }
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
