@@ -172,16 +172,18 @@ def test_separable_filter3d_does_not_clip_uint8_between_passes() -> None:
 @pytest.mark.parametrize("channels", [1, 3, 5, 9])
 @pytest.mark.parametrize("container", ["numpy", "torch_channel_last", "torch_contiguous"])
 @pytest.mark.parametrize("pattern", ["random", "constant", "near_constant"])
+@pytest.mark.parametrize("depth", [1, 5])
 def test_gaussian_blur3d_linux_opencv_xy_route_preserves_the_public_result(
     monkeypatch: pytest.MonkeyPatch,
     dtype: type[np.uint8 | np.float16 | np.float32],
     channels: int,
     container: str,
     pattern: str,
+    depth: int,
 ) -> None:
     monkeypatch.setattr(filter3d_mod, "_LINUX_X86_64", True)
     rng = np.random.default_rng(20261121)
-    shape = (5, 11, 13, channels)
+    shape = (depth, 11, 13, channels)
     volume = (
         rng.integers(0, 256, size=shape, dtype=np.uint8)
         if dtype is np.uint8

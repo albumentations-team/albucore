@@ -255,6 +255,22 @@ def test_resize3d_numpy_uint8_depth_unit_matches_torch_full_route() -> None:
     np.testing.assert_array_equal(result, expected.permute(1, 2, 3, 0).numpy())
 
 
+@pytest.mark.parametrize("layout", ["readonly", "negative_stride"])
+def test_resize3d_numpy_uint8_depth_unit_fallback_preserves_dtype(layout: str) -> None:
+    volume = _numpy_volume(np.uint8, channels=5)
+    if layout == "readonly":
+        volume.flags.writeable = False
+    else:
+        volume = volume[:, :, ::-1]
+    expected = resize3d(volume.copy(order="C"), (1, 6, 8))
+
+    result = resize3d(volume, (1, 6, 8))
+
+    assert result.dtype == np.uint8
+    delta = np.abs(result.astype(np.int16) - expected.astype(np.int16))
+    assert int(delta.max()) <= 1
+
+
 def test_resize3d_numpy_float32_downscale_matches_torch_full_route() -> None:
     """The float32 all-downscale route shares NumPy storage with CPU Torch and keeps DHWC output layout."""
     volume = np.random.default_rng(20260803).random((8, 64, 80, 3), dtype=np.float32)

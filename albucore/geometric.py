@@ -1362,6 +1362,8 @@ def _resize3d_numpy_linear_three_pass(volume: np.ndarray, size: tuple[int, int, 
     result = _cast_float_numpy(volume, np.float32)
     for axis, output_size in enumerate(size):
         result = _resize3d_numpy_linear_axis(result, axis, output_size)
+    if volume.dtype == np.uint8:
+        return np.asarray(np.minimum(result + np.float32(0.5), np.float32(255)).astype(np.uint8))
     if volume.dtype == np.float16:
         return _cast_float_numpy(result, np.float16)
     return result

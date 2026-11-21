@@ -148,6 +148,8 @@ def _separable_filter3d_numpy_opencv_xy_torch_depth(
     depth, height, width, channels = volume.shape
     working = volume.astype(np.float32, copy=False)
     packed = np.ascontiguousarray(working.transpose(1, 2, 0, 3).reshape(height, width, depth * channels))
+    if np.shares_memory(packed, volume):
+        packed = packed.copy()
     del working
     cv2.sepFilter2D(
         packed,
