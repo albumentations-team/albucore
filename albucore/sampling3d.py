@@ -15,6 +15,7 @@ _BORDERS = {
     cv2.BORDER_CONSTANT: "zeros",
     cv2.BORDER_REPLICATE: "border",
 }
+_GRID_SAMPLER_3D_OUT_SUPPORTED = hasattr(torch.ops.aten.grid_sampler_3d, "out")
 
 
 def _normalize_border_value(
@@ -95,6 +96,41 @@ def _sample3d_torch_cpu_batch_native(
         elif volumes.dtype == torch.float16:
             result = result.to(torch.float16)
     return result
+
+
+def _sample3d_torch_cpu_batch_preallocated_float32(
+    volumes: torch.Tensor,
+    sampling_grid: torch.Tensor,
+    interpolation: int,
+    border_mode: int,
+    border_values: np.ndarray,
+) -> torch.Tensor:
+    """Write per-volume float32 grid-sample results into one owned batch output."""
+    batch_size, channels = volumes.shape[:2]
+    output = volumes.new_empty((batch_size, channels, *sampling_grid.shape[:3]))
+    grid = sampling_grid.unsqueeze(0)
+    mode = 0 if interpolation == cv2.INTER_LINEAR else 1
+    padding_mode = 0 if border_mode == cv2.BORDER_CONSTANT else 1
+    use_fill = border_mode == cv2.BORDER_CONSTANT and bool(np.any(border_values))
+    fill = torch.from_numpy(border_values).reshape(1, channels, 1, 1, 1) if use_fill else None
+
+    with torch.no_grad():
+        for index in range(batch_size):
+            source = volumes[index : index + 1]
+            if fill is not None:
+                source = source - fill
+            destination = output[index : index + 1]
+            torch.ops.aten.grid_sampler_3d.out(
+                source,
+                grid,
+                mode,
+                padding_mode,
+                False,
+                out=destination,
+            )
+            if fill is not None:
+                destination.add_(fill)
+    return output
 
 
 def _sample3d_torch_cpu(

@@ -110,6 +110,8 @@ def test_half_quantization_all_encodings_with_output(monkeypatch, container, sca
 
     values = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(1, 65536, 1)
     source = np.repeat(values, channels, axis=-1)
+    if container == "numpy":
+        source.flags.writeable = False
     original_bits = source.view(np.uint16).copy()
     image = torch.from_numpy(source) if container == "tensor" else source
     output = (
@@ -125,7 +127,7 @@ def test_half_quantization_all_encodings_with_output(monkeypatch, container, sca
     np.testing.assert_allclose(actual, expected, rtol=0, atol=1 if container == "tensor" and scale != 17.3 else 0)
     np.testing.assert_array_equal(source.view(np.uint16), original_bits)
     if container == "numpy":
-        assert working_buffer_calls == [True]
+        assert working_buffer_calls == ([] if scale == 255.0 else [True])
 
 
 @pytest.mark.parametrize("channels", [1, 3, 4, 5])
@@ -137,6 +139,7 @@ def test_half_quantization_all_encodings_without_output(monkeypatch, channels):
 
     values = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(256, 256, 1)
     source = np.repeat(values, channels, axis=-1)
+    source.flags.writeable = False
     original_bits = source.view(np.uint16).copy()
     with np.errstate(all="ignore"):
         expected = np.clip(np.rint(source.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)
@@ -148,7 +151,7 @@ def test_half_quantization_all_encodings_without_output(monkeypatch, channels):
     assert not np.shares_memory(result, source)
     np.testing.assert_array_equal(result, expected)
     np.testing.assert_array_equal(source.view(np.uint16), original_bits)
-    assert working_buffer_calls == [True]
+    assert working_buffer_calls == []
 
 
 @pytest.mark.parametrize("dtype", [np.float16, np.float32])

@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import torch
 
+import albucore.filter3d as filter3d_mod
 from albucore import gaussian_blur3d, separable_filter3d
 
 
@@ -165,3 +166,128 @@ def test_separable_filter3d_does_not_clip_uint8_between_passes() -> None:
 
     assert result.dtype == np.uint8
     np.testing.assert_array_equal(result, 200)
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("channels", [1, 3, 5, 9])
+@pytest.mark.parametrize("container", ["numpy", "torch_channel_last", "torch_contiguous"])
+@pytest.mark.parametrize("pattern", ["random", "constant", "near_constant"])
+def test_gaussian_blur3d_linux_opencv_xy_route_preserves_the_public_result(
+    monkeypatch: pytest.MonkeyPatch,
+    dtype: type[np.uint8 | np.float16 | np.float32],
+    channels: int,
+    container: str,
+    pattern: str,
+) -> None:
+    monkeypatch.setattr(filter3d_mod, "_LINUX_X86_64", True)
+    rng = np.random.default_rng(20261121)
+    shape = (5, 11, 13, channels)
+    volume = (
+        rng.integers(0, 256, size=shape, dtype=np.uint8)
+        if dtype is np.uint8
+        else rng.random(shape, dtype=np.float32).astype(dtype)
+    )
+    if pattern != "random":
+        lower = np.uint8(128) if dtype is np.uint8 else dtype(0.5 if dtype is np.float16 else 1e6)
+        upper = np.uint8(129) if dtype is np.uint8 else np.nextafter(lower, dtype(1 if dtype is np.float16 else np.inf))
+        volume.fill(lower)
+        if pattern == "near_constant":
+            volume[:, ::3] = upper
+    original = volume.copy()
+    if container == "numpy":
+        image = volume
+    else:
+        image = torch.from_numpy(volume).permute(3, 0, 1, 2)
+        if container == "torch_contiguous":
+            image = image.contiguous()
+
+    sigmas = (0.75, 1.25, 1.75)
+    kernels = tuple(filter3d_mod._gaussian_kernel_1d(sigma, 0) for sigma in sigmas)  # noqa: SLF001
+    expected = separable_filter3d(image, kernels)
+    route_calls = 0
+    original_route = filter3d_mod._separable_filter3d_numpy_opencv_xy_torch_depth  # noqa: SLF001
+
+    def count_route(source: np.ndarray, route_kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray:
+        nonlocal route_calls
+        route_calls += 1
+        return original_route(source, route_kernels)
+
+    monkeypatch.setattr(filter3d_mod, "_separable_filter3d_numpy_opencv_xy_torch_depth", count_route)
+
+    result = gaussian_blur3d(image, sigma=sigmas)
+
+    should_route = dtype in (np.uint8, np.float32) and (
+        container == "numpy"
+        or (container == "torch_contiguous" and channels in (1, 3, 5))
+        or (container == "torch_channel_last" and (dtype is np.uint8 or channels in (1, 3, 9)))
+    )
+    if route_calls != int(should_route):
+        pytest.fail("Gaussian blur selected the wrong OpenCV XY route")
+    if isinstance(result, np.ndarray):
+        expected_array = expected
+        actual_array = result
+    else:
+        expected_array = expected.permute(1, 2, 3, 0).numpy()
+        actual_array = result.permute(1, 2, 3, 0).numpy()
+        if should_route and not result.is_contiguous():
+            pytest.fail("the routed Tensor result is not contiguous")
+    if dtype is np.uint8:
+        delta = np.abs(actual_array.astype(np.int16) - expected_array.astype(np.int16))
+        if int(delta.max()) > 1:
+            pytest.fail("uint8 Gaussian blur exceeded a one-level difference")
+    elif dtype is np.float16:
+        np.testing.assert_array_equal(actual_array, expected_array)
+    else:
+        np.testing.assert_allclose(actual_array, expected_array, rtol=3e-5, atol=3e-5)
+    np.testing.assert_array_equal(volume, original)
+
+
+def test_gaussian_blur3d_linux_opencv_xy_route_respects_packed_channel_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(filter3d_mod, "_LINUX_X86_64", True)
+    volume = np.random.default_rng(20261121).random((15, 11, 13, 9), dtype=np.float32)
+    kernels = tuple(filter3d_mod._gaussian_kernel_1d(sigma, 0) for sigma in (0.75, 1.25, 1.75))  # noqa: SLF001
+    expected = separable_filter3d(volume, kernels)
+    route_calls = 0
+    original_route = filter3d_mod._separable_filter3d_numpy_opencv_xy_torch_depth  # noqa: SLF001
+
+    def count_route(source: np.ndarray, route_kernels: tuple[np.ndarray, np.ndarray, np.ndarray]) -> np.ndarray:
+        nonlocal route_calls
+        route_calls += 1
+        return original_route(source, route_kernels)
+
+    monkeypatch.setattr(filter3d_mod, "_separable_filter3d_numpy_opencv_xy_torch_depth", count_route)
+
+    result = gaussian_blur3d(volume, sigma=(0.75, 1.25, 1.75))
+
+    if route_calls != 0:
+        pytest.fail("Gaussian blur used the packed route above OpenCV's channel limit")
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("value", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("container", ["numpy", "torch_channel_last", "torch_contiguous"])
+def test_gaussian_blur3d_linux_opencv_xy_route_preserves_nonfinite_spread(
+    monkeypatch: pytest.MonkeyPatch,
+    value: np.float32,
+    container: str,
+) -> None:
+    monkeypatch.setattr(filter3d_mod, "_LINUX_X86_64", True)
+    volume = np.zeros((5, 11, 13, 3), dtype=np.float32)
+    volume[2, 5, 6, 0] = value
+    image = volume if container == "numpy" else torch.from_numpy(volume).permute(3, 0, 1, 2)
+    if container == "torch_contiguous":
+        image = image.contiguous()
+    kernels = tuple(filter3d_mod._gaussian_kernel_1d(sigma, 0) for sigma in (0.75, 1.25, 1.75))  # noqa: SLF001
+    expected = separable_filter3d(image, kernels)
+
+    result = gaussian_blur3d(image, sigma=(0.75, 1.25, 1.75))
+
+    expected_array = expected if isinstance(expected, np.ndarray) else expected.permute(1, 2, 3, 0).numpy()
+    result_array = result if isinstance(result, np.ndarray) else result.permute(1, 2, 3, 0).numpy()
+    np.testing.assert_array_equal(np.isnan(result_array), np.isnan(expected_array))
+    np.testing.assert_array_equal(np.isposinf(result_array), np.isposinf(expected_array))
+    np.testing.assert_array_equal(np.isneginf(result_array), np.isneginf(expected_array))
+    finite = np.isfinite(expected_array)
+    np.testing.assert_allclose(result_array[finite], expected_array[finite], rtol=3e-5, atol=3e-5)

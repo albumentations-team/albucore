@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from albucore._float_cast import _cast_float_numpy
+from albucore.lut import _apply_float_lut
 from albucore.torch_backend import _float16_unary_torch
 
 if TYPE_CHECKING:
@@ -29,6 +30,11 @@ _LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS = 8_192
 _LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS = 65_536
 _FLOAT32_TINY = np.finfo(np.float32).tiny
 _TORCH_FLOAT16_MIN_ELEMENTS = {"exp": 12_288, "log": 12_288, "sqrt": 20_480}
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_UINT8_SQRT_LUT_MIN_ELEMENTS = 20_480
+_LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS = 921_600
+_UINT8_SQRT_LUT = np.sqrt(np.arange(256, dtype=np.float32))
 _NATIVE_HALF_EXP = sys.platform == "linux" and platform.machine() == "x86_64"
 _NATIVE_HALF_LOG = sys.platform == "darwin" and platform.machine() == "arm64"
 
@@ -277,6 +283,27 @@ def sqrt(
         return _torch_unary(array, torch.sqrt, out=cast("torch.Tensor | None", out))
     output = cast("NDArray[np.float16] | NDArray[np.float32] | None", out)
     if array.dtype == np.uint8:
+        channels = array.shape[-1] if array.ndim == 3 else 0
+        macos_lut_region = _MACOS_ARM64 and (
+            (channels in (1, 3) and array.size >= _UINT8_SQRT_LUT_MIN_ELEMENTS)
+            or (channels == 9 and array.size >= 7_000_000 and output is None)
+        )
+        linux_lut_region = (
+            _LINUX_X86_64
+            and array.size >= _LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS
+            and (channels == 9 or (channels == 3 and output is None))
+        )
+        if (
+            (macos_lut_region or linux_lut_region)
+            and array.ndim == 3
+            and array.flags.c_contiguous
+            and (output is None or output.flags.c_contiguous)
+        ):
+            return _apply_float_lut(
+                cast("NDArray[np.uint8]", array),
+                _UINT8_SQRT_LUT,
+                out=cast("NDArray[np.float32] | None", output),
+            )
         return _numpy_unary(
             cast("NDArray[np.float32]", array.astype(np.float32)),
             np.sqrt,

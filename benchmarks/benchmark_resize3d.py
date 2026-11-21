@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import gc
+import importlib.metadata
 import platform
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -149,6 +150,8 @@ def resize3d_numpy_reference(volume: np.ndarray, size: tuple[int, int, int]) -> 
         result = _linear_axis_numpy(result, axis, output_size)
     if volume.dtype == np.uint8:
         return np.minimum(result + np.float32(0.5), np.float32(255)).astype(np.uint8)
+    if volume.dtype == np.float16:
+        return result.astype(np.float16)
     return result
 
 
@@ -243,7 +246,7 @@ def _target_shape(shape: tuple[int, int, int, int], scenario: str) -> tuple[int,
 def _make_volume(rng: np.random.Generator, shape: tuple[int, int, int, int], dtype: np.dtype[Any]) -> np.ndarray:
     if dtype == np.dtype(np.uint8):
         return rng.integers(0, 256, size=shape, dtype=np.uint8)
-    return rng.random(shape, dtype=np.float32)
+    return rng.random(shape, dtype=np.float32).astype(dtype)
 
 
 def _validate_candidates(volume: np.ndarray, size: tuple[int, int, int]) -> None:
@@ -309,9 +312,17 @@ def main() -> None:
     rows: list[Row] = []
 
     for shape in shapes:
-        for dtype in (np.dtype(np.uint8), np.dtype(np.float32)):
-            volume = _make_volume(rng, shape, dtype)
-            for scenario in scenarios:
+        for scenario in scenarios:
+            dtypes = (
+                (np.dtype(np.uint8), np.dtype(np.float16), np.dtype(np.float32))
+                if scenario == "unit"
+                else (
+                    np.dtype(np.uint8),
+                    np.dtype(np.float32),
+                )
+            )
+            for dtype in dtypes:
+                volume = _make_volume(rng, shape, dtype)
                 size = _target_shape(shape, scenario)
                 _validate_candidates(volume, size)
                 reference = resize3d_numpy_reference(volume, size).astype(np.float32)
@@ -323,25 +334,34 @@ def main() -> None:
                     difference = float(np.abs(fn().astype(np.float32) - reference).max())
                     rows.append(Row(shape, size, dtype.name, candidate.name, timing, difference))
                 del fn
-            del volume
-            gc.collect()
+                del volume
+                gc.collect()
 
     lines = [
         "# resize3d CPU benchmark",
         "",
-        f"Run date: {dt.datetime.now(tz=dt.timezone.utc).date().isoformat()}. Platform: `{platform.platform()}` "
-        f"(`{platform.machine()}`).",
+        (
+            f"Run date: {dt.datetime.now(tz=dt.UTC).date().isoformat()}. Platform: `{platform.platform()}` "
+            f"(`{platform.machine()}`)."
+        ),
         "",
-        f"Versions: Albucore `{albucore.__version__}`, Torch `{torch.__version__}`, NumPy `{np.__version__}`, "
-        f"OpenCV `{cv2.__version__}`. {thread_settings} Repeats: `{args.repeats}`; warmup: `{args.warmup}`.",
+        (
+            f"Versions: Albucore `{albucore.__version__}`, Torch `{torch.__version__}`, NumPy `{np.__version__}`, "
+            f"OpenCV `{cv2.__version__}`, NumKong `{importlib.metadata.version('numkong')}`, "
+            f"StringZilla `{importlib.metadata.version('stringzilla')}`. Albucore source: "
+            f"`{Path(albucore.__file__).resolve()}`. {thread_settings} Repeats: `{args.repeats}`; "
+            f"warmup: `{args.warmup}`."
+        ),
         "",
-        "Each row times the full CPU route, including NumPy/Torch wrapping, axis packing, permutations, dtype "
-        "conversion, and output materialization. `opencv_two_stage` is omitted when `D*C` exceeds OpenCV's encoded "
-        "channel limit. Float32 candidates are checked against the pure NumPy three-pass half-pixel reference. "
-        "Uint8 candidates preserve dtype and range; intermediate rounding differs between OpenCV and final-only "
-        "trilinear routes. Maximum differences from the half-pixel reference are reported outside the timed calls. "
-        "`torch_xy_round_trip` applies only when depth is unchanged. `xy_down` and `xy_half` preserve depth and "
-        "shrink H/W by factors of eight and two. Repeat `--shape` to vary depth at fixed H/W and channels.",
+        (
+            "Each row times the full CPU route, including NumPy/Torch wrapping, axis packing, permutations, dtype "
+            "conversion, and output materialization. `opencv_two_stage` is omitted when `D*C` exceeds OpenCV's encoded "
+            "channel limit. Float32 candidates are checked against the pure NumPy three-pass half-pixel reference. "
+            "Uint8 candidates preserve dtype and range; intermediate rounding differs between OpenCV and final-only "
+            "trilinear routes. Maximum differences from the half-pixel reference are reported outside the timed calls. "
+            "`torch_xy_round_trip` applies only when depth is unchanged. `xy_down` and `xy_half` preserve depth and "
+            "shrink H/W by factors of eight and two. Repeat `--shape` to vary depth at fixed H/W and channels."
+        ),
         "",
         *_format_rows(rows),
         "",

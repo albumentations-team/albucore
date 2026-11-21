@@ -1,0 +1,149 @@
+# ruff: noqa: E402, INP001
+"""Compare public 2D convolution with OpenCV separable filtering for rank-1 kernels."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import statistics
+import sys
+from pathlib import Path
+from time import perf_counter_ns
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import cv2
+import numpy as np
+import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from benchmark_threads import configure_libraries
+
+import albucore
+from albucore.utils import clip
+
+SHAPES = ((128, 160, 1), (128, 160, 3), (240, 320, 3), (480, 640, 3), (480, 640, 9))
+KERNEL_SIZES = (3, 7, 15)
+ROUTE_MIN_ELEMENTS = {(3, 7): 921_600, (3, 15): 230_400, (9, 7): 2_764_800, (9, 15): 2_764_800}
+
+
+def _paired_times(
+    baseline: Callable[[], object],
+    candidate: Callable[[], object],
+    *,
+    repeats: int,
+    warmup: int,
+) -> tuple[float, float]:
+    samples: tuple[list[float], list[float]] = ([], [])
+    calls = (baseline, candidate)
+    for sample in range(warmup + repeats):
+        order = (0, 1) if sample % 2 == 0 else (1, 0)
+        for index in order:
+            started = perf_counter_ns()
+            calls[index]()
+            if sample >= warmup:
+                samples[index].append((perf_counter_ns() - started) / 1e6)
+    return statistics.median(samples[0]), statistics.median(samples[1])
+
+
+def _gaussian_kernel(size: int) -> np.ndarray:
+    vector = cv2.getGaussianKernel(size, 0, cv2.CV_32F).reshape(-1)
+    return np.outer(vector, vector)
+
+
+def _filter2d_baseline(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    result = np.empty_like(image)
+    cv2.filter2D(image, -1, kernel, dst=result, borderType=cv2.BORDER_DEFAULT)
+    return clip(result, out=result)
+
+
+def _measure_case(
+    image: np.ndarray,
+    kernel: np.ndarray,
+    *,
+    repeats: int,
+    warmup: int,
+) -> dict[str, object]:
+    expected = _filter2d_baseline(image, kernel)
+
+    def candidate() -> np.ndarray:
+        return albucore.convolve(image, kernel)
+
+    actual = candidate()
+    np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-5)
+
+    def baseline() -> np.ndarray:
+        return _filter2d_baseline(image, kernel)
+
+    baseline_ms, candidate_ms = _paired_times(baseline, candidate, repeats=repeats, warmup=warmup)
+    return {
+        "shape": list(image.shape),
+        "kernel": list(kernel.shape),
+        "dtype": image.dtype.name,
+        "route_selected": bool(
+            (
+                (sys.platform == "linux" and platform.machine() == "x86_64")
+                or (sys.platform == "darwin" and platform.machine() == "arm64")
+            )
+            and (image.shape[-1], kernel.shape[0]) in ROUTE_MIN_ELEMENTS
+            and image.size >= ROUTE_MIN_ELEMENTS[(image.shape[-1], kernel.shape[0])]
+            and cv2.checkRange(image)[0]
+        ),
+        "baseline_ms": baseline_ms,
+        "separable_ms": candidate_ms,
+        "speedup": baseline_ms / candidate_ms,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repeats", type=int, default=51)
+    parser.add_argument("--warmup", type=int, default=8)
+    parser.add_argument("--output-json", type=Path, required=True)
+    args = parser.parse_args()
+    if args.repeats < 1 or args.warmup < 0:
+        parser.error("repeats must be positive and warmup non-negative")
+    thread_settings = configure_libraries(torch, cv2, 1)
+    rng = np.random.default_rng(251121)
+    rows = []
+    for shape in SHAPES:
+        image = rng.random(shape, dtype=np.float32)
+        image.flags.writeable = False
+        rows.extend(
+            [
+                _measure_case(
+                    image,
+                    _gaussian_kernel(kernel_size),
+                    repeats=args.repeats,
+                    warmup=args.warmup,
+                )
+                for kernel_size in KERNEL_SIZES
+            ],
+        )
+
+    result = {
+        "platform": platform.platform(),
+        "python": platform.python_version(),
+        "numpy": np.__version__,
+        "opencv": cv2.__version__,
+        "torch": torch.__version__,
+        "threads": thread_settings,
+        "repeats": args.repeats,
+        "warmup": args.warmup,
+        "rows": rows,
+    }
+    args.output_json.parent.mkdir(parents=True, exist_ok=True)
+    args.output_json.write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps(result, indent=2))  # noqa: T201
+
+
+if __name__ == "__main__":
+    main()

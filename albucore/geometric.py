@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as torch_f
 from numpy.typing import NDArray
 
-from albucore._float_cast import _cast_float_numpy
+from albucore._float_cast import _cast_float_numpy, _half_is_finite
 from albucore._types import ArrayT, TensorImageLayout
 from albucore.affine3d import warp_affine3d
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
@@ -36,6 +36,8 @@ from albucore.utils import (
 
 # Interpolations that require chunking for >4ch (CI: _src.channels() <= 4)
 _INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4, cv2.INTER_LINEAR_EXACT}
+_RESIZE3D_NEAREST_GATHER_MIN_ELEMENTS = 900_000
+_RESIZE3D_DEPTH_ONE_MIN_ELEMENTS = 4_096
 # remap does not support INTER_LINEAR_EXACT; only CUBIC/LANCZOS4 need chunking
 _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
 _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
@@ -1307,6 +1309,34 @@ def _resize3d_numpy_axis_packing(
     return result
 
 
+def _can_resize3d_numpy_nearest_gather(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> bool:
+    return (
+        interpolation == cv2.INTER_NEAREST
+        and not antialias
+        and volume.ndim == 4
+        and volume.shape[-1] == 3
+        and volume.flags.c_contiguous
+        and volume.size >= _RESIZE3D_NEAREST_GATHER_MIN_ELEMENTS
+        and all(output_size < input_size for input_size, output_size in zip(volume.shape[:3], size, strict=True))
+    )
+
+
+def _resize3d_numpy_nearest_gather(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    indices = tuple(
+        np.minimum(
+            np.floor(np.arange(output_size, dtype=np.float64) * (input_size / output_size)).astype(np.intp),
+            input_size - 1,
+        )
+        for input_size, output_size in zip(volume.shape[:3], size, strict=True)
+    )
+    return volume[indices[0][:, None, None], indices[1][None, :, None], indices[2][None, None, :], :]
+
+
 def _resize3d_numpy_linear_axis(volume: np.ndarray, axis: int, output_size: int) -> np.ndarray:
     """Apply one half-pixel linear axis pass in float32 without OpenCV channel packing."""
     input_size = volume.shape[axis]
@@ -1332,11 +1362,47 @@ def _resize3d_numpy_linear_three_pass(volume: np.ndarray, size: tuple[int, int, 
     result = _cast_float_numpy(volume, np.float32)
     for axis, output_size in enumerate(size):
         result = _resize3d_numpy_linear_axis(result, axis, output_size)
+    if volume.dtype == np.float16:
+        return _cast_float_numpy(result, np.float16)
+    return result
+
+
+def _resize3d_numpy_linear_depth_one(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    """Reduce depth to one slice before resizing the other axes in float32."""
+    if volume.dtype == np.uint8 and _can_resize3d_numpy_torch(volume, cv2.INTER_LINEAR, antialias=False):
+        return _resize3d_numpy_torch_cpu(volume, size)
+
+    depth = volume.shape[0]
+    source_z = np.float32(depth) * np.float32(0.5) - np.float32(0.5)
+    lower = int(source_z)
+    upper = min(lower + 1, depth - 1)
+    right_weight = source_z - np.float32(lower)
+
+    source = volume
+    if volume.dtype == np.float16 and np.geterr()["invalid"] != "ignore" and not _half_is_finite(volume):
+        source = _cast_float_numpy(volume, np.float32)
+    working = _cast_float_numpy(source[lower : upper + 1], np.float32)
+    result = np.multiply(working[:1], np.float32(1.0) - right_weight, order="C")
+    result += working[-1:] * right_weight
+    for axis in (1, 2):
+        result = _resize3d_numpy_linear_axis(result, axis, size[axis])
     if volume.dtype == np.uint8:
         return np.asarray(np.minimum(result + np.float32(0.5), np.float32(255)).astype(np.uint8))
     if volume.dtype == np.float16:
         return _cast_float_numpy(result, np.float16)
     return result
+
+
+def _resize3d_numpy_linear_depth_one_dispatch(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    torch_compatible: bool,
+) -> np.ndarray:
+    if volume.dtype == np.uint8 and torch_compatible:
+        return _resize3d_numpy_torch_cpu(volume, size)
+    if volume.dtype != np.uint8 and volume.size >= _RESIZE3D_DEPTH_ONE_MIN_ELEMENTS:
+        return _resize3d_numpy_linear_depth_one(volume, size)
+    return _resize3d_numpy_linear_three_pass(volume, size)
 
 
 def _resize3d_numpy_per_slice(
@@ -1454,9 +1520,7 @@ def _resize3d_numpy(
     torch_compatible = _can_resize3d_numpy_torch(volume, interpolation, antialias)
 
     if interpolation == cv2.INTER_LINEAR and not antialias and size[0] == 1 and volume.shape[0] != 1:
-        if volume.dtype == np.uint8 and torch_compatible:
-            return _resize3d_numpy_torch_cpu(volume, size)
-        return _resize3d_numpy_linear_three_pass(volume, size)
+        return _resize3d_numpy_linear_depth_one_dispatch(volume, size, torch_compatible)
 
     if all_down and torch_compatible and (volume.dtype == np.float32 or volume.shape[-1] > 1):
         return _resize3d_numpy_torch_cpu(volume, size)
@@ -1557,6 +1621,9 @@ def resize3d(
     ``(C, D, H, W)`` layout. AlbumentationsX validates the input layout, spatial dimensions, output size,
     device, and autograd state before calling this primitive. The container, dtype, and channel count are preserved
     for uint8, float16, and float32 inputs.
+    Contiguous NumPy C3 nearest downscales use one shared-index gather from 900,000 input elements when all
+    spatial axes shrink. Contiguous float16/float32 linear resizes to depth one
+    use only the central depth slices from 4,096 input elements when antialiasing is disabled.
     Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
     benchmark-selected NumPy/OpenCV CPU route. Float16 bridge inputs widen to float32 and round back once. Its float32
     output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most one value.
@@ -1575,6 +1642,17 @@ def resize3d(
     if isinstance(volume, np.ndarray):
         if volume.shape[:3] == size:
             return volume
+        if _can_resize3d_numpy_nearest_gather(volume, size, interpolation, antialias):
+            return _resize3d_numpy_nearest_gather(volume, size)
+        if (
+            size[0] == 1
+            and volume.dtype == np.float16
+            and volume.shape[0] != 1
+            and volume.size >= _RESIZE3D_DEPTH_ONE_MIN_ELEMENTS
+            and interpolation == cv2.INTER_LINEAR
+            and not antialias
+        ):
+            return _resize3d_numpy_linear_depth_one(volume, size)
         if volume.dtype == np.float16:
             float32_volume = _cast_float_numpy(volume, np.float32)
             result = _resize3d_numpy(float32_volume, size, interpolation, antialias)

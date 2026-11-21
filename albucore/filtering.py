@@ -6,6 +6,8 @@ layout packing and writable workspaces.
 
 from __future__ import annotations
 
+import platform
+import sys
 from typing import TYPE_CHECKING, Any, cast
 
 import cv2
@@ -13,6 +15,19 @@ import numpy as np
 
 from albucore.convert import convert_dtype
 from albucore.utils import clip
+
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_MACOS_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 20_480
+_LINUX_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 230_400
+_IDENTITY_KERNEL_MIN_ELEMENTS_HALF = 20_480
+_IDENTITY_KERNEL_MIN_ELEMENTS_OTHER = 30_720
+_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = {
+    (3, 7): 921_600,
+    (3, 15): 230_400,
+    (9, 7): 2_764_800,
+    (9, 15): 2_764_800,
+}
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -34,6 +49,43 @@ def _opencv_working_image(
     return image.copy(order="C") if copy else image
 
 
+def _is_center_only_kernel(kernel: np.ndarray) -> bool:
+    center = kernel.shape[0] // 2, kernel.shape[1] // 2
+    return bool(kernel[center] != 0) and np.count_nonzero(kernel) == 1
+
+
+def _identity_morphology_copy(
+    image: ImageArrayT,
+    kernel: NDArray[Any],
+) -> ImageArrayT | None:
+    if kernel.size == 1:
+        if image.dtype.type is np.float32 or kernel[0, 0] == 0:
+            return None
+        return cast("ImageArrayT", image.copy(order="C"))
+    min_elements = (
+        _IDENTITY_KERNEL_MIN_ELEMENTS_HALF if image.dtype.type is np.float16 else _IDENTITY_KERNEL_MIN_ELEMENTS_OTHER
+    )
+    if image.size < min_elements or not _is_center_only_kernel(kernel):
+        return None
+    return cast("ImageArrayT", image.copy(order="C"))
+
+
+def _separable_float32_kernel(kernel: NDArray[Any]) -> tuple[np.ndarray, np.ndarray] | None:
+    if kernel.dtype != np.float32 or kernel.shape[0] != kernel.shape[1] or kernel.shape[0] not in (7, 15):
+        return None
+    if not np.isfinite(kernel).all() or np.any(kernel < 0) or not np.isclose(np.sum(kernel, dtype=np.float64), 1.0):
+        return None
+    row, col = np.unravel_index(np.argmax(np.abs(kernel)), kernel.shape)
+    pivot = kernel[row, col]
+    if pivot == 0:
+        return None
+    kernel_x = kernel[row].copy()
+    kernel_y = (kernel[:, col] / pivot).astype(np.float32)
+    if np.allclose(kernel_y[:, None] * kernel_x[None, :], kernel, rtol=1e-6, atol=1e-7):
+        return kernel_x, kernel_y
+    return None
+
+
 def box_blur(img: ImageArrayT, ksize: int) -> ImageArrayT:
     """Blur an image with an OpenCV normalized box filter.
 
@@ -46,6 +98,14 @@ def box_blur(img: ImageArrayT, ksize: int) -> ImageArrayT:
 
     Images use HWC with an explicit trailing channel, including C=1.
     """
+    if img.dtype == np.float32 and ksize > 1 and img.flags.c_contiguous:
+        channels = img.shape[-1]
+        macos_route = _MACOS_ARM64 and img.size >= _MACOS_FLOAT32_BOX_BLUR_MIN_ELEMENTS
+        linux_route = _LINUX_X86_64 and channels > 1 and img.size >= _LINUX_FLOAT32_BOX_BLUR_MIN_ELEMENTS
+        if macos_route or linux_route:
+            source = cast("NDArray[np.float32]", img)
+            blurred = np.empty(source.shape, dtype=np.float32)
+            return cast("ImageArrayT", cv2.blur(source, (ksize, ksize), dst=blurred))
     result = _opencv_working_image(img, copy=True)
     cv2.blur(result, (ksize, ksize), dst=result)
     if img.dtype.type is np.float16:
@@ -65,6 +125,9 @@ def erode(img: ImageArrayT, kernel: NDArray[Any]) -> ImageArrayT:
 
     Images use HWC with an explicit trailing channel, including C=1.
     """
+    identity_result = _identity_morphology_copy(img, kernel)
+    if identity_result is not None:
+        return identity_result
     if img.dtype.type is np.float16:
         working = _opencv_working_image(img, copy=False)
         cv2.erode(working, kernel, dst=working, iterations=1)
@@ -87,6 +150,9 @@ def dilate(img: ImageArrayT, kernel: NDArray[Any]) -> ImageArrayT:
 
     Images use HWC with an explicit trailing channel, including C=1.
     """
+    identity_result = _identity_morphology_copy(img, kernel)
+    if identity_result is not None:
+        return identity_result
     if img.dtype.type is np.float16:
         working = _opencv_working_image(img, copy=False)
         cv2.dilate(working, kernel, dst=working, iterations=1)
@@ -116,6 +182,27 @@ def convolve(img: ImageArrayT, kernel: NDArray[Any], border_mode: int = cv2.BORD
     working = _opencv_working_image(img, copy=reuse_working)
     result = working if reuse_working else np.empty_like(working)
     if kernel.ndim == 2:
+        if (
+            input_dtype.type is np.float32
+            and (_LINUX_X86_64 or _MACOS_ARM64)
+            and img.flags.c_contiguous
+            and kernel.shape[0] == kernel.shape[1]
+            and (img.shape[-1], kernel.shape[0]) in _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS
+            and img.size >= _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS[(img.shape[-1], kernel.shape[0])]
+            and border_mode == cv2.BORDER_DEFAULT
+            and cv2.checkRange(img)[0]
+        ):
+            factors = _separable_float32_kernel(kernel)
+            if factors is not None:
+                cv2.sepFilter2D(
+                    working,
+                    ddepth=-1,
+                    kernelX=factors[0],
+                    kernelY=factors[1],
+                    dst=result,
+                    borderType=border_mode,
+                )
+                return cast("ImageArrayT", clip(result, out=result))
         cv2.filter2D(working, ddepth=-1, kernel=kernel, dst=result, borderType=border_mode)
     else:
         for channel, channel_kernel in enumerate(kernel):

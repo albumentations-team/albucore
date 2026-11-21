@@ -1,5 +1,7 @@
 """Benchmark-driven mean / std / mean_std for Albucore channel-last array layouts."""
 
+import platform
+import sys
 from typing import Literal, TypeAlias, TypeGuard, TypeVar, cast, overload
 
 import cv2
@@ -15,6 +17,11 @@ from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, get_opencv_max_channels
 from albucore.weighted import _NUMKONG_NEON_HALF
 
 DEFAULT_EPS = 1e-4
+_NUMPY_STD_MEAN_SUPPORTED = np.lib.NumpyVersion(np.__version__) >= "2.0.0"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_FLOAT32_GLOBAL_STATS_OPENCV_MIN_ELEMENTS = 2
+_FLOAT32_GLOBAL_STATS_RELATIVE_VARIANCE_FLOOR = 1e-4
 # Tiny relative variance makes E[x²] - E[x]² unreliable for half moments.
 _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-4
 # Host NEON-half NumKong moments reported a 1.68e-4 relative variance for constant 0.575 inputs.
@@ -625,6 +632,32 @@ def _mean_std_global_float16_fallback(
     return mean_value, std_value
 
 
+def _mean_std_global_float32_opencv(
+    arr: NDArray[np.float32],
+    eps: float,
+) -> tuple[float, float] | None:
+    if (
+        arr.size < _FLOAT32_GLOBAL_STATS_OPENCV_MIN_ELEMENTS
+        or not arr.flags.c_contiguous
+        or not arr.dtype.isnative
+        or not (_LINUX_X86_64 or _MACOS_ARM64)
+    ):
+        return None
+
+    mean_array, std_array = cv2.meanStdDev(arr.reshape(-1, 1))
+    mean_value = float(mean_array[0, 0])
+    std_value = float(std_array[0, 0])
+    if (
+        not np.isfinite(mean_value)
+        or not np.isfinite(std_value)
+        or std_value * std_value <= _FLOAT32_GLOBAL_STATS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
+    ):
+        if std_value == 0 and np.ptp(arr) == 0:
+            return mean_value, std_value + eps
+        return None
+    return mean_value, std_value + eps
+
+
 def _mean_std_global_float16_tensor(
     arr: torch.Tensor,
     layout: TensorLayout | None,
@@ -670,6 +703,22 @@ def _mean_std_global(
     elif arr.dtype == np.float16:
         cv_stats = _mean_std_global_float16_opencv(arr, eps)
         mean_value, std_value = _mean_std_global_float16_fallback(arr, eps) if cv_stats is None else cv_stats
+    elif arr.dtype == np.float32:
+        cv_stats = _mean_std_global_float32_opencv(cast("NDArray[np.float32]", arr), eps)
+        if cv_stats is None:
+            if _NUMPY_STD_MEAN_SUPPORTED:
+                mean_keepdims = np.asarray(np.mean(arr, dtype=np.float64, keepdims=True), dtype=np.float64)
+                mean_value = np.float64(mean_keepdims.reshape(())[()])
+                std_value = np.std(arr, dtype=np.float64, mean=mean_keepdims) + eps
+            else:
+                mean_value = np.mean(arr, dtype=np.float64)
+                std_value = np.std(arr, dtype=np.float64) + eps
+        else:
+            mean_value, std_value = cv_stats
+    elif _NUMPY_STD_MEAN_SUPPORTED:
+        mean_keepdims = np.asarray(np.mean(arr, dtype=np.float64, keepdims=True), dtype=np.float64)
+        mean_value = np.float64(mean_keepdims.reshape(())[()])
+        std_value = np.std(arr, dtype=np.float64, mean=mean_keepdims) + eps
     else:
         mean_value = np.mean(arr, dtype=np.float64)
         std_value = np.std(arr, dtype=np.float64) + eps
@@ -787,6 +836,9 @@ def _std_global(
         )
         cv_stats = _mean_std_global_float16_opencv(arr, eps) if std_opencv_eligible else None
         std_value = float(np.std(arr, dtype=np.float64)) + eps if cv_stats is None else cv_stats[1]
+    elif arr.dtype == np.float32:
+        cv_stats = _mean_std_global_float32_opencv(cast("NDArray[np.float32]", arr), eps)
+        std_value = np.std(arr, dtype=np.float64) + eps if cv_stats is None else cv_stats[1]
     else:
         std_value = np.std(arr, dtype=np.float64) + eps
     if keepdims:
@@ -1031,7 +1083,8 @@ def mean_std(
 
     Routing:
     - **uint8 global**: NumKong ``nk.moments`` (single pass, wide accumulator).
-    - **float32 global**: ``np.mean`` + ``np.std`` (``dtype=float64`` for accuracy).
+    - **float32 global**: OpenCV ``meanStdDev`` on contiguous inputs from two elements on Linux x86-64 and macOS ARM64;
+      low-variance and non-finite inputs use NumPy float64 reductions.
     - **float16 global**: fused CV16F channel statistics in measured contiguous HWC/NHWC C≤4 regions; use a wide
       NumPy fallback when cancellation dominates or the layout is unmeasured.
     - **contiguous float16 Tensor global, 20,480 elements and larger**: CV16F ``meanStdDev`` over a zero-copy scalar
