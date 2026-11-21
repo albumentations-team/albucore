@@ -189,7 +189,11 @@ def _adaptive_tensor_batch_float32(
         axes = tuple(range(1, source.ndim))
         center = source.mean(axis=axes, keepdims=True)
         std = source.std(axis=axes, keepdims=True)
-        if not np.isfinite(center).all() or not np.isfinite(std).all():
+        if (
+            not np.isfinite(center).all()
+            or not np.isfinite(std).all()
+            or np.any(np.square(std.astype(np.float64)) <= np.float64(1e-4) * np.square(center.astype(np.float64)))
+        ):
             return None
         divisor = std + DEFAULT_EPS
         lower, upper = -20, 20

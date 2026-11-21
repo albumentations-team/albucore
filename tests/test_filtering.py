@@ -223,6 +223,22 @@ def test_convolve_keeps_filter2d_for_unprofitable_separable_region(monkeypatch: 
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_convolve_rejects_nonseparable_kernel_before_scanning_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    image = np.random.default_rng(251121).random((240, 320, 3), dtype=np.float32)
+    kernel = np.random.default_rng(251121).random((7, 7), dtype=np.float32)
+    kernel /= kernel.sum()
+    expected = np.clip(cv2.filter2D(image, -1, kernel), 0, 1)
+
+    def fail_check_range(*args: object, **kwargs: object) -> None:
+        pytest.fail("nonseparable kernel scanned the input")
+
+    monkeypatch.setattr(cv2, "checkRange", fail_check_range)
+
+    actual = core.convolve(image, kernel)
+
+    np.testing.assert_array_equal(actual, expected)
+
+
 def test_convolve_keeps_filter2d_for_nonfinite_separable_input(monkeypatch: pytest.MonkeyPatch) -> None:
     image = np.random.default_rng(251121).random((240, 320, 3), dtype=np.float32)
     image[0, 0, 0] = np.nan

@@ -190,10 +190,9 @@ def convolve(img: ImageArrayT, kernel: NDArray[Any], border_mode: int = cv2.BORD
             and (img.shape[-1], kernel.shape[0]) in _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS
             and img.size >= _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS[(img.shape[-1], kernel.shape[0])]
             and border_mode == cv2.BORDER_DEFAULT
-            and cv2.checkRange(img)[0]
         ):
             factors = _separable_float32_kernel(kernel)
-            if factors is not None:
+            if factors is not None and cv2.checkRange(img)[0]:
                 cv2.sepFilter2D(
                     working,
                     ddepth=-1,

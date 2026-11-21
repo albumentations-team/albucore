@@ -217,6 +217,8 @@ def apply_uint8_lut(
         if tensor_out is not None:
             output_view = image_view if tensor_out is img else tensor_to_numpy_channel_last(tensor_out, layout)
         result = _apply_per_channel_uint8_luts(image_view, lut, out=output_view)
+        if tensor_out is not None:
+            torch.autograd.graph.increment_version(tensor_out)
         return numpy_to_tensor_layout(result, cast("TensorLayout", layout)) if tensor_out is None else tensor_out
     if lut.ndim != 1:
         return _apply_per_channel_uint8_luts(img, lut, out=cast("NDArray[np.uint8] | None", out))

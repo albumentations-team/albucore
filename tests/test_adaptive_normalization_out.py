@@ -243,7 +243,13 @@ def test_adaptive_tensor_batch_float32_vectorizes_global_statistics(
 
 @pytest.mark.parametrize(
     "mode,pattern",
-    [("image", "nan"), ("image_per_channel", "near_constant"), ("min_max", "nan"), ("min_max_per_channel", "inf")],
+    [
+        ("image", "nan"),
+        ("image", "near_constant"),
+        ("image_per_channel", "near_constant"),
+        ("min_max", "nan"),
+        ("min_max_per_channel", "inf"),
+    ],
 )
 def test_adaptive_tensor_batch_float32_statistics_fall_back_for_unstable_data(
     monkeypatch: pytest.MonkeyPatch,

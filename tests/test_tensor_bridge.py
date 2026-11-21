@@ -561,7 +561,13 @@ def test_uint8_lut_accepts_tensors_and_returns_supplied_output() -> None:
     channel_luts = channel_luts.astype(np.uint8)[:, None, :]
     channel_last = image.permute(1, 2, 0).numpy()
     expected_channelwise = torch.from_numpy(apply_uint8_lut(channel_last, channel_luts)).permute(2, 0, 1)
-    channelwise = apply_uint8_lut(image, channel_luts, layout="CHW")
+    channel_output = torch.empty_like(image)
+    channel_version = channel_output._version
+    channelwise = apply_uint8_lut(image, channel_luts, out=channel_output, layout="CHW")
+    if channelwise is not channel_output:
+        pytest.fail("per-channel LUT did not return the supplied output")
+    if channel_output._version != channel_version + 1:
+        pytest.fail("per-channel LUT write did not update the Tensor version")
     torch.testing.assert_close(channelwise, expected_channelwise)
 
 
