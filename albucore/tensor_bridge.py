@@ -28,6 +28,7 @@ _LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _MIN_SPLIT_PIXELS = 8192
 _MIN_ORIENTED_SPLIT_PIXELS = 32768
 _MIN_FLIP_PIXELS = 4096
+_HWC_DIMENSIONS = 3
 _OPENCV_INT_MAX = 2**31 - 1
 _OPENCV_COPY_DTYPES = frozenset(
     np.dtype(dtype) for dtype in (np.uint8, np.uint16, np.int16, np.int32, np.float16, np.float32)
@@ -236,9 +237,12 @@ def _split_channel_last(array: np.ndarray, shape: tuple[int, ...], *, batched: b
     reverse_rows = source.strides[-3] < 0
     reverse_cols = source.strides[-2] < 0
     source = source[..., :: -1 if reverse_rows else 1, :: -1 if reverse_cols else 1, :]
-    destinations = np.moveaxis(planes, 1 if batched else 0, -3)
-    for index in np.ndindex(source.shape[:-3]):
-        _write_channel_planes(source[index], list(destinations[index]), mapping)
+    if source.ndim == _HWC_DIMENSIONS:
+        _write_channel_planes(source, list(planes), mapping)
+    else:
+        destinations = np.moveaxis(planes, 1 if batched else 0, -3)
+        for index in np.ndindex(source.shape[:-3]):
+            _write_channel_planes(source[index], list(destinations[index]), mapping)
     if reverse_rows:
         for plane in planes.reshape(-1, *planes.shape[-2:]):
             cv2.flip(plane, -1 if reverse_cols else 0, dst=plane)

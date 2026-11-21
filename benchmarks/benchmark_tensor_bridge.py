@@ -14,6 +14,7 @@ import platform
 import runpy
 import subprocess
 import sys
+from functools import partial
 from importlib.metadata import distributions, version
 from itertools import product
 from pathlib import Path
@@ -94,7 +95,7 @@ def _report(writer, operation, layout, name, source, before, after, minimum_seco
     sys.stdout.flush()
 
 
-def _layout_cases(writer, rng, quick):
+def _layout_cases(writer, rng, quick, baseline_layout):
     sizes = ((192, 208),) if quick else ((64, 80), (128, 144), (192, 208), (256, 320), (512, 640), (1024, 1024))
     minimum_seconds = 0.012 if quick else 0.05
     for layout, (height, width), channels, dtype in product(_LAYOUTS, sizes, (1, 2, 3, 4, 5), _DTYPES):
@@ -118,10 +119,9 @@ def _layout_cases(writer, rng, quick):
             def baseline(source=source, axes=axes):
                 return torch.from_numpy(np.ascontiguousarray(source.transpose(axes), dtype=source.dtype))
 
-            def candidate(source=source, layout=layout):
-                return numpy_to_tensor_layout(source, layout, contiguous=True)
-
-            _report(writer, "layout", layout, label, source, baseline, candidate, minimum_seconds)
+            before = baseline if baseline_layout is None else partial(baseline_layout, source, layout, contiguous=True)
+            candidate = partial(numpy_to_tensor_layout, source, layout, contiguous=True)
+            _report(writer, "layout", layout, label, source, before, candidate, minimum_seconds)
 
 
 def _view_cases(writer, rng, quick, baseline):
@@ -161,7 +161,7 @@ def main():
     parser.add_argument(
         "--baseline-bridge",
         type=Path,
-        help="Compare storage-preserving views with tensor_bridge.py from a baseline checkout.",
+        help="Compare layout conversions and storage-preserving views with a baseline tensor_bridge.py.",
     )
     args = parser.parse_args()
     cv2.setNumThreads(0)
@@ -207,12 +207,12 @@ def main():
             "core_pixel_copy_bytes",
         )
     )
-    if args.baseline_bridge:
-        baseline = runpy.run_path(str(args.baseline_bridge))["numpy_to_tensor_storage"]
-        _view_cases(writer, np.random.default_rng(137), args.quick, baseline)
+    baseline_bridge = runpy.run_path(str(args.baseline_bridge)) if args.baseline_bridge else {}
+    if baseline_bridge:
+        _view_cases(writer, np.random.default_rng(137), args.quick, baseline_bridge["numpy_to_tensor_storage"])
     rng = np.random.default_rng(137)
     if not args.storage_only:
-        _layout_cases(writer, rng, args.quick)
+        _layout_cases(writer, rng, args.quick, baseline_bridge.get("numpy_to_tensor_layout"))
     for dtype in (*_DTYPES, np.int16, np.uint16, np.int32, np.int64):
         array = rng.integers(0, 256, (16, 192, 208), dtype=np.uint8).astype(dtype, copy=False)
         for name, source in (("horizontal", array[..., ::-1]), ("double", array[..., ::-1, ::-1])):

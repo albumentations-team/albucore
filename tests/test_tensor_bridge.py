@@ -188,7 +188,7 @@ def test_contiguous_tensor_storage_reuses_tensor_owner_when_already_dense() -> N
 @pytest.mark.parametrize(
     ("layout", "shape", "axes"),
     [
-        ("CHW", (75, 83, 3), (2, 0, 1)),
+        ("CHW", (109, 113, 3), (2, 0, 1)),
         ("NCHW", (4, 75, 83, 2), (0, 3, 1, 2)),
         ("CDHW", (4, 37, 43, 4), (3, 0, 1, 2)),
         ("NCDHW", (2, 4, 37, 43, 3), (0, 4, 1, 2, 3)),
