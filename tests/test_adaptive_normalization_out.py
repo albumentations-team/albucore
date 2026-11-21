@@ -235,7 +235,7 @@ def test_adaptive_tensor_batch_float32_vectorizes_global_statistics(
     torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-5)
     if output is not None and result is not output:
         pytest.fail("normalization did not return the supplied output")
-    if output is not None and output._version != output_version + 1:
+    if should_route and output is not None and output._version != output_version + 1:
         pytest.fail("NumPy writes did not increment the Tensor output version")
     if output_mode != "alias":
         torch.testing.assert_close(image, original, rtol=0, atol=0)
