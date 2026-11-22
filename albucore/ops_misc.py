@@ -25,6 +25,7 @@ MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
 _IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
 _MEDIAN_BLUR_FLOAT16_ORDERED_U16_MIN_ELEMENTS = 76_800
+_NUMKONG_CDIST_D8_MAX_PAIRS = 2_048
 
 
 def hflip_numpy(img: ImageArrayT) -> ImageArrayT:
@@ -322,7 +323,8 @@ def pairwise_distances_squared(
     """Compute squared pairwise Euclidean distances between two point sets.
 
     Backend selection:
-    - Small (``n1 * n2 < 1000``) or high-dimensional (``D >= 9``): NumKong ``cdist``.
+    - NumKong ``cdist`` handles small sets and the measured high-dimensional regions.
+    - On macOS ARM64, contiguous float32 eight-dimensional inputs use NumKong through 2,048 output pairs.
     - Other sets: NumPy coordinate differences accumulated into one distance matrix.
 
     Args:
@@ -362,6 +364,12 @@ def pairwise_distances_squared(
         msg = "Both point-set operands must use the same container."
         raise TypeError(msg)
 
+    numkong_d8_eligible = (
+        points1_array.dtype == np.float32
+        and points2_array.dtype == np.float32
+        and points1_array.flags.c_contiguous
+        and points2_array.flags.c_contiguous
+    )
     points1_array = points1_array.astype(np.float32, copy=False)
     points2_array = points2_array.astype(np.float32, copy=False)
 
@@ -369,7 +377,11 @@ def pairwise_distances_squared(
     dimensions = points1_array.shape[1]
     if dimensions == 0:
         result = np.zeros((n1, n2), dtype=np.float32)
-    elif n1 * n2 < 1000 or dimensions >= 9:
+    elif (
+        n1 * n2 < 1000
+        or dimensions >= 9
+        or (numkong_d8_eligible and dimensions == 8 and n1 * n2 <= _NUMKONG_CDIST_D8_MAX_PAIRS)
+    ):
         # nk.cdist requires contiguous inputs on some strided views.
         points1_array = np.ascontiguousarray(points1_array)
         points2_array = np.ascontiguousarray(points2_array)

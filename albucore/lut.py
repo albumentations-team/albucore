@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+import sys
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import cv2
@@ -19,6 +21,11 @@ if TYPE_CHECKING:
 
 
 __all__ = ["apply_uint8_lut"]
+
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_TENSOR_SHARED_LUT_DIRECT_SUPPORTED = _MACOS_ARM64 or _LINUX_X86_64
+_TENSOR_SHARED_LUT_MIN_ELEMENTS = 61_440 if _MACOS_ARM64 else 230_400 if _LINUX_X86_64 else sys.maxsize
 
 
 def _cv2_lut_channel_last(img: NDArray[np.uint8], lut: np.ndarray, *, out: np.ndarray | None = None) -> np.ndarray:
@@ -101,22 +108,63 @@ def _apply_per_channel_uint8_luts(
 
 
 def _tensor_shared_uint8_lut(img: torch.Tensor, lut: NDArray[np.uint8], *, out: torch.Tensor | None) -> torch.Tensor:
+    # StringZilla writes through NumPy views, so signal those mutations to autograd.
     if out is None:
+        if (
+            _TENSOR_SHARED_LUT_DIRECT_SUPPORTED
+            and img.numel() >= _TENSOR_SHARED_LUT_MIN_ELEMENTS
+            and img.is_contiguous()
+        ):
+            source = img.numpy()
+            result = np.empty(img.shape, dtype=np.uint8)
+            sz.translate(
+                memoryview(cast("Any", source)),
+                memoryview(cast("Any", lut)),
+                out=memoryview(cast("Any", result)),
+            )
+            return torch.from_numpy(result)
         result = np.array(img.numpy(), copy=True, order="C")
-        apply_uint8_lut(result, lut, out=result)
+        sz.translate(memoryview(cast("Any", result)), memoryview(cast("Any", lut)), inplace=True)
         return torch.from_numpy(result)
     if out is img:
         view = img.numpy()
-        apply_uint8_lut(view, lut, out=view)
+        if view.flags.c_contiguous:
+            sz.translate(memoryview(cast("Any", view)), memoryview(cast("Any", lut)), inplace=True)
+        else:
+            apply_uint8_lut(view, lut, out=view)
+        torch.autograd.graph.increment_version(img)
         return img
     if out.is_contiguous():
+        if (
+            _TENSOR_SHARED_LUT_DIRECT_SUPPORTED
+            and img.numel() >= _TENSOR_SHARED_LUT_MIN_ELEMENTS
+            and img.is_contiguous()
+        ):
+            source = img.numpy()
+            destination = out.numpy()
+            sz.translate(
+                memoryview(cast("Any", source)),
+                memoryview(cast("Any", lut)),
+                out=memoryview(cast("Any", destination)),
+            )
+            torch.autograd.graph.increment_version(out)
+            return out
         out.copy_(img)
         view = out.numpy()
-        apply_uint8_lut(view, lut, out=view)
+        sz.translate(memoryview(cast("Any", view)), memoryview(cast("Any", lut)), inplace=True)
     else:
         source = img.numpy()
         working = np.ascontiguousarray(source)
-        result = apply_uint8_lut(working, lut, out=working if working is not source else None)
+        if working is source:
+            result = np.empty(source.shape, dtype=np.uint8)
+            sz.translate(
+                memoryview(cast("Any", source)),
+                memoryview(cast("Any", lut)),
+                out=memoryview(cast("Any", result)),
+            )
+        else:
+            result = working
+            sz.translate(memoryview(cast("Any", result)), memoryview(cast("Any", lut)), inplace=True)
         out.copy_(numpy_to_tensor_storage(result))
     return out
 
@@ -151,7 +199,8 @@ def apply_uint8_lut(
     """Map uint8 values through a shared ``(256,)`` or per-channel ``(256, 1, C)`` table.
 
     Without ``out``, allocate a writable result without writing input storage. A supplied output has the same shape,
-    uint8 dtype, container and logical layout as the input and is returned by identity.
+    uint8 dtype, container and logical layout as the input and is returned by identity. Tensor output mutations
+    update PyTorch's version counter, including writes performed through NumPy-backed storage.
     Writable strided outputs and ``out=img`` are supported; other overlapping views and
     overlap with the table are outside the contract. Strides may require a temporary.
 
@@ -168,6 +217,8 @@ def apply_uint8_lut(
         if tensor_out is not None:
             output_view = image_view if tensor_out is img else tensor_to_numpy_channel_last(tensor_out, layout)
         result = _apply_per_channel_uint8_luts(image_view, lut, out=output_view)
+        if tensor_out is not None:
+            torch.autograd.graph.increment_version(tensor_out)
         return numpy_to_tensor_layout(result, cast("TensorLayout", layout)) if tensor_out is None else tensor_out
     if lut.ndim != 1:
         return _apply_per_channel_uint8_luts(img, lut, out=cast("NDArray[np.uint8] | None", out))

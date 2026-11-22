@@ -2,8 +2,10 @@
 
 import platform
 import sys
+from functools import lru_cache
 from typing import TypeVar, cast, overload
 
+import cv2
 import numkong as nk
 import numpy as np
 import torch
@@ -33,6 +35,8 @@ _TORCH_DTYPES: dict[SupportedDType | torch.dtype, torch.dtype] = {
 _MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
+_FLOAT16_UINT8_LUT_MIN_ELEMENTS = 12_288
+_LINUX_FLOAT16_UINT8_LUT_MIN_ELEMENTS = 8_192
 
 
 def _quantize_uint8_numkong(
@@ -52,6 +56,54 @@ def _quantize_uint8_numkong(
         np.copyto(out, result)
         return out
     return result
+
+
+def _convert_float_to_uint8(
+    img: NDArray[np.float16] | NDArray[np.float32],
+    scale: float,
+    *,
+    out: NDArray[np.uint8] | None,
+) -> NDArray[np.uint8]:
+    lut_min_elements = _LINUX_FLOAT16_UINT8_LUT_MIN_ELEMENTS if _LINUX_X86_64 else _FLOAT16_UINT8_LUT_MIN_ELEMENTS
+    if (
+        img.dtype == np.float16
+        and scale == 255
+        and lut_min_elements <= img.size <= 2**31 - 1
+        and img.flags.c_contiguous
+        and (out is None or out.flags.c_contiguous)
+    ):
+        result = np.empty(img.shape, dtype=np.uint8) if out is None else out
+        cv2.LUT(img.view(np.uint16).reshape(1, -1), _default_float16_uint8_lut(), dst=result.reshape(1, -1))
+        return result
+
+    torch_result = quantize_uint8_torch(img, scale, out=out)
+    if torch_result is not None:
+        return torch_result
+    input_is_working_buffer = img.dtype == np.float16
+    if input_is_working_buffer:
+        with np.errstate(invalid="ignore"):
+            img = cast("NDArray[np.float32]", img.astype(np.float32))
+    return _quantize_uint8_numkong(
+        cast("NDArray[np.float32]", img),
+        scale,
+        out=out,
+        input_is_working_buffer=input_is_working_buffer,
+    )
+
+
+@lru_cache(maxsize=1)
+def _default_float16_uint8_lut() -> NDArray[np.uint8]:
+    table = np.empty(65_536, dtype=np.uint8)
+    with np.errstate(invalid="ignore"):
+        for start in range(0, table.size, 4_096):
+            stop = min(start + 4_096, table.size)
+            values = np.arange(start, stop, dtype=np.uint16).view(np.float16).astype(np.float32)
+            np.multiply(values, np.float32(255), out=values)
+            np.rint(values, out=values)
+            np.clip(values, 0, 255, out=values)
+            table[start:stop] = values.astype(np.uint8)
+    table.flags.writeable = False
+    return table
 
 
 def _convert_dtype_torch(
@@ -231,22 +283,9 @@ def convert_dtype(
         floating_dtype = cast("np.dtype[np.float16 | np.float32]", numpy_dtype)
         return _cast_float_numpy(img, floating_dtype, out=cast("NDArray[np.float16] | NDArray[np.float32] | None", out))
 
-    resolved_max = MAX_VALUES_BY_DTYPE[np.dtype(np.uint8)] if max_value is None else max_value
-    numpy_out = cast("NDArray[np.uint8] | None", out)
-    torch_result = quantize_uint8_torch(
+    scale = MAX_VALUES_BY_DTYPE[np.dtype(np.uint8)] if max_value is None else max_value
+    return _convert_float_to_uint8(
         cast("NDArray[np.float16] | NDArray[np.float32]", img),
-        resolved_max,
-        out=numpy_out,
-    )
-    if torch_result is not None:
-        return torch_result
-    input_is_working_buffer = img.dtype == np.float16
-    if input_is_working_buffer:
-        with np.errstate(invalid="ignore"):
-            img = cast("NDArray[np.float32]", img.astype(np.float32))
-    return _quantize_uint8_numkong(
-        cast("NDArray[np.float32]", img),
-        resolved_max,
-        out=numpy_out,
-        input_is_working_buffer=input_is_working_buffer,
+        scale,
+        out=cast("NDArray[np.uint8] | None", out),
     )

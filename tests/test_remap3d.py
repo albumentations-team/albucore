@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 import cv2
 import numpy as np
 import pytest
@@ -319,3 +321,52 @@ def test_remap3d_uint8_restores_after_one_float32_sampling_pass() -> None:
     result = remap3d(volume, grid, interpolation=cv2.INTER_LINEAR)
 
     np.testing.assert_array_equal(result, np.array([[[[128]]]], dtype=np.uint8))
+
+
+@pytest.mark.parametrize(
+    ("batch_size", "interpolation", "border_mode", "border_value"),
+    [
+        (8, cv2.INTER_NEAREST, cv2.BORDER_CONSTANT, None),
+        (8, cv2.INTER_NEAREST, cv2.BORDER_REPLICATE, None),
+        (8, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, 13.0),
+        (8, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, None),
+        (4, cv2.INTER_NEAREST, cv2.BORDER_CONSTANT, None),
+    ],
+)
+def test_remap3d_contiguous_float32_batch_selects_preallocated_output(
+    monkeypatch: pytest.MonkeyPatch,
+    batch_size: int,
+    interpolation: int,
+    border_mode: int,
+    border_value: float | None,
+) -> None:
+    remap3d_module = importlib.import_module("albucore.remap3d")
+    monkeypatch.setattr(remap3d_module, "_LINUX_X86_64", False)
+    volumes = torch.rand((batch_size, 3, 16, 64, 80), dtype=torch.float32)
+    grid = np.random.default_rng(6143).uniform(-1.15, 1.15, (16, 48, 60, 3)).astype(np.float32)
+    expected = remap3d(volumes, grid, interpolation, border_mode, border_value)
+
+    monkeypatch.setattr(remap3d_module, "_LINUX_X86_64", True)
+    original_sampler = remap3d_module._sample3d_torch_cpu_batch_preallocated_float32  # noqa: SLF001
+    calls = 0
+
+    def record_sampler(
+        source: torch.Tensor,
+        sampling_grid: torch.Tensor,
+        interpolation_arg: int,
+        border_mode_arg: int,
+        border_values: np.ndarray,
+    ) -> torch.Tensor:
+        nonlocal calls
+        calls += 1
+        return original_sampler(source, sampling_grid, interpolation_arg, border_mode_arg, border_values)
+
+    monkeypatch.setattr(remap3d_module, "_sample3d_torch_cpu_batch_preallocated_float32", record_sampler)
+    original_volume = volumes.clone()
+
+    result = remap3d(volumes, grid, interpolation, border_mode, border_value)
+
+    expect_preallocated = batch_size == 8 and (interpolation == cv2.INTER_NEAREST or border_value is not None)
+    assert (calls == 1) is expect_preallocated
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    torch.testing.assert_close(volumes, original_volume, rtol=0, atol=0)

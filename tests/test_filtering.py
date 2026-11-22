@@ -1,5 +1,8 @@
 """OpenCV differential coverage for the six dtype-preserving image kernels."""
 
+import platform
+import sys
+
 import cv2
 import numpy as np
 import pytest
@@ -90,6 +93,51 @@ def test_kernels_match_opencv_without_input_writes(
     assert image.tobytes() == original
 
 
+@pytest.mark.parametrize("operation", ["erode", "dilate"])
+@pytest.mark.parametrize("kernel_kind", ["one_pixel", "center_only"])
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "negative", "readonly"])
+def test_identity_morphology_kernel_returns_an_independent_copy(
+    monkeypatch: pytest.MonkeyPatch,
+    operation: str,
+    kernel_kind: str,
+    dtype: type[np.generic],
+    layout: str,
+) -> None:
+    image = _source(dtype, 3, "contiguous")
+    if kernel_kind == "center_only":
+        image = np.tile(image, (10, 10, 1))
+    if layout == "strided":
+        image = image[:, ::2]
+    elif layout == "negative":
+        image = image[:, ::-1]
+    elif layout == "readonly":
+        image.flags.writeable = False
+    original = image.tobytes()
+    kernel = np.ones((1, 1), dtype=np.uint8)
+    if kernel_kind == "center_only":
+        kernel = np.zeros((3, 3), dtype=np.uint8)
+        kernel[1, 1] = 1
+
+    def fail_filter(*args: object, **kwargs: object) -> None:
+        pytest.fail("identity kernel called OpenCV")
+
+    if dtype is not np.float32 or kernel_kind == "center_only":
+        monkeypatch.setattr(cv2, operation, fail_filter)
+
+    result = getattr(core, operation)(image, kernel)
+
+    unsigned = {np.dtype(np.uint8): np.uint8, np.dtype(np.float16): np.uint16, np.dtype(np.float32): np.uint32}[
+        image.dtype
+    ]
+    np.testing.assert_array_equal(result.view(unsigned), image.copy(order="C").view(unsigned))
+    assert result.dtype == image.dtype
+    assert result.shape == image.shape
+    assert result.flags.writeable
+    assert not np.shares_memory(result, image)
+    assert image.tobytes() == original
+
+
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "negative", "readonly"])
 def test_rgb_batch_matches_packed_opencv_transform(dtype: type[np.generic], layout: str) -> None:
@@ -126,6 +174,87 @@ def test_convolve_uses_independent_channel_kernels(dtype: type[np.generic], chan
 
     np.testing.assert_array_equal(actual, expected)
     assert actual.dtype == image.dtype
+
+
+@pytest.mark.parametrize("channels", [3, 9])
+@pytest.mark.parametrize("kernel_size", [7, 15])
+def test_convolve_uses_separable_opencv_for_large_float32_blurs(
+    monkeypatch: pytest.MonkeyPatch,
+    channels: int,
+    kernel_size: int,
+) -> None:
+    if not (
+        (sys.platform == "linux" and platform.machine() == "x86_64")
+        or (sys.platform == "darwin" and platform.machine() == "arm64")
+    ):
+        pytest.skip("separable route is benchmarked on Linux x86-64 and macOS ARM64")
+    image = np.random.default_rng(251121).random((480, 640, channels), dtype=np.float32)
+    image.flags.writeable = False
+    vector = cv2.getGaussianKernel(kernel_size, 0, cv2.CV_32F).reshape(-1)
+    kernel = np.outer(vector, vector)
+    expected = np.clip(cv2.filter2D(image, -1, kernel), 0, 1)
+
+    def fail_filter2d(*args: object, **kwargs: object) -> None:
+        pytest.fail("separable Gaussian kernel used filter2D")
+
+    monkeypatch.setattr(cv2, "filter2D", fail_filter2d)
+
+    actual = core.convolve(image, kernel)
+
+    np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-5)
+    assert actual.dtype == image.dtype
+    assert actual.shape == image.shape
+    assert not np.shares_memory(actual, image)
+
+
+def test_convolve_keeps_filter2d_for_unprofitable_separable_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    image = np.random.default_rng(251121).random((240, 320, 3), dtype=np.float32)
+    vector = cv2.getGaussianKernel(7, 0, cv2.CV_32F).reshape(-1)
+    kernel = np.outer(vector, vector)
+    expected = np.clip(cv2.filter2D(image, -1, kernel), 0, 1)
+
+    def fail_separable_filter(*args: object, **kwargs: object) -> None:
+        pytest.fail("small k=7 convolution used sepFilter2D")
+
+    monkeypatch.setattr(cv2, "sepFilter2D", fail_separable_filter)
+
+    actual = core.convolve(image, kernel)
+
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_convolve_rejects_nonseparable_kernel_before_scanning_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    image = np.random.default_rng(251121).random((240, 320, 3), dtype=np.float32)
+    kernel = np.random.default_rng(251121).random((7, 7), dtype=np.float32)
+    kernel /= kernel.sum()
+    expected = np.clip(cv2.filter2D(image, -1, kernel), 0, 1)
+
+    def fail_check_range(*args: object, **kwargs: object) -> None:
+        pytest.fail("nonseparable kernel scanned the input")
+
+    monkeypatch.setattr(cv2, "checkRange", fail_check_range)
+
+    actual = core.convolve(image, kernel)
+
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_convolve_keeps_filter2d_for_nonfinite_separable_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    image = np.random.default_rng(251121).random((240, 320, 3), dtype=np.float32)
+    image[0, 0, 0] = np.nan
+    image.flags.writeable = False
+    vector = cv2.getGaussianKernel(15, 0, cv2.CV_32F).reshape(-1)
+    kernel = np.outer(vector, vector)
+    expected = np.clip(cv2.filter2D(image, -1, kernel), 0, 1)
+
+    def fail_separable_filter(*args: object, **kwargs: object) -> None:
+        pytest.fail("non-finite convolution input used sepFilter2D")
+
+    monkeypatch.setattr(cv2, "sepFilter2D", fail_separable_filter)
+
+    actual = core.convolve(image, kernel)
+
+    np.testing.assert_array_equal(actual, expected)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])

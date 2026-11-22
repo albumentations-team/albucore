@@ -17,7 +17,6 @@ import gc
 import platform
 import resource
 import sys
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -27,7 +26,7 @@ import cv2
 import numpy as np
 import torch
 from shape_grids import parse_dhwc_shape
-from timing import WallTimingMs, bench_wall_ms
+from timing import WallTimingMs, bench_paired_wall_ms, bench_wall_ms
 
 import albucore
 
@@ -236,51 +235,6 @@ def _tensor_numpy_bridge(
     return torch.from_numpy(result).permute(3, 0, 1, 2)
 
 
-def _wall_timing(samples: list[float]) -> WallTimingMs:
-    """Summarize pre-collected millisecond samples like ``bench_wall_ms``."""
-    values = np.asarray(samples, dtype=np.float64)
-    median = float(np.median(values))
-    return WallTimingMs(
-        raw=tuple(samples),
-        median=median,
-        mean=float(values.mean()),
-        std=float(values.std(ddof=1)) if len(samples) > 1 else 0.0,
-        mad=float(np.median(np.abs(values - median))),
-        n=len(samples),
-    )
-
-
-def _paired_wall_timings(
-    first: Callable[[], object],
-    second: Callable[[], object],
-    *,
-    repeats: int,
-    warmup: int,
-    first_starts: bool,
-) -> tuple[WallTimingMs, WallTimingMs]:
-    """Time two routes in alternating order to remove fixed sequential-route bias."""
-    if repeats < 1:
-        msg = f"repeats must be >= 1, got {repeats}"
-        raise ValueError(msg)
-    if warmup < 0:
-        msg = f"warmup must be >= 0, got {warmup}"
-        raise ValueError(msg)
-
-    first_samples: list[float] = []
-    second_samples: list[float] = []
-    for index in range(warmup + repeats):
-        first_before_second = (index % 2 == 0) == first_starts
-        ordered = ((first, first_samples), (second, second_samples))
-        if not first_before_second:
-            ordered = tuple(reversed(ordered))
-        for function, samples in ordered:
-            started = time.perf_counter()
-            function()
-            if index >= warmup:
-                samples.append((time.perf_counter() - started) * 1000.0)
-    return _wall_timing(first_samples), _wall_timing(second_samples)
-
-
 def _parse_args() -> argparse.Namespace:
     """Read benchmark scope and timing controls."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -342,7 +296,7 @@ def main() -> None:
                                 border_mode,
                                 border_value,
                             )
-                            direct_timing, bridge_timing = _paired_wall_timings(
+                            direct_timing, bridge_timing = bench_paired_wall_ms(
                                 _public_call(tensor_volume, sampling_grid, interpolation, border_mode, border_value),
                                 _tensor_numpy_bridge_call(
                                     tensor_volume,

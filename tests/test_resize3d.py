@@ -244,6 +244,27 @@ def test_resize3d_numpy_depth_unit_linear_preserves_dtype(dtype: type[np.uint8 |
     assert result.dtype == volume.dtype
 
 
+@pytest.mark.parametrize("layout", ["strided", "negative_stride", "strided_channels"])
+def test_resize3d_numpy_float16_depth_unit_accepts_noncontiguous_input(layout: str) -> None:
+    volume = np.random.default_rng(20260803).random((8, 32, 64, 3), dtype=np.float32).astype(np.float16)
+    if layout == "strided":
+        volume = volume[:, :, ::2]
+    elif layout == "negative_stride":
+        volume = volume[:, :, ::-1]
+    else:
+        volume = volume[..., ::2]
+    source = volume.copy()
+    expected = resize3d(volume.copy(order="C"), (1, 16, 16))
+
+    result = resize3d(volume, (1, 16, 16))
+
+    assert result.shape == (1, 16, 16, volume.shape[-1])
+    assert result.dtype == np.float16
+    assert not np.shares_memory(result, volume)
+    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(volume, source)
+
+
 def test_resize3d_numpy_uint8_depth_unit_matches_torch_full_route() -> None:
     """The measured uint8 D-to-one route may use the pre-imported CPU Torch kernel without a dtype change."""
     volume = _numpy_volume(np.uint8, channels=5)
@@ -253,6 +274,22 @@ def test_resize3d_numpy_uint8_depth_unit_matches_torch_full_route() -> None:
     expected = _torch_linear_reference(torch.from_numpy(volume).permute(3, 0, 1, 2), size)
 
     np.testing.assert_array_equal(result, expected.permute(1, 2, 3, 0).numpy())
+
+
+@pytest.mark.parametrize("layout", ["readonly", "negative_stride"])
+def test_resize3d_numpy_uint8_depth_unit_fallback_preserves_dtype(layout: str) -> None:
+    volume = _numpy_volume(np.uint8, channels=5)
+    if layout == "readonly":
+        volume.flags.writeable = False
+    else:
+        volume = volume[:, :, ::-1]
+    expected = resize3d(volume.copy(order="C"), (1, 6, 8))
+
+    result = resize3d(volume, (1, 6, 8))
+
+    assert result.dtype == np.uint8
+    delta = np.abs(result.astype(np.int16) - expected.astype(np.int16))
+    assert int(delta.max()) <= 1
 
 
 def test_resize3d_numpy_float32_downscale_matches_torch_full_route() -> None:

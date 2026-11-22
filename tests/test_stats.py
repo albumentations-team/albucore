@@ -34,6 +34,78 @@ def test_mean_std_global_matches_numpy_float64_reference(shape: tuple[int, ...],
     assert np.isclose(float(s), float(ref_s), rtol=1e-4, atol=1e-4)
 
 
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "random",
+        "well_conditioned_offset",
+        "constant",
+        "subnormal_constant",
+        "subnormal_mixed",
+        "near_constant",
+        "nonfinite",
+        "non_native",
+        "single",
+    ],
+)
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_float32_global_cv2_route_matches_float64_and_guards_variance(
+    monkeypatch: pytest.MonkeyPatch,
+    pattern: str,
+    keepdims: bool,
+) -> None:
+    monkeypatch.setattr(stats_mod, "_LINUX_X86_64", True)
+    monkeypatch.setattr(stats_mod, "_MACOS_ARM64", False)
+    rng = np.random.default_rng(8043)
+    if pattern == "random":
+        image = rng.random((128, 160, 3), dtype=np.float32)
+        expect_cv2 = True
+    elif pattern == "well_conditioned_offset":
+        image = rng.normal(1e6, 2e4, size=(128, 160, 3)).astype(np.float32)
+        expect_cv2 = True
+    elif pattern == "constant":
+        image = np.full((128, 160, 3), np.float32(0.5), dtype=np.float32)
+        expect_cv2 = True
+    elif pattern == "subnormal_constant":
+        smallest = np.nextafter(np.float32(0), np.float32(1))
+        image = np.full((128, 160, 3), smallest, dtype=np.float32)
+        expect_cv2 = True
+    elif pattern == "subnormal_mixed":
+        smallest = np.nextafter(np.float32(0), np.float32(1))
+        image = np.full((128, 160, 3), smallest, dtype=np.float32)
+        image.flat[0] = -smallest
+        expect_cv2 = False
+    elif pattern == "near_constant":
+        image = np.full((128, 160, 3), np.float32(1e6), dtype=np.float32)
+        image[::3] = np.nextafter(np.float32(1e6), np.float32(np.inf))
+        expect_cv2 = False
+    elif pattern == "nonfinite":
+        image = np.zeros((128, 160, 3), dtype=np.float32)
+        image.flat[0] = np.nan
+        expect_cv2 = False
+    elif pattern == "non_native":
+        native = rng.random((128, 160, 3), dtype=np.float32)
+        image = native.byteswap().view(native.dtype.newbyteorder())
+        expect_cv2 = False
+    else:
+        image = np.array([[[0.5]]], dtype=np.float32)
+        expect_cv2 = False
+    original = image.copy()
+    image.flags.writeable = False
+    with np.errstate(invalid="ignore"):
+        route = stats_mod._mean_std_global_float32_opencv(image, 1e-4)
+        expected_mean = np.mean(image, dtype=np.float64, keepdims=keepdims)
+        expected_std = np.std(image, dtype=np.float64, keepdims=keepdims) + 1e-4
+        actual_mean, actual_std = mean_std(image, "global", keepdims=keepdims)
+        actual_std_only = std(image, "global", keepdims=keepdims)
+
+    assert (route is not None) is expect_cv2
+    np.testing.assert_allclose(actual_mean, expected_mean, rtol=5e-10, atol=1e-12, equal_nan=True)
+    np.testing.assert_allclose(actual_std, expected_std, rtol=5e-10, atol=1e-12, equal_nan=True)
+    np.testing.assert_allclose(actual_std_only, expected_std, rtol=5e-10, atol=1e-12, equal_nan=True)
+    np.testing.assert_array_equal(image, original)
+
+
 @pytest.mark.parametrize("axis", ["global", "per_channel"])
 @pytest.mark.parametrize("shape", [(600, 1000, 1), (600, 500, 4), (600, 500, 5), (2, 300, 500, 5)])
 def test_large_uint8_moments_do_not_overflow(shape: tuple[int, ...], axis: str) -> None:

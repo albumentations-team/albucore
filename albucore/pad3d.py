@@ -20,6 +20,7 @@ _TORCH_TO_NUMPY_DTYPE: dict[torch.dtype, type[np.generic]] = {
 _TORCH_MIN_ELEMENTS = 524_288
 _TORCH_UINT8_STRIDED_MIN_ELEMENTS = 1_048_576
 _TORCH_FLOAT32_STRIDED_MAX_ELEMENTS = 4_194_304
+_NUMPY_FACES_MAX_EXPANSION = 1.1
 
 
 def _cast_pad_value(value: float, dtype: np.dtype | type[np.generic]) -> float:
@@ -46,6 +47,45 @@ def _pad3d_numpy(
     )
     result[front : front + depth, top : top + height, left : left + width] = volume
     return result
+
+
+def _numpy_pad_use_faces(
+    volume: np.ndarray,
+    padding: tuple[int, int, int, int, int, int],
+) -> bool:
+    front, back, top, bottom, left, right = padding
+    depth, height, width, _ = volume.shape
+    padded_elements = (depth + front + back) * (height + top + bottom) * (width + left + right) * volume.shape[-1]
+    return bool(
+        volume.shape[-1] > 1
+        and volume.flags.c_contiguous
+        and volume.size >= _TORCH_MIN_ELEMENTS
+        and padded_elements <= _NUMPY_FACES_MAX_EXPANSION * volume.size,
+    )
+
+
+def _pad3d_numpy_faces(
+    volume: np.ndarray,
+    padding: tuple[int, int, int, int, int, int],
+    value: float,
+) -> np.ndarray:
+    front, back, top, bottom, left, right = padding
+    depth, height, width, _ = volume.shape
+    padded = np.empty(
+        (depth + front + back, height + top + bottom, width + left + right, volume.shape[-1]),
+        dtype=volume.dtype,
+    )
+    fill = _cast_pad_value(value, volume.dtype)
+    padded[:front] = fill
+    padded[front + depth :] = fill
+    center_depth = padded[front : front + depth]
+    center_depth[:, :top] = fill
+    center_depth[:, top + height :] = fill
+    center_height = center_depth[:, top : top + height]
+    center_height[:, :, :left] = fill
+    center_height[:, :, left + width :] = fill
+    center_height[:, :, left : left + width] = volume
+    return padded
 
 
 @torch.no_grad()
@@ -128,6 +168,8 @@ def pad3d(
     if not any(padding):
         return volume
     if isinstance(volume, np.ndarray):
+        if not isinstance(value, tuple) and _numpy_pad_use_faces(volume, padding):
+            return _pad3d_numpy_faces(volume, padding, value)
         if not isinstance(value, tuple) and _numpy_pad_use_torch(volume):
             return np.asarray(_pad3d_torch(torch.from_numpy(volume), padding, value, channel_last=True).numpy())
         return _pad3d_numpy(volume, padding, value)

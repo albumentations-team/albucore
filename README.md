@@ -181,7 +181,7 @@ requires a float32 destination. AX owns any protective copy needed before writin
 | `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix to a volume or batch | NumPy `DHWC`/`NDHWC` or CPU Torch `CDHW`/`NCDHW`; one matrix is shared across the batch; native Torch `affine_grid` + `grid_sample` |
 | `remap3d` | `(volume, sampling_grid, interpolation, border_mode, border_value)` | Sample a volume or batch through one shared normalized 3D pull grid | NumPy `DHWC`/`NDHWC` or CPU Torch `CDHW`/`NCDHW`; grid layout `(D_out, H_out, W_out, 3)` |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); float16 uses float32 accumulation and casts back |
-| `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | Small (N*M < 1000) → NumKong `cdist`; large → NumPy vectorized `‖a‖²+‖b‖²−2(a·b)` |
+| `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | NumKong `cdist` for N*M < 1000, D≥9, and contiguous float32 D=8 through 2,048 pairs; NumPy coordinate differences otherwise |
 
 The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `remap`, `remap3d`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `pad3d`, `separable_filter3d`, and `resize3d` expect one NumPy `DHWC` volume or CPU Torch `CDHW` tensor per call. `warp_affine3d` and `remap3d` accept those single-volume layouts or NumPy `NDHWC` and CPU Torch `NCDHW` batches.
 
@@ -189,13 +189,14 @@ The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `r
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `convert_dtype` | `(img, dtype, *, max_value=None, out=None)` | Convert among uint8, float16, and float32; uint8↔float scales by 255 by default, float↔float casts, same dtype returns by identity | Uint8→float uses a result-dtype LUT; floating casts and uint8 quantization retain measured NumPy/NumKong/Torch routes |
+| `convert_dtype` | `(img, dtype, *, max_value=None, out=None)` | Convert among uint8, float16, and float32; uint8↔float scales by 255 by default, float↔float casts, same dtype returns by identity | Uint8→float uses a result-dtype LUT; contiguous float16→uint8 uses a cached 65,536-entry OpenCV LUT on macOS ARM64 and Linux x86-64 for the default scale; other float quantization retains measured NumPy/NumKong/Torch routes |
 
 ## Performance
 
 1. **Measured routing**: Each function may have several NumPy, OpenCV, NumKong, StringZilla, or CPU PyTorch implementations. The router picks one from dtype, size, memory layout, channel count, and semantic constraints, using thresholds from repeatable benchmarks.
-2. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add(..., field)`; `cdist` for small `pairwise_distances_squared`; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
+2. **NumKong**: SIMD `blend` for uint8 and single-channel float32 `add_weighted`, plus same-shaped uint8 `add(..., field)`; `cdist` for small and measured high-dimensional `pairwise_distances_squared` regions; wide-accumulator `moments` for selected statistics routes (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 3. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
+4. **Tensor LUTs**: Shared uint8 lookups on contiguous CPU Tensors use a direct StringZilla destination path in the measured size regions (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 
 Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 

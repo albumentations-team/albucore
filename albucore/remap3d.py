@@ -2,19 +2,30 @@
 
 from __future__ import annotations
 
+import platform
+import sys
 from typing import TYPE_CHECKING, overload
 
 import cv2
 import numpy as np
 import torch
 
-from albucore.sampling3d import _normalize_border_value, _sample3d_torch_cpu, _sample3d_torch_cpu_batch
+from albucore.sampling3d import (
+    _GRID_SAMPLER_3D_OUT_SUPPORTED,
+    _normalize_border_value,
+    _sample3d_torch_cpu,
+    _sample3d_torch_cpu_batch,
+    _sample3d_torch_cpu_batch_preallocated_float32,
+)
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
 
 if TYPE_CHECKING:
     from albucore._types import ImageArrayT
 
 __all__ = ["remap3d"]
+
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_PREALLOCATED_BATCH_MIN_OUTPUT_ELEMENTS = 1_000_000
 
 
 def _sampling_grid_to_tensor(sampling_grid: np.ndarray | torch.Tensor) -> torch.Tensor:
@@ -71,6 +82,32 @@ def _remap3d_torch_cpu_batch(
 ) -> torch.Tensor:
     """Sample wide prevalidated batches independently while sharing grid and fill preparation."""
     if volumes.shape[0] >= 4 and volumes.shape[1] > 1:
+        output_elements = (
+            volumes.shape[0]
+            * volumes.shape[1]
+            * sampling_grid.shape[0]
+            * sampling_grid.shape[1]
+            * sampling_grid.shape[2]
+        )
+        use_preallocated_output = (
+            _LINUX_X86_64
+            and _GRID_SAMPLER_3D_OUT_SUPPORTED
+            and volumes.dtype == torch.float32
+            and volumes.is_contiguous()
+            and output_elements >= _PREALLOCATED_BATCH_MIN_OUTPUT_ELEMENTS
+            and (
+                interpolation == cv2.INTER_NEAREST
+                or (interpolation == cv2.INTER_LINEAR and border_mode == cv2.BORDER_CONSTANT and np.any(border_values))
+            )
+        )
+        if use_preallocated_output:
+            return _sample3d_torch_cpu_batch_preallocated_float32(
+                volumes,
+                sampling_grid,
+                interpolation,
+                border_mode,
+                border_values,
+            )
         # A native grid_sample batch is slower for these remap workloads.
         return torch.stack(
             [

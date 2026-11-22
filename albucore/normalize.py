@@ -1,6 +1,8 @@
 """Fixed-statistics and per-image normalization."""
 
 import math
+import platform
+import sys
 from typing import Any, Literal, cast, overload
 
 import cv2
@@ -11,7 +13,7 @@ from numpy.typing import NDArray
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import NormalizationType, ValueType
 from albucore.lut import _apply_float_lut
-from albucore.stats import DEFAULT_EPS, mean_std
+from albucore.stats import DEFAULT_EPS, _mean_std_global_float32_opencv, mean_std
 from albucore.tensor_bridge import (
     TensorLayout,
     numpy_to_tensor_layout,
@@ -29,6 +31,9 @@ from albucore.utils import (
 )
 
 _TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS = 16_384
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_TENSOR_BATCH_FLOAT32_IMAGE_MAX_ELEMENTS = 2_000_000
+_TENSOR_BATCH_FLOAT32_MIN_ELEMENTS = 20_480
 
 
 def _single_channel_stats(img: NDArray[np.float32]) -> tuple[float, float]:
@@ -111,8 +116,13 @@ def _adaptive_float32(
     out: NDArray[np.float32] | None,
 ) -> NDArray[np.float32]:
     if normalization == "image":
-        center = img.mean()
-        divisor = img.std() + DEFAULT_EPS
+        cv_stats = _mean_std_global_float32_opencv(img, DEFAULT_EPS)
+        if cv_stats is None:
+            center = img.mean()
+            divisor = img.std() + DEFAULT_EPS
+        else:
+            center = np.float32(cv_stats[0])
+            divisor = np.float32(cv_stats[1])
         return _center_scale_numpy(img, center, divisor, out=out)
     if normalization == "image_per_channel":
         if img.shape[-1] == 1:
@@ -169,6 +179,94 @@ def _adaptive_uint8(
     return _apply_float_lut(img, np.clip(table, *bounds).astype(np.float32, copy=False), out=out)
 
 
+def _adaptive_tensor_batch_float32(
+    img: torch.Tensor,
+    normalization: NormalizationType,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    source = img.numpy()
+    if normalization == "image":
+        axes = tuple(range(1, source.ndim))
+        center = source.mean(axis=axes, keepdims=True)
+        std = source.std(axis=axes, keepdims=True)
+        if (
+            not np.isfinite(center).all()
+            or not np.isfinite(std).all()
+            or np.any(np.square(std.astype(np.float64)) <= np.float64(1e-4) * np.square(center.astype(np.float64)))
+        ):
+            return None
+        divisor = std + DEFAULT_EPS
+        lower, upper = -20, 20
+    elif normalization == "image_per_channel":
+        axes = tuple(range(2, source.ndim))
+        center = source.mean(axis=axes, keepdims=True)
+        std = source.std(axis=axes, keepdims=True)
+        if (
+            not np.isfinite(center).all()
+            or not np.isfinite(std).all()
+            or np.any(np.square(std.astype(np.float64)) <= np.float64(1e-4) * np.square(center.astype(np.float64)))
+        ):
+            return None
+        divisor = std + DEFAULT_EPS
+        lower, upper = -20, 20
+    elif normalization == "min_max":
+        axes = tuple(range(1, source.ndim))
+        center = source.min(axis=axes, keepdims=True)
+        divisor = source.max(axis=axes, keepdims=True) - center
+        lower, upper = 0, 1
+    else:
+        per_channel = source.shape[1] > 1
+        axes = tuple(range(2, source.ndim)) if per_channel else tuple(range(1, source.ndim))
+        center = source.min(axis=axes, keepdims=True)
+        divisor = source.max(axis=axes, keepdims=True) - center
+        if per_channel:
+            divisor += DEFAULT_EPS
+        lower, upper = 0, 1
+    if normalization.startswith("min_max") and (not np.isfinite(center).all() or not np.isfinite(divisor).all()):
+        return None
+    result = np.empty_like(source) if out is None else out.numpy()
+    np.subtract(source, center, out=result)
+    if normalization.startswith("min_max"):
+        np.divide(result, divisor, out=result, where=divisor != 0)
+    else:
+        np.divide(result, divisor, out=result)
+    np.clip(result, lower, upper, out=result)
+    if out is None:
+        return torch.from_numpy(result)
+    torch.autograd.graph.increment_version(out)
+    return out
+
+
+def _use_tensor_batch_float32_route(
+    img: torch.Tensor,
+    normalization: NormalizationType,
+    layout: Literal["NCHW", "NCDHW"],
+    out: torch.Tensor | None,
+) -> bool:
+    if (
+        img.dtype != torch.float32
+        or not img.is_contiguous()
+        or img.shape[0] < 4
+        or (out is not None and not out.is_contiguous())
+    ):
+        return False
+
+    channels = img.shape[1]
+    elements = img.numel()
+    if normalization == "image":
+        return (
+            channels in (3, 9)
+            and _TENSOR_BATCH_FLOAT32_MIN_ELEMENTS <= elements <= _TENSOR_BATCH_FLOAT32_IMAGE_MAX_ELEMENTS
+        )
+    if elements < _TENSOR_BATCH_FLOAT32_MIN_ELEMENTS:
+        return False
+    if normalization == "image_per_channel":
+        return (layout == "NCHW" and channels in (1, 3)) or (_MACOS_ARM64 and layout == "NCDHW" and channels == 3)
+    return (normalization == "min_max" and channels == 3) or (
+        normalization == "min_max_per_channel" and channels in (3, 9)
+    )
+
+
 def _adaptive_tensor_batch(
     img: torch.Tensor,
     normalization: NormalizationType,
@@ -176,6 +274,11 @@ def _adaptive_tensor_batch(
     *,
     out: torch.Tensor | None,
 ) -> torch.Tensor:
+    if _use_tensor_batch_float32_route(img, normalization, layout, out):
+        batch_result = _adaptive_tensor_batch_float32(img, normalization, out)
+        if batch_result is not None:
+            return batch_result
+
     item_layout: TensorLayout = "CHW" if layout == "NCHW" else "CDHW"
     if out is not None:
         for index, item in enumerate(img):
@@ -298,7 +401,10 @@ def normalize_per_image(
     if not img.dtype.isnative:
         image = cast("NDArray[np.float32]", img)
         working = _cast_float_numpy(image, np.float32)
-        result = _adaptive_float32(working, normalization, out=None)
+        if normalization == "image":
+            result = _center_scale_numpy(working, working.mean(), working.std() + DEFAULT_EPS, out=None)
+        else:
+            result = _adaptive_float32(working, normalization, out=None)
         del working
         return _cast_float_numpy(result, image.dtype, out=cast("NDArray[np.float32] | None", out))
     return _adaptive_float32(

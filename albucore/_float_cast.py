@@ -17,13 +17,16 @@ _NUMKONG_CAST_MIN_ELEMENTS = 16_384
 _FLOAT_DTYPES = (np.dtype(np.float16), np.dtype(np.float32))
 
 
+def _half_is_finite(image: np.ndarray) -> bool:
+    unsigned_max = int(image.view(np.uint16).max())
+    if unsigned_max & 0x7C00 == 0x7C00:
+        return False
+    return unsigned_max < 0x8000 or int(image.view(np.int16).max()) & 0x7C00 != 0x7C00
+
+
 def _numkong_cast_preserves_numpy_errors(image: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> bool:
     if image.dtype == np.float16:
-        # Both integer orderings expose non-finite encodings without an image-sized mask.
-        unsigned_max = int(image.view(np.uint16).max())
-        if unsigned_max & 0x7C00 == 0x7C00:
-            return False
-        return unsigned_max < 0x8000 or int(image.view(np.int16).max()) & 0x7C00 != 0x7C00
+        return _half_is_finite(image)
     # NumKong does not report NumPy's narrowing overflow, underflow, or invalid errors.
     return np.geterr()["under"] == "ignore" and bool(image.min() > -65_520 and image.max() < 65_520)
 

@@ -549,16 +549,81 @@ def test_uint8_lut_accepts_tensors_and_returns_supplied_output() -> None:
     assert result.dtype == torch.uint8
     torch.testing.assert_close(result, expected)
     destination = image.clone()
+    version = destination._version
     returned = apply_uint8_lut(destination, shared_lut, out=destination)
-    assert returned is destination
+    if returned is not destination:
+        pytest.fail("shared LUT did not return the alias output")
+    if destination._version != version + 1:
+        pytest.fail("shared LUT alias write did not update the Tensor version")
     torch.testing.assert_close(destination, expected)
 
     channel_luts = np.stack([(np.arange(256, dtype=np.uint16) + index * 13) % 256 for index in range(3)], axis=-1)
     channel_luts = channel_luts.astype(np.uint8)[:, None, :]
     channel_last = image.permute(1, 2, 0).numpy()
     expected_channelwise = torch.from_numpy(apply_uint8_lut(channel_last, channel_luts)).permute(2, 0, 1)
-    channelwise = apply_uint8_lut(image, channel_luts, layout="CHW")
+    channel_output = torch.empty_like(image)
+    channel_version = channel_output._version
+    channelwise = apply_uint8_lut(image, channel_luts, out=channel_output, layout="CHW")
+    if channelwise is not channel_output:
+        pytest.fail("per-channel LUT did not return the supplied output")
+    if channel_output._version != channel_version + 1:
+        pytest.fail("per-channel LUT write did not update the Tensor version")
     torch.testing.assert_close(channelwise, expected_channelwise)
+
+
+@pytest.mark.parametrize("shape", [(3, 128, 160), (9, 128, 160), (3, 240, 320), (1, 480, 640)])
+def test_tensor_shared_lut_large_contiguous_preserves_source_and_output(shape: tuple[int, ...]) -> None:
+    values = np.arange(int(np.prod(shape)), dtype=np.uint8).reshape(shape)
+    image = torch.from_numpy(values)
+    source = image.clone()
+    lut = ((np.arange(256, dtype=np.uint16) * 73 + 19) % 256).astype(np.uint8)
+    expected = torch.from_numpy(lut[image.numpy()])
+
+    result = apply_uint8_lut(image, lut)
+
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    torch.testing.assert_close(image, source, rtol=0, atol=0)
+    if result.data_ptr() == image.data_ptr():
+        pytest.fail("allocating shared LUT must return independent storage")
+
+    output = torch.empty_like(image)
+    version = output._version
+    returned = apply_uint8_lut(image, lut, out=output)
+    if returned is not output:
+        pytest.fail("shared LUT must return the supplied output")
+    if output._version != version + 1:
+        pytest.fail("shared LUT write did not update the Tensor version")
+    torch.testing.assert_close(output, expected, rtol=0, atol=0)
+    torch.testing.assert_close(image, source, rtol=0, atol=0)
+
+
+def test_tensor_shared_lut_updates_autograd_version_for_external_storage_alias() -> None:
+    owner = torch.arange(57_600, dtype=torch.float32, requires_grad=True)
+    saved_loss = owner.square().sum()
+    output = owner.detach().view(torch.uint8).reshape(3, 240, 320)
+    image = torch.arange(output.numel(), dtype=torch.uint8).reshape(output.shape)
+    table = (255 - np.arange(256, dtype=np.uint16)).astype(np.uint8)
+
+    apply_uint8_lut(image, table, out=output)
+
+    with pytest.raises(RuntimeError, match="modified by an inplace operation"):
+        saved_loss.backward()
+
+
+def test_tensor_shared_lut_supports_strided_alias_output() -> None:
+    backing = torch.arange(3 * 7 * 18, dtype=torch.uint8).reshape(3, 7, 18)
+    image = backing[..., ::2]
+    lut = ((np.arange(256, dtype=np.uint16) * 73 + 19) % 256).astype(np.uint8)
+    expected = torch.from_numpy(lut[image.numpy().copy()])
+    version = image._version
+
+    result = apply_uint8_lut(image, lut, out=image)
+
+    if result is not image:
+        pytest.fail("shared LUT must return the strided alias output")
+    if image._version != version + 1:
+        pytest.fail("shared LUT strided alias write did not update the Tensor version")
+    torch.testing.assert_close(image, expected, rtol=0, atol=0)
 
 
 @pytest.mark.parametrize(

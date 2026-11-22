@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import platform
+import sys
 from typing import TYPE_CHECKING, cast, overload
 
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
+from albucore.utils import get_opencv_max_channels
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -19,6 +23,9 @@ __all__ = ["gaussian_blur3d", "separable_filter3d"]
 
 
 _AXES = (2, 3, 4)
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_OPENCV_MAX_CHANNELS = get_opencv_max_channels()
+_IDENTITY_KERNEL = np.ones(1, dtype=np.float32)
 
 
 def _three_axis_values(value: float | Sequence[float]) -> tuple[float, float, float]:
@@ -134,6 +141,32 @@ def _separable_filter3d_numpy(volume: np.ndarray, kernels: tuple[np.ndarray, np.
     return tensor_to_numpy_channel_last(result, "CDHW")
 
 
+def _separable_filter3d_numpy_opencv_xy_torch_depth(
+    volume: np.ndarray,
+    kernels: tuple[np.ndarray, np.ndarray, np.ndarray],
+) -> np.ndarray:
+    depth, height, width, channels = volume.shape
+    working = volume.astype(np.float32, copy=False)
+    packed = np.ascontiguousarray(working.transpose(1, 2, 0, 3).reshape(height, width, depth * channels))
+    if np.shares_memory(packed, volume):
+        packed = packed.copy()
+    del working
+    cv2.sepFilter2D(
+        packed,
+        ddepth=-1,
+        kernelX=kernels[2],
+        kernelY=kernels[1],
+        dst=packed,
+        borderType=cv2.BORDER_REFLECT_101,
+    )
+    filtered = packed.reshape(height, width, depth, channels).transpose(2, 0, 1, 3)
+    tensor = torch.from_numpy(filtered).permute(3, 0, 1, 2)
+    result = _separable_filter3d_torch_cpu(tensor, (kernels[0], _IDENTITY_KERNEL, _IDENTITY_KERNEL))
+    if volume.dtype == np.uint8:
+        result = _restore_uint8(result)
+    return result.permute(1, 2, 3, 0).numpy()
+
+
 def _identity_result(volume: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     """Keep documented no-op inputs by identity and match the float32 working-type fallback otherwise."""
     if isinstance(volume, np.ndarray):
@@ -214,4 +247,28 @@ def gaussian_blur3d(
         _gaussian_kernel_1d(sigmas[1], kernel_sizes[1]),
         _gaussian_kernel_1d(sigmas[2], kernel_sizes[2]),
     )
+    if _LINUX_X86_64 and all(kernel.size > 1 for kernel in kernels):
+        if (
+            isinstance(volume, np.ndarray)
+            and volume.dtype in (np.uint8, np.float32)
+            and volume.flags.c_contiguous
+            and volume.shape[-1] in (1, 3, 5, 9)
+            and volume.shape[0] * volume.shape[-1] <= _OPENCV_MAX_CHANNELS
+        ):
+            return _separable_filter3d_numpy_opencv_xy_torch_depth(volume, kernels)
+        if (
+            isinstance(volume, torch.Tensor)
+            and volume.dtype in (torch.uint8, torch.float32)
+            and volume.shape[0] * volume.shape[1] <= _OPENCV_MAX_CHANNELS
+        ):
+            channel_last = volume.permute(1, 2, 3, 0)
+            contiguous_cdhw = volume.is_contiguous() and volume.shape[0] in (1, 3, 5)
+            contiguous_dhwc = (
+                channel_last.is_contiguous()
+                and volume.shape[0] in (1, 3, 5, 9)
+                and (volume.dtype == torch.uint8 or volume.shape[0] in (1, 3, 9))
+            )
+            if contiguous_cdhw or contiguous_dhwc:
+                result = _separable_filter3d_numpy_opencv_xy_torch_depth(channel_last.numpy(), kernels)
+                return torch.from_numpy(result).permute(3, 0, 1, 2).contiguous()
     return separable_filter3d(volume, kernels)
