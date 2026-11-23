@@ -24,6 +24,15 @@ def _frontmatter(text: str) -> dict[str, str]:
     return fields
 
 
+def _link_target(link: Path) -> str | None:
+    """Return a link's target, also for Git checkouts with core.symlinks=false that store it as a plain file."""
+    if link.is_symlink():
+        return link.readlink().as_posix()
+    if link.is_file():
+        return link.read_text(encoding="utf-8")
+    return None
+
+
 def find_problems(root: Path) -> list[str]:
     skills_dir = root / ".agents" / "skills"
     links_dir = root / ".claude" / "skills"
@@ -44,8 +53,8 @@ def find_problems(root: Path) -> list[str]:
             problems.append(f"{name}: description must be 1-{MAX_DESCRIPTION_CHARS} characters, got {len(description)}")
 
         link = links_dir / name
-        expected = Path("../../.agents/skills") / name
-        if not link.is_symlink() or Path(link.readlink()) != expected:
+        expected = f"../../.agents/skills/{name}"
+        if _link_target(link) != expected:
             problems.append(f"{link.relative_to(root)}: must be a symlink to {expected}")
 
     if links_dir.is_dir():

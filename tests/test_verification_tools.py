@@ -1075,3 +1075,12 @@ def test_agent_skill_check_reports_missing_wrong_and_stale_links(tmp_path) -> No
         ".claude/skills/unlinked: must be a symlink to ../../.agents/skills/unlinked",
         ".claude/skills/deleted: no matching skill in .agents/skills",
     ]
+
+
+def test_agent_skill_check_accepts_plain_file_links_from_checkouts_without_symlinks(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    assert check_agent_skills.find_problems(tmp_path) == []
