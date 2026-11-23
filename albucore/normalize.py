@@ -1,6 +1,7 @@
 """Fixed-statistics and per-image normalization."""
 
-import math
+import struct
+from functools import lru_cache
 from typing import Any, Literal, cast, overload
 
 import cv2
@@ -31,6 +32,9 @@ from albucore.utils import (
 )
 
 _TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS = 16_384
+_FLOAT16_MAX = float(np.finfo(np.float16).max)
+_FLOAT16_STRUCT = struct.Struct("e")
+_FLOAT32_STRUCT = struct.Struct("f")
 _TENSOR_BATCH_FLOAT32_IMAGE_MAX_ELEMENTS = 2_000_000
 _TENSOR_BATCH_FLOAT32_MIN_ELEMENTS = 20_480
 
@@ -482,40 +486,65 @@ def _centered_numpy_rows(
     return out if out is not None else cast("NDArray[np.float32]", result.reshape(img.shape))
 
 
-def _normalize_float16_single_channel_opencv(
-    img: NDArray[np.float16],
+def _round_to(value: float, layout: struct.Struct) -> float:
+    """Round a Python float to the struct's float16 or float32 format without NumPy scalar overhead."""
+    return cast("float", layout.unpack(layout.pack(value))[0])
+
+
+def _float16_scalar_transform_kernel(
     mean: float | np.ndarray,
     denominator: float | np.ndarray,
-    *,
-    out: NDArray[np.float16] | None = None,
-) -> NDArray[np.float16] | None:
+) -> tuple[NDArray[np.float32], bool] | None:
+    """Return the ``[[denominator, bias]]`` kernel for scalar controls and whether its mean output is zero."""
     if isinstance(mean, np.ndarray):
         if mean.size != 1:
             return None
-        mean_value = float(mean.item())
-    else:
-        mean_value = float(mean)
+        mean = float(mean.item())
     if isinstance(denominator, np.ndarray):
         if denominator.size != 1:
             return None
-        denominator_value = float(denominator.item())
-    else:
-        denominator_value = float(denominator)
-    if (
-        not math.isfinite(mean_value)
-        or abs(mean_value) > _FLOAT32_MAX
-        or not math.isfinite(denominator_value)
-        or abs(denominator_value) > _FLOAT32_MAX
-    ):
+        denominator = float(denominator.item())
+    return _scalar_transform_kernel(float(mean), float(denominator))
+
+
+@lru_cache(maxsize=64)
+def _scalar_transform_kernel(mean: float, denominator: float) -> tuple[NDArray[np.float32], bool] | None:
+    """Build the read-only kernel; caching removes about 1 µs per call that dominates small images.
+
+    A fused multiply-add returns the float32 bias rounding error, not zero, for a pixel equal to the mean.
+    """
+    # Written as ``not <=`` so NaN is rejected together with infinity and float32 overflow.
+    if not (abs(mean) <= _FLOAT32_MAX and abs(denominator) <= _FLOAT32_MAX):
         return None
-    bias = -mean_value * denominator_value
-    if abs(bias) > _FLOAT32_MAX:
+    mean32, denominator32 = _round_to(mean, _FLOAT32_STRUCT), _round_to(denominator, _FLOAT32_STRUCT)
+    # Exact in float64: two 24-bit significands; matches the other routes' float32 control rounding.
+    product = mean32 * denominator32
+    if abs(product) > _FLOAT32_MAX:
         return None
+    bias = -_round_to(product, _FLOAT32_STRUCT)
+    center_exact = bias == -product or abs(mean32) > _FLOAT16_MAX or _round_to(mean32, _FLOAT16_STRUCT) != mean32
+    kernel = np.array([[denominator32, bias]], dtype=np.float32)
+    kernel.flags.writeable = False
+    return kernel, center_exact
+
+
+def _normalize_float16_opencv_transform(
+    img: NDArray[np.float16],
+    kernel: NDArray[np.float32],
+    *,
+    out: NDArray[np.float16] | None = None,
+) -> NDArray[np.float16]:
+    """Apply a scalar affine kernel with one CV16F ``transform`` over a one-channel 2D view.
+
+    The 2D view covers any rank and channel count and drops size-1 axes whose strides OpenCV rejects.
+    ``transform`` never multiplies a second source by zero, so infinite pixels stay infinite.
+    """
+    rows = img.reshape(img.shape[0], -1)
     if out is not None and out.flags.c_contiguous:
-        cv2.addWeighted(img, denominator_value, img, 0.0, bias, dst=out.reshape(-1).reshape(img.shape))
+        cv2.transform(rows, kernel, dst=out.reshape(rows.shape))
         result = out
     else:
-        result = cast("NDArray[np.float16]", cv2.addWeighted(img, denominator_value, img, 0.0, bias).reshape(img.shape))
+        result = cast("NDArray[np.float16]", cv2.transform(rows, kernel).reshape(img.shape))
         if out is not None:
             np.copyto(out, result)
             result = out
@@ -652,6 +681,14 @@ def _normalize_half(
     *,
     out: NDArray[np.float16] | None,
 ) -> NDArray[np.float16]:
+    scalar = _float16_scalar_transform_kernel(mean, denominator)
+    if scalar is not None:
+        kernel, center_exact = scalar
+        if not center_exact:
+            # NumPy subtracts the mean before scaling; the fused OpenCV and Torch kernels do not.
+            return _cast_float_numpy(_centered_numpy(img, mean, denominator), np.float16, out=out)
+        if img.flags.c_contiguous:
+            return _normalize_float16_opencv_transform(img, kernel, out=out)
     half_result = normalize_float16_torch(
         img,
         mean,
@@ -659,8 +696,6 @@ def _normalize_half(
         minimum_elements=_TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS,
         out=out,
     )
-    if half_result is None and img.ndim == 3 and img.shape[-1] == 1 and img.flags.c_contiguous:
-        half_result = _normalize_float16_single_channel_opencv(img, mean, denominator, out=out)
     return (
         half_result
         if half_result is not None

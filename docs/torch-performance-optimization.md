@@ -144,6 +144,17 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
 - For contiguous NumPy HWC float16 normalization, the eager CPU `torch.addcmul` half kernel matched a float32
   input/compute/output round-trip within 0.98–1.01× time across four 480×640 and 768×1024 C=3/9 cases, with bitwise
   identical outputs. The evidence is in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
+  That route now serves channel-vector controls only. Scalar controls passed as 0-D float32 tensors were narrowed to
+  float16 by type promotion ([#248](https://github.com/albumentations-team/albucore/issues/248)); contiguous NumPy
+  float16 input with scalar controls uses one CV16F `transform` call with a `[[denominator, bias]]` kernel over a 2D
+  view at any size, rank, and channel count. `addWeighted` with a zero-weight copy of the image turned infinite pixels
+  into NaN. The controls are rounded to float32 first, like the other routes. When the mean is a float16 value and its
+  float32 product with the denominator is inexact, the fused kernel would return the bias rounding error for a pixel
+  equal to the mean, so those calls use NumPy. On macOS ARM64 with one thread it took 0.12–0.15× the corrected Torch
+  time from 19,491 elements and 0.36–0.42× the NumPy time below 16,384 elements. On Linux x86-64 (GCP n2-standard-8,
+  one thread) it took 0.06–0.10× the previous route time from 12,288 elements, 0.17–0.57× at 192–3,072 elements, and
+  0.91× on the single-channel 256×256 case that already used OpenCV. Caching the kernel per control pair removes about
+  2 µs per call on that machine.
 - For interpolation and sampling, differential-test coordinate conventions, border rules, `align_corners`, rounding, and uint8 restoration. A faster result with shifted samples is not a candidate.
 - For contiguous float16 Tensor `resize(..., INTER_NEAREST)`, use native CPU half
   interpolation from 61,440 elements for NCHW and multi-channel CHW. CHW C=1 keeps
