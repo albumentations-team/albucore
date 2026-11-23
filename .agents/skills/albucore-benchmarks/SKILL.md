@@ -26,8 +26,8 @@ acceptance evidence.
 Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
 performance guide. Benchmark additional thread counts only when the user explicitly requests thread scaling.
 Record enabled backend/ISA flags and verify the intended host profile before acceptance. A sandbox that denies
-`sysctl` can disable NumKong NEON. On macOS ARM64, invoke local benchmark commands through Codex with
-`sandbox_permissions="require_escalated"` and verify `nk.get_capabilities()["neon"]` is true in the same process. The
+`sysctl` can disable NumKong NEON. On macOS ARM64, run local benchmark commands outside the agent sandbox
+(Codex: request escalated permissions; Claude Code: disable the sandbox for that command) and verify `nk.get_capabilities()["neon"]` is true in the same process. The
 router harness rejects this restricted profile by default; `--allow-restricted-isa` is for diagnostics only. Do not
 force NumKong capabilities to make an acceptance run appear native.
 For dtype comparisons, use the same logical inputs and operation controls; choose floating controls exactly

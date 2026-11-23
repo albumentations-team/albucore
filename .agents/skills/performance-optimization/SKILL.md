@@ -17,7 +17,7 @@ for Python 3.11 and the target platform. The current recorded profile uses PyTor
 Linux. Check resolved versions and imported source paths; a newer Python or stale `uv.lock` is not a substitute.
 
 When the sibling AlbumentationsX checkout is available, verify the fallback copy with
-`cmp -s docs/performance-optimization.md ../AlbumentationsX/.codex/skills/performance-optimization/references/performance-optimization.md`.
+`cmp -s docs/performance-optimization.md ../AlbumentationsX/.agents/skills/performance-optimization/references/performance-optimization.md`.
 A mismatch blocks completion.
 
 ## Workflow
