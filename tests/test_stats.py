@@ -828,12 +828,21 @@ def _near_constant_float32(shape: tuple[int, ...]) -> tuple[np.ndarray, float]:
 def test_float32_per_channel_std_keeps_near_constant_variance(shape, keepdims):
     """Issue #249: the result must not depend on keepdims or lose a one-ULP variance."""
     image, expected = _near_constant_float32(shape)
+    original = image.copy()
     std_values = std(image, "per_channel", eps=0, keepdims=keepdims)
     mean_values, mean_std_values = mean_std(image, "per_channel", eps=0, keepdims=keepdims)
+    result_shape = (1,) * (image.ndim - 1) + (shape[-1],) if keepdims else (shape[-1],)
+    for values in (std_values, mean_values, mean_std_values):
+        assert values.shape == result_shape
+        assert values.dtype == np.float64
     for values in (std_values, mean_std_values):
-        np.testing.assert_allclose(np.asarray(values).reshape(-1), expected, rtol=1e-12, atol=0)
+        np.testing.assert_allclose(values.reshape(-1), expected, rtol=1e-12, atol=0)
     expected_mean = image.mean(axis=tuple(range(image.ndim - 1)), dtype=np.float64)
-    np.testing.assert_allclose(np.asarray(mean_values).reshape(-1), expected_mean, rtol=1e-15, atol=0)
+    np.testing.assert_allclose(mean_values.reshape(-1), expected_mean, rtol=1e-15, atol=0)
+    # The additive epsilon lands on the recovered std, not on a cancelled zero.
+    np.testing.assert_allclose(std(image, "per_channel", keepdims=keepdims), std_values + DEFAULT_EPS, rtol=1e-15, atol=0)
+    np.testing.assert_allclose(mean_std(image, "per_channel", keepdims=keepdims)[1], std_values + DEFAULT_EPS, rtol=1e-15, atol=0)
+    np.testing.assert_array_equal(image, original)
 
 
 @pytest.mark.parametrize("value", [0.1, 0.5, 0.7])
