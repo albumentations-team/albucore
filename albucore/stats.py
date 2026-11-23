@@ -28,6 +28,9 @@ _FLOAT32_GLOBAL_STATS_OPENCV_MIN_ELEMENTS = 2
 _FLOAT32_GLOBAL_STATS_RELATIVE_VARIANCE_FLOOR = 1e-4
 # Tiny relative variance makes E[x²] - E[x]² unreliable for float16 and float32 moments.
 _MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-4
+# Float64-accumulated float32 moments cancelled to about 5e-12 relative variance on 262,144 constant elements;
+# this floor keeps a 1000x margin and leaves images whose std is at least 0.01% of the mean on the one-pass path.
+_FLOAT32_MOMENTS_CANCELLATION_FLOOR = 1e-8
 # Host NEON-half NumKong moments reported a 1.68e-4 relative variance for constant 0.575 inputs.
 _NUMKONG_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-2
 _NUMKONG_FLOAT16_HWC_STATS_MIN_ELEMENTS = 20_480
@@ -515,10 +518,16 @@ def _mean_std_per_channel_float32(arr: NDArray[np.float32], eps: float) -> tuple
     c = arr.shape[-1]
     if arr.ndim == 3 and 1 < c <= MAX_OPENCV_WORKING_CHANNELS:
         means, stds = cv2.meanStdDev(arr)
-        mean_values = np.asarray(means[:, 0], dtype=np.float64)
-        std_values = np.asarray(stds[:, 0], dtype=np.float64)
-        if np.any(np.square(std_values) <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean_values)):
-            return _mean_std_per_channel_float64(arr, eps)
+        mean_values, std_values = means[:, 0], stds[:, 0]
+        # All-zero channels have exact moments; a nonzero mean with tiny variance may be cancellation.
+        if any(
+            mean != 0 and std * std <= _FLOAT32_MOMENTS_CANCELLATION_FLOOR * mean * mean
+            for mean, std in zip(mean_values.tolist(), std_values.tolist(), strict=True)
+        ):
+            # Variance ignores the shift, and near-constant pixels minus a nearby float32 mean subtract exactly.
+            shift = mean_values.astype(np.float32).tolist()
+            offsets, centered_stds = cv2.meanStdDev(cv2.subtract(arr, (*shift, *(0.0,) * (4 - c))))
+            mean_values, std_values = mean_values + offsets[:, 0], centered_stds[:, 0]
         return mean_values, std_values + eps
 
     n = arr.size // c
@@ -552,15 +561,30 @@ def _mean_std_per_channel_numkong(
     n = arr.size // c
     means = np.empty(c, dtype=np.float64)
     stds = np.empty(c, dtype=np.float64)
+    # Integer moments are exact; floating E[x²] - E[x]² cancels near constant input.
+    if arr.dtype == np.float16:
+        floor: float | None = _NUMKONG_MOMENTS_RELATIVE_VARIANCE_FLOOR
+    elif arr.dtype == np.float32:
+        floor = _FLOAT32_MOMENTS_CANCELLATION_FLOOR
+    else:
+        floor = None
     for channel in range(c):
         channel_values = arr[..., channel]
         s_sum, s_sq = nk.moments(channel_values)
         mean_value = float(s_sum) / n
         var = max(float(s_sq) / n - mean_value * mean_value, 0.0)
-        near_constant = var <= _NUMKONG_MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
-        if arr.dtype == np.float16 and near_constant:
-            mean_value = float(np.mean(channel_values, dtype=np.float64))
-            var = float(np.var(channel_values, dtype=np.float64))
+        # A zero sum of squares means an all-zero channel, whose moments are exact.
+        if floor is not None and float(s_sq) != 0 and var <= floor * mean_value * mean_value:
+            if arr.dtype == np.float32:
+                # Variance ignores the shift, and near-constant pixels minus a nearby float32 mean subtract exactly.
+                shift = np.float32(mean_value)
+                offset_sum, offset_sq = nk.moments(np.subtract(channel_values, shift))
+                offset = float(offset_sum) / n
+                mean_value = float(shift) + offset
+                var = max(float(offset_sq) / n - offset * offset, 0.0)
+            else:
+                mean_value = float(np.mean(channel_values, dtype=np.float64))
+                var = float(np.var(channel_values, dtype=np.float64))
         means[channel] = mean_value
         stds[channel] = np.sqrt(var) + eps
     return means, stds
@@ -866,10 +890,7 @@ def _mean_std_per_channel(
         return mean_values, std_values
 
     if arr.ndim == 3 and not keepdims and axes == spatial_axes and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
-        mean, std = cv2.meanStdDev(arr)
-        m = mean[:, 0].astype(np.float64, copy=False)
-        st = (std[:, 0] + eps).astype(np.float64, copy=False)
-        return m, st
+        return _mean_std_per_channel_float32(cast("NDArray[np.float32]", arr), eps)
 
     m = arr.mean(axis=axes, dtype=np.float64, keepdims=keepdims)
     st = arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps
@@ -975,8 +996,7 @@ def _std_per_channel(
         and axes == spatial_axes
         and 1 < c <= MAX_OPENCV_WORKING_CHANNELS
     ):
-        _, std = cv2.meanStdDev(arr)
-        return np.asarray(std[:, 0] + eps, dtype=np.float64)
+        return _mean_std_per_channel_float32(arr, eps)[1]
     if axes == spatial_axes and not keepdims:
         _, std = _mean_std_per_channel_numkong(arr, eps)
         return std
@@ -1085,8 +1105,10 @@ def mean_std(
       can lose low-order precision and drop subnormals.
     - **per-channel uint8 and float16 C > 4**: NumKong moments per channel, with a stable two-pass fallback for
       near-constant half data.
-    - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``.
-    - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel.
+    - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``; near-constant channels repeat it on
+      mean-centered pixels.
+    - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel; near-constant
+      channels repeat it on mean-centered pixels.
     - **uint8 per-channel with keepdims**: the same NumKong integer moments as ``keepdims=False``.
     - **other explicit axes / keepdims**: NumPy-compatible ``mean``/``std``.
 
@@ -1387,8 +1409,10 @@ def std(
     - **float32 global**: OpenCV ``meanStdDev`` on contiguous inputs from two elements on Linux x86-64 and macOS ARM64;
       low-variance and non-finite inputs use NumPy float64 reductions.
     - **per-channel uint8**: one NumKong ``moments`` call per channel.
-    - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``.
-    - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel.
+    - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``; near-constant channels repeat it on
+      mean-centered pixels.
+    - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel; near-constant
+      channels repeat it on mean-centered pixels.
     - **per-channel float16 HWC, C ≤ 4**: widen to float32 before ``cv2.meanStdDev``.
     - **uint8 per-channel with keepdims**: the same NumKong integer moments as ``keepdims=False``.
     - **other explicit axes / keepdims**: ``arr.std(dtype=float64)``.

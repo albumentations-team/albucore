@@ -812,3 +812,33 @@ def test_uint8_per_channel_keepdims_matches_flat_statistics(shape: tuple[int, ..
     np.testing.assert_array_equal(std_keep.reshape(-1), std_flat)
     np.testing.assert_array_equal(std(image, "per_channel", keepdims=True, eps=1e-4).reshape(-1), std_flat)
     np.testing.assert_allclose(std_flat, image.reshape(-1, shape[-1]).std(axis=0, dtype=np.float64) + 1e-4, rtol=1e-10)
+
+
+def _near_constant_float32(shape: tuple[int, ...]) -> tuple[np.ndarray, float]:
+    """Return 0.5 everywhere except one larger-by-one-ULP pixel per channel, and its population std."""
+    image = np.full(shape, 0.5, dtype=np.float32)
+    image.reshape(-1, shape[-1])[0] = np.nextafter(np.float32(0.5), np.float32(1.0))
+    n = image.size // shape[-1]
+    delta = float(np.nextafter(np.float32(0.5), np.float32(1.0))) - 0.5
+    return image, delta * np.sqrt(n - 1) / n
+
+
+@pytest.mark.parametrize("shape", [(1, 127, 3), (1, 128, 3), (1, 129, 2), (1, 128, 4), (1, 128, 1), (1, 128, 5), (2, 1, 64, 3)])
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_float32_per_channel_std_keeps_near_constant_variance(shape, keepdims):
+    """Issue #249: the result must not depend on keepdims or lose a one-ULP variance."""
+    image, expected = _near_constant_float32(shape)
+    std_values = std(image, "per_channel", eps=0, keepdims=keepdims)
+    mean_values, mean_std_values = mean_std(image, "per_channel", eps=0, keepdims=keepdims)
+    for values in (std_values, mean_std_values):
+        np.testing.assert_allclose(np.asarray(values).reshape(-1), expected, rtol=1e-12, atol=0)
+    np.testing.assert_allclose(np.asarray(mean_values).reshape(-1), image.mean(axis=tuple(range(image.ndim - 1)), dtype=np.float64))
+
+
+@pytest.mark.parametrize("value", [0.1, 0.5, 0.7])
+@pytest.mark.parametrize("channels", [1, 3, 5])
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_float32_per_channel_std_is_zero_for_constant_image(value, channels, keepdims):
+    image = np.full((512, 512, channels), value, dtype=np.float32)
+    np.testing.assert_array_equal(std(image, "per_channel", eps=0, keepdims=keepdims), 0)
+    np.testing.assert_array_equal(mean_std(image, "per_channel", eps=0, keepdims=keepdims)[1], 0)
