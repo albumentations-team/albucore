@@ -1051,10 +1051,17 @@ def test_agent_skill_check_passes() -> None:
     assert check_agent_skills.find_problems(check_agent_skills.REPO_ROOT) == []
 
 
-def _write_skill(root: Path, name: str, frontmatter_name: str) -> None:
+def _write_skill(root: Path, name: str, frontmatter_name: str, description: str = "Does a thing. Use when X.") -> None:
     skill = root / ".agents" / "skills" / name
     skill.mkdir(parents=True)
-    (skill / "SKILL.md").write_text(f"---\nname: {frontmatter_name}\ndescription: Does a thing. Use when X.\n---\n")
+    (skill / "SKILL.md").write_text(f"---\nname: {frontmatter_name}\ndescription: {description}\n---\n")
+
+
+def _symlink(link: Path, target: str) -> None:
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("Creating symlinks is unavailable")
 
 
 def test_agent_skill_check_reports_missing_wrong_and_stale_links(tmp_path) -> None:
@@ -1063,9 +1070,9 @@ def test_agent_skill_check_reports_missing_wrong_and_stale_links(tmp_path) -> No
     _write_skill(tmp_path, "renamed", "old-name")
     links = tmp_path / ".claude" / "skills"
     links.mkdir(parents=True)
-    (links / "linked").symlink_to("../../.agents/skills/linked")
-    (links / "renamed").symlink_to("../../.agents/skills/linked")
-    (links / "deleted").symlink_to("../../.agents/skills/deleted")
+    _symlink(links / "linked", "../../.agents/skills/linked")
+    _symlink(links / "renamed", "../../.agents/skills/linked")
+    _symlink(links / "deleted", "../../.agents/skills/deleted")
 
     problems = check_agent_skills.find_problems(tmp_path)
 
@@ -1081,6 +1088,27 @@ def test_agent_skill_check_accepts_plain_file_links_from_checkouts_without_symli
     _write_skill(tmp_path, "linked", "linked")
     links = tmp_path / ".claude" / "skills"
     links.mkdir(parents=True)
-    (links / "linked").write_text("../../.agents/skills/linked")
+    (links / "linked").write_text("../../.agents/skills/linked\n")
 
     assert check_agent_skills.find_problems(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("frontmatter_name", "description", "expected"),
+    [
+        ('"linked"', "Does a thing.", []),
+        ("linked", '""', ["linked: description must be a 1-1024 character string, got 0"]),
+        ("linked", ">\n  " + "x " * 600, ["linked: description must be a 1-1024 character string, got 1200"]),
+    ],
+)
+def test_agent_skill_check_decodes_yaml_frontmatter(tmp_path, frontmatter_name, description, expected) -> None:
+    _write_skill(tmp_path, "linked", frontmatter_name, description)
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    assert check_agent_skills.find_problems(tmp_path) == expected
+
+
+def test_agent_skill_check_reports_missing_skills_directory(tmp_path) -> None:
+    assert check_agent_skills.find_problems(tmp_path) == [".agents/skills: directory is missing"]

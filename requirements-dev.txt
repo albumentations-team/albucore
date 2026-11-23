@@ -5,4 +5,5 @@ pre_commit>=4.7.0
 pytest>=9.0.3
 pytest_cov>=7.1.0
 pytest_mock>=3.17.0
+pyyaml>=6.0.3
 types-setuptools

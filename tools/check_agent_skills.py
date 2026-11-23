@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MAX_NAME_CHARS = 64
@@ -12,16 +15,15 @@ MAX_DESCRIPTION_CHARS = 1024
 NAME_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
-def _frontmatter(text: str) -> dict[str, str]:
-    match = re.match(r"---\n(.*?)\n---\n", text, re.DOTALL)
+def _frontmatter(text: str) -> dict[str, Any]:
+    match = re.match(r"---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", text, re.DOTALL)
     if match is None:
         return {}
-    fields = {}
-    for line in match.group(1).splitlines():
-        key, sep, value = line.partition(":")
-        if sep:
-            fields[key.strip()] = value.strip()
-    return fields
+    try:
+        fields = yaml.safe_load(match.group(1))
+    except yaml.YAMLError:
+        return {}
+    return fields if isinstance(fields, dict) else {}
 
 
 def _link_target(link: Path) -> str | None:
@@ -29,13 +31,15 @@ def _link_target(link: Path) -> str | None:
     if link.is_symlink():
         return link.readlink().as_posix()
     if link.is_file():
-        return link.read_text(encoding="utf-8")
+        return link.read_text(encoding="utf-8").rstrip("\r\n")
     return None
 
 
 def find_problems(root: Path) -> list[str]:
     skills_dir = root / ".agents" / "skills"
     links_dir = root / ".claude" / "skills"
+    if not skills_dir.is_dir():
+        return [f"{skills_dir.relative_to(root)}: directory is missing"]
     problems = []
     names = sorted(path.name for path in skills_dir.iterdir() if path.is_dir())
     for name in names:
@@ -48,9 +52,10 @@ def find_problems(root: Path) -> list[str]:
             problems.append(f"{skill_md.relative_to(root)}: name must equal directory name {name!r}")
         if len(name) > MAX_NAME_CHARS or NAME_PATTERN.fullmatch(name) is None:
             problems.append(f"{name}: name must be lowercase-hyphen and at most {MAX_NAME_CHARS} characters")
-        description = fields.get("description", "")
-        if not description or len(description) > MAX_DESCRIPTION_CHARS:
-            problems.append(f"{name}: description must be 1-{MAX_DESCRIPTION_CHARS} characters, got {len(description)}")
+        description = fields.get("description")
+        if not isinstance(description, str) or not description.strip() or len(description) > MAX_DESCRIPTION_CHARS:
+            size = len(description) if isinstance(description, str) else 0
+            problems.append(f"{name}: description must be a 1-{MAX_DESCRIPTION_CHARS} character string, got {size}")
 
         link = links_dir / name
         expected = f"../../.agents/skills/{name}"
