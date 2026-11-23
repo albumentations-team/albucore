@@ -9,12 +9,12 @@ from albucore.arithmetic import (
     _scale_numkong,
 )
 from albucore.elementwise import _numpy_unary
-from albucore.normalize import _affine_numpy
+from albucore.normalize import _centered_numpy
 from albucore.weighted import _blend_numkong, _blend_numpy, _blend_opencv
 
 
 def check_half(image: NDArray[np.float16]) -> None:
-    assert_type(_affine_numpy(image, 0.5, 2.0), NDArray[np.float32])
+    assert_type(_centered_numpy(image, 0.5, 2.0), NDArray[np.float32])
     assert_type(_blend_numpy(image, 0.5, image, 0.5), NDArray[np.float32])
     assert_type(_blend_opencv(image, 0.5, image, 0.5), NDArray[np.float16])
     assert_type(_blend_numkong(image, 0.5, image, 0.5), NDArray[np.float16])

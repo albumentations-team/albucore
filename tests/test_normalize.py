@@ -125,6 +125,68 @@ def test_normalize_preserves_original_image(dtype, shape):
     np.testing.assert_array_equal(image, original)
 
 
+def _float32_centered_reference(image: np.ndarray, mean, denominator) -> np.ndarray:
+    """Subtract first in float64 from the stored float32 values, then scale and round once."""
+    mean64 = np.asarray(mean, dtype=np.float32).astype(np.float64)
+    denominator64 = np.asarray(denominator, dtype=np.float32).astype(np.float64)
+    return ((image.astype(np.float64) - mean64) * denominator64).astype(np.float32)
+
+
+@pytest.mark.parametrize("width", [262143, 262144, 262145])
+@pytest.mark.parametrize("vector_controls", [False, True])
+@pytest.mark.parametrize("output_mode", ["allocate", "output", "alias"])
+def test_normalize_float32_center_is_zero(width, vector_controls, output_mode):
+    """Issue #247: a pixel equal to the mean must normalize to exact zero on every route."""
+    image = np.full((1, width, 2), 0.7, dtype=np.float32)
+    mean, denominator = float(image.flat[0]), 1_000_000.0
+    if vector_controls:
+        mean, denominator = np.full(2, mean, np.float32), np.full(2, denominator, np.float32)
+    out = {"allocate": None, "output": np.empty_like(image), "alias": image}[output_mode]
+    result = normalize(image, mean, denominator, out=out)
+    if out is not None:
+        assert result is out
+    np.testing.assert_array_equal(result, 0)
+
+
+@pytest.mark.parametrize("shape", [(1, 174762, 3), (1, 174763, 3), (4, 64, 64, 1), (2, 32, 32, 5), (17, 19, 4)])
+def test_normalize_float32_adjacent_values_match_centered_reference(shape):
+    mean = np.float32(0.7)
+    neighbors = np.array([np.nextafter(mean, np.float32(-1)), mean, np.nextafter(mean, np.float32(2))], np.float32)
+    image = np.resize(neighbors, int(np.prod(shape))).reshape(shape)
+    result = normalize(image, float(mean), 1_000_000.0)
+    np.testing.assert_allclose(result, _float32_centered_reference(image, mean, 1_000_000.0), rtol=4 * np.finfo(np.float32).eps, atol=0)
+    np.testing.assert_array_equal(result[image == mean], 0)
+
+
+@pytest.mark.parametrize("shape", [(99, 101, 3), (512, 512, 3), (8, 32, 32, 3), (64, 64, 1), (64, 64, 4), (64, 64, 9)])
+@pytest.mark.parametrize("vector_controls", [False, True])
+@pytest.mark.parametrize("output_mode", ["allocate", "output", "strided", "alias"])
+def test_normalize_float32_matches_centered_float32(shape, vector_controls, output_mode):
+    rng = np.random.default_rng(7)
+    image = rng.random(shape, dtype=np.float32)
+    channels = shape[-1]
+    if vector_controls:
+        mean = np.resize(np.array([0.485, 0.456, 0.406], np.float32), channels)
+        denominator = np.resize(np.array([1 / 0.229, 1 / 0.224, 1 / 0.225], np.float32), channels)
+    else:
+        mean, denominator = 0.45, 4.4
+    expected = (image - np.asarray(mean, np.float32)) * np.asarray(denominator, np.float32)
+    original = image.copy()
+    if output_mode == "strided":
+        storage = np.full((*shape[:-1], channels * 2), 137, np.float32)
+        out = storage[..., ::2]
+    else:
+        out = {"allocate": None, "output": np.empty_like(image), "alias": image}[output_mode]
+    result = normalize(image, mean, denominator, out=out)
+    np.testing.assert_array_equal(result, expected)
+    if out is not None:
+        assert result is out
+    if output_mode == "strided":
+        np.testing.assert_array_equal(storage[..., 1::2], 137)
+    if output_mode != "alias":
+        np.testing.assert_array_equal(image, original)
+
+
 @pytest.mark.parametrize("width", [8191, 8192, 8193])
 @pytest.mark.parametrize("denominator", [5.0, 1000.0, 100000.0])
 @pytest.mark.parametrize("vector_controls", [False, True])

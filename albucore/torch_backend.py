@@ -216,33 +216,6 @@ def multiply_add_float32_torch(
     return cast("NDArray[np.float32]", result)
 
 
-def normalize_float32_torch(
-    img: NDArray[np.float32],
-    mean: float | np.ndarray,
-    denominator: float | np.ndarray,
-    *,
-    out: NDArray[np.float32] | None = None,
-) -> NDArray[np.float32] | None:
-    """Compute ``img * denominator - mean * denominator`` for multi-channel float32 input."""
-    if img.dtype != np.float32 or img.shape[-1] <= 1 or not _is_torch_compatible_array(img):
-        return None
-    mean_tensor = _parameter_tensor(mean, img.ndim, img.shape[-1])
-    denominator_tensor = _parameter_tensor(denominator, img.ndim, img.shape[-1])
-    if out is not None and all(stride >= 0 for stride in out.strides):
-        torch.addcmul(
-            -mean_tensor * denominator_tensor,
-            torch.from_numpy(img),
-            denominator_tensor,
-            out=torch.from_numpy(out),
-        )
-        return out
-    result = torch.addcmul(-mean_tensor * denominator_tensor, torch.from_numpy(img), denominator_tensor)
-    if out is not None:
-        np.copyto(out, result.numpy())
-        return out
-    return cast("NDArray[np.float32]", result.numpy())
-
-
 def normalize_float16_torch(
     img: NDArray[np.float16],
     mean: float | np.ndarray,

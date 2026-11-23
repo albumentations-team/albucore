@@ -93,33 +93,6 @@ def test_multiply_add_scalar_torch_matches_current_float32_contract(
     assert result.dtype == np.float32
 
 
-@pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
-def test_multichannel_normalize_torch_matches_numpy_and_bypasses_fallback(
-    monkeypatch: pytest.MonkeyPatch,
-    layout: str,
-) -> None:
-    _enable_torch(monkeypatch)
-    source = np.linspace(-1.0, 2.0, num=180, dtype=np.float32).reshape(3, 20, 3)
-    image = {
-        "contiguous": source,
-        "fortran": np.asfortranarray(source),
-        "strided": _strided(np.repeat(source, 2, axis=1)),
-    }[layout]
-    mean = np.array([0.2, 0.3, 0.4], dtype=np.float32)
-    denominator = np.array([1.1, 1.3, 1.7], dtype=np.float32)
-    expected = image * denominator - mean * denominator
-
-    def fail_numpy(*args: object, **kwargs: object) -> np.ndarray:
-        msg = "Large Torch-compatible multi-channel float32 input should not reach _affine_numpy."
-        raise AssertionError(msg)
-
-    monkeypatch.setattr(import_module("albucore.normalize"), "_affine_numpy", fail_numpy)
-    result = normalize(image, mean, denominator)
-
-    np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-7)
-    assert result.dtype == np.float32
-
-
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
 def test_reduce_sum_torch_is_exact_for_global_and_per_channel(
