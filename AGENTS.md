@@ -1,6 +1,6 @@
-# Codex AI Development Guidelines for Albucore
+# AI Agent Development Guidelines for Albucore
 
-This document provides guidelines and conventions for AI assistants (particularly Codex) when working on the Albucore codebase.
+This document provides guidelines and conventions for AI coding agents (Codex, Claude Code) when working on the Albucore codebase.
 
 ## Project Overview
 
@@ -33,9 +33,11 @@ Please familiarize yourself with these key documents:
 
 5. **[NumKong Performance](docs/numkong-performance.md)** - NumKong vs OpenCV/NumPy/LUT benchmark tables and methodology
 
-## Repo-Local Codex Skills
+## Repo-Local Agent Skills
 
-Repo-specific Codex skills live in `.codex/skills/`:
+Repo-specific skills live in `.agents/skills/`, which Codex reads natively. Claude Code reads them through
+per-skill symlinks `.claude/skills/<name>` -> `../../.agents/skills/<name>`; when adding, renaming, or deleting a
+skill, update its symlink in the same change:
 
 - `albucore-conventions` - Apply when implementing or reviewing image-processing code, tests, shape handling, dtype handling, and backend routing.
 - `albucore-benchmarks` - Apply when adding benchmarks, comparing versions, or documenting benchmark workflow.
@@ -101,8 +103,8 @@ Never infer `NCHW` versus `CDHW` from rank or axis sizes.
 
 - **Choose implementations ONLY based on benchmark results.** No conventions. If LUT is slower for a given case, use something else.
 - Always benchmark when adding new implementations or changing routing
-- For local macOS ARM64 benchmarks that depend on NumKong, run the process outside the Codex sandbox with
-  `sandbox_permissions="require_escalated"`; verify the NumKong `neon` capability before accepting results. Never force
+- For local macOS ARM64 benchmarks that depend on NumKong, run the process outside the agent sandbox (Codex:
+  request escalated permissions; Claude Code: disable the sandbox for that command); verify the NumKong `neon` capability before accepting results. Never force
   backend flags to conceal a failed hardware probe.
 - OpenCV, NumPy, LUT — pick whichever is fastest for the target dtype/shape
 
@@ -281,7 +283,7 @@ When implementing a new function, consider:
 - Tests: `tests/`
 - Benchmarks: `./benchmark.sh` (dataset I/O); Python micro-benchmarks: [`benchmarks/README.md`](benchmarks/README.md)
 - Public API: `docs/public-api.md`
-- Repo-local skills: `.codex/skills/`
+- Repo-local skills: `.agents/skills/` (Claude Code symlinks in `.claude/skills/`)
 
 ## Getting Help
 

@@ -219,7 +219,8 @@ jobs:
             "opencv-python-headless>=5.1.0.95" \
             hypothesis \
             pytest \
-            pytest-randomly
+            pytest-randomly \
+            "pyyaml>=6.0.3"
 
       - name: Check public router contracts
         run: python tools/check_router_contracts.py

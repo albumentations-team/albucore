@@ -1,0 +1,42 @@
+[
+  {
+    "id": "trigger-1",
+    "prompt": "Запусти бенчмарк роутеров и сравни с прошлой версией albucore на PyPI.",
+    "expected_output": "loads albucore-benchmarks",
+    "assertions": [
+      "skill albucore-benchmarks is selected"
+    ]
+  },
+  {
+    "id": "trigger-2",
+    "prompt": "Add a benchmark script for median_blur with a 9-channel case.",
+    "expected_output": "loads albucore-benchmarks",
+    "assertions": [
+      "skill albucore-benchmarks is selected"
+    ]
+  },
+  {
+    "id": "trigger-3",
+    "prompt": "What shape grid should a new resize3d benchmark use?",
+    "expected_output": "loads albucore-benchmarks",
+    "assertions": [
+      "skill albucore-benchmarks is selected"
+    ]
+  },
+  {
+    "id": "near-miss-1",
+    "prompt": "Why does test_normalize fail on float16?",
+    "expected_output": "does not load albucore-benchmarks",
+    "assertions": [
+      "skill albucore-benchmarks is not selected"
+    ]
+  },
+  {
+    "id": "near-miss-2",
+    "prompt": "Rename the add_weighted parameter in the docstring.",
+    "expected_output": "does not load albucore-benchmarks",
+    "assertions": [
+      "skill albucore-benchmarks is not selected"
+    ]
+  }
+]

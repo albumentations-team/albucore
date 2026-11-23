@@ -13,6 +13,7 @@ import pytest
 from benchmarks.shape_grids import parse_dhwc_shape
 from tests.router_contracts import ROUTER_CONTRACTS
 from tools import (
+    check_agent_skills,
     check_benchmark_regressions,
     check_router_contracts,
     ci_matrix,
@@ -1044,3 +1045,118 @@ def test_golden_vector_verify_checks_computed_dtype(tmp_path, monkeypatch) -> No
     errors = verify_golden_vectors.verify()
 
     assert any("dtype_case.result.computed: metadata dtype mismatch" in error for error in errors)
+
+
+def test_agent_skill_check_passes() -> None:
+    assert check_agent_skills.find_problems(check_agent_skills.REPO_ROOT) == []
+
+
+def _write_skill(root: Path, name: str, frontmatter_name: str, description: str = "Does a thing. Use when X.") -> None:
+    skill = root / ".agents" / "skills" / name
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(f"---\nname: {frontmatter_name}\ndescription: {description}\n---\n")
+
+
+def _symlink(link: Path, target: str) -> None:
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("Creating symlinks is unavailable")
+
+
+def test_agent_skill_check_reports_missing_wrong_and_stale_links(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    _write_skill(tmp_path, "unlinked", "unlinked")
+    _write_skill(tmp_path, "renamed", "old-name")
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    _symlink(links / "linked", "../../.agents/skills/linked")
+    _symlink(links / "renamed", "../../.agents/skills/linked")
+    _symlink(links / "deleted", "../../.agents/skills/deleted")
+
+    problems = check_agent_skills.find_problems(tmp_path)
+
+    assert problems == [
+        ".agents/skills/renamed/SKILL.md: name must equal directory name 'renamed'",
+        ".claude/skills/renamed: must be a symlink to ../../.agents/skills/renamed",
+        ".claude/skills/unlinked: must be a symlink to ../../.agents/skills/unlinked",
+        ".claude/skills/deleted: no matching skill in .agents/skills",
+    ]
+
+
+def test_agent_skill_check_accepts_plain_file_links_from_checkouts_without_symlinks(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked\n")
+
+    assert check_agent_skills.find_problems(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("frontmatter_name", "description", "expected"),
+    [
+        ('"linked"', "Does a thing.", []),
+        ("linked", '""', ["linked: description must be a 1-1024 character string, got 0"]),
+        ("linked", ">\n  " + "x " * 600, ["linked: description must be a 1-1024 character string, got 1200"]),
+    ],
+)
+def test_agent_skill_check_decodes_yaml_frontmatter(tmp_path, frontmatter_name, description, expected) -> None:
+    _write_skill(tmp_path, "linked", frontmatter_name, description)
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    assert check_agent_skills.find_problems(tmp_path) == expected
+
+
+def test_agent_skill_check_reports_missing_skills_directory(tmp_path) -> None:
+    assert check_agent_skills.find_problems(tmp_path) == [".agents/skills: directory is missing"]
+
+
+def test_agent_skill_check_ignores_hidden_entries(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    (tmp_path / ".agents" / "skills" / ".mypy_cache").mkdir()
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+    (links / ".DS_Store").write_bytes(b"\x00")
+
+    assert check_agent_skills.find_problems(tmp_path) == []
+
+
+def test_agent_skill_check_accepts_frontmatter_at_end_of_file(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    skill_md = tmp_path / ".agents" / "skills" / "linked" / "SKILL.md"
+    skill_md.write_text(skill_md.read_text().rstrip("\n"))
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    assert check_agent_skills.find_problems(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ('[{"id": "trigger-1", "prompt": "Run it."}]', []),
+        ("[", ["invalid JSON"]),
+        ("[]", ["must be a non-empty list of cases"]),
+        ('[{"id": "trigger-1"}]', ["case 0 needs string 'id' and 'prompt'"]),
+    ],
+)
+def test_agent_skill_check_validates_optional_evals(tmp_path, content, expected) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    evals = tmp_path / ".agents" / "skills" / "linked" / "evals"
+    evals.mkdir()
+    (evals / "evals.json").write_text(content)
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    problems = check_agent_skills.find_problems(tmp_path)
+
+    assert len(problems) == len(expected)
+    for problem, fragment in zip(problems, expected, strict=True):
+        assert problem.startswith(".agents/skills/linked/evals/evals.json: ")
+        assert fragment in problem

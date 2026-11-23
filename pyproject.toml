@@ -193,4 +193,5 @@ dev = [
     "packaging>=25.0",
     "pytest>=9.1.1",
     "pytest-randomly>=4.1.0",
+    "pyyaml>=6.0.3",
 ]

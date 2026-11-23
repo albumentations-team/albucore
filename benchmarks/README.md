@@ -13,7 +13,7 @@ performance, and memory acceptance uses the latest Python 3.11-compatible depend
 [`docs/performance-optimization.md`](../docs/performance-optimization.md). Verify installed versions and imported
 source paths before recording results; a test run from a stale lock or virtual environment does not satisfy that gate.
 
-On macOS ARM64, run NumKong benchmarks outside the Codex sandbox so `sysctl` feature detection succeeds. The router
+On macOS ARM64, run NumKong benchmarks outside the agent sandbox (Codex: request escalated permissions; Claude Code: disable the sandbox for that command) so `sysctl` feature detection succeeds. The router
 benchmark refuses to time by default when NumKong reports `neon=false`; `--allow-restricted-isa` produces diagnostic-only
 results whose JSON metadata records the restricted mode. Do not use capability overrides to make those results look native.
 

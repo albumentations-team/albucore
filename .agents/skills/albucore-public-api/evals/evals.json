@@ -1,0 +1,42 @@
+[
+  {
+    "id": "trigger-1",
+    "prompt": "Добавь новую операцию invert в публичный API albucore.",
+    "expected_output": "loads albucore-public-api",
+    "assertions": [
+      "skill albucore-public-api is selected"
+    ]
+  },
+  {
+    "id": "trigger-2",
+    "prompt": "Should this helper be exported in albucore/__init__.py __all__?",
+    "expected_output": "loads albucore-public-api",
+    "assertions": [
+      "skill albucore-public-api is selected"
+    ]
+  },
+  {
+    "id": "trigger-3",
+    "prompt": "I'm changing the out= contract of multiply_add; what must I update?",
+    "expected_output": "loads albucore-public-api",
+    "assertions": [
+      "skill albucore-public-api is selected"
+    ]
+  },
+  {
+    "id": "near-miss-1",
+    "prompt": "Make clip faster for float16 HWC inputs.",
+    "expected_output": "does not load albucore-public-api",
+    "assertions": [
+      "skill albucore-public-api is not selected"
+    ]
+  },
+  {
+    "id": "near-miss-2",
+    "prompt": "Benchmark warp_affine on 9 channels.",
+    "expected_output": "does not load albucore-public-api",
+    "assertions": [
+      "skill albucore-public-api is not selected"
+    ]
+  }
+]
