@@ -149,7 +149,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   float16 input with scalar controls uses one CV16F `addWeighted` call over a 2D view at any size, rank, and channel
   count. On macOS ARM64 with one thread it took 0.12–0.15× the corrected Torch time from 19,491 elements and
   0.36–0.42× the NumPy time below 16,384 elements. On Linux x86-64 (GCP n2-standard-8, one thread) it took
-  0.06–0.11× the previous route time from 4,096 elements and 0.17–0.53× below that.
+  0.06–0.11× the previous route time from 12,288 elements and 0.17–0.53× at 192–3,072 elements.
 - For interpolation and sampling, differential-test coordinate conventions, border rules, `align_corners`, rounding, and uint8 restoration. A faster result with shifted samples is not a candidate.
 - For contiguous float16 Tensor `resize(..., INTER_NEAREST)`, use native CPU half
   interpolation from 61,440 elements for NCHW and multi-channel CHW. CHW C=1 keeps
