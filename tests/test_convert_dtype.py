@@ -24,7 +24,9 @@ def generate_img(dtype: type[np.uint8 | np.float16 | np.float32], channels: int,
 @pytest.mark.parametrize("batch", BATCHES)
 @pytest.mark.parametrize("max_value", [None, 128.0, 17.3])
 @pytest.mark.parametrize("container", ["numpy", "tensor"])
-def test_convert_dtype_reference_and_input_preservation(source_dtype, target_dtype, channels, batch, max_value, container):
+def test_convert_dtype_reference_and_input_preservation(
+    source_dtype, target_dtype, channels, batch, max_value, container
+):
     source = generate_img(source_dtype, channels, batch)
     original = source.copy()
     scale = np.float32(255 if max_value is None else max_value)
@@ -142,7 +144,8 @@ def test_large_float16_to_uint8_preserves_float32_rounding_edges() -> None:
 @pytest.mark.parametrize("max_value", [128.0, 255.0])
 def test_convert_dtype_uint8_saturates_nonfinite_and_rounding_edges(layout, max_value):
     source = np.array(
-        [[[-np.inf], [-0.5 / 255], [0.5 / 255], [1.5 / 255], [1.2], [np.inf], [np.nan]]], dtype=np.float32,
+        [[[-np.inf], [-0.5 / 255], [0.5 / 255], [1.5 / 255], [1.2], [np.inf], [np.nan]]],
+        dtype=np.float32,
     )
     source = np.broadcast_to(source, (2, 7, 3)).copy()
     image = {
@@ -160,3 +163,29 @@ def test_convert_dtype_uint8_saturates_nonfinite_and_rounding_edges(layout, max_
 def test_uint8_roundtrip(channels, batch):
     image = generate_img(np.uint8, channels, batch)
     np.testing.assert_array_equal(convert_dtype(convert_dtype(image, np.float32), np.uint8), image)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("layout", ["contiguous", "row_strided", "negative_stride", "readonly"])
+@pytest.mark.parametrize("strided_out", [False, True])
+def test_float_to_uint8_opencv_route_matches_reference(dtype, layout, strided_out):
+    rng = np.random.default_rng(0)
+    base = rng.uniform(-0.2, 1.2, (12, 10, 7)).astype(dtype)
+    image = {
+        "contiguous": base,
+        "row_strided": base[::2],
+        "negative_stride": base[::-1],
+        "readonly": base,
+    }[layout]
+    if layout == "readonly":
+        image = image.copy()
+        image.flags.writeable = False
+    expected = np.clip(np.rint(image.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)
+
+    result = convert_dtype(image, np.uint8)
+    np.testing.assert_array_equal(result, expected)
+
+    storage = np.empty((*expected.shape[:-1], expected.shape[-1] * 2), dtype=np.uint8)
+    output = storage[..., ::2] if strided_out else np.empty_like(expected)
+    assert convert_dtype(image, np.uint8, out=output) is output
+    np.testing.assert_array_equal(output, expected)
