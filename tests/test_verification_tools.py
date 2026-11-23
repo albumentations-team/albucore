@@ -13,6 +13,7 @@ import pytest
 from benchmarks.shape_grids import parse_dhwc_shape
 from tests.router_contracts import ROUTER_CONTRACTS
 from tools import (
+    check_agent_skills,
     check_benchmark_regressions,
     check_router_contracts,
     ci_matrix,
@@ -1044,3 +1045,33 @@ def test_golden_vector_verify_checks_computed_dtype(tmp_path, monkeypatch) -> No
     errors = verify_golden_vectors.verify()
 
     assert any("dtype_case.result.computed: metadata dtype mismatch" in error for error in errors)
+
+
+def test_agent_skill_check_passes() -> None:
+    assert check_agent_skills.find_problems(check_agent_skills.REPO_ROOT) == []
+
+
+def _write_skill(root: Path, name: str, frontmatter_name: str) -> None:
+    skill = root / ".agents" / "skills" / name
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(f"---\nname: {frontmatter_name}\ndescription: Does a thing. Use when X.\n---\n")
+
+
+def test_agent_skill_check_reports_missing_wrong_and_stale_links(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    _write_skill(tmp_path, "unlinked", "unlinked")
+    _write_skill(tmp_path, "renamed", "old-name")
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").symlink_to("../../.agents/skills/linked")
+    (links / "renamed").symlink_to("../../.agents/skills/linked")
+    (links / "deleted").symlink_to("../../.agents/skills/deleted")
+
+    problems = check_agent_skills.find_problems(tmp_path)
+
+    assert problems == [
+        ".agents/skills/renamed/SKILL.md: name must equal directory name 'renamed'",
+        ".claude/skills/renamed: must be a symlink to ../../.agents/skills/renamed",
+        ".claude/skills/unlinked: must be a symlink to ../../.agents/skills/unlinked",
+        ".claude/skills/deleted: no matching skill in .agents/skills",
+    ]

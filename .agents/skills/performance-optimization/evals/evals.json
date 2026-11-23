@@ -1,0 +1,42 @@
+[
+  {
+    "id": "trigger-1",
+    "prompt": "Почему albucore.mean медленный на uint8? Ускорь.",
+    "expected_output": "loads performance-optimization",
+    "assertions": [
+      "skill performance-optimization is selected"
+    ]
+  },
+  {
+    "id": "trigger-2",
+    "prompt": "Review this new LUT-based route in albucore/lut.py for performance.",
+    "expected_output": "loads performance-optimization",
+    "assertions": [
+      "skill performance-optimization is selected"
+    ]
+  },
+  {
+    "id": "trigger-3",
+    "prompt": "Optimize the bincount reduction used for label maps.",
+    "expected_output": "loads performance-optimization",
+    "assertions": [
+      "skill performance-optimization is selected"
+    ]
+  },
+  {
+    "id": "near-miss-1",
+    "prompt": "Update the README badges.",
+    "expected_output": "does not load performance-optimization",
+    "assertions": [
+      "skill performance-optimization is not selected"
+    ]
+  },
+  {
+    "id": "near-miss-2",
+    "prompt": "Add Tensor layout docs to docs/public-api.md.",
+    "expected_output": "does not load performance-optimization",
+    "assertions": [
+      "skill performance-optimization is not selected"
+    ]
+  }
+]

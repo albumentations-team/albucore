@@ -1,0 +1,42 @@
+[
+  {
+    "id": "trigger-1",
+    "prompt": "Ускорь torch-маршрут для resize на float16 NCHW.",
+    "expected_output": "loads torch-performance-optimization",
+    "assertions": [
+      "skill torch-performance-optimization is selected"
+    ]
+  },
+  {
+    "id": "trigger-2",
+    "prompt": "The Tensor/NumPy bridge in normalize allocates twice; can we avoid it?",
+    "expected_output": "loads torch-performance-optimization",
+    "assertions": [
+      "skill torch-performance-optimization is selected"
+    ]
+  },
+  {
+    "id": "trigger-3",
+    "prompt": "Should warp_affine3d use channels_last_3d for NCDHW batches?",
+    "expected_output": "loads torch-performance-optimization",
+    "assertions": [
+      "skill torch-performance-optimization is selected"
+    ]
+  },
+  {
+    "id": "near-miss-1",
+    "prompt": "Speed up the NumPy uint8 LUT path.",
+    "expected_output": "does not load torch-performance-optimization",
+    "assertions": [
+      "skill torch-performance-optimization is not selected"
+    ]
+  },
+  {
+    "id": "near-miss-2",
+    "prompt": "Add a new export to albucore/__init__.py.",
+    "expected_output": "does not load torch-performance-optimization",
+    "assertions": [
+      "skill torch-performance-optimization is not selected"
+    ]
+  }
+]

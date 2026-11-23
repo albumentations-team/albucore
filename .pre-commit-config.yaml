@@ -18,6 +18,12 @@ repos:
         entry: python tools/check_benchmark_artifacts.py
         language: system
         always_run: true
+      - id: check-agent-skills
+        name: Check repo skills and .claude/skills symlinks
+        entry: python tools/check_agent_skills.py
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: uv-lock-check
         name: uv lock --check
         entry: uv lock --check

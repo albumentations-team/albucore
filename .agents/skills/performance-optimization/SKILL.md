@@ -1,39 +1,35 @@
 ---
 name: performance-optimization
-description: Systematic performance audit for Albucore runtime code. Use whenever implementing, reviewing, profiling, or optimizing atomic image operations, backend routing, reductions, label maps, LUTs, random generation, dtype conversions, allocation-heavy paths, batch or volume kernels, or explicit output aliasing.
+description: Systematic performance audit for Albucore runtime code before and after a change. Use when implementing, reviewing, profiling, or optimizing atomic image operations, backend routing, reductions, label maps, LUTs, random generation, dtype conversions, allocation-heavy paths, batch or volume kernels, or explicit output aliasing ("оптимизируй", "почему медленно", "ускорь").
 ---
 
 # Performance Optimization
 
-Benchmark Albucore changes through Core public operations only, including their Core-owned dispatch, conversions,
-allocations and memory use. AX functional/transform/Compose performance checks require an explicit user request and
-are not an automatic gate for Core changes. Follow the benchmark scope in the canonical guide below.
-
 Read `../../../docs/performance-optimization.md` completely before inspecting or changing runtime code. That document
-is the canonical shared workflow for Albucore and AlbumentationsX.
+is the canonical workflow shared by Albucore and AlbumentationsX.
 
-For final correctness, speed, and memory acceptance, use Python 3.11 with the latest stable dependencies available
-for Python 3.11 and the target platform. The current recorded profile uses PyTorch 2.15.0, including the CPU wheel on
-Linux. Check resolved versions and imported source paths; a newer Python or stale `uv.lock` is not a substitute.
-
-When the sibling AlbumentationsX checkout is available, verify the fallback copy with
+When the sibling AlbumentationsX checkout is available, verify the shared copy with
 `cmp -s docs/performance-optimization.md ../AlbumentationsX/.agents/skills/performance-optimization/references/performance-optimization.md`.
 A mismatch blocks completion.
+
+Benchmark Core public operations only, including Core-owned dispatch, conversions, allocations, and memory use, on the
+acceptance profile in `AGENTS.md`. AX functional, transform, and Compose performance checks need an explicit user
+request.
 
 ## Workflow
 
 1. Establish correctness and public-router performance baselines before editing.
-2. Run every stage of the canonical optimization pass. Do not stop after finding the first plausible improvement.
+2. Run every stage of the canonical optimization pass. Do not stop after the first plausible improvement.
 3. Treat delete-first, vectorization, LUT, random generation, `bincount`, backend selection, routing thresholds, and
    explicit output aliasing as benchmark questions. Internal mutation is limited to owned working buffers.
-4. Compare the complete public path, including dispatch, dtype conversion, contiguity, allocation, clipping, and shape
-   repair.
-5. Read `../albucore-benchmarks/SKILL.md` completely before measuring. Extend the matrix along the dimension that
-   controls the candidate.
+4. Compare the complete public path, including dispatch, dtype conversion, contiguity, allocation, clipping, and
+   shape repair.
+5. Load the `albucore-benchmarks` skill and read it completely before measuring. Extend the matrix along the
+   dimension that controls the candidate.
 6. Add or preserve correctness tests for every accepted route and its boundary cases.
 7. Update benchmark evidence and route documentation when public routing changes.
 
-## Albucore Boundary
+## Albucore boundary
 
 Accept reusable atomic array operations with stable image semantics. Keep augmentation policy, stochastic parameter
 sampling, target dispatch, and annotation rules in AlbumentationsX.
@@ -45,12 +41,10 @@ Before adding an atom:
 - define dtype, shape, channel, contiguity, aliasing, and error contracts;
 - benchmark all viable backends before exposing a route.
 
-Albucore routers are called after the upstream validation boundary. The caller owns container type, rank/layout,
-dtype, device, contiguity, autograd, and operation-control validation. Do not duplicate those checks in the runtime
-router; retain only backend dispatch and kernel-required normalization. Invalid direct calls are outside the low-level
-contract and must not add hot-path branches.
+Invalid direct calls are outside the caller-validated router contract in `AGENTS.md` and must not add hot-path
+branches.
 
-## Required Handoff
+## Required handoff
 
 Report:
 
@@ -61,10 +55,3 @@ Report:
 - routing thresholds and safe `out=` alias decisions;
 - AlbumentationsX duplicates replaced or follow-up extraction opportunities;
 - correctness evidence, benchmark matrix, regressions, and rejected candidates.
-
-## Generated benchmark artifacts
-
-Keep generated benchmark reports, CSV/JSON/GZ data, profiler output and run logs outside Git. Local outputs may
-use ignored results directories. Never force-add them, including when publishing a PR or preserving evidence.
-Keep reproducible benchmark code and concise current route decisions in the existing documentation. Preserve raw
-measurements as external artifacts and link them from PR descriptions or the archive index in benchmarks/README.md.

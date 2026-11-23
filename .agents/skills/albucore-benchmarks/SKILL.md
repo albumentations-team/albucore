@@ -1,6 +1,6 @@
 ---
 name: albucore-benchmarks
-description: Running Albucore micro-benchmarks under benchmarks/, synthetic router timings, and comparing PyPI releases with uv --no-project. Use when adding benchmarks, comparing performance across versions, or documenting benchmark workflow.
+description: Runs and designs Albucore micro-benchmarks under benchmarks/ - synthetic router timings, canonical shape grids, NumKong ISA checks, and comparing the tree with a PyPI release via uv --no-project. Use when adding or running benchmarks, comparing performance across versions, or documenting benchmark workflow ("запусти бенчмарк", "сравни с прошлой версией").
 ---
 
 # Albucore Benchmarks
@@ -12,15 +12,13 @@ AX functional, transform, Compose and DataLoader performance campaigns require a
 become automatic acceptance gates for Core. Choose a matrix for the affected operations and routing boundaries;
 the canonical guide below defines the detailed scope.
 
-Before designing a performance comparison, read `../performance-optimization/SKILL.md` and
+Before designing a performance comparison, load the `performance-optimization` skill and read it and
 `../../../docs/performance-optimization.md` completely. Extend the benchmark along the dimension that controls the
 candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random
 generation.
 
-Use Python 3.11 and the latest stable third-party releases compatible with Python 3.11 and the target platform for
-acceptance benchmarks. The recorded 2026-10-31 profile includes PyTorch 2.15.0 (`2.15.0+cpu` on Linux), NumPy 2.4.6,
-OpenCV 5.0.0.93, NumKong 7.8.6, and StringZilla 5.3.2. Re-resolve and record all package versions and imported source
-paths before each acceptance run. `uv run` follows `uv.lock`; verify its resolved profile before using results as
+Use the acceptance profile in `AGENTS.md` for acceptance benchmarks. Re-resolve and record all package versions and
+imported source paths before each acceptance run. `uv run` follows `uv.lock`; verify its resolved profile before using results as
 acceptance evidence.
 
 Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
@@ -87,8 +85,7 @@ For `warp_affine3d`, benchmark both NumPy `DHWC`/`NDHWC` and CPU Tensor `CDHW`/`
 uses uint8/float16/float32, `C=1/3/5/9`, canonical output sizes, nearest/trilinear interpolation, one 3×4 forward matrix,
 and zero/nonzero fill. The batch matrix also varies `N=1/4/16`; compare per-volume calls, `N × C` folding, direct
 native sampling, public batch dispatch, and Tensor/NumPy bridges. Batch scripts time contiguous NumPy inputs;
-correctness tests cover
-supported strided and read-only inputs. Tensor timings include contiguous and channel-last-strided layouts. Test the
+correctness tests cover supported strided and read-only inputs. Tensor timings include contiguous and channel-last-strided layouts. Test the
 equivalent homogeneous 4×4 representation as a contract.
 Run the single-volume scripts and `benchmark_warp_affine3d_batch.py --quick --threads 1` while developing.
 A manual grid, coverage sampler, tiled route, or native extension remains diagnostic until it has exact correctness
@@ -118,15 +115,8 @@ uv run python benchmarks/compare_router_json.py \
 Replace `<previous-version>` with the release that answers the current question. Use `--quick` for smaller
 shape/channel grids while iterating, and do not accumulate version-specific baselines in the repository.
 
-## Docs
+## Docs and artifacts
 
-- Current NumKong route decisions: `docs/numkong-performance.md`
-- Generated output: ignored local directories; archive measurements outside Git.
-- General performance policy: `docs/performance-optimization.md`
-
-## Generated benchmark artifacts
-
-Keep generated benchmark reports, CSV/JSON/GZ data, profiler output and run logs outside Git. Local outputs may
-use ignored results directories. Never force-add them, including when publishing a PR or preserving evidence.
-Keep reproducible benchmark code and concise current route decisions in the existing documentation. Preserve raw
-measurements as external artifacts and link them from PR descriptions or the archive index in benchmarks/README.md.
+- Current route decisions: `docs/numkong-performance.md` and `docs/torch-performance-optimization.md`.
+- Generated reports, JSON/CSV data, and logs stay outside Git, as `AGENTS.md` requires; link raw measurements from
+  the PR description or the archive index in `benchmarks/README.md`.

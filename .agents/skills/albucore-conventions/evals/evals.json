@@ -1,0 +1,42 @@
+[
+  {
+    "id": "trigger-1",
+    "prompt": "Добавь тест для grayscale-картинки в tests/test_arithmetic.py — какую форму массива использовать?",
+    "expected_output": "loads albucore-conventions",
+    "assertions": [
+      "skill albucore-conventions is selected"
+    ]
+  },
+  {
+    "id": "trigger-2",
+    "prompt": "Should a new albucore helper accept (H, W) arrays or only (H, W, 1)?",
+    "expected_output": "loads albucore-conventions",
+    "assertions": [
+      "skill albucore-conventions is selected"
+    ]
+  },
+  {
+    "id": "trigger-3",
+    "prompt": "I'm adding a float16 branch to albucore/geometric.py; which dtypes and layouts must the tests cover?",
+    "expected_output": "loads albucore-conventions",
+    "assertions": [
+      "skill albucore-conventions is selected"
+    ]
+  },
+  {
+    "id": "near-miss-1",
+    "prompt": "Write the release notes for albucore 0.3.12.",
+    "expected_output": "does not load albucore-conventions",
+    "assertions": [
+      "skill albucore-conventions is not selected"
+    ]
+  },
+  {
+    "id": "near-miss-2",
+    "prompt": "Fix the typo in README.md.",
+    "expected_output": "does not load albucore-conventions",
+    "assertions": [
+      "skill albucore-conventions is not selected"
+    ]
+  }
+]

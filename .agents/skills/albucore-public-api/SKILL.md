@@ -1,6 +1,6 @@
 ---
 name: albucore-public-api
-description: Albucore explicit root exports, operation owners, input/output typing, and dependent checks. Use when changing exports, documenting API, or deciding what belongs in package __all__.
+description: Albucore root exports, operation owners, typed overloads, and per-operation out=/alias/dtype contracts. Use when adding, renaming, or removing a public operation, changing __all__ or overloads, changing an out= or alias contract, or documenting the public API ("добавь в публичный API", "экспорт").
 ---
 
 # Albucore Public API
