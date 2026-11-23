@@ -254,8 +254,9 @@ def normalize_float16_torch(
     """Write the rounded fused result into half storage without a Tensor-owned return view."""
     if img.shape[-1] <= 1 or not img.flags.c_contiguous or not _is_half_torch_compatible(img, minimum_elements):
         return None
-    mean_tensor = _parameter_tensor(mean, img.ndim, img.shape[-1])
-    denominator_tensor = _parameter_tensor(denominator, img.ndim, img.shape[-1])
+    # Type promotion narrows 0-D float32 controls to float16 next to a half image, losing or overflowing the bias.
+    mean_tensor = torch.atleast_1d(_parameter_tensor(mean, img.ndim, img.shape[-1]))
+    denominator_tensor = torch.atleast_1d(_parameter_tensor(denominator, img.ndim, img.shape[-1]))
     image = torch.from_numpy(img)
     result = np.empty_like(img) if out is None else out
     direct = all(stride >= 0 for stride in result.strides)
