@@ -421,7 +421,7 @@ def _affine_numpy(
     return result
 
 
-def _normalize_float16_single_channel_opencv(
+def _normalize_float16_scalar_opencv(
     img: NDArray[np.float16],
     mean: float | np.ndarray,
     denominator: float | np.ndarray,
@@ -450,11 +450,16 @@ def _normalize_float16_single_channel_opencv(
     bias = -mean_value * denominator_value
     if abs(bias) > _FLOAT32_MAX:
         return None
+    # A 2D view lets one CV16F call cover any rank and channel count.
+    rows = img.reshape(img.shape[0], -1)
     if out is not None and out.flags.c_contiguous:
-        cv2.addWeighted(img, denominator_value, img, 0.0, bias, dst=out.reshape(-1).reshape(img.shape))
+        cv2.addWeighted(rows, denominator_value, rows, 0.0, bias, dst=out.reshape(rows.shape))
         result = out
     else:
-        result = cast("NDArray[np.float16]", cv2.addWeighted(img, denominator_value, img, 0.0, bias).reshape(img.shape))
+        result = cast(
+            "NDArray[np.float16]",
+            cv2.addWeighted(rows, denominator_value, rows, 0.0, bias).reshape(img.shape),
+        )
         if out is not None:
             np.copyto(out, result)
             result = out
@@ -591,15 +596,15 @@ def _normalize_half(
     *,
     out: NDArray[np.float16] | None,
 ) -> NDArray[np.float16]:
-    half_result = normalize_float16_torch(
-        img,
-        mean,
-        denominator,
-        minimum_elements=_TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS,
-        out=out,
-    )
-    if half_result is None and img.ndim == 3 and img.shape[-1] == 1 and img.flags.c_contiguous:
-        half_result = _normalize_float16_single_channel_opencv(img, mean, denominator, out=out)
+    half_result = _normalize_float16_scalar_opencv(img, mean, denominator, out=out) if img.flags.c_contiguous else None
+    if half_result is None:
+        half_result = normalize_float16_torch(
+            img,
+            mean,
+            denominator,
+            minimum_elements=_TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS,
+            out=out,
+        )
     return (
         half_result
         if half_result is not None

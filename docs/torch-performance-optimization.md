@@ -144,6 +144,11 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
 - For contiguous NumPy HWC float16 normalization, the eager CPU `torch.addcmul` half kernel matched a float32
   input/compute/output round-trip within 0.98–1.01× time across four 480×640 and 768×1024 C=3/9 cases, with bitwise
   identical outputs. The evidence is in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
+  That route now serves channel-vector controls only. Scalar controls passed as 0-D float32 tensors were narrowed to
+  float16 by type promotion ([#248](https://github.com/albumentations-team/albucore/issues/248)); contiguous NumPy
+  float16 input with scalar controls uses one CV16F `addWeighted` call over a 2D view at any size, rank, and channel
+  count. On macOS ARM64 with one thread it took 0.12–0.15× the corrected Torch time from 19,491 elements and
+  0.36–0.42× the NumPy time below 16,384 elements. Linux x86-64 has not been measured.
 - For interpolation and sampling, differential-test coordinate conventions, border rules, `align_corners`, rounding, and uint8 restoration. A faster result with shifted samples is not a candidate.
 - For contiguous float16 Tensor `resize(..., INTER_NEAREST)`, use native CPU half
   interpolation from 61,440 elements for NCHW and multi-channel CHW. CHW C=1 keeps
