@@ -1,8 +1,6 @@
 """Benchmark-driven mean / std / mean_std for Albucore channel-last array layouts."""
 
-import platform
-import sys
-from typing import Literal, TypeAlias, TypeGuard, TypeVar, cast, overload
+from typing import Literal, TypeAlias, TypeVar, cast, overload
 
 import cv2
 import numkong as nk
@@ -13,19 +11,25 @@ from numpy.typing import DTypeLike, NDArray
 from albucore._float_cast import _cast_float_numpy
 from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
 from albucore.torch_backend import reduce_sum_torch
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, get_opencv_max_channels
+from albucore.utils import (
+    _LINUX_X86_64,
+    _MACOS_ARM64,
+    _TENSOR_CHANNEL_AXES,
+    MAX_OPENCV_WORKING_CHANNELS,
+    _is_float32_image,
+    _is_uint8_image,
+    get_opencv_max_channels,
+)
 from albucore.weighted import _NUMKONG_NEON_HALF
 
 DEFAULT_EPS = 1e-4
 _NUMPY_STD_MEAN_SUPPORTED = np.lib.NumpyVersion(np.__version__) >= "2.0.0"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _FLOAT32_GLOBAL_STATS_OPENCV_MIN_ELEMENTS = 2
 _FLOAT32_GLOBAL_STATS_RELATIVE_VARIANCE_FLOOR = 1e-4
-# Tiny relative variance makes E[x²] - E[x]² unreliable for half moments.
-_FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-4
+# Tiny relative variance makes E[x²] - E[x]² unreliable for float16 and float32 moments.
+_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-4
 # Host NEON-half NumKong moments reported a 1.68e-4 relative variance for constant 0.575 inputs.
-_NUMKONG_FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-2
+_NUMKONG_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-2
 _NUMKONG_FLOAT16_HWC_STATS_MIN_ELEMENTS = 20_480
 _FLOAT16_PER_CHANNEL_TORCH_MIN_ELEMENTS = 20_480
 _FLOAT16_TENSOR_MEAN_MIN_ELEMENTS = 40_960
@@ -65,16 +69,6 @@ _StatsResult: TypeAlias = _StatsScalar | NDArray[np.float64]
 _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.generic)
 
 __all__ = ["DEFAULT_EPS", "mean", "mean_std", "reduce_sum", "std"]
-
-
-def _is_uint8_image(arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> TypeGuard[NDArray[np.uint8]]:
-    return arr.dtype == np.uint8
-
-
-def _is_float32_image(
-    arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-) -> TypeGuard[NDArray[np.float32]]:
-    return arr.dtype == np.float32
 
 
 def _resolve_axes(arr: np.ndarray, axis: AxisSpec) -> tuple[int, ...] | None:
@@ -176,7 +170,7 @@ def _reduce_sum_per_channel_uint8(arr: NDArray[np.uint8], *, keepdims: bool) -> 
 
 
 def _reduce_sum_per_channel_float32(arr: NDArray[np.float32], axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
-    """Per-channel sum for float32: nk.sum for ndim ≤ 4 and 1 < C ≤ 4 (4x faster than numpy), numpy otherwise."""
+    """Per-channel float32 sum: Torch for C ≤ 4, OpenCV for large C > 4, then nk.sum for ndim ≤ 4, else NumPy."""
     c = arr.shape[-1]
     if c <= MAX_OPENCV_WORKING_CHANNELS:
         torch_result = reduce_sum_torch(arr, axes, keepdims=keepdims)
@@ -250,8 +244,7 @@ def _reduce_sum_global_float16_numpy(
     keepdims: bool,
 ) -> np.float64 | None:
     if (
-        arr.dtype != np.float16
-        or keepdims
+        keepdims
         or arr.size < _FLOAT16_GLOBAL_NUMPY_REDUCE_SUM_MIN_ELEMENTS
         or not arr.flags.c_contiguous
         or not arr.flags.writeable
@@ -280,7 +273,7 @@ def _reduce_sum_float16_tensor(
     if axis is None or axis == "global":
         axes = tuple(range(arr.ndim))
     elif axis == "per_channel":
-        channel_axis = 0 if layout in ("CHW", "CDHW") else 1
+        channel_axis = _TENSOR_CHANNEL_AXES[layout]
         axes = tuple(index for index in range(arr.ndim) if index != channel_axis)
     elif isinstance(axis, (int, tuple)):
         axes = axis
@@ -524,7 +517,7 @@ def _mean_std_per_channel_float32(arr: NDArray[np.float32], eps: float) -> tuple
         means, stds = cv2.meanStdDev(arr)
         mean_values = np.asarray(means[:, 0], dtype=np.float64)
         std_values = np.asarray(stds[:, 0], dtype=np.float64)
-        if np.any(np.square(std_values) <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean_values)):
+        if np.any(np.square(std_values) <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean_values)):
             return _mean_std_per_channel_float64(arr, eps)
         return mean_values, std_values + eps
 
@@ -535,7 +528,7 @@ def _mean_std_per_channel_float32(arr: NDArray[np.float32], eps: float) -> tuple
         total, squared_total = nk.moments(arr[..., channel])
         mean_value = float(total) / n
         variance = max(float(squared_total) / n - mean_value * mean_value, 0.0)
-        if variance <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value:
+        if variance <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value:
             return _mean_std_per_channel_float64(arr, eps)
         means[channel] = mean_value
         stds[channel] = np.sqrt(variance) + eps
@@ -564,7 +557,7 @@ def _mean_std_per_channel_numkong(
         s_sum, s_sq = nk.moments(channel_values)
         mean_value = float(s_sum) / n
         var = max(float(s_sq) / n - mean_value * mean_value, 0.0)
-        near_constant = var <= _NUMKONG_FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
+        near_constant = var <= _NUMKONG_MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
         if arr.dtype == np.float16 and near_constant:
             mean_value = float(np.mean(channel_values, dtype=np.float64))
             var = float(np.var(channel_values, dtype=np.float64))
@@ -581,7 +574,7 @@ def _mean_std_per_channel_opencv(
     is_half = arr.dtype == np.float16
     work = _cast_float_numpy(arr, np.float32) if is_half else arr
     mean, std = cv2.meanStdDev(work)
-    if is_half and np.any(np.square(std[:, 0]) <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean[:, 0])):
+    if is_half and np.any(np.square(std[:, 0]) <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean[:, 0])):
         return _mean_std_per_channel_numkong(arr, eps)
     mean_values = np.asarray(mean[:, 0], dtype=np.float64)
     std_values = np.asarray(std[:, 0] + eps, dtype=np.float64)
@@ -615,7 +608,7 @@ def _mean_std_global_float16_opencv(
     stds = np.asarray(channel_std[:, 0], dtype=np.float64)
     if not np.isfinite(means).all() or not np.isfinite(stds).all():
         return None
-    if np.any(np.square(stds) <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(means)):
+    if np.any(np.square(stds) <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(means)):
         return None
 
     mean_value = float(np.mean(means, dtype=np.float64))
@@ -679,7 +672,7 @@ def _mean_std_global_float16_tensor(
     if (
         not np.isfinite(mean_value)
         or not np.isfinite(std_value)
-        or std_value * std_value <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
+        or std_value * std_value <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
     ):
         mean_value, std_value = _mean_std_global_float16_fallback(arr.numpy(), eps)
     else:
@@ -703,25 +696,17 @@ def _mean_std_global(
     elif arr.dtype == np.float16:
         cv_stats = _mean_std_global_float16_opencv(arr, eps)
         mean_value, std_value = _mean_std_global_float16_fallback(arr, eps) if cv_stats is None else cv_stats
-    elif arr.dtype == np.float32:
-        cv_stats = _mean_std_global_float32_opencv(cast("NDArray[np.float32]", arr), eps)
-        if cv_stats is None:
-            if _NUMPY_STD_MEAN_SUPPORTED:
-                mean_keepdims = np.asarray(np.mean(arr, dtype=np.float64, keepdims=True), dtype=np.float64)
-                mean_value = np.float64(mean_keepdims.reshape(())[()])
-                std_value = np.std(arr, dtype=np.float64, mean=mean_keepdims) + eps
-            else:
-                mean_value = np.mean(arr, dtype=np.float64)
-                std_value = np.std(arr, dtype=np.float64) + eps
-        else:
-            mean_value, std_value = cv_stats
-    elif _NUMPY_STD_MEAN_SUPPORTED:
-        mean_keepdims = np.asarray(np.mean(arr, dtype=np.float64, keepdims=True), dtype=np.float64)
-        mean_value = np.float64(mean_keepdims.reshape(())[()])
-        std_value = np.std(arr, dtype=np.float64, mean=mean_keepdims) + eps
     else:
-        mean_value = np.mean(arr, dtype=np.float64)
-        std_value = np.std(arr, dtype=np.float64) + eps
+        cv_stats = _mean_std_global_float32_opencv(cast("NDArray[np.float32]", arr), eps)
+        if cv_stats is not None:
+            mean_value, std_value = cv_stats
+        elif _NUMPY_STD_MEAN_SUPPORTED:
+            mean_keepdims = np.asarray(np.mean(arr, dtype=np.float64, keepdims=True), dtype=np.float64)
+            mean_value = np.float64(mean_keepdims.reshape(())[()])
+            std_value = np.std(arr, dtype=np.float64, mean=mean_keepdims) + eps
+        else:
+            mean_value = np.mean(arr, dtype=np.float64)
+            std_value = np.std(arr, dtype=np.float64) + eps
     if keepdims:
         shape = (1,) * arr.ndim
         return (
@@ -779,7 +764,7 @@ def _mean_per_channel_float16_tensor(
         or (layout == "CHW" and arr.shape[0] == 1)
     ):
         return None
-    channel_axis = 0 if layout in ("CHW", "CDHW") else 1
+    channel_axis = _TENSOR_CHANNEL_AXES[layout]
     axes = tuple(axis for axis in range(arr.ndim) if axis != channel_axis)
     result = torch.mean(arr, dim=axes, dtype=torch.float64)
     if not keepdims:
@@ -836,11 +821,9 @@ def _std_global(
         )
         cv_stats = _mean_std_global_float16_opencv(arr, eps) if std_opencv_eligible else None
         std_value = float(np.std(arr, dtype=np.float64)) + eps if cv_stats is None else cv_stats[1]
-    elif arr.dtype == np.float32:
+    else:
         cv_stats = _mean_std_global_float32_opencv(cast("NDArray[np.float32]", arr), eps)
         std_value = np.std(arr, dtype=np.float64) + eps if cv_stats is None else cv_stats[1]
-    else:
-        std_value = np.std(arr, dtype=np.float64) + eps
     if keepdims:
         return np.asarray(std_value, dtype=np.float64).reshape((1,) * arr.ndim)
     return float(std_value)
@@ -854,6 +837,7 @@ def _mean_std_per_channel(
     eps: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     spatial_axes = _per_channel_spatial_axes(arr)
+    c = arr.shape[-1]
     if _numkong_float16_hwc_stats_eligible(arr, axes, keepdims):
         return _mean_std_per_channel_numkong(arr, eps)
     if (
@@ -864,12 +848,22 @@ def _mean_std_per_channel(
         and arr.shape[-1] <= _FLOAT16_OPENCV_STATS_MAX_CHANNELS
     ):
         return _mean_std_per_channel_opencv(arr, eps)
-    if axes == spatial_axes and not keepdims:
-        c = arr.shape[-1]
-        if _is_uint8_image(arr) or arr.dtype == np.float16:
-            return _mean_std_per_channel_numkong(arr, eps)
-        if _is_float32_image(arr) and (arr.ndim != 3 or c == 1 or c > MAX_OPENCV_WORKING_CHANNELS):
-            return _mean_std_per_channel_numkong(arr, eps)
+    if axes == spatial_axes and (
+        # Uint8 keepdims shares the integer moments instead of a float64 two-pass reduction.
+        _is_uint8_image(arr)
+        or (
+            not keepdims
+            and (
+                arr.dtype == np.float16
+                or (_is_float32_image(arr) and (arr.ndim != 3 or c == 1 or c > MAX_OPENCV_WORKING_CHANNELS))
+            )
+        )
+    ):
+        mean_values, std_values = _mean_std_per_channel_numkong(arr, eps)
+        if keepdims:
+            shape = (1,) * (arr.ndim - 1) + (c,)
+            return mean_values.reshape(shape), std_values.reshape(shape)
+        return mean_values, std_values
 
     if arr.ndim == 3 and not keepdims and axes == spatial_axes and arr.shape[-1] <= MAX_OPENCV_WORKING_CHANNELS:
         mean, std = cv2.meanStdDev(arr)
@@ -883,7 +877,7 @@ def _mean_std_per_channel(
 
 
 def _mean_per_channel_uint8(arr: NDArray[np.uint8], axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
-    """Per-channel mean for uint8 via nk.sum — fastest for all shapes and channel counts."""
+    """Per-channel uint8 mean: OpenCV for C > 4 with 65,536+ spatial elements, nk.sum otherwise."""
     n_spatial = arr.size // arr.shape[-1]
     c = arr.shape[-1]
     if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 65_536:
@@ -961,6 +955,8 @@ def _std_per_channel(
 ) -> np.ndarray:
     spatial_axes = _per_channel_spatial_axes(arr)
     c = arr.shape[-1]
+    if keepdims and axes == spatial_axes and _is_uint8_image(arr):
+        return _mean_std_per_channel_numkong(arr, eps)[1].reshape((1,) * (arr.ndim - 1) + (c,))
     if _numkong_float16_hwc_stats_eligible(arr, axes, keepdims):
         return _mean_std_per_channel_numkong(arr, eps)[1]
     if (
@@ -981,11 +977,7 @@ def _std_per_channel(
     ):
         _, std = cv2.meanStdDev(arr)
         return np.asarray(std[:, 0] + eps, dtype=np.float64)
-    if (
-        axes == spatial_axes
-        and not keepdims
-        and (_is_uint8_image(arr) or _is_float32_image(arr) or arr.dtype == np.float16)
-    ):
+    if axes == spatial_axes and not keepdims:
         _, std = _mean_std_per_channel_numkong(arr, eps)
         return std
     return np.asarray(arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps, dtype=np.float64)
@@ -1095,7 +1087,8 @@ def mean_std(
       near-constant half data.
     - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``.
     - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel.
-    - **explicit axes / keepdims**: NumPy-compatible ``mean``/``std``.
+    - **uint8 per-channel with keepdims**: the same NumKong integer moments as ``keepdims=False``.
+    - **other explicit axes / keepdims**: NumPy-compatible ``mean``/``std``.
 
     Alternative: ``mean`` or ``std`` if only one statistic is needed.
 
@@ -1391,12 +1384,14 @@ def std(
     - **contiguous float16 Tensor global, 40,960 elements and larger**: a float32 accumulator when all values are in
       [-1, 1] and the resulting std exceeds 1e-3; otherwise a two-pass float64 Torch reduction. Non-contiguous inputs
       retain the wide NumPy route.
-    - **float32 global**: ``np.std(dtype=float64)``.
+    - **float32 global**: OpenCV ``meanStdDev`` on contiguous inputs from two elements on Linux x86-64 and macOS ARM64;
+      low-variance and non-finite inputs use NumPy float64 reductions.
     - **per-channel uint8**: one NumKong ``moments`` call per channel.
     - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``.
     - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel.
     - **per-channel float16 HWC, C ≤ 4**: widen to float32 before ``cv2.meanStdDev``.
-    - **explicit axes / keepdims**: ``arr.std(dtype=float64)``.
+    - **uint8 per-channel with keepdims**: the same NumKong integer moments as ``keepdims=False``.
+    - **other explicit axes / keepdims**: ``arr.std(dtype=float64)``.
 
     Alternative: ``mean_std`` if mean is also needed (avoids a redundant pass for uint8).
 

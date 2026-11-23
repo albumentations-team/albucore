@@ -89,7 +89,6 @@ def test_float32_scalar_multiply_add_routes_to_numkong(
     monkeypatch: pytest.MonkeyPatch,
     is_contiguous: bool,
 ) -> None:
-    monkeypatch.setattr(torch_backend, "TORCH_CPU_BACKEND_ENABLED", False)
     storage = np.ones((2, 3, 1), dtype=np.float32)
     img = storage if is_contiguous else storage[:, ::2, :]
     called = False

@@ -1,6 +1,8 @@
+import platform
+import sys
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Concatenate, ParamSpec, TypeVar, cast, overload
+from typing import Any, Concatenate, ParamSpec, TypeGuard, TypeVar, cast, overload
 
 import cv2
 import numpy as np
@@ -27,8 +29,6 @@ def _batch_operand(value: float | np.ndarray, image: np.ndarray, index: int) -> 
 
 
 NUM_RGB_CHANNELS = 3
-TWO = 2
-
 MAX_OPENCV_WORKING_CHANNELS = 4
 
 _ImageDTypeT = TypeVar("_ImageDTypeT", bound=np.uint8 | np.float16 | np.float32)
@@ -43,29 +43,42 @@ MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
     np.float32: 1.0,
 }
 
-NPDTYPE_TO_OPENCV_DTYPE: dict[np.dtype | type, int] = {
-    np.uint8: cv2.CV_8U,
-    np.float16: cv2.CV_16F,
-    np.float32: cv2.CV_32F,
-    np.dtype("uint8"): cv2.CV_8U,
-    np.dtype("float16"): cv2.CV_16F,
-    np.dtype("float32"): cv2.CV_32F,
-}
+_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 
 _TENSOR_CHANNEL_AXES: dict[TensorLayout, int] = {"CHW": 0, "NCHW": 1, "CDHW": 0, "NCDHW": 1}
-_TORCH_DTYPES: dict[np.dtype | type, torch.dtype] = {
+_TORCH_DTYPES: dict[np.dtype | type | torch.dtype, torch.dtype] = {
     np.uint8: torch.uint8,
     np.dtype(np.uint8): torch.uint8,
     np.float16: torch.float16,
     np.dtype(np.float16): torch.float16,
     np.float32: torch.float32,
     np.dtype(np.float32): torch.float32,
+    torch.uint8: torch.uint8,
+    torch.float16: torch.float16,
+    torch.float32: torch.float32,
 }
 _NUMPY_DTYPES: dict[torch.dtype, type[np.uint8 | np.float16 | np.float32]] = {
     torch.uint8: np.uint8,
     torch.float16: np.float16,
     torch.float32: np.float32,
 }
+
+
+def _is_uint8_image(img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> TypeGuard[NDArray[np.uint8]]:
+    return img.dtype == np.uint8
+
+
+def _is_float32_image(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+) -> TypeGuard[NDArray[np.float32]]:
+    return img.dtype == np.float32
+
+
+def _is_float16_image(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+) -> TypeGuard[NDArray[np.float16]]:
+    return img.dtype == np.float16
 
 
 def get_opencv_max_channels() -> int:
@@ -109,7 +122,7 @@ def maybe_process_in_chunks(
             out: np.ndarray | None = all_kwargs.get("dst")
             offset = 0
             for index in range(0, num_channels, 4):
-                if num_channels - index == TWO:
+                if num_channels - index == 2:
                     # Many OpenCV functions cannot work with 2-channel images
                     for i in range(2):
                         chunk = img[:, :, index + i : index + i + 1]
@@ -129,10 +142,7 @@ def maybe_process_in_chunks(
                     n = chunk.shape[-1]
                     out[:, :, offset : offset + n] = chunk
                     offset += n
-            if out is None:
-                msg = "Chunked OpenCV processing failed to initialize output buffer."
-                raise RuntimeError(msg)
-            return out
+            return cast("np.ndarray", out)
 
         return process_fn(img, *all_args, **all_kwargs)
 
@@ -334,19 +344,6 @@ def is_grayscale_image(image: ImageInput, *, layout: TensorLayout | None = None)
     return get_num_channels(image, layout=layout) == 1
 
 
-def get_opencv_dtype_from_numpy(value: np.ndarray | int | np.dtype | object) -> int:
-    if isinstance(value, np.ndarray):
-        value = value.dtype
-    if isinstance(value, np.dtype):
-        key: np.dtype | type = value
-    elif value in (np.uint8, np.float16, np.float32):
-        key = cast("type", value)
-    else:
-        msg = f"Unsupported dtype specifier: {value!r}"
-        raise TypeError(msg)
-    return int(NPDTYPE_TO_OPENCV_DTYPE[key])
-
-
 def is_rgb_image(image: ImageInput, *, layout: TensorLayout | None = None) -> bool:
     return get_num_channels(image, layout=layout) == NUM_RGB_CHANNELS
 
@@ -396,57 +393,14 @@ def get_max_value(dtype: np.dtype | type[np.generic] | torch.dtype) -> float:
     return MAX_VALUES_BY_DTYPE[dtype]
 
 
-def get_image_data(data: dict[str, Any]) -> dict[str, np.dtype | torch.dtype | int]:
-    """Extract dtype, height, width, and channel count from image data.
-
-    Keys take priority in the order ``image``, ``images``, ``volume``.
-    NumPy arrays use HWC for ``image`` and NHWC/DHWC for the other keys;
-    Tensor inputs use CHW, NCHW, and CDHW respectively.
-
-    Raises:
-        ValueError: If none of the supported keys is present.
-    """
-    if "image" in data:
-        image = data["image"]
-        height_axis = 0
-        layout: TensorLayout = "CHW"
-    elif "images" in data:
-        image = data["images"]
-        height_axis = 1
-        layout = "NCHW"
-    elif "volume" in data:
-        image = data["volume"]
-        height_axis = 1
-        layout = "CDHW"
-    else:
-        raise ValueError("No valid image/volume data found in data dict")
-
-    shape = image.shape
-    if isinstance(image, torch.Tensor):
-        height_axis += 1
-        channel_axis = _TENSOR_CHANNEL_AXES[layout]
-    else:
-        channel_axis = -1
-    return {
-        "dtype": image.dtype,
-        "height": shape[height_axis],
-        "width": shape[height_axis + 1],
-        "num_channels": shape[channel_axis],
-    }
-
-
 __all__ = [
     "MAX_OPENCV_WORKING_CHANNELS",
     "MAX_VALUES_BY_DTYPE",
-    "NPDTYPE_TO_OPENCV_DTYPE",
     "NUM_RGB_CHANNELS",
-    "TWO",
     "clip",
     "convert_value",
-    "get_image_data",
     "get_max_value",
     "get_num_channels",
-    "get_opencv_dtype_from_numpy",
     "get_opencv_max_channels",
     "is_grayscale_image",
     "is_multispectral_image",

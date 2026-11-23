@@ -9,7 +9,7 @@ Layouts:
 The HWC grid intentionally uses non-square sizes so height/width swaps are visible.
 
 Optional ``--with-geometric`` also times ``copy_make_border``, ``gaussian_blur3d``, ``pad3d``, ``remap``, ``remap3d``,
-``remap_nearest``, ``resize``, ``resize3d``, ``separable_filter3d``, ``warp_affine``, ``warp_affine3d``,
+``remap_nearest``, ``resize``, ``resize3d``, ``warp_affine``, ``warp_affine3d``,
 ``warp_perspective``, and ``warp_perspective_nearest``.
 
 On macOS ARM64, the script requires NumKong's native NEON probe to succeed. Use ``--allow-restricted-isa`` only for a
@@ -333,15 +333,6 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    def sep3(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        volume = np.repeat(img[np.newaxis, ...], 5, axis=0)
-        kernels = tuple(np.array((1.0, 2.0, 1.0), dtype=np.float32) / 4.0 for _ in range(3))
-
-        def thunk() -> None:
-            alb.separable_filter3d(volume, kernels)
-
-        return thunk
-
     def waff(alb: Any, img: np.ndarray) -> Callable[[], object]:
         h, w = img.shape[-3], img.shape[-2]
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
@@ -426,7 +417,6 @@ def _registry_geometric() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("pad3d", pad3),
         ("resize", rsz),
         ("resize3d", rsz3),
-        ("separable_filter3d", sep3),
         ("warp_affine", waff),
         ("warp_affine3d", waff3),
         ("remap3d", rmp3),
@@ -645,12 +635,6 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
 
         return thunk
 
-    def logarithm(alb: Any, img: np.ndarray) -> Callable[[], object]:
-        def thunk() -> None:
-            alb.log(img)
-
-        return thunk
-
     def square_root(alb: Any, img: np.ndarray) -> Callable[[], object]:
         def thunk() -> None:
             alb.sqrt(img)
@@ -746,7 +730,6 @@ def _registry_functions() -> list[tuple[str, Callable[[Any, np.ndarray], Callabl
         ("normalize", norm),
         ("normalize_per_image", npi),
         ("hflip", hf),
-        ("log", logarithm),
         ("vflip", vf),
         ("median_blur", mb),
         ("matmul", add_c),  # placeholder — replaced by special-case

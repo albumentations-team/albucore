@@ -1,7 +1,5 @@
 """Flips, median blur, matmul, pairwise distances."""
 
-import platform
-import sys
 from typing import Any, cast, overload
 
 import cv2
@@ -14,31 +12,15 @@ from albucore._float_cast import _cast_float_numpy
 from albucore._types import ArrayT, ImageArrayT, TensorImageLayout
 from albucore.convert import convert_dtype
 from albucore.tensor_bridge import dispatch_tensor_image
+from albucore.utils import _MACOS_ARM64 as _IS_MACOS_ARM64
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     get_num_channels,
-    get_opencv_max_channels,
-    maybe_process_in_chunks,
 )
 
-MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
-_IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
 _MEDIAN_BLUR_FLOAT16_ORDERED_U16_MIN_ELEMENTS = 76_800
 _NUMKONG_CDIST_D8_MAX_PAIRS = 2_048
-
-
-def hflip_numpy(img: ImageArrayT) -> ImageArrayT:
-    return cast("ImageArrayT", img[..., ::-1, :])
-
-
-def hflip_cv2(img: ImageArrayT) -> ImageArrayT:
-    if img.ndim > 2 and img.shape[2] > MAX_OPENCV_FLIP_CHANNELS:
-        return cast("ImageArrayT", _flip_multichannel(img, flip_code=1))
-    if img.ndim == 3 and img.shape[-1] == 1:
-        destination = np.empty_like(img, order="C")
-        return cast("ImageArrayT", cv2.flip(img, 1, dst=destination))
-    return cast("ImageArrayT", cv2.flip(img, 1))
 
 
 @overload
@@ -55,9 +37,7 @@ def hflip(
     """Flip image horizontally (mirror left-right).
 
     Routing:
-    - All channel counts: NumPy slice ``img[:, ::-1, ...]``.
-
-    Alternative: ``hflip_cv2`` materializes an OpenCV result.
+    - All channel counts: NumPy slice view ``img[..., ::-1, :]``.
 
     Args:
         img: ``(H, W, C)`` image, any dtype.
@@ -69,20 +49,7 @@ def hflip(
         if img.dtype == torch.float16 and img.is_contiguous():
             return torch.flip(img.view(torch.int16), dims=(-1,)).view(torch.float16)
         return torch.flip(img, dims=(-1,))
-    return hflip_numpy(img)
-
-
-def vflip_cv2(img: ImageArrayT) -> ImageArrayT:
-    if img.ndim > 2 and img.shape[2] > MAX_OPENCV_FLIP_CHANNELS:
-        return cast("ImageArrayT", _flip_multichannel(img, flip_code=0))
-    if img.ndim == 3 and img.shape[-1] == 1:
-        destination = np.empty_like(img, order="C")
-        return cast("ImageArrayT", cv2.flip(img, 0, dst=destination))
-    return cast("ImageArrayT", cv2.flip(img, 0))
-
-
-def vflip_numpy(img: ImageArrayT) -> ImageArrayT:
-    return cast("ImageArrayT", img[..., ::-1, :, :])
+    return img[..., ::-1, :]
 
 
 @overload
@@ -99,9 +66,7 @@ def vflip(
     """Flip image vertically (mirror top-bottom).
 
     Routing:
-    - All channel counts: NumPy slice ``img[::-1, ...]``.
-
-    Alternative: ``vflip_cv2`` materializes an OpenCV result.
+    - All channel counts: NumPy slice view ``img[..., ::-1, :, :]``.
 
     Args:
         img: ``(H, W, C)`` image, any dtype.
@@ -111,40 +76,7 @@ def vflip(
     """
     if isinstance(img, torch.Tensor):
         return torch.flip(img, dims=(-2,))
-    return vflip_numpy(img)
-
-
-def _flip_multichannel(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-    flip_code: int,
-) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
-    """Flip with OpenCV, chunking channels beyond the active build's flip limit."""
-    num_channels = img.shape[2]
-
-    if num_channels <= MAX_OPENCV_FLIP_CHANNELS:
-        return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", cv2.flip(img, flip_code))
-
-    result: np.ndarray | None = None
-    offset = 0
-
-    for i in range(0, num_channels, MAX_OPENCV_FLIP_CHANNELS):
-        end_idx = min(i + MAX_OPENCV_FLIP_CHANNELS, num_channels)
-        chunk = img[:, :, i:end_idx]
-        flipped_chunk = cast("np.ndarray", cv2.flip(chunk, flip_code))
-
-        if flipped_chunk.ndim == 2 and img.ndim == 3:
-            flipped_chunk = np.expand_dims(flipped_chunk, axis=2)
-
-        if result is None:
-            result = np.empty((*flipped_chunk.shape[:2], num_channels), dtype=img.dtype)
-        n = flipped_chunk.shape[-1]
-        result[:, :, offset : offset + n] = flipped_chunk
-        offset += n
-
-    if result is None:
-        msg = "Flip chunking produced no output."
-        raise RuntimeError(msg)
-    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result)
+    return img[..., ::-1, :, :]
 
 
 def _median_blur_uint8(
@@ -152,12 +84,15 @@ def _median_blur_uint8(
     ksize: int,
     dst: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
-    """Apply the shared direct or chunked uint8 OpenCV route."""
+    """Apply OpenCV directly, or per plane where kernels of 7+ do not support the channel count."""
     if ksize in (3, 5) or get_num_channels(img) <= MAX_OPENCV_WORKING_CHANNELS:
         if img.shape[-1] == 1 and dst is None:
             dst = np.empty_like(img, order="C")
         return cast("NDArray[np.uint8]", cv2.medianBlur(img, ksize, dst=dst))
-    return cast("NDArray[np.uint8]", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
+    result = np.empty_like(img, order="C") if dst is None else dst
+    for channel, plane in enumerate(cv2.split(img)):
+        result[..., channel] = cv2.medianBlur(plane, ksize)
+    return result
 
 
 def _median_blur_float16_single_channel_5(img: NDArray[np.float16]) -> NDArray[np.float16]:
@@ -203,7 +138,8 @@ def median_blur(
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Median blur with dtype- and kernel-aware OpenCV routing.
 
-    uint8 images use OpenCV directly, chunking high-channel inputs for kernels 7 and larger. Float32 kernels 3 and 5
+    uint8 images use OpenCV directly; kernels 7 and larger filter each plane when C > 4, and contiguous uint8 Tensors
+    filter their channel planes without repacking. Float32 kernels 3 and 5
     use OpenCV on the original values; larger float32 kernels use a documented float32-to-uint8 fallback because
     OpenCV supports native CV_32F median filtering only for apertures 3 and 5.
 
@@ -218,15 +154,24 @@ def median_blur(
     The caller validates the image dtype and kernel size before entering this low-level router.
     """
     if isinstance(img, torch.Tensor):
+        if img.dtype == torch.uint8 and img.is_contiguous():
+            # Channel-first planes are contiguous, so they need no interleaving copy.
+            planes = img.numpy().reshape(-1, img.shape[-2], img.shape[-1])
+            filtered = np.empty_like(planes)
+            for index, plane in enumerate(planes):
+                cv2.medianBlur(plane, ksize, dst=filtered[index])
+            return torch.from_numpy(filtered.reshape(img.shape))
         return dispatch_tensor_image(img, layout, median_blur, ksize)
 
+    if img.dtype == np.uint8:
+        # OpenCV reads row-padded uint8 crops directly and copies other strides itself.
+        return _median_blur_uint8(cast("NDArray[np.uint8]", img), ksize)
+
     if not img.flags["C_CONTIGUOUS"]:
-        img = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", np.ascontiguousarray(img))
+        img = cast("NDArray[np.float16] | NDArray[np.float32]", np.ascontiguousarray(img))
 
     result: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
-    if img.dtype == np.uint8:
-        result = _median_blur_uint8(cast("NDArray[np.uint8]", img), ksize)
-    elif img.dtype == np.float32 and ksize in (3, 5):
+    if img.dtype == np.float32 and ksize in (3, 5):
         destination = np.empty_like(img, order="C") if img.shape[-1] == 1 else None
         result = cast(
             "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
@@ -255,11 +200,11 @@ def median_blur(
 
 
 @overload
-def matmul(a: ArrayT, b: np.ndarray | torch.Tensor) -> ArrayT: ...
+def matmul(a: ArrayT, b: np.ndarray) -> ArrayT: ...
 
 
 @overload
-def matmul(a: torch.Tensor, b: np.ndarray | torch.Tensor) -> torch.Tensor: ...
+def matmul(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor: ...
 
 
 def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
@@ -286,15 +231,19 @@ def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.nda
         >>> matmul(np.ones((2, 3), dtype=np.float32), np.ones((3, 4), dtype=np.float32)).shape
         (2, 4)
     """
-    if isinstance(a, torch.Tensor) or isinstance(b, torch.Tensor):
-        if not isinstance(a, torch.Tensor) or not isinstance(b, torch.Tensor):
-            msg = "Both matrix operands must use the same container."
-            raise TypeError(msg)
-        return torch.from_numpy(matmul(a.numpy(), b.numpy()))
+    if isinstance(a, torch.Tensor):
+        return torch.from_numpy(matmul(a.numpy(), cast("torch.Tensor", b).numpy()))
+    b = cast("np.ndarray", b)
 
     if a.dtype == np.float16:
         result = matmul(_cast_float_numpy(a, np.float32), _cast_float_numpy(b, np.float32))
         return _cast_float_numpy(result, np.float16)
+
+    if a.dtype == np.uint8 and b.dtype == np.uint8:
+        # BLAS sums stay exact: float32 holds every partial sum below 2**24, float64 below 2**53.
+        working = np.float32 if a.shape[-1] * 255 * 255 < 2**24 else np.float64
+        product = a.astype(working) @ b.astype(working)
+        return cast("NDArray[np.uint8]", product.astype(np.int64).astype(np.uint8))
 
     if (
         _IS_MACOS_ARM64
@@ -309,11 +258,11 @@ def matmul(a: np.ndarray | torch.Tensor, b: np.ndarray | torch.Tensor) -> np.nda
 
 
 @overload
-def pairwise_distances_squared(points1: np.ndarray, points2: np.ndarray | torch.Tensor) -> NDArray[np.float32]: ...
+def pairwise_distances_squared(points1: np.ndarray, points2: np.ndarray) -> NDArray[np.float32]: ...
 
 
 @overload
-def pairwise_distances_squared(points1: torch.Tensor, points2: np.ndarray | torch.Tensor) -> torch.Tensor: ...
+def pairwise_distances_squared(points1: torch.Tensor, points2: torch.Tensor) -> torch.Tensor: ...
 
 
 def pairwise_distances_squared(
@@ -352,17 +301,9 @@ def pairwise_distances_squared(
         are returned as infinity. The NumPy route uses one scratch matrix of
         shape (N, M), rather than a temporary of shape (N, M, D).
     """
-    if isinstance(points1, torch.Tensor) and isinstance(points2, torch.Tensor):
-        tensor_output = True
-        points1_array = points1.numpy()
-        points2_array = points2.numpy()
-    elif isinstance(points1, np.ndarray) and isinstance(points2, np.ndarray):
-        tensor_output = False
-        points1_array = points1
-        points2_array = points2
-    else:
-        msg = "Both point-set operands must use the same container."
-        raise TypeError(msg)
+    tensor_output = isinstance(points1, torch.Tensor)
+    points1_array = points1.numpy() if isinstance(points1, torch.Tensor) else points1
+    points2_array = points2.numpy() if isinstance(points2, torch.Tensor) else points2
 
     numkong_d8_eligible = (
         points1_array.dtype == np.float32

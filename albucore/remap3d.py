@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import platform
-import sys
 from typing import TYPE_CHECKING, overload
 
 import cv2
@@ -18,13 +16,13 @@ from albucore.sampling3d import (
     _sample3d_torch_cpu_batch_preallocated_float32,
 )
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
+from albucore.utils import _LINUX_X86_64
 
 if TYPE_CHECKING:
     from albucore._types import ImageArrayT
 
 __all__ = ["remap3d"]
 
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _PREALLOCATED_BATCH_MIN_OUTPUT_ELEMENTS = 1_000_000
 
 
@@ -152,7 +150,7 @@ def remap3d(
     ``sampling_grid`` has ``(D_out, H_out, W_out, 3)`` layout, contains normalized
     ``align_corners=False`` coordinates in ``(x, y, z)`` order, and may be a NumPy
     array or CPU Torch tensor. Its spatial shape defines the output. One grid is shared
-    by every volume. Only ``uint8`` and ``float32`` volumes are supported. Callers
+    by every volume. Supported volume dtypes are ``uint8``, ``float16``, and ``float32``. Callers
     validate the volume, grid, and parameter contract before this low-level kernel.
     This primitive does not inspect the dense grid for identity.
 

@@ -430,3 +430,17 @@ class TestPairwiseDistancesSquared:
 
         expected = np.array([[0.0], [1.0], [2.0], [1.0]], dtype=np.float32)
         np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.parametrize(("m", "k", "n"), [(3, 3, 3), (17, 258, 9), (9, 259, 17), (5, 1000, 5), (64, 200, 64)])
+def test_uint8_matmul_matches_numpy_modulo_integer_product(m: int, k: int, n: int) -> None:
+    rng = np.random.default_rng(71)
+    a = rng.integers(0, 256, (m, k), dtype=np.uint8)
+    b = rng.integers(0, 256, (k, n), dtype=np.uint8)
+    a[0] = 255
+    b[:, 0] = 255
+
+    result = matmul(a, b)
+
+    assert result.dtype == np.uint8
+    np.testing.assert_array_equal(result, a @ b)

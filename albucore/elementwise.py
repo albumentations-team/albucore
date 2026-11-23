@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import platform
-import sys
 from typing import TYPE_CHECKING, TypeVar, cast, overload
 
 import cv2
@@ -13,6 +11,7 @@ import torch
 from albucore._float_cast import _cast_float_numpy
 from albucore.lut import _apply_float_lut
 from albucore.torch_backend import _float16_unary_torch
+from albucore.utils import _LINUX_X86_64, _MACOS_ARM64
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,22 +20,18 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-__all__ = ["exp", "log", "sqrt"]
+__all__ = ["exp", "sqrt"]
 
 _FloatDTypeT = TypeVar("_FloatDTypeT", np.float16, np.float32)
 _OPENCV_CONTIGUOUS_MIN_ELEMENTS = 4_096
 _EXP_OPENCV_STRIDED_MIN_ELEMENTS = 65_536
-_LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS = 8_192
-_LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS = 65_536
-_FLOAT32_TINY = np.finfo(np.float32).tiny
-_TORCH_FLOAT16_MIN_ELEMENTS = {"exp": 12_288, "log": 12_288, "sqrt": 20_480}
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+_TORCH_FLOAT16_MIN_ELEMENTS = {"exp": 12_288, "sqrt": 20_480}
 _UINT8_SQRT_LUT_MIN_ELEMENTS = 20_480
 _LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS = 921_600
 _UINT8_SQRT_LUT = np.sqrt(np.arange(256, dtype=np.float32))
-_NATIVE_HALF_EXP = sys.platform == "linux" and platform.machine() == "x86_64"
-_NATIVE_HALF_LOG = sys.platform == "darwin" and platform.machine() == "arm64"
+with np.errstate(over="ignore"):
+    _UINT8_EXP_LUT = np.exp(np.arange(256, dtype=np.float32))
+_NATIVE_HALF_EXP = _LINUX_X86_64
 
 
 def _numpy_unary(
@@ -66,29 +61,20 @@ def _opencv_unary(
     return cast("NDArray[_FloatDTypeT]", result.reshape(array.shape))
 
 
-def _log_opencv(array: NDArray[np.float32], *, out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
-    if array.size and float(array.min()) >= _FLOAT32_TINY:
-        return _opencv_unary(array, cv2.log, out=out)
-    return _numpy_unary(array, np.log, out=out)
-
-
 def _float16_unary(
     array: NDArray[np.float16],
-    operation: Literal["exp", "log", "sqrt"],
+    operation: Literal["exp", "sqrt"],
     numpy_operation: Callable[..., np.ndarray],
     *,
     out: NDArray[np.float16] | None,
 ) -> NDArray[np.float16]:
-    if array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS and operation != "sqrt":
-        opencv_operation = cv2.log if operation == "log" else cv2.exp
-        native_half = _NATIVE_HALF_LOG if operation == "log" else _NATIVE_HALF_EXP
-        if not native_half:
+    if array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS and operation == "exp":
+        if not _NATIVE_HALF_EXP:
             working = _cast_float_numpy(array, np.float32)
-            result = _log_opencv(working) if operation == "log" else _opencv_unary(working, cv2.exp)
-            return _cast_float_numpy(result, np.float16, out=out)
+            return _cast_float_numpy(_opencv_unary(working, cv2.exp), np.float16, out=out)
         if out is None or out.flags.c_contiguous:
-            return _opencv_unary(array, opencv_operation, out=out)
-        np.copyto(out, _opencv_unary(array, opencv_operation))
+            return _opencv_unary(array, cv2.exp, out=out)
+        np.copyto(out, _opencv_unary(array, cv2.exp))
         return out
     torch_result = _float16_unary_torch(
         array,
@@ -112,8 +98,6 @@ def _torch_unary(
         if out is array:
             if operation is torch.exp:
                 return working.exp_()
-            if operation is torch.log:
-                return working.log_()
             return working.sqrt_()
         return operation(working) if out is None else operation(working, out=out)
 
@@ -157,9 +141,9 @@ def exp(
         return _torch_unary(array, torch.exp, out=cast("torch.Tensor | None", out))
     output = cast("NDArray[np.float16] | NDArray[np.float32] | None", out)
     if array.dtype == np.uint8:
-        return _numpy_unary(
-            cast("NDArray[np.float32]", array.astype(np.float32)),
-            np.exp,
+        return _apply_float_lut(
+            cast("NDArray[np.uint8]", array),
+            _UINT8_EXP_LUT,
             out=cast("NDArray[np.float32] | None", output),
         )
     if array.dtype == np.float16:
@@ -174,77 +158,6 @@ def exp(
     if array.size >= minimum and (destination is None or (array.flags.c_contiguous and destination.flags.c_contiguous)):
         return _opencv_unary(cast("NDArray[np.float32]", array), cv2.exp, out=destination)
     return _numpy_unary(cast("NDArray[np.float32]", array), np.exp, out=destination)
-
-
-@overload
-def log(array: NDArray[np.float16], *, out: NDArray[np.float16] | None = None) -> NDArray[np.float16]: ...
-
-
-@overload
-def log(
-    array: NDArray[np.uint8] | NDArray[np.float32],
-    *,
-    out: NDArray[np.float32] | None = None,
-) -> NDArray[np.float32]: ...
-
-
-@overload
-def log(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tensor: ...
-
-
-def log(
-    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
-    *,
-    out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
-) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
-    """Compute the NumPy-compatible natural logarithm with explicit output storage.
-
-    Args:
-        array: Prevalidated uint8, float16, or float32 array.
-        out: Optional caller-owned output of the result dtype and shape. May be the floating input.
-            The caller validates strides, writeability, and supported overlap.
-
-    Returns:
-        The same shape; float16 stays float16, while uint8 and float32 return float32.
-        A supplied output is returned by identity.
-
-    Notes:
-        Eligible OpenCV results match NumPy within rtol=1e-5 and atol=1e-7.
-        Zero, negative, subnormal, and non-finite values use NumPy semantics.
-    """
-    if isinstance(array, torch.Tensor):
-        return _torch_unary(array, torch.log, out=cast("torch.Tensor | None", out))
-    output = cast("NDArray[np.float16] | NDArray[np.float32] | None", out)
-    if array.dtype == np.uint8:
-        return _numpy_unary(
-            cast("NDArray[np.float32]", array.astype(np.float32)),
-            np.log,
-            out=cast("NDArray[np.float32] | None", output),
-        )
-    if array.dtype == np.float16:
-        return _float16_unary(
-            cast("NDArray[np.float16]", array),
-            "log",
-            np.log,
-            out=cast("NDArray[np.float16] | None", output),
-        )
-    destination = cast("NDArray[np.float32] | None", output)
-    contiguous = array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS
-    single_channel = array.ndim == 2 or (array.ndim >= 3 and array.shape[-1] == 1)
-    high_channel = array.ndim >= 3 and array.shape[-1] >= 8
-    minimum = (
-        _LOG_OPENCV_STRIDED_SINGLE_CHANNEL_MIN_ELEMENTS
-        if single_channel
-        else _LOG_OPENCV_STRIDED_HIGH_CHANNEL_MIN_ELEMENTS
-        if high_channel
-        else None
-    )
-    strided = not array.flags.c_contiguous and minimum is not None and array.size >= minimum
-    if (contiguous or strided) and (
-        destination is None or (array.flags.c_contiguous and destination.flags.c_contiguous)
-    ):
-        return _log_opencv(cast("NDArray[np.float32]", array), out=destination)
-    return _numpy_unary(cast("NDArray[np.float32]", array), np.log, out=destination)
 
 
 @overload

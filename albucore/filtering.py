@@ -6,18 +6,14 @@ layout packing and writable workspaces.
 
 from __future__ import annotations
 
-import platform
-import sys
 from typing import TYPE_CHECKING, Any, cast
 
 import cv2
 import numpy as np
 
 from albucore.convert import convert_dtype
-from albucore.utils import clip
+from albucore.utils import _LINUX_X86_64, _MACOS_ARM64, clip
 
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _MACOS_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 20_480
 _LINUX_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 230_400
 _IDENTITY_KERNEL_MIN_ELEMENTS_HALF = 20_480
@@ -77,8 +73,6 @@ def _separable_float32_kernel(kernel: NDArray[Any]) -> tuple[np.ndarray, np.ndar
         return None
     row, col = np.unravel_index(np.argmax(np.abs(kernel)), kernel.shape)
     pivot = kernel[row, col]
-    if pivot == 0:
-        return None
     kernel_x = kernel[row].copy()
     kernel_y = (kernel[:, col] / pivot).astype(np.float32)
     if np.allclose(kernel_y[:, None] * kernel_x[None, :], kernel, rtol=1e-6, atol=1e-7):
@@ -98,6 +92,8 @@ def box_blur(img: ImageArrayT, ksize: int) -> ImageArrayT:
 
     Images use HWC with an explicit trailing channel, including C=1.
     """
+    if img.dtype == np.uint8 and ksize > 1:
+        return cast("ImageArrayT", cv2.blur(img, (ksize, ksize), dst=np.empty_like(img, order="C")))
     if img.dtype == np.float32 and ksize > 1 and img.flags.c_contiguous:
         channels = img.shape[-1]
         macos_route = _MACOS_ARM64 and img.size >= _MACOS_FLOAT32_BOX_BLUR_MIN_ELEMENTS

@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+This release speeds up many uint8 NumPy and Tensor routes, fixes scalar `add` overflow for C>4, and removes
+public helpers, operations and switches that AlbumentationsX does not use. Results stay bitwise identical except
+uint8 per-channel `mean_std`/`std` with `keepdims=True`, which now matches the `keepdims=False` result.
+
+### Performance
+
+Speedups are single-thread public calls, macOS M4 Max / GCP Cascade Lake medians:
+
+- `multiply(uint8, uint8_field)`: one saturating OpenCV byte multiply, 37× / 13×.
+- `multiply(uint8, float32_field)`: no float32 widening of the image, 1.3× / 1.1×.
+- `add(uint8, scalar)`: one flat saturating OpenCV call for every channel count; negative offsets 19× / 16×.
+- `exp(uint8)`: 256-entry float32 table, 18× / 2.1×.
+- `matmul(uint8, uint8)`: exact float BLAS, 36× / 15×.
+- `copy_make_border` with C>4 per-channel values: 18–29× / 12–19×.
+- `median_blur(uint8)`: direct row crops, per-plane C>4 for k≥7, per-plane uint8 Tensors (7.8× / 8.9× at k=3).
+- uint8 Tensors with scalar controls: `add`, `multiply`, `power`, `multiply_add` 8–20× / 7.5–12.5×;
+  `normalize` 3.5× / 4.8×; `add_weighted` 9.3× / 24×.
+- uint8 per-channel `mean_std`/`std` with `keepdims=True`: 25× / 67×.
+- `box_blur(uint8)`: no source copy, 1.12× / 1.11×.
+
+### Fixed
+
+- `add(uint8 image with C>4, value > 255)` raised `OverflowError`; it now saturates like other channel counts.
+
+### Removed
+
+- Operations: `log` and the public `separable_filter3d`; `gaussian_blur3d` keeps the same filtering.
+- Helpers: `TWO`, `NPDTYPE_TO_OPENCV_DTYPE`, `get_opencv_dtype_from_numpy`, `get_image_data`,
+  `ops_misc.hflip_cv2`/`vflip_cv2`/`hflip_numpy`/`vflip_numpy`, and `torch_backend.TORCH_CPU_BACKEND_ENABLED`.
+- Root exports only (still importable from their modules): `convert_value`, `MAX_OPENCV_WORKING_CHANNELS` and
+  `NUM_RGB_CHANNELS` from `albucore.utils`; `ImageInput`, `ValueType`, `SupportedDType`, `NormalizationType` and
+  `TensorImageLayout` from `albucore._types`.
+- Unsupported inputs: float64 volumes are no longer converted by the 3D filter; `matmul` and
+  `pairwise_distances_squared` take operands of one container.
+
+### Migration
+
+Replace `albucore.log(x)` with `np.log(x)` or `torch.log(x)`. Replace `hflip_cv2(img)` with
+`np.ascontiguousarray(hflip(img))`. Import moved names from their owning module, for example
+`from albucore.utils import convert_value`.
+
 ## 0.3.4 — 2026-11-04
 
 This release reduces temporary memory in float16-to-float32 conversion and speeds up raw uint8-to-float32

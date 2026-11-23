@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import platform
-import sys
 from typing import TYPE_CHECKING, Literal
 
 import cv2
 import numpy as np
 
 from albucore.lut import apply_uint8_lut
-from albucore.utils import NUM_RGB_CHANNELS, get_opencv_max_channels
+from albucore.utils import _LINUX_X86_64, NUM_RGB_CHANNELS, get_opencv_max_channels
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -20,7 +18,6 @@ __all__ = ["equalize_uint8"]
 
 _OPENCV_MAX_CHANNELS = get_opencv_max_channels()
 _MAX_EXACT_HISTOGRAM_PIXELS = 2**24
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _MASKED_CV_MIN_PIXELS = 76_800
 _LINUX_MASKED_CV_PER_CHANNEL_MIN_PIXELS = 307_200
 
@@ -148,7 +145,6 @@ def equalize_uint8(
     if (
         mode == "cv"
         and mask is not None
-        and img.ndim == 3
         and channels == NUM_RGB_CHANNELS
         and minimum_mask_pixels <= img.shape[0] * img.shape[1] <= _MAX_EXACT_HISTOGRAM_PIXELS
         and img.strides[1:] == (NUM_RGB_CHANNELS, 1)

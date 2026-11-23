@@ -57,12 +57,12 @@ def _torch_router_disabled() -> Any:
     Albucore's runtime router eligible too. This process-wide patch is
     safe because benchmark timing is single-process and sequential.
     """
-    original = torch_backend.TORCH_CPU_BACKEND_ENABLED
-    torch_backend.TORCH_CPU_BACKEND_ENABLED = False
+    original = torch_backend._is_torch_compatible_array
+    torch_backend._is_torch_compatible_array = lambda *_args, **_kwargs: False
     try:
         yield
     finally:
-        torch_backend.TORCH_CPU_BACKEND_ENABLED = original
+        torch_backend._is_torch_compatible_array = original
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,7 +131,6 @@ def _float_image(
     shape: tuple[int, ...],
     dtype: np.dtype[Any] = np.dtype(np.float32),
 ) -> np.ndarray:
-    # Positive finite inputs exercise the OpenCV-compatible public log route.
     return rng.uniform(np.float32(0.05), np.float32(1.0), size=shape).astype(dtype)
 
 
@@ -145,10 +144,6 @@ def _prepare_wrap(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmar
 
 def _prepare_exp(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
     return lambda: albucore.exp(array), lambda: _torch_array(torch.exp(torch.from_numpy(array)))
-
-
-def _prepare_log(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
-    return lambda: albucore.log(array), lambda: _torch_array(torch.log(torch.from_numpy(array)))
 
 
 def _prepare_sqrt(array: np.ndarray, _: np.random.Generator) -> PreparedBenchmark:
@@ -341,7 +336,6 @@ BOTH = (np.dtype(np.uint8), np.dtype(np.float16), np.dtype(np.float32))
 CANDIDATES: tuple[Candidate, ...] = (
     Candidate("wrap_numpy_tensor_numpy", BOTH, _prepare_wrap, rtol=0, atol=0),
     Candidate("exp", FLOATING, _prepare_exp),
-    Candidate("log", FLOATING, _prepare_log),
     Candidate("sqrt", FLOATING, _prepare_sqrt),
     Candidate("add_scalar", FLOATING, _prepare_add),
     Candidate("multiply_scalar", FLOATING, _prepare_multiply),

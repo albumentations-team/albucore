@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from albucore import convert_value, multiply
+from albucore import multiply
+from albucore.utils import convert_value
 
 
 @pytest.mark.parametrize(
@@ -224,3 +225,60 @@ def test_multiply_uint8_single_channel_vector_preserves_output_contract(multipli
 
     assert returned is destination
     np.testing.assert_array_equal(destination, expected)
+
+
+@pytest.mark.parametrize(
+    ("field_dtype", "field_kind", "destination"),
+    [
+        (field_dtype, field_kind, destination)
+        for field_dtype in (np.uint8, np.float32, np.float16)
+        for field_kind in ("full", "broadcast")
+        for destination in ("none", "separate", "strided", "image", "field")
+        # Only an exact uint8 field can alias the output.
+        if destination != "field" or (field_kind == "full" and field_dtype == np.uint8)
+    ],
+)
+@pytest.mark.parametrize("shape", [(5, 7, 1), (5, 7, 3), (5, 7, 9), (2, 5, 7, 3)])
+def test_multiply_uint8_field_matches_truncating_saturation(
+    field_dtype: type[np.generic],
+    shape: tuple[int, ...],
+    field_kind: str,
+    destination: str,
+) -> None:
+    rng = np.random.default_rng(17)
+    image = rng.integers(0, 256, shape, dtype=np.uint8)
+    image.flat[:2] = (255, 0)
+    field_shape = shape if field_kind == "full" else (*shape[:-1], 1)
+    if field_dtype == np.uint8:
+        field = rng.integers(0, 256, field_shape, dtype=np.uint8)
+        field.flat[:2] = (255, 255)
+    else:
+        field = rng.uniform(-0.5, 3.0, field_shape).astype(field_dtype)
+    expected = np.clip(image.astype(np.float32) * field.astype(np.float32), 0, 255).astype(np.uint8)
+    original_image = image.copy()
+    original_field = field.copy()
+
+    if destination == "none":
+        result = multiply(image, field)
+        np.testing.assert_array_equal(image, original_image)
+    elif destination == "separate":
+        out = np.empty_like(image)
+        result = multiply(image, field, out=out)
+        assert result is out
+    elif destination == "strided":
+        backing = np.empty((*shape[:-1], shape[-1] * 2), dtype=np.uint8)
+        out = backing[..., ::2]
+        result = multiply(image, field, out=out)
+        assert result is out
+    elif destination == "image":
+        result = multiply(image, field, out=image)
+        assert result is image
+    else:
+        result = multiply(image, field, out=field)
+        assert result is field
+
+    assert result.shape == shape
+    assert result.dtype == np.uint8
+    np.testing.assert_array_equal(result, expected)
+    if destination != "field":
+        np.testing.assert_array_equal(field, original_field)

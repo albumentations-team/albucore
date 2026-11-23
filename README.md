@@ -133,7 +133,6 @@ layout, and output ownership in their own signatures or bodies.
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
 | `exp` | `(array, *, out=None)` | Elementwise exponential; float16/float32 preserve dtype, uint8 returns float32 | NumPy, OpenCV, or CPU Torch by dtype and measured region |
-| `log` | `(array, *, out=None)` | NumPy-compatible natural logarithm; float16/float32 preserve dtype, uint8 returns float32 | NumPy special values; guarded OpenCV or Torch paths for eligible regions |
 | `sqrt` | `(array, *, out=None)` | NumPy-compatible square root; float16/float32 preserve dtype, uint8 returns float32 | NumPy or CPU Torch by dtype and measured region |
 
 These functions preserve the input shape. Without `out`, they leave input data unchanged. Supply `out=destination`
@@ -172,18 +171,17 @@ requires a float32 destination. AX owns any protective copy needed before writin
 
 | Function | Signature | What it does | How it works |
 |---|---|---|---|
-| `hflip` | `(img)` | Mirror left-right | NumPy slice view for every channel count; `hflip_cv2` remains the explicit materializing backend |
-| `vflip` | `(img)` | Mirror top-bottom | NumPy slice view for every channel count; `vflip_cv2` remains the explicit materializing backend |
-| `median_blur` | `(img, ksize, *, layout=None)` | Median filter (odd ksize ≥ 3) | uint8 → direct/chunked OpenCV; float16/float32 use the documented OpenCV working paths |
+| `hflip` | `(img)` | Mirror left-right | NumPy slice view for every channel count |
+| `vflip` | `(img)` | Mirror top-bottom | NumPy slice view for every channel count |
+| `median_blur` | `(img, ksize, *, layout=None)` | Median filter (odd ksize ≥ 3) | uint8 → direct OpenCV, per plane for C>4 with ksize ≥ 7 and for contiguous Tensors; float16/float32 use the documented OpenCV working paths |
 | `pad3d` | `(volume, padding, value=0)` | Add constant borders to uint8/float16/float32 volumes or int16 masks | NumPy fill/copy or CPU Torch `F.pad`; preserves NumPy `DHWC` or Tensor `CDHW` |
 | `gaussian_blur3d` | `(volume, sigma, kernel_size=0)` | Blur one volume along depth, height, and width | One NumPy `DHWC` or CPU Torch `CDHW` volume; float32 working passes where needed, then restore the output dtype |
-| `separable_filter3d` | `(volume, kernels)` | Apply three D/H/W kernels to one volume | One NumPy `DHWC` or CPU Torch `CDHW` volume; float32 working passes where needed, then restore the output dtype |
 | `warp_affine3d` | `(volume, matrix, size, interpolation, border_mode, border_value)` | Apply one forward 3D affine matrix to a volume or batch | NumPy `DHWC`/`NDHWC` or CPU Torch `CDHW`/`NCDHW`; one matrix is shared across the batch; native Torch `affine_grid` + `grid_sample` |
 | `remap3d` | `(volume, sampling_grid, interpolation, border_mode, border_value)` | Sample a volume or batch through one shared normalized 3D pull grid | NumPy `DHWC`/`NDHWC` or CPU Torch `CDHW`/`NCDHW`; grid layout `(D_out, H_out, W_out, 3)` |
 | `matmul` | `(a, b)` | Matrix multiply (`a @ b`) | NumPy `@` (BLAS-backed); float16 uses float32 accumulation and casts back |
 | `pairwise_distances_squared` | `(points1, points2)` | Squared Euclidean distance matrix `(N, M)` | NumKong `cdist` for N*M < 1000, D≥9, and contiguous float32 D=8 through 2,048 pairs; NumPy coordinate differences otherwise |
 
-The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `remap`, `remap3d`, `resize`, `resize3d`, `separable_filter3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `pad3d`, `separable_filter3d`, and `resize3d` expect one NumPy `DHWC` volume or CPU Torch `CDHW` tensor per call. `warp_affine3d` and `remap3d` accept those single-volume layouts or NumPy `NDHWC` and CPU Torch `NCDHW` batches.
+The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `remap`, `remap3d`, `resize`, `resize3d`, `warp_affine`, `warp_affine3d`, and `warp_perspective`; see [docs/public-api.md](docs/public-api.md) and their docstrings for complete signatures. `gaussian_blur3d`, `pad3d`, and `resize3d` expect one NumPy `DHWC` volume or CPU Torch `CDHW` tensor per call. `warp_affine3d` and `remap3d` accept those single-volume layouts or NumPy `NDHWC` and CPU Torch `NCDHW` batches.
 
 ### Type conversion
 
@@ -198,7 +196,7 @@ The package also star-exports `copy_make_border`, `gaussian_blur3d`, `pad3d`, `r
 3. **CPU PyTorch**: Selected eager 3D volume operations use full-path Torch routes after benchmarks include the NumPy/Tensor bridge, thread settings, and output repair (see [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md)).
 4. **Tensor LUTs**: Shared uint8 lookups on contiguous CPU Tensors use a direct StringZilla destination path in the measured size regions (see [docs/numkong-performance.md](docs/numkong-performance.md)).
 
-Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`log`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
+Micro-benchmarks vs NumPy/OpenCV/NumKong: see [benchmarks/README.md](benchmarks/README.md). Run `uv run python benchmarks/benchmark_elementwise.py` for `exp`/`sqrt`, or `uv run python benchmarks/benchmark_numkong.py` for a smaller NumKong sweep.
 
 See [docs/performance-optimization.md](docs/performance-optimization.md) for the general workflow and [docs/torch-performance-optimization.md](docs/torch-performance-optimization.md) for eager CPU Torch routes.
 

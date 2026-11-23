@@ -18,19 +18,13 @@ if TYPE_CHECKING:
 
 TORCH_MIN_ELEMENTS = 512 * 1024
 TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS = 12_288
-TORCH_CPU_BACKEND_ENABLED = True
 
 
 def _is_torch_compatible_array(array: np.ndarray, *, minimum_elements: int | None = None) -> bool:
     """Check whether a NumPy array can use a measured Torch CPU route without an input repair copy."""
     if minimum_elements is None:
         minimum_elements = TORCH_MIN_ELEMENTS
-    return (
-        TORCH_CPU_BACKEND_ENABLED
-        and array.size >= minimum_elements
-        and array.flags.writeable
-        and all(stride >= 0 for stride in array.strides)
-    )
+    return array.size >= minimum_elements and array.flags.writeable and all(stride >= 0 for stride in array.strides)
 
 
 def _is_half_torch_compatible(array: np.ndarray, minimum_elements: int) -> TypeGuard[NDArray[np.float16]]:
@@ -109,7 +103,7 @@ def float16_pointwise_torch(
 
 def _float16_unary_torch(
     array: np.ndarray,
-    operation: Literal["exp", "log", "sqrt"],
+    operation: Literal["exp", "sqrt"],
     *,
     minimum_elements: int,
     out: NDArray[np.float16] | None = None,
@@ -121,12 +115,7 @@ def _float16_unary_torch(
         return None
     image = torch.from_numpy(array)
     destination = None if out is None else torch.from_numpy(out)
-    if operation == "exp":
-        result = torch.exp(image, out=destination)
-    elif operation == "log":
-        result = torch.log(image, out=destination)
-    else:
-        result = torch.sqrt(image, out=destination)
+    result = torch.exp(image, out=destination) if operation == "exp" else torch.sqrt(image, out=destination)
     if out is not None:
         return out
     return cast("NDArray[np.float16]", result.numpy())

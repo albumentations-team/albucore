@@ -8,7 +8,7 @@ import pytest
 import torch
 
 import albucore.filter3d as filter3d_mod
-from albucore import gaussian_blur3d, separable_filter3d
+from albucore import gaussian_blur3d
 
 
 def test_gaussian_blur3d_smooths_the_depth_axis_without_touching_channels() -> None:
@@ -46,7 +46,7 @@ def test_separable_filter3d_uses_reflect101_for_unit_and_short_axes() -> None:
         np.array((1.0, 4.0, 1.0), dtype=np.float32) / 6.0,
     )
 
-    result = separable_filter3d(volume, kernels)
+    result = filter3d_mod._separable_filter3d(volume, kernels)
 
     np.testing.assert_allclose(result, _numpy_separable_reference(volume, kernels), rtol=3e-6, atol=3e-6)
 
@@ -86,69 +86,12 @@ def test_gaussian_blur3d_zero_sigmas_return_the_original_container(container: st
     assert gaussian_blur3d(volume, sigma=(0.0, 0.0, 0.0)) is volume
 
 
-@pytest.mark.parametrize("container", ["numpy", "torch"])
-def test_gaussian_blur3d_float64_falls_back_to_float32(container: str) -> None:
-    numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3)).astype(np.float64)
-    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
-    expected = gaussian_blur3d(numpy_volume.astype(np.float32), sigma=(0.75, 1.25, 0.0), kernel_size=(5, 0, 0))
-
-    result = gaussian_blur3d(volume, sigma=(0.75, 1.25, 0.0), kernel_size=(5, 0, 0))
-
-    if container == "numpy":
-        assert isinstance(result, np.ndarray)
-        assert result.dtype == np.float32
-        np.testing.assert_array_equal(result, expected)
-    else:
-        assert isinstance(result, torch.Tensor)
-        assert result.dtype == torch.float32
-        np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), expected)
-
-
-@pytest.mark.parametrize("container", ["numpy", "torch"])
-def test_separable_filter3d_identity_converts_float64_to_float32(container: str) -> None:
-    numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3)).astype(np.float64)
-    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
-    identity = np.ones(1, dtype=np.float32)
-
-    result = separable_filter3d(volume, (identity, identity, identity))
-
-    if container == "numpy":
-        assert isinstance(result, np.ndarray)
-        assert result.dtype == np.float32
-        np.testing.assert_array_equal(result, numpy_volume.astype(np.float32))
-    else:
-        assert isinstance(result, torch.Tensor)
-        assert result.dtype == torch.float32
-        np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), numpy_volume.astype(np.float32))
-
-
-@pytest.mark.parametrize("container", ["numpy", "torch"])
-def test_separable_filter3d_converts_float64_kernels_to_float32(container: str) -> None:
-    """Direct custom NumPy kernels cannot mismatch the float32 Torch working volume."""
-    numpy_volume = np.random.default_rng(20260805).random((3, 5, 7, 3), dtype=np.float32)
-    volume = numpy_volume if container == "numpy" else torch.from_numpy(numpy_volume).permute(3, 0, 1, 2)
-    kernel = np.array((1.0, 2.0, 1.0)) / 4.0
-    kernels = kernel, kernel, kernel
-    expected = separable_filter3d(numpy_volume, tuple(item.astype(np.float32) for item in kernels))
-
-    result = separable_filter3d(volume, kernels)
-
-    if container == "numpy":
-        assert isinstance(result, np.ndarray)
-        assert result.dtype == np.float32
-        np.testing.assert_array_equal(result, expected)
-    else:
-        assert isinstance(result, torch.Tensor)
-        assert result.dtype == torch.float32
-        np.testing.assert_array_equal(result.permute(1, 2, 3, 0).numpy(), expected)
-
-
 def test_separable_filter3d_restores_uint8_once_after_all_passes() -> None:
     volume = np.full((3, 5, 7, 5), 255, dtype=np.uint8)
     kernel = np.array((2.0,), dtype=np.float32)
     kernels = kernel, kernel, kernel
 
-    result = separable_filter3d(volume, kernels)
+    result = filter3d_mod._separable_filter3d(volume, kernels)
 
     assert result.dtype == np.uint8
     np.testing.assert_array_equal(result, 255)
@@ -162,7 +105,7 @@ def test_separable_filter3d_does_not_clip_uint8_between_passes() -> None:
         np.ones(1, dtype=np.float32),
     )
 
-    result = separable_filter3d(volume, kernels)
+    result = filter3d_mod._separable_filter3d(volume, kernels)
 
     assert result.dtype == np.uint8
     np.testing.assert_array_equal(result, 200)
@@ -205,7 +148,7 @@ def test_gaussian_blur3d_linux_opencv_xy_route_preserves_the_public_result(
 
     sigmas = (0.75, 1.25, 1.75)
     kernels = tuple(filter3d_mod._gaussian_kernel_1d(sigma, 0) for sigma in sigmas)  # noqa: SLF001
-    expected = separable_filter3d(image, kernels)
+    expected = filter3d_mod._separable_filter3d(image, kernels)
     route_calls = 0
     original_route = filter3d_mod._separable_filter3d_numpy_opencv_xy_torch_depth  # noqa: SLF001
 
@@ -250,7 +193,7 @@ def test_gaussian_blur3d_linux_opencv_xy_route_respects_packed_channel_limit(
     monkeypatch.setattr(filter3d_mod, "_LINUX_X86_64", True)
     volume = np.random.default_rng(20261121).random((15, 11, 13, 9), dtype=np.float32)
     kernels = tuple(filter3d_mod._gaussian_kernel_1d(sigma, 0) for sigma in (0.75, 1.25, 1.75))  # noqa: SLF001
-    expected = separable_filter3d(volume, kernels)
+    expected = filter3d_mod._separable_filter3d(volume, kernels)
     route_calls = 0
     original_route = filter3d_mod._separable_filter3d_numpy_opencv_xy_torch_depth  # noqa: SLF001
 
@@ -282,7 +225,7 @@ def test_gaussian_blur3d_linux_opencv_xy_route_preserves_nonfinite_spread(
     if container == "torch_contiguous":
         image = image.contiguous()
     kernels = tuple(filter3d_mod._gaussian_kernel_1d(sigma, 0) for sigma in (0.75, 1.25, 1.75))  # noqa: SLF001
-    expected = separable_filter3d(image, kernels)
+    expected = filter3d_mod._separable_filter3d(image, kernels)
 
     result = gaussian_blur3d(image, sigma=(0.75, 1.25, 1.75))
 

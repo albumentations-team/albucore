@@ -54,13 +54,8 @@ except ModuleNotFoundError as e:
     raise ImportError(msg) from e
 
 from ._types import (
-    ImageInput,
     ImageInputT,
-    NormalizationType,
-    SupportedDType,
-    TensorImageLayout,
     TensorLayout,
-    ValueType,
 )
 from .arithmetic import (
     add,
@@ -71,7 +66,6 @@ from .arithmetic import (
 from .convert import convert_dtype
 from .elementwise import (
     exp,
-    log,
     sqrt,
 )
 from .filtering import (
@@ -92,7 +86,6 @@ from .geometric import (
     resize,
     resize3d,
     rot90_volume,
-    separable_filter3d,
     transpose_volume,
     warp_affine,
     warp_affine3d,
@@ -120,17 +113,10 @@ from .stats import (
     std,
 )
 from .utils import (
-    MAX_OPENCV_WORKING_CHANNELS,
     MAX_VALUES_BY_DTYPE,
-    NPDTYPE_TO_OPENCV_DTYPE,
-    NUM_RGB_CHANNELS,
-    TWO,
     clip,
-    convert_value,
-    get_image_data,
     get_max_value,
     get_num_channels,
-    get_opencv_dtype_from_numpy,
     get_opencv_max_channels,
     is_grayscale_image,
     is_multispectral_image,
@@ -140,18 +126,9 @@ from .utils import (
 from .weighted import add_weighted
 
 __all__ = [
-    "MAX_OPENCV_WORKING_CHANNELS",
     "MAX_VALUES_BY_DTYPE",
-    "NPDTYPE_TO_OPENCV_DTYPE",
-    "NUM_RGB_CHANNELS",
-    "TWO",
-    "ImageInput",
     "ImageInputT",
-    "NormalizationType",
-    "SupportedDType",
-    "TensorImageLayout",
     "TensorLayout",
-    "ValueType",
     "__author__",
     "__maintainer__",
     "__version__",
@@ -161,7 +138,6 @@ __all__ = [
     "box_blur",
     "clip",
     "convert_dtype",
-    "convert_value",
     "convolve",
     "copy_make_border",
     "dilate",
@@ -170,17 +146,14 @@ __all__ = [
     "exp",
     "flip_volume",
     "gaussian_blur3d",
-    "get_image_data",
     "get_max_value",
     "get_num_channels",
-    "get_opencv_dtype_from_numpy",
     "get_opencv_max_channels",
     "hflip",
     "is_grayscale_image",
     "is_multispectral_image",
     "is_rgb_image",
     "linear_transformation_rgb",
-    "log",
     "matmul",
     "maybe_process_in_chunks",
     "mean",
@@ -199,7 +172,6 @@ __all__ = [
     "resize",
     "resize3d",
     "rot90_volume",
-    "separable_filter3d",
     "sqrt",
     "std",
     "transpose_volume",
