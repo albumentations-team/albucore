@@ -340,7 +340,7 @@ def warp_affine3d(
     A single Torch volume uses ``(C, D, H, W)`` and a batch uses ``(N, C, D, H, W)``.
     One matrix is shared by every volume. The matrix maps voxel-center ``(x, y, z)``
     input coordinates to output coordinates. ``size`` is ordered as ``(depth, height,
-    width)``. Only ``uint8`` and ``float32`` are supported. Callers validate the input
+    width)``. Supported dtypes are ``uint8``, ``float16``, and ``float32``. Callers validate the input
     container, layout, dtype, device, and control data before this low-level kernel.
     Exact XY-only warps with unchanged depth share one Torch plane grid across slices.
     Nearest interpolation preserves the native 3D sampler's categorical ties.

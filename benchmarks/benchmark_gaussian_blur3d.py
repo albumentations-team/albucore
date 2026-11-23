@@ -35,8 +35,7 @@ from shape_grids import parse_dhwc_shape
 from timing import WallTimingMs, bench_paired_wall_ms, bench_wall_ms
 
 import albucore
-from albucore import separable_filter3d
-from albucore.filter3d import _restore_uint8, _separable_filter3d_torch_cpu
+from albucore.filter3d import _restore_uint8, _separable_filter3d, _separable_filter3d_torch_cpu
 from albucore.utils import get_opencv_max_channels
 
 if TYPE_CHECKING:
@@ -306,7 +305,7 @@ def _time_numpy_routes(
     ]
 
     def public() -> np.ndarray:
-        return separable_filter3d(volume, _kernels())
+        return _separable_filter3d(volume, _kernels())
 
     def public_opencv() -> np.ndarray:
         return _gaussian_blur3d_opencv_numpy(volume)
@@ -348,7 +347,7 @@ def _time_tensor_routes(
     ]
 
     def public() -> torch.Tensor:
-        return separable_filter3d(tensor, _kernels())
+        return _separable_filter3d(tensor, _kernels())
 
     def public_opencv() -> torch.Tensor:
         return _gaussian_blur3d_opencv_tensor(tensor)

@@ -123,3 +123,24 @@ def test_shared_lut_uses_stringzilla_output_for_contiguous_destination(monkeypat
     np.testing.assert_equal(id(result), id(out))
     np.testing.assert_array_equal(result, expected)
     np.testing.assert_array_equal(image, original)
+
+
+@pytest.mark.parametrize("destination", ["none", "planar", "interleaved"])
+def test_float_lut_on_planar_views_writes_every_output_layout(destination: str) -> None:
+    from albucore.lut import _apply_float_lut
+
+    rng = np.random.default_rng(67)
+    image = rng.integers(0, 256, (3, 30, 40), dtype=np.uint8).transpose(1, 2, 0)
+    table = rng.random((256, 1, 3)).astype(np.float32)
+    expected = np.stack([table[image[..., index], 0, index] for index in range(3)], axis=-1)
+    out = {
+        "none": None,
+        "planar": np.empty((3, 30, 40), dtype=np.float32).transpose(1, 2, 0),
+        "interleaved": np.empty((30, 40, 3), dtype=np.float32),
+    }[destination]
+
+    result = _apply_float_lut(image, table, out=out)
+
+    if out is not None:
+        assert result is out
+    np.testing.assert_array_equal(result, expected)

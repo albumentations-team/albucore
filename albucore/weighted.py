@@ -65,20 +65,16 @@ def _blend_numpy(
     weight1: float,
     img2: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     weight2: float,
-    *,
-    out: NDArray[np.float32] | None = None,
 ) -> NDArray[np.float32]:
     if img1.dtype == np.float16:
         result = np.add(
             _cast_float_numpy(img1, np.float32) * weight1,
             _cast_float_numpy(img2, np.float32) * weight2,
-            out=out,
         )
     else:
         result = np.add(
             img1.astype(np.float32, copy=False) * weight1,
             img2.astype(np.float32, copy=False) * weight2,
-            out=out,
         )
     return cast("NDArray[np.float32]", result)
 
@@ -240,14 +236,21 @@ def add_weighted(
     """
     if isinstance(img1, torch.Tensor):
         second_tensor = cast("torch.Tensor", img2)
+        # The uint8 NumPy route is the elementwise NumKong blend, so contiguous storage needs no repacking.
         if (
-            _NUMKONG_NEON
-            and img1.dtype == torch.float16
-            and img1.is_contiguous()
+            img1.is_contiguous()
             and second_tensor.is_contiguous()
-            and img1.numel() >= _NUMKONG_HALF_BLEND_MIN_ELEMENTS
-            and weight1 == 0.5
-            and weight2 == 0.5
+            and img1.numel()
+            and (
+                img1.dtype == torch.uint8
+                or (
+                    _NUMKONG_NEON
+                    and img1.dtype == torch.float16
+                    and img1.numel() >= _NUMKONG_HALF_BLEND_MIN_ELEMENTS
+                    and weight1 == 0.5
+                    and weight2 == 0.5
+                )
+            )
         ):
             first = img1.numpy()
             second = first if img2 is img1 else second_tensor.numpy()

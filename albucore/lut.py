@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import platform
 import sys
 from typing import TYPE_CHECKING, Any, cast, overload
 
@@ -12,7 +11,7 @@ import stringzilla as sz
 import torch
 
 from albucore.tensor_bridge import numpy_to_tensor_layout, numpy_to_tensor_storage, tensor_to_numpy_channel_last
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS
+from albucore.utils import _LINUX_X86_64, _MACOS_ARM64, MAX_OPENCV_WORKING_CHANNELS
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -22,8 +21,6 @@ if TYPE_CHECKING:
 
 __all__ = ["apply_uint8_lut"]
 
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _TENSOR_SHARED_LUT_DIRECT_SUPPORTED = _MACOS_ARM64 or _LINUX_X86_64
 _TENSOR_SHARED_LUT_MIN_ELEMENTS = 61_440 if _MACOS_ARM64 else 230_400 if _LINUX_X86_64 else sys.maxsize
 
@@ -65,7 +62,12 @@ def _apply_float_lut(
     # CHW-derived views avoid interleaving the full input and float32 output.
     result = np.empty_like(img, dtype=np.float32) if out is None else out
     for i in range(num_channels):
-        result[..., i] = cv2.LUT(img[..., i], lut[:, 0, i])
+        plane_lut = np.ascontiguousarray(lut[:, 0, i])
+        plane_out = result[..., i]
+        if plane_out.flags.c_contiguous:
+            cv2.LUT(img[..., i], plane_lut, dst=plane_out)
+        else:
+            plane_out[...] = cv2.LUT(img[..., i], plane_lut)
     return result
 
 

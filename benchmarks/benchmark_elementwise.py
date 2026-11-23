@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Benchmark the public ``exp``/``log``/``sqrt`` routers and candidate backends.
+"""Benchmark the public ``exp``/``sqrt`` routers and candidate backends.
 
 The standard matrix uses the canonical non-square HWC and DHWC shapes.
 Additional sweeps cover tiny dispatch, Python ``math`` loops, strided inputs,
-safe output reuse calls, and NumKong ``minmax`` as an OpenCV-log correctness guard.
+and safe output reuse calls.
 
 Run from the repository root::
 
@@ -28,7 +28,7 @@ import numpy as np
 from timing import WallTimingMs, bench_wall_ms
 
 import albucore as ac
-from albucore.elementwise import _log_opencv, _numpy_unary, _opencv_unary
+from albucore.elementwise import _numpy_unary, _opencv_unary
 
 Unary = Callable[..., np.ndarray]
 HWC_SHAPES: tuple[tuple[int, int, int], ...] = tuple(
@@ -61,10 +61,8 @@ STRIDED_LOG_SIZE_HW: tuple[tuple[int, int], ...] = (
     (192, 256),
     (240, 320),
 )
-FLOAT32_TINY = np.finfo(np.float32).tiny
 PYTHON_MATH: dict[str, Callable[[float], float]] = {
     "exp": math.exp,
-    "log": math.log,
     "sqrt": math.sqrt,
 }
 
@@ -105,15 +103,12 @@ def _input(operation: str, shape: tuple[int, ...]) -> np.ndarray:
     size = int(np.prod(shape))
     if operation == "exp":
         return np.linspace(-2.0, 2.0, size, dtype=np.float32).reshape(shape).copy()
-    if operation == "log":
-        return np.linspace(0.1, 4.0, size, dtype=np.float32).reshape(shape).copy()
     return np.linspace(0.0, 4.0, size, dtype=np.float32).reshape(shape).copy()
 
 
 def _operations() -> dict[str, tuple[Unary, Unary, Unary]]:
     return {
         "exp": (ac.exp, partial(_numpy_unary, operation=np.exp), partial(_opencv_unary, operation=cv2.exp)),
-        "log": (ac.log, partial(_numpy_unary, operation=np.log), _log_opencv),
         "sqrt": (ac.sqrt, partial(_numpy_unary, operation=np.sqrt), partial(_opencv_unary, operation=cv2.sqrt)),
     }
 
@@ -192,90 +187,27 @@ def _benchmark_tiny(repeats: int, warmup: int) -> list[str]:
     return rows
 
 
-def _benchmark_log_strided_channels(repeats: int, warmup: int) -> list[str]:
-    rows = [
-        "| logical HxW | channels | elements | NumPy ms | OpenCV-safe ms | OpenCV / NumPy | fastest |",
-        "|---:|---:|---:|---:|---:|---:|---|",
-    ]
-    for height, width in ((128, 160), (240, 320), (480, 640), (768, 1024)):
-        for channels in STRIDED_LOG_CHANNELS:
-            array = _input("log", (height, width * 2, channels))[:, ::2, :]
-            numpy_t = bench_wall_ms(lambda: _numpy_unary(array, np.log), repeats, warmup)
-            opencv_t = bench_wall_ms(lambda: _log_opencv(array), repeats, warmup)
-            fastest = "OpenCV-safe" if opencv_t.median < numpy_t.median else "NumPy"
-            rows.append(
-                f"| {height}x{width} | {channels} | {array.size} | {_format_timing(numpy_t)} | "
-                f"{_format_timing(opencv_t)} | {opencv_t.median / numpy_t.median:.2f}x | {fastest} |",
-            )
-    return rows
-
-
-def _benchmark_log_strided_sizes(repeats: int, warmup: int) -> list[str]:
-    rows = [
-        "| logical shape | elements | NumPy µs | OpenCV-safe µs | OpenCV / NumPy | fastest |",
-        "|---:|---:|---:|---:|---:|---|",
-    ]
-    for channels in (1, 8):
-        for height, width in STRIDED_LOG_SIZE_HW:
-            array = _input("log", (height, width * 2, channels))[:, ::2, :]
-            numpy_t = bench_wall_ms(lambda: _numpy_unary(array, np.log), repeats, warmup)
-            opencv_t = bench_wall_ms(lambda: _log_opencv(array), repeats, warmup)
-            fastest = "OpenCV-safe" if opencv_t.median < numpy_t.median else "NumPy"
-            rows.append(
-                f"| {height}x{width}x{channels} | {array.size} | {numpy_t.median * 1_000:.3f} | "
-                f"{opencv_t.median * 1_000:.3f} | {opencv_t.median / numpy_t.median:.2f}x | {fastest} |",
-            )
-    return rows
-
-
-def _log_numkong_guard(array: np.ndarray, *, out: np.ndarray | None = None) -> np.ndarray:
-    minimum, _, maximum, _ = nk.minmax(array)
-    safe = minimum >= FLOAT32_TINY and np.isfinite(minimum) and np.isfinite(maximum) and not np.isnan(array).any()
-    if not safe:
-        return np.log(array, out=out)
-    result = cv2.log(array, dst=out)
-    return result.reshape(array.shape) if out is None else out
-
-
-def _benchmark_log_guards(repeats: int, warmup: int) -> list[str]:
-    rows = [
-        "| shape | NumPy log ms | NumPy min/max + OpenCV ms | NumKong minmax + NaN scan + OpenCV ms |",
-        "|---:|---:|---:|---:|",
-    ]
-    for shape in HWC_SHAPES:
-        array = _input("log", shape)
-        numpy_t = bench_wall_ms(lambda: _numpy_unary(array, np.log), repeats, warmup)
-        production_t = bench_wall_ms(lambda: _log_opencv(array), repeats, warmup)
-        numkong_t = bench_wall_ms(lambda: _log_numkong_guard(array), repeats, warmup)
-        rows.append(
-            f"| {'×'.join(map(str, shape))} | {_format_timing(numpy_t)} | {_format_timing(production_t)} | "
-            f"{_format_timing(numkong_t)} |",
-        )
-    return rows
-
-
 def _report(repeats: int, warmup: int) -> str:
-    numkong_elementwise = [name for name in ("exp", "log", "sqrt") if hasattr(nk, name)]
+    numkong_elementwise = [name for name in ("exp", "sqrt") if hasattr(nk, name)]
     lines = [
-        "# Elementwise exp/log/sqrt benchmark",
+        "# Elementwise exp/sqrt benchmark",
         "",
         "The public routers use OpenCV where the complete path wins without changing NumPy's special-value semantics.",
         "",
         "## Decision",
         "",
         "- `exp`: OpenCV at 4,096 elements for C-contiguous arrays and 65,536 elements for strided arrays; NumPy below those thresholds.",
-        "- `log`: OpenCV at 4,096 elements for C-contiguous arrays, at 8,192 elements for strided single-channel arrays, and at 65,536 elements for strided arrays with C>=8. Inputs must be positive, finite, and normal float32 values. Two NumPy reductions guard the call; other inputs use NumPy.",
         "- `sqrt`: NumPy for every layout. `np.sqrt(..., out=array)` avoids allocation for safe output reuse calls, and OpenCV showed no durable win.",
-        "- NumKong: the installed Python API exposes none of `exp`, `log`, or `sqrt`. Its `minmax` primitive was tested as the `log` guard; the required NaN scan made it slower than NumPy `min`/`max`.",
+        "- NumKong: the installed Python API exposes neither `exp` nor `sqrt`.",
         "- Python `math`: a per-element loop was tested on the tiny sweep and lost even at one element once array conversion and output allocation were included.",
         "",
         "## Optimization audit",
         "",
-        "- Deleted or avoided work: empty inputs return immediately; `exp` and `sqrt` use one backend call; `log` uses two allocation-free reductions only on OpenCV candidates and avoids full-size masks.",
+        "- Deleted or avoided work: empty inputs return immediately; `exp` and `sqrt` use one backend call.",
         "- Memory and vectorization: NumPy ufuncs and OpenCV kernels operate on whole arrays. No Python/channel loop or full-size dtype conversion is present in the public path.",
         "- Grouped reductions and randomness: `bincount` and random generators do not apply to deterministic pointwise float32 transforms.",
         "- LUT and StringZilla: neither applies to a continuous float32 domain. A finite uint8 table would change the requested dtype and semantics.",
-        "- Backends: complete public, NumPy, and OpenCV paths are timed. NumKong has no direct primitives; its relevant `minmax` guard loses. Python `math` loses on tiny arrays.",
+        "- Backends: complete public, NumPy, and OpenCV paths are timed. NumKong has no direct primitives. Python `math` loses on tiny arrays.",
         "- Safe output reuse: only owned writable arrays may alias the result. Views and read-only buffers allocate; strided owned buffers stay on NumPy where OpenCV cannot safely reuse them.",
         "- Reuse: the new atoms can replace local OpenCV/NumPy calls in AlbumentationsX histology and illumination helpers in a downstream follow-up.",
         "",
@@ -302,24 +234,6 @@ def _report(repeats: int, warmup: int) -> str:
         "## Tiny dispatch sweep",
         "",
         *_benchmark_tiny(max(repeats, 41), max(warmup, 10)),
-        "",
-        "## Strided log channel sweep",
-        "",
-        "This sweep varies the channel count that controls whether OpenCV's required strided-input copy earns its cost.",
-        "",
-        *_benchmark_log_strided_channels(repeats, warmup),
-        "",
-        "### Strided log size calibration",
-        "",
-        "Single-channel and C>=8 are the winning regions above; this sweep locates conservative total-element thresholds.",
-        "",
-        *_benchmark_log_strided_sizes(max(repeats, 41), max(warmup, 10)),
-        "",
-        "## NumKong as a log correctness guard",
-        "",
-        "`cv2.log` changes negative, zero, subnormal, NaN, and infinity behavior. A guard must detect every such value before dispatch. NumKong `minmax` ignores NaN, so a separate NaN scan is required.",
-        "",
-        *_benchmark_log_guards(repeats, warmup),
         "",
     ]
     return "\n".join(lines)

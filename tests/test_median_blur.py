@@ -248,3 +248,46 @@ def test_median_blur_single_channel_passes_explicit_destination(
     assert result.shape == image.shape
     assert len(destinations) == 1
     assert destinations[0].shape == image.shape
+
+
+def _per_plane_reference(image: np.ndarray, kernel_size: int) -> np.ndarray:
+    planes = [cv2.medianBlur(np.ascontiguousarray(image[..., index]), kernel_size) for index in range(image.shape[-1])]
+    return np.stack(planes, axis=-1)
+
+
+@pytest.mark.parametrize("channels", [1, 3, 6, 9])
+@pytest.mark.parametrize("kernel_size", [3, 7])
+@pytest.mark.parametrize("layout", ["row_crop", "column_strided"])
+def test_median_blur_uint8_strided_input_matches_per_plane_reference(
+    channels: int,
+    kernel_size: int,
+    layout: str,
+) -> None:
+    source = np.random.default_rng(41).integers(0, 256, (35, 45, channels), dtype=np.uint8)
+    image = source[2:33, 3:40] if layout == "row_crop" else source[:, ::2]
+
+    result = median_blur(image, kernel_size)
+
+    np.testing.assert_array_equal(result, _per_plane_reference(image, kernel_size))
+
+
+@pytest.mark.parametrize("shape", [(3, 31, 37), (2, 3, 31, 37), (9, 31, 37)])
+@pytest.mark.parametrize("storage", ["contiguous", "channels_last"])
+@pytest.mark.parametrize("kernel_size", [3, 7])
+def test_median_blur_uint8_tensor_matches_per_plane_reference(
+    shape: tuple[int, ...],
+    storage: str,
+    kernel_size: int,
+) -> None:
+    tensor = torch.from_numpy(np.random.default_rng(43).integers(0, 256, shape, dtype=np.uint8))
+    if storage == "channels_last":
+        tensor = tensor.movedim(-3, -1).contiguous().movedim(-1, -3)
+    layout = "CHW" if tensor.ndim == 3 else "NCHW"
+    before = tensor.clone()
+
+    result = median_blur(tensor, kernel_size, layout=layout)
+
+    planes = tensor.numpy().reshape(-1, *tensor.shape[-2:])
+    expected = np.stack([cv2.medianBlur(np.ascontiguousarray(plane), kernel_size) for plane in planes])
+    np.testing.assert_array_equal(result.numpy().reshape(expected.shape), expected)
+    torch.testing.assert_close(tensor, before, rtol=0, atol=0)

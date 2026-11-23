@@ -13,7 +13,6 @@ from albucore import arithmetic, convert, convert_dtype, multiply_add, normalize
 
 def _enable_torch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(torch_backend, "TORCH_MIN_ELEMENTS", 1)
-    monkeypatch.setattr(torch_backend, "TORCH_CPU_BACKEND_ENABLED", True)
 
 
 def _strided(array: np.ndarray) -> np.ndarray:
@@ -161,14 +160,6 @@ def test_reduce_sum_torch_is_exact_for_global_and_per_channel(
     # UInt8 keeps its established per-channel NumKong/OpenCV routing; Torch only
     # replaces its full reductions. Float32 also uses Torch for C <= 4 per-channel sums.
     assert calls == (4 if dtype is np.uint8 else 6)
-
-
-def test_torch_backend_can_be_disabled_for_a_non_torch_baseline(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(torch_backend, "TORCH_CPU_BACKEND_ENABLED", False)
-    image = np.ones((800, 800, 1), dtype=np.float32)
-
-    assert torch_backend.quantize_uint8_torch(image, 255.0) is None
-    assert torch_backend.multiply_add_float32_torch(image, 1.1, 0.2) is None
 
 
 def test_torch_backend_skips_read_only_and_negative_stride_arrays(monkeypatch: pytest.MonkeyPatch) -> None:

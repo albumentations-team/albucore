@@ -10,6 +10,7 @@ import pytest
 import torch
 
 
+from albucore.filter3d import _separable_filter3d
 import albucore.geometric as geometric_mod
 import albucore.stats as stats_mod
 from albucore import (
@@ -20,7 +21,6 @@ from albucore import (
     exp,
     flip_volume,
     gaussian_blur3d,
-    log,
     matmul,
     mean,
     mean_std,
@@ -36,7 +36,6 @@ from albucore import (
     resize,
     resize3d,
     rot90_volume,
-    separable_filter3d,
     sqrt,
     std,
     torch_backend,
@@ -1184,7 +1183,7 @@ def test_float16_sum_uses_wide_results(axis: str) -> None:
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (log, np.log), (sqrt, np.sqrt)])
+@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (sqrt, np.sqrt)])
 def test_float16_transcendentals_preserve_special_values(
     operation: Callable[..., np.ndarray],
     reference: Callable[..., np.ndarray],
@@ -1199,7 +1198,7 @@ def test_float16_transcendentals_preserve_special_values(
     np.testing.assert_array_equal(result, expected, strict=True)
 
 
-@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (log, np.log), (sqrt, np.sqrt)])
+@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (sqrt, np.sqrt)])
 def test_float16_tensor_transcendentals_preserve_dtype_and_match_wide_reference(
     operation: Callable[..., object],
     reference: Callable[..., np.ndarray],
@@ -1216,7 +1215,7 @@ def test_float16_tensor_transcendentals_preserve_dtype_and_match_wide_reference(
     np.testing.assert_array_equal(result.numpy(), expected)
 
 
-@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (log, np.log), (sqrt, np.sqrt)])
+@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (sqrt, np.sqrt)])
 def test_uint8_tensor_transcendentals_use_raw_values_and_return_float32(
     operation: Callable[..., object],
     reference: Callable[..., np.ndarray],
@@ -1232,22 +1231,7 @@ def test_uint8_tensor_transcendentals_use_raw_values_and_return_float32(
     np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6, equal_nan=True)
 
 
-def test_float16_log_preserves_special_values_for_large_arrays() -> None:
-    values = np.array(
-        [-2.0, -0.0, 0.0, np.nextafter(np.float16(0), np.float16(1)), 0.0025424957275390625, 0.25, 1.0, np.inf, np.nan],
-        dtype=np.float16,
-    )
-    source = np.resize(values, (64, 64, 1))
-
-    with np.errstate(invalid="ignore", divide="ignore"):
-        result = log(source)
-        expected = np.log(source.astype(np.float32)).astype(np.float16)
-
-    assert result.dtype == np.float16
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-
-@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (log, np.log), (sqrt, np.sqrt)])
+@pytest.mark.parametrize(("operation", "reference"), [(exp, np.exp), (sqrt, np.sqrt)])
 def test_uint8_transcendentals_apply_to_raw_values_and_return_float32(
     operation: Callable[..., np.ndarray],
     reference: Callable[..., np.ndarray],
@@ -1266,7 +1250,6 @@ def test_uint8_transcendentals_apply_to_raw_values_and_return_float32(
     ("operation", "reference"),
     [
         (exp, np.exp),
-        (log, np.log),
         (sqrt, np.sqrt),
     ],
 )
@@ -1302,7 +1285,7 @@ def test_float16_volume_operations_preserve_dtype_and_widen_compute(container: s
     grid = np.stack((xx + 0.05, yy, zz), axis=-1).astype(np.float32)
 
     results = [
-        separable_filter3d(volume, kernels),
+        _separable_filter3d(volume, kernels),
         gaussian_blur3d(volume, sigma=(0.0, 0.5, 0.5), kernel_size=(0, 3, 3)),
         pad3d(volume, (1, 0, 1, 0, 1, 0), value=0.25),
         resize3d(volume, (5, 8, 11)),
@@ -1317,7 +1300,7 @@ def test_float16_volume_operations_preserve_dtype_and_widen_compute(container: s
         assert transpose_volume(volume, *axes).dtype == expected_dtype
         assert rot90_volume(volume, 1, axes).dtype == expected_dtype
 
-    expected_filter = separable_filter3d(volume_array.astype(np.float32), kernels).astype(np.float16)
+    expected_filter = _separable_filter3d(volume_array.astype(np.float32), kernels).astype(np.float16)
     np.testing.assert_array_equal(to_array(results[0]), expected_filter)
     expected_pad = pad3d(volume_array, (1, 0, 1, 0, 1, 0), value=0.25)
     np.testing.assert_array_equal(to_array(results[2]), expected_pad)

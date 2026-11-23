@@ -6,7 +6,8 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from albucore import SupportedDType, convert_dtype
+from albucore import convert_dtype
+from albucore._types import SupportedDType
 
 _DTypeT = TypeVar("_DTypeT", bound=np.uint8 | np.float16 | np.float32)
 

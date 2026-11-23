@@ -18,7 +18,6 @@ from albucore import (
     remap3d,
     resize3d,
     rot90_volume,
-    separable_filter3d,
     std,
     transpose_volume,
     warp_affine3d,
@@ -42,8 +41,6 @@ def check_volumes(
     assert_type(warp_affine3d(half, matrix, (3, 11, 13)), NDArray[np.float16])
     assert_type(remap3d(half, grid), NDArray[np.float16])
     assert_type(gaussian_blur3d(image, 1.0), ConsumerImage)
-    kernel = np.ones(1, dtype=np.float32)
-    assert_type(separable_filter3d(half, (kernel, kernel, kernel)), NDArray[np.float16])
     assert_type(pad3d(labels, (1, 1, 1, 1, 1, 1)), NDArray[np.int16])
     assert_type(mean(half), np.float64)
     assert_type(std(half), float)
@@ -88,8 +85,3 @@ def check_tensors(
     assert_type(reduce_sum(image, layout="CDHW"), torch.Tensor)
     assert_type(matmul(tensor_matrix, tensor_matrix), torch.Tensor)
     assert_type(pairwise_distances_squared(tensor_matrix, tensor_matrix), torch.Tensor)
-
-
-def check_matrix_unions(matrix: NDArray[np.float32] | torch.Tensor) -> None:
-    assert_type(matmul(matrix, matrix), NDArray[np.float32] | torch.Tensor)
-    assert_type(pairwise_distances_squared(matrix, matrix), NDArray[np.float32] | torch.Tensor)

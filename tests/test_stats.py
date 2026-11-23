@@ -797,3 +797,18 @@ def test_float16_hwc_numkong_moments_route_matches_wide_reference(
         np.testing.assert_allclose(result_std, expected_std, rtol=1e-4, atol=1e-8)
 
     assert called
+
+
+@pytest.mark.parametrize("shape", [(13, 17, 1), (13, 17, 3), (13, 17, 9), (2, 13, 17, 3)])
+def test_uint8_per_channel_keepdims_matches_flat_statistics(shape: tuple[int, ...]) -> None:
+    image = np.random.default_rng(61).integers(0, 256, shape, dtype=np.uint8)
+    keep_shape = (1,) * (len(shape) - 1) + (shape[-1],)
+
+    mean_keep, std_keep = mean_std(image, "per_channel", keepdims=True, eps=1e-4)
+    mean_flat, std_flat = mean_std(image, "per_channel", eps=1e-4)
+
+    assert mean_keep.shape == keep_shape
+    np.testing.assert_array_equal(mean_keep.reshape(-1), mean_flat)
+    np.testing.assert_array_equal(std_keep.reshape(-1), std_flat)
+    np.testing.assert_array_equal(std(image, "per_channel", keepdims=True, eps=1e-4).reshape(-1), std_flat)
+    np.testing.assert_allclose(std_flat, image.reshape(-1, shape[-1]).std(axis=0, dtype=np.float64) + 1e-4, rtol=1e-10)

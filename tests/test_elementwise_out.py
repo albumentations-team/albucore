@@ -6,7 +6,7 @@ import torch
 
 import albucore as ac
 
-OPERATIONS = [(ac.exp, np.exp), (ac.log, np.log), (ac.sqrt, np.sqrt)]
+OPERATIONS = [(ac.exp, np.exp), (ac.sqrt, np.sqrt)]
 
 
 def assert_unary_values(actual, expected):
@@ -111,7 +111,7 @@ def test_unary_half_output_accepts_negative_strides(operation, reference):
     assert_unary_values(result, expected)
 
 
-@pytest.mark.parametrize("operation", [ac.exp, ac.log, ac.sqrt])
+@pytest.mark.parametrize("operation", [ac.exp, ac.sqrt])
 def test_unary_tensor_output_can_feed_a_trainable_consumer(operation):
     image = torch.tensor([0.25, 0.5, 1.5], dtype=torch.float32).reshape(1, 3, 1)
     output = torch.empty_like(image)

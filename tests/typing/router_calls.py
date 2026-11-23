@@ -16,7 +16,6 @@ from albucore import (
     copy_make_border,
     exp,
     hflip,
-    log,
     median_blur,
     multiply,
     multiply_add,
@@ -50,7 +49,6 @@ def check_numpy(image: ConsumerImage, half: NDArray[np.float16], floats: NDArray
     assert_type(normalize_per_image(half, "image"), NDArray[np.float16])
     assert_type(exp(image), NDArray[np.float32])
     assert_type(exp(half), NDArray[np.float16])
-    assert_type(log(floats), NDArray[np.float32])
     assert_type(sqrt(floats), NDArray[np.float32])
 
 

@@ -47,7 +47,6 @@ _VOLUME_OPS = {
     "pad3d",
     "resize3d",
     "rot90_volume",
-    "separable_filter3d",
     "warp_affine3d",
     "remap3d",
     "transpose_volume",
@@ -315,10 +314,6 @@ def _registry_tensor_volume_ops() -> list[tuple[str, Any]]:
         target = max(depth // 2, 1), max(height // 2, 1), max(width // 2, 1)
         return lambda: alb.resize3d(volume, target, interpolation=cv2.INTER_LINEAR)
 
-    def separable_filter(alb: Any, volume: np.ndarray) -> Any:
-        kernels = tuple(np.array((1.0, 2.0, 1.0), dtype=np.float32) / 4.0 for _ in range(3))
-        return lambda: alb.separable_filter3d(volume, kernels)
-
     def warp_affine(alb: Any, volume: np.ndarray) -> Any:
         depth, height, width, _ = volume.shape
         matrix = np.array(
@@ -352,7 +347,6 @@ def _registry_tensor_volume_ops() -> list[tuple[str, Any]]:
         ("gaussian_blur3d", gaussian_blur),
         ("pad3d", pad),
         ("resize3d", resize),
-        ("separable_filter3d", separable_filter),
         ("warp_affine3d", warp_affine),
         ("remap3d", remap),
         ("flip_volume", flip),

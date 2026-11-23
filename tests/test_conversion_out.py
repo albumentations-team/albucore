@@ -159,7 +159,6 @@ def test_half_quantization_all_encodings_without_output(monkeypatch, channels):
 def test_numpy_torch_quantization_writes_supplied_storage(monkeypatch, dtype, mode):
     from albucore import convert, torch_backend
 
-    monkeypatch.setattr(torch_backend, "TORCH_CPU_BACKEND_ENABLED", True)
     monkeypatch.setattr(torch_backend, "TORCH_MIN_ELEMENTS", 1)
     monkeypatch.setattr(torch_backend, "TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS", 1)
     source = np.resize(np.array([-np.inf, -0.0, 0.5 / 255, 1.5 / 255, 1, np.inf, np.nan], dtype=dtype), (3, 5, 3))

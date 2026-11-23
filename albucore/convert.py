@@ -1,7 +1,5 @@
 """Convert image arrays among uint8, float16, and float32."""
 
-import platform
-import sys
 from functools import lru_cache
 from typing import TypeVar, cast, overload
 
@@ -15,25 +13,12 @@ from albucore._float_cast import _cast_float_numpy
 from albucore._types import SupportedDType
 from albucore.lut import _cv2_lut_channel_last
 from albucore.torch_backend import quantize_uint8_torch
-from albucore.utils import MAX_VALUES_BY_DTYPE, get_max_value
+from albucore.utils import _LINUX_X86_64, _MACOS_ARM64, _TORCH_DTYPES, MAX_VALUES_BY_DTYPE, get_max_value
 
 __all__ = ["convert_dtype"]
 
 _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.uint8 | np.float16 | np.float32)
 
-_TORCH_DTYPES: dict[SupportedDType | torch.dtype, torch.dtype] = {
-    np.uint8: torch.uint8,
-    np.float16: torch.float16,
-    np.float32: torch.float32,
-    np.dtype(np.uint8): torch.uint8,
-    np.dtype(np.float16): torch.float16,
-    np.dtype(np.float32): torch.float32,
-    torch.uint8: torch.uint8,
-    torch.float16: torch.float16,
-    torch.float32: torch.float32,
-}
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
 _FLOAT16_UINT8_LUT_MIN_ELEMENTS = 12_288
 _LINUX_FLOAT16_UINT8_LUT_MIN_ELEMENTS = 8_192

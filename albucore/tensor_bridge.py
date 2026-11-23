@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import platform
-import sys
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import cv2
@@ -14,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from albucore._types import TensorLayout
+from albucore.utils import _LINUX_X86_64, _MACOS_ARM64
 
 __all__ = [
     "TensorLayout",
@@ -23,8 +22,6 @@ __all__ = [
     "tensor_to_numpy_storage",
 ]
 
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
-_LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 _MIN_SPLIT_PIXELS = 8192
 _MIN_ORIENTED_SPLIT_PIXELS = 32768
 _MIN_FLIP_PIXELS = 4096
@@ -368,11 +365,7 @@ def dispatch_tensor_image(
             item_result = numpy_router(image_item, *item_args, **item_kwargs)
             batch_results.append(item_result)
         if len(batch_results) == 0:
-            result = numpy_router(image_view, *args, **kwargs)
-            if not isinstance(result, np.ndarray):
-                msg = "An image Tensor router must return an ndarray."
-                raise TypeError(msg)
-            return numpy_to_tensor_layout(result, layout)
+            return numpy_to_tensor_layout(numpy_router(image_view, *args, **kwargs), layout)
         if all(
             result is source
             or (
@@ -385,17 +378,11 @@ def dispatch_tensor_image(
             for result, source in zip(batch_results, batch_sources, strict=True)
         ):
             return image
-        if not all(isinstance(result, np.ndarray) for result in batch_results):
-            msg = "An image Tensor router must return ndarrays."
-            raise TypeError(msg)
         result = np.stack(batch_results)
     else:
         result = numpy_router(image_view, *args, **kwargs)
     if result is image_view:
         return image
-    if not isinstance(result, np.ndarray):
-        msg = "An image Tensor router must return an ndarray."
-        raise TypeError(msg)
     return numpy_to_tensor_layout(result, cast("TensorLayout", layout))
 
 

@@ -17,7 +17,7 @@ take keyword-only `layout=`; do not infer layout from rank. Spatial APIs define 
 
 Image inputs support `uint8`, `float16`, and `float32`; float64 is not a supported image input. Most arithmetic and
 geometric operations preserve the input dtype. `normalize` and `normalize_per_image` return float16 for
-float16 input and float32 for uint8/float32 input; `exp`, `log`, and `sqrt` return float32 for uint8 input. Statistics
+float16 input and float32 for uint8/float32 input; `exp` and `sqrt` return float32 for uint8 input. Statistics
 use wide accumulators and may return float64. `apply_uint8_lut` remains uint8-only. A backend may compute
 in float32 and restore float16 when needed; include those conversions in the full-path benchmark.
 `convert_dtype` returns the explicitly requested dtype.
@@ -30,7 +30,7 @@ a conversion independently of optional output storage. An explicit dtype must ma
 Clipping does not scale intensities: a uint8 destination clips to [0,255] and truncates fractions; floating destinations
 clip to [0,1]. The caller validates output metadata and overlap. Dtype changes may require working storage.
 
-`exp`, `log`, and `sqrt` use the same explicit-output contract. Their output dtype is float16 for float16 input
+`exp` and `sqrt` use the same explicit-output contract. Their output dtype is float16 for float16 input
 and float32 for uint8/float32 input. Writable views may be supplied as output; AX owns protective copies required
 when that storage must remain unchanged. No dtype-specific ownership heuristic silently refuses an explicit output.
 
@@ -92,7 +92,7 @@ input sets and input/output relationships rather than abbreviating a single dtyp
 
 The checked generic `np.dtype[T]` path in `clip` and `convert_dtype` uses `T` bounded by
 `np.uint8 | np.float16 | np.float32` and retains `NDArray[T]` without a destination. A dynamically selected
-`SupportedDType` returns the union of the three concrete array types. Inferred `clip` output follows the supplied
+`SupportedDType` (from `albucore._types`) returns the union of the three concrete array types. Inferred `clip` output follows the supplied
 buffer; an explicit target dtype must match that buffer. Generic overloads must not hide a conflicting destination.
 
 `ImageInputT` describes a helper that preserves both container and image dtype. Its bound includes the three supported
@@ -113,20 +113,20 @@ operands use the native CPU operation when that preserves the declared result dt
   Uint8 accepts scalar/channel exponents and saturates/truncates a float32 table. Floating inputs also accept
   broadcastable exponent fields. Tensor calls require an explicit layout. Scalar half powers compute in float32
   and round once; half channel/field routes match the wide result within one half ULP.
-- **Elementwise math:** `exp`, `log`, `sqrt` (float16/float32 inputs, uint8 with float32 output, NumPy-compatible special values, exact shape preservation, explicit writable `out` buffers)
+- **Elementwise math:** `exp`, `sqrt` (float16/float32 inputs, uint8 with float32 output, NumPy-compatible special values, exact shape preservation, explicit writable `out` buffers)
 - **Histogram:** `equalize_uint8` (from `albucore.histogram`)
 - **Uint8 LUT (`albucore.lut`):** `apply_uint8_lut` (shared or per-channel tables, with explicit `out`)
 - **Conversion (`albucore.convert`):** `convert_dtype(img, dtype, *, max_value=None, out=None)`; see the conversion contract below.
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`
 - **Stats:** `mean`, `std`, `mean_std`, `reduce_sum` (from `albucore.stats`)
-- **Geometric:** `copy_make_border`, `flip_volume`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `rot90_volume`, `separable_filter3d`, `transpose_volume`, `warp_affine`, `warp_affine3d`, `warp_perspective`.
+- **Geometric:** `copy_make_border`, `flip_volume`, `gaussian_blur3d`, `remap`, `resize`, `resize3d`, `rot90_volume`, `transpose_volume`, `warp_affine`, `warp_affine3d`, `warp_perspective`.
   NumPy image layouts are HWC/NHWC and volume layouts are DHWC/NDHWC; CPU Tensor image layouts are CHW/NCHW and volume layouts are CDHW/NCDHW.
   Only `warp_affine3d` and `remap3d` accept volume batches, applying one shared matrix or grid to each item. Other 3D routers accept one volume per call.
 - **3D dense resampling:** `remap3d` applies a caller-provided float32 `(D_out, H_out, W_out, 3)` normalized `align_corners=False` pull grid in `(x, y, z)` order to one NumPy `DHWC`/`NDHWC` array or CPU Torch `CDHW`/`NCDHW` tensor. For rank 5 the same grid is applied to every volume. The grid can be NumPy or Torch, its spatial shape defines the output, and coordinates outside `[-1, 1]` use constant or replicate borders. The router preserves the input container, dtype, channel count, and public layout. `remap3d` does not scan the dense grid for identity or convert a voxel-coordinate map.
 - `warp_affine3d` and `remap3d` retain their `DHWC`/`CDHW` single-volume calls and also accept NumPy `NDHWC` and CPU Torch `NCDHW` batches. Other 3D routers continue to accept one volume per call.
 - **3D constant padding:** `pad3d` takes NumPy DHWC or CPU Torch CDHW and spatial padding `(front, back, top, bottom, left, right)`. It supports uint8/float16/float32 volumes and int16 masks, preserves dtype and channel count, and follows NumPy fill semantics.
 - **Utils:** see `utils.__all__` in [`albucore/utils.py`](../albucore/utils.py)
-- **Types / constants:** `ImageInput`, `ImageInputT`, `SupportedDType`, `TensorLayout`, `NormalizationType`, `ValueType`, and shared routing constants.
+- **Types / constants:** `ImageInputT`, `TensorLayout`, and `MAX_VALUES_BY_DTYPE`. Other aliases live in `albucore._types`.
 - **Metadata:** `__version__`, `__author__`, `__maintainer__`
 
 `add_weighted(img1, weight1, img2, weight2, *, out=...)` preserves the matching input dtype and container.
@@ -219,7 +219,7 @@ See the [paired bridge benchmark](../benchmarks/benchmark_tensor_bridge.py).
 Public calls use `from albucore import <operation>`. Package `__all__` is explicit; the implementation is imported
 directly from its owning module. Backend functions are implementation details for internal tests and benchmarks:
 
-- Backend-specific: `*_numpy`, `*_opencv`, `*_lut`, `*_cv2`, `hflip_numpy`, `vflip_numpy`
+- Backend-specific: `*_numpy`, `*_opencv`, `*_lut`, `*_cv2`
 - Weighted sums and private blend kernels live in [`albucore.weighted`](../albucore/weighted.py). Scalar NumKong scale and arithmetic kernels live in
   [`albucore.arithmetic`](../albucore/arithmetic.py); conversion kernels in
   [`albucore.convert`](../albucore/convert.py); fixed-statistics and per-image normalization in

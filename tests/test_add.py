@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from albucore import add, arithmetic, convert_value
+from albucore import add, arithmetic
+from albucore.utils import convert_value
 
 
 @pytest.mark.parametrize("layout", ["dense", "crop", "flipped"])
@@ -521,3 +522,43 @@ def test_add(img_dtype, num_channels, value, is_contiguous):
         expected = np.clip(expected, 0, 255).astype(np.uint8)
     np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
     np.testing.assert_array_equal(img, original_image)
+
+
+@pytest.mark.parametrize("value", [20.0, -20.0, 300.0, -300.0, 0.7, -0.7, 255.9, -255.9])
+@pytest.mark.parametrize("shape", [(5, 7, 1), (5, 7, 3), (5, 7, 4), (5, 7, 9), (2, 5, 7, 3)])
+@pytest.mark.parametrize("layout", ["contiguous", "row_crop"])
+@pytest.mark.parametrize("destination", ["none", "separate", "strided", "image"])
+def test_add_uint8_scalar_truncates_offset_and_saturates(
+    value: float,
+    shape: tuple[int, ...],
+    layout: str,
+    destination: str,
+) -> None:
+    rng = np.random.default_rng(23)
+    if layout == "row_crop":
+        backing = rng.integers(0, 256, (*shape[:-3], shape[-3] + 2, shape[-2] + 3, shape[-1]), dtype=np.uint8)
+        image = backing[..., 1 : 1 + shape[-3], 2 : 2 + shape[-2], :]
+    else:
+        image = rng.integers(0, 256, shape, dtype=np.uint8)
+    image[..., 0, 0, :] = (0, 255, *([128] * (shape[-1] - 2)))[: shape[-1]]
+    expected = np.clip(image.astype(np.int64) + int(value), 0, 255).astype(np.uint8)
+    original = image.copy()
+
+    if destination == "none":
+        result = add(image, value)
+        np.testing.assert_array_equal(image, original)
+    elif destination == "separate":
+        out = np.empty(shape, dtype=np.uint8)
+        result = add(image, value, out=out)
+        assert result is out
+    elif destination == "strided":
+        out = np.empty((*shape[:-1], shape[-1] * 2), dtype=np.uint8)[..., ::2]
+        result = add(image, value, out=out)
+        assert result is out
+    else:
+        result = add(image, value, out=image)
+        assert result is image
+
+    assert result.shape == shape
+    assert result.dtype == np.uint8
+    np.testing.assert_array_equal(result, expected)

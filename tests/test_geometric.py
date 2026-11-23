@@ -1393,3 +1393,38 @@ def test_geometric_single_channel_passes_explicit_destination(
 
     assert result.shape == expected_shape
     assert destinations == [result]
+
+
+@pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])
+@pytest.mark.parametrize("channels", [5, 9])
+@pytest.mark.parametrize("border_type", [cv2.BORDER_CONSTANT, cv2.BORDER_REFLECT_101, cv2.BORDER_REPLICATE])
+@pytest.mark.parametrize("layout", ["contiguous", "row_crop"])
+@pytest.mark.parametrize("with_dst", [False, True])
+def test_copy_make_border_per_channel_values_match_per_plane_opencv(
+    dtype: type[np.generic],
+    channels: int,
+    border_type: int,
+    layout: str,
+    with_dst: bool,
+) -> None:
+    rng = np.random.default_rng(53)
+    source = rng.integers(0, 256, (13, 17, channels)).astype(dtype)
+    image = source[1:12, 2:15] if layout == "row_crop" else source
+    # 1 + 2**-11 + 2**-40 rounds differently to float16 directly and through float32.
+    values = (12.5, 13.5, -4.0, 300.0, 1 + 2**-11 + 2**-40, 7.0, 255.4, 1.0, 99.9)[:channels]
+    top, bottom, left, right = 2, 3, 4, 1
+    expected = np.stack(
+        [
+            cv2.copyMakeBorder(np.ascontiguousarray(image[..., index]), top, bottom, left, right, border_type, value=value)
+            for index, value in enumerate(values)
+        ],
+        axis=-1,
+    )
+    dst = np.empty(expected.shape, dtype=dtype) if with_dst else None
+
+    result = copy_make_border(image, top, bottom, left, right, border_type, values, dst=dst)
+
+    if with_dst:
+        assert result is dst
+    assert result.dtype == image.dtype
+    np.testing.assert_array_equal(result, expected)

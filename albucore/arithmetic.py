@@ -1,9 +1,8 @@
 """Pointwise arithmetic: add, multiply, power and multiply-add."""
 
 import math
-import platform
 import sys
-from typing import Any, Literal, TypeAlias, TypeGuard, cast, overload
+from typing import Any, Literal, TypeAlias, cast, overload
 
 import cv2
 import numkong as nk
@@ -13,6 +12,7 @@ from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ImageArrayT, ValueType
+from albucore.lut import _tensor_shared_uint8_lut
 from albucore.lut import apply_uint8_lut as _apply_uint8_lut
 from albucore.tensor_bridge import (
     TensorLayout,
@@ -28,10 +28,14 @@ from albucore.torch_backend import (
 )
 from albucore.utils import (
     _FLOAT32_MAX,
-    MAX_OPENCV_WORKING_CHANNELS,
+    _MACOS_ARM64,
+    _TENSOR_CHANNEL_AXES,
     NUM_RGB_CHANNELS,
     _batch_operand,
     _broadcast_channel_vector,
+    _is_float16_image,
+    _is_float32_image,
+    _is_uint8_image,
     clip,
     convert_value,
     get_num_channels,
@@ -53,7 +57,6 @@ _TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_048_576
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
 
@@ -77,22 +80,6 @@ def _scale_numkong(
     if result is None:
         raise RuntimeError("nk.scale returned None")
     return cast("ImageArrayT", np.asarray(result, dtype=img.dtype).reshape(img.shape))
-
-
-def _is_uint8_image(img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]) -> TypeGuard[NDArray[np.uint8]]:
-    return img.dtype == np.uint8
-
-
-def _is_float32_image(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-) -> TypeGuard[NDArray[np.float32]]:
-    return img.dtype == np.float32
-
-
-def _is_float16_image(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-) -> TypeGuard[NDArray[np.float16]]:
-    return img.dtype == np.float16
 
 
 def _half_exact_scalar(value: object) -> float | None:
@@ -190,16 +177,8 @@ def _numkong_float16_c9_add_channels(
 ) -> NDArray[np.float16] | None:
     if (
         not _NUMKONG_NEON_HALF
-        or not img.flags.c_contiguous
-        or not img.flags.writeable
-        or img.ndim != 3
-        or img.shape[-1] != 9
-        or img.size < _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS
         or not isinstance(value, np.ndarray)
-        or value.dtype != np.float32
-        or not value.flags.c_contiguous
-        or value.ndim != 1
-        or value.size != 9
+        or not _numpy_float16_c9_vector_eligible(img, value)
         or not np.all(np.isfinite(value))
     ):
         return None
@@ -276,6 +255,18 @@ def _float16_numpy_ufunc(
     return output
 
 
+def _uint8_lut_table(
+    value: float | np.ndarray,
+    operation: Literal["add", "multiply", "power"],
+) -> NDArray[np.uint8]:
+    domain: NDArray[np.float32] = np.arange(256, dtype=np.float32)
+    operand = np.asarray(np.trunc(value) if operation == "add" else value, dtype=np.float32)
+    if operand.ndim:
+        domain = domain.reshape(256, 1, 1)
+        operand = operand.reshape(1, 1, -1)
+    return clip(_NUMPY_OPERATIONS[operation](domain, operand), np.uint8)
+
+
 def _apply_lut(
     img: NDArray[np.uint8],
     value: float | np.ndarray,
@@ -283,45 +274,11 @@ def _apply_lut(
     *,
     out: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
-    domain: NDArray[np.float32] = np.arange(256, dtype=np.float32)
-    operand = np.asarray(np.trunc(value) if operation == "add" else value, dtype=np.float32)
-    if operand.ndim:
-        domain = domain.reshape(256, 1, 1)
-        operand = operand.reshape(1, 1, -1)
-    table = clip(_NUMPY_OPERATIONS[operation](domain, operand), np.uint8)
-    return _apply_uint8_lut(img, table, out=out)
-
-
-def _prepare_value_opencv(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-    value: np.ndarray | float,
-    operation: Literal["add", "multiply"],
-) -> np.ndarray | float | int:
-    return (
-        _prepare_scalar_value(img, value, operation)
-        if isinstance(value, (int, float))
-        else _prepare_array_value(img, value, operation)
-    )
-
-
-def _prepare_scalar_value(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-    value: float,
-    operation: Literal["add", "multiply"],
-) -> np.ndarray | float | int:
-    if operation == "add" and img.dtype == np.uint8:
-        value = int(value)
-    num_channels = get_num_channels(img)
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        if operation == "add":
-            cast_type = np.float32 if value < 0 else img.dtype
-            return np.full(img.shape, value, dtype=cast_type)
-        return np.full(img.shape, value, dtype=np.float32)
-    return value
+    return _apply_uint8_lut(img, _uint8_lut_table(value, operation), out=out)
 
 
 def _prepare_array_value(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    img: NDArray[np.uint8],
     value: np.ndarray,
     operation: Literal["add", "multiply"],
 ) -> np.ndarray:
@@ -330,7 +287,7 @@ def _prepare_array_value(
     if value.ndim == 1:
         value = value.reshape(1, 1, -1)
     value = np.broadcast_to(value, img.shape)
-    if operation == "add" and img.dtype == np.uint8:
+    if operation == "add":
         if np.all(value >= 0):
             return cast(
                 "np.ndarray",
@@ -370,11 +327,7 @@ def _apply_numpy(
     *,
     out: NDArray[np.float32] | None = None,
 ) -> NDArray[np.float32]:
-    prepared: _PreparedValue = (
-        np.asarray(value, dtype=np.int16)
-        if operation == "add" and img.dtype == np.uint8
-        else _prepare_numpy_value(value)
-    )
+    prepared = _prepare_numpy_value(value)
     ufunc = _NUMPY_OPERATIONS[operation]
     if out is not None and np.result_type(np.float32, prepared) == np.dtype(np.float32):
         ufunc(_cast_float_numpy(img, np.float32), prepared, out=out)
@@ -408,13 +361,17 @@ def _numpy_pointwise(
 
 def _multiply_uint8_opencv(
     img: NDArray[np.uint8],
-    value: np.ndarray | float,
+    value: np.ndarray,
     *,
     out: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
-    prepared = _prepare_value_opencv(img, value, "multiply")
-    operand: Any = prepared.astype(np.float32, copy=False) if isinstance(prepared, np.ndarray) else prepared
-    result = cast("NDArray[np.float32]", cv2.multiply(img.astype(np.float32), operand).reshape(img.shape))
+    prepared = _prepare_array_value(img, value, "multiply")
+    if prepared.dtype == np.uint8 and (out is None or out.flags.c_contiguous):
+        # Integer products are exact, so CV_8U saturation equals the truncating float clip.
+        result_u8 = cv2.multiply(img, prepared, dst=out)
+        return cast("NDArray[np.uint8]", result_u8.reshape(img.shape) if out is None else out)
+    operand = prepared.astype(np.float32, copy=False)
+    result = cast("NDArray[np.float32]", cv2.multiply(img, operand, dtype=cv2.CV_32F).reshape(img.shape))
     return clip(result, np.uint8, out=out)
 
 
@@ -599,9 +556,29 @@ def _add_shared_uint8_rgb(
     return result
 
 
+def _add_uint8_scalar(
+    img: NDArray[np.uint8],
+    value: float,
+    *,
+    out: NDArray[np.uint8] | None,
+) -> NDArray[np.uint8]:
+    # One saturating pass over all channels; int() truncates like the channel-vector LUT.
+    offset = int(value)
+    rows = img.reshape(-1, img.shape[-2] * img.shape[-1])
+    operation = cv2.add if offset >= 0 else cv2.subtract
+    if out is not None and out.flags.c_contiguous:
+        operation(rows, abs(offset), dst=out.reshape(rows.shape))
+        return out
+    result = cast("NDArray[np.uint8]", operation(rows, abs(offset)).reshape(img.shape))
+    if out is None:
+        return result
+    np.copyto(out, result)
+    return out
+
+
 def _add_uint8_opencv(
     img: NDArray[np.uint8],
-    value: float | np.ndarray,
+    value: np.ndarray,
     *,
     out: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
@@ -622,14 +599,11 @@ def _add_uint8_opencv(
         if shared is not None:
             return shared
 
-    prepared = _prepare_value_opencv(img, value, "add")
-    if (isinstance(prepared, (float, int)) and prepared < 0) or (
-        isinstance(prepared, np.ndarray) and prepared.dtype != np.uint8
-    ):
-        operand: Any = prepared.astype(np.float32, copy=False) if isinstance(prepared, np.ndarray) else prepared
+    prepared = _prepare_array_value(img, value, "add")
+    if prepared.dtype != np.uint8:
+        operand: Any = prepared.astype(np.float32, copy=False)
         if (
-            isinstance(prepared, np.ndarray)
-            and prepared.dtype == np.float32
+            prepared.dtype == np.float32
             and img.ndim == 3
             and img.size >= _MIXED_UINT8_ADD_MIN_ELEMENTS
             and img.strides[-1] == 1
@@ -665,7 +639,7 @@ def _add_scalar(
             np.copyto(out, img)
         return img if out is None else out
     if _is_uint8_image(img):
-        return _add_uint8_opencv(img, value, out=cast("NDArray[np.uint8] | None", out))
+        return _add_uint8_scalar(img, value, out=cast("NDArray[np.uint8] | None", out))
     if _is_float32_image(img) and math.isfinite(float(value)) and abs(float(value)) <= _FLOAT32_MAX:
         return cast(
             "NDArray[np.float32]",
@@ -952,6 +926,24 @@ def _power_opencv(
     return out
 
 
+def _power_tensor(
+    img: torch.Tensor,
+    exponent: ValueType | torch.Tensor,
+    layout: TensorLayout | None,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor:
+    parameter = tensor_operand_to_numpy(exponent, layout)
+    if img.dtype == torch.uint8 and np.ndim(parameter) == 0:
+        return _tensor_shared_uint8_lut(img, _uint8_lut_table(float(parameter), "power"), out=out)
+    image_view = tensor_to_numpy_channel_last(img, layout)
+    output_view = None
+    if out is not None:
+        output_view = image_view if out is img else tensor_to_numpy_channel_last(out, layout)
+    result = power(image_view, parameter, out=output_view)
+    return numpy_to_tensor_layout(result, cast("TensorLayout", layout)) if out is None else out
+
+
 @overload
 def power(
     img: NDArray[np.uint8],
@@ -1018,14 +1010,7 @@ def power(
         Uint8 saturates to [0, 255]; floating results preserve their raw numeric range.
     """
     if isinstance(img, torch.Tensor):
-        parameter = tensor_operand_to_numpy(exponent, layout)
-        image_view = tensor_to_numpy_channel_last(img, layout)
-        tensor_out = cast("torch.Tensor | None", out)
-        output_view = None
-        if tensor_out is not None:
-            output_view = image_view if tensor_out is img else tensor_to_numpy_channel_last(tensor_out, layout)
-        result = power(image_view, parameter, out=output_view)
-        return numpy_to_tensor_layout(result, cast("TensorLayout", layout)) if tensor_out is None else tensor_out
+        return _power_tensor(img, exponent, layout, out=cast("torch.Tensor | None", out))
 
     num_channels = get_num_channels(img)
     if img.size == 0:
@@ -1066,17 +1051,14 @@ def _torch_half_control(
                 half = operand.astype(np.float16)
             if not np.array_equal(operand.astype(np.float64), half.astype(np.float64)):
                 return None
-            channel_axis = 0 if layout in ("CHW", "CDHW") else 1
+            channel_axis = _TENSOR_CHANNEL_AXES[layout]
             broadcast_shape = [1] * image.ndim
             broadcast_shape[channel_axis] = operand.size
             return torch.from_numpy(np.array(half, copy=True)).reshape(broadcast_shape)
         else:
             return None
 
-    try:
-        return float(operand)
-    except (TypeError, ValueError):
-        return None
+    return float(operand)
 
 
 def _torch_half_pointwise_tensor(
@@ -1114,6 +1096,9 @@ def _tensor_pointwise(
             out.copy_(image)
             return out
         return image
+    if image.dtype == torch.uint8 and np.ndim(operand) == 0:
+        # A shared table translates the storage directly; channel-last views would repack it.
+        return _tensor_shared_uint8_lut(image, _uint8_lut_table(float(operand), operation), out=out)
     half_result = _torch_half_pointwise_tensor(image, operand, layout, operation, out=out)
     if half_result is not None:
         return half_result
@@ -1130,20 +1115,6 @@ def _is_all_zero_param(x: _PreparedValue) -> bool:
     if isinstance(x, np.ndarray):
         return not np.any(x)
     return float(x) == 0.0
-
-
-def _use_numkong_scalar_multiply_add(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
-    factor: ValueType,
-    value: ValueType,
-) -> bool:
-    return (
-        _is_float32_image(img)
-        and isinstance(factor, (float, int))
-        and isinstance(value, (float, int))
-        and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
-        and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
-    )
 
 
 def _multiply_add_numpy(
@@ -1174,6 +1145,10 @@ def _multiply_add_numpy(
         return cast("NDArray[np.float32]", multiply_result.astype(np.float32, copy=False))
 
 
+def _multiply_add_uint8_scalar_table(factor: float, value: float) -> NDArray[np.uint8]:
+    return clip(np.arange(256, dtype=np.float32) * factor + value, np.uint8)
+
+
 def _multiply_add_lut(
     img: NDArray[np.uint8],
     factor: float | np.ndarray,
@@ -1183,7 +1158,7 @@ def _multiply_add_lut(
 ) -> NDArray[np.uint8]:
     domain = np.arange(256, dtype=np.float32)
     if isinstance(factor, (float, int)) and isinstance(value, (float, int)):
-        table = clip(domain * factor + value, np.uint8)
+        table = _multiply_add_uint8_scalar_table(factor, value)
     else:
         if isinstance(factor, np.ndarray) and factor.shape != ():
             factor = factor.reshape(1, 1, -1)
@@ -1289,6 +1264,9 @@ def _multiply_add_tensor(
             return torch.add(product, half_value) if out is None else torch.add(product, half_value, out=out)
     factor_value = tensor_operand_to_numpy(factor, layout)
     bias_value = tensor_operand_to_numpy(value, layout)
+    if img.dtype == torch.uint8 and np.ndim(factor_value) == 0 and np.ndim(bias_value) == 0:
+        table = _multiply_add_uint8_scalar_table(float(factor_value), float(bias_value))
+        return _tensor_shared_uint8_lut(img, table, out=out)
     if layout in ("NCHW", "NCDHW") and img.shape[0]:
         return _multiply_add_tensor_batch(img, factor_value, bias_value, layout, out=out)
     if (
@@ -1398,7 +1376,12 @@ def multiply_add(
             if destination is None or destination is image
             else _cast_float_numpy(image, np.float32, out=cast("NDArray[np.float32]", destination))
         )
-    if _use_numkong_scalar_multiply_add(image, factor, value):
+    if (
+        isinstance(factor, (float, int))
+        and isinstance(value, (float, int))
+        and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
+        and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
+    ):
         result = multiply_add_float32_torch(
             image,
             float(factor),

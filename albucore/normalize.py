@@ -1,8 +1,6 @@
 """Fixed-statistics and per-image normalization."""
 
 import math
-import platform
-import sys
 from typing import Any, Literal, cast, overload
 
 import cv2
@@ -23,6 +21,8 @@ from albucore.tensor_bridge import (
 from albucore.torch_backend import normalize_float16_torch, normalize_float32_torch
 from albucore.utils import (
     _FLOAT32_MAX,
+    _MACOS_ARM64,
+    _TENSOR_CHANNEL_AXES,
     MAX_OPENCV_WORKING_CHANNELS,
     _batch_operand,
     _broadcast_channel_vector,
@@ -31,7 +31,6 @@ from albucore.utils import (
 )
 
 _TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS = 16_384
-_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _TENSOR_BATCH_FLOAT32_IMAGE_MAX_ELEMENTS = 2_000_000
 _TENSOR_BATCH_FLOAT32_MIN_ELEMENTS = 20_480
 
@@ -185,8 +184,11 @@ def _adaptive_tensor_batch_float32(
     out: torch.Tensor | None,
 ) -> torch.Tensor | None:
     source = img.numpy()
-    if normalization == "image":
-        axes = tuple(range(1, source.ndim))
+    per_channel = normalization == "image_per_channel" or (
+        normalization == "min_max_per_channel" and source.shape[1] > 1
+    )
+    axes = tuple(range(2 if per_channel else 1, source.ndim))
+    if normalization in ("image", "image_per_channel"):
         center = source.mean(axis=axes, keepdims=True)
         std = source.std(axis=axes, keepdims=True)
         if (
@@ -197,33 +199,14 @@ def _adaptive_tensor_batch_float32(
             return None
         divisor = std + DEFAULT_EPS
         lower, upper = -20, 20
-    elif normalization == "image_per_channel":
-        axes = tuple(range(2, source.ndim))
-        center = source.mean(axis=axes, keepdims=True)
-        std = source.std(axis=axes, keepdims=True)
-        if (
-            not np.isfinite(center).all()
-            or not np.isfinite(std).all()
-            or np.any(np.square(std.astype(np.float64)) <= np.float64(1e-4) * np.square(center.astype(np.float64)))
-        ):
-            return None
-        divisor = std + DEFAULT_EPS
-        lower, upper = -20, 20
-    elif normalization == "min_max":
-        axes = tuple(range(1, source.ndim))
-        center = source.min(axis=axes, keepdims=True)
-        divisor = source.max(axis=axes, keepdims=True) - center
-        lower, upper = 0, 1
     else:
-        per_channel = source.shape[1] > 1
-        axes = tuple(range(2, source.ndim)) if per_channel else tuple(range(1, source.ndim))
         center = source.min(axis=axes, keepdims=True)
         divisor = source.max(axis=axes, keepdims=True) - center
         if per_channel:
             divisor += DEFAULT_EPS
+        if not np.isfinite(center).all() or not np.isfinite(divisor).all():
+            return None
         lower, upper = 0, 1
-    if normalization.startswith("min_max") and (not np.isfinite(center).all() or not np.isfinite(divisor).all()):
-        return None
     result = np.empty_like(source) if out is None else out.numpy()
     np.subtract(source, center, out=result)
     if normalization.startswith("min_max"):
@@ -512,15 +495,10 @@ def _normalize_float16_tensor_opencv(
     out: torch.Tensor | None = None,
 ) -> torch.Tensor | None:
     """Normalize measured channel-first half Tensors through one CV_16F call per plane."""
-    if (
-        img.dtype != torch.float16
-        or layout not in ("CHW", "NCHW")
-        or not img.is_contiguous()
-        or img.numel() < _TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS
-    ):
+    if layout not in ("CHW", "NCHW") or not img.is_contiguous() or img.numel() < _TORCH_FLOAT16_NORMALIZE_MIN_ELEMENTS:
         return None
 
-    channel_axis = 0 if layout == "CHW" else 1
+    channel_axis = _TENSOR_CHANNEL_AXES[layout]
     channels = img.shape[channel_axis]
     if channels not in (3, 9):
         return None
@@ -657,6 +635,32 @@ def _normalize_batch(
     return result
 
 
+def _normalize_uint8_tensor_storage(
+    img: torch.Tensor,
+    mean: float | np.ndarray,
+    denominator: float | np.ndarray,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Translate contiguous uint8 storage through one shared table; channel layout does not matter."""
+    if not (
+        img.dtype == torch.uint8
+        and np.ndim(mean) == 0
+        and np.ndim(denominator) == 0
+        and img.numel()
+        and img.is_contiguous()
+        and (out is None or out.is_contiguous())
+    ):
+        return None
+    table = (np.arange(256, dtype=np.float32) - float(mean)) * float(denominator)
+    rows = img.numpy().reshape(-1, img.shape[-1])
+    if out is None:
+        return torch.from_numpy(cv2.LUT(rows, table).reshape(img.shape))
+    cv2.LUT(rows, table, dst=out.numpy().reshape(rows.shape))
+    torch.autograd.graph.increment_version(out)
+    return out
+
+
 def _normalize_tensor(
     img: torch.Tensor,
     mean: ValueType | torch.Tensor,
@@ -675,6 +679,9 @@ def _normalize_tensor(
         direct_result = _normalize_float16_tensor_opencv(img, mean_value, denominator_value, layout, out=out)
         if direct_result is not None:
             return direct_result
+    storage_result = _normalize_uint8_tensor_storage(img, mean_value, denominator_value, out=out)
+    if storage_result is not None:
+        return storage_result
     image = tensor_to_numpy_channel_last(img, layout)
     destination = None if out is None else image if out is img else tensor_to_numpy_channel_last(out, layout)
     kernel_out = destination

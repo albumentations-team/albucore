@@ -18,7 +18,7 @@ from numpy.typing import NDArray
 from albucore._float_cast import _cast_float_numpy, _half_is_finite
 from albucore._types import ArrayT, TensorImageLayout
 from albucore.affine3d import warp_affine3d
-from albucore.filter3d import gaussian_blur3d, separable_filter3d
+from albucore.filter3d import gaussian_blur3d
 from albucore.pad3d import pad3d
 from albucore.remap3d import remap3d
 from albucore.tensor_bridge import (
@@ -54,7 +54,6 @@ __all__ = [
     "resize",
     "resize3d",
     "rot90_volume",
-    "separable_filter3d",
     "transpose_volume",
     "warp_affine",
     "warp_affine3d",
@@ -251,10 +250,7 @@ def _apply_in_chunks(
         else:
             apply(img[:, :, i : min(i + 4, num_channels)], tuple(channel_values[i : i + 4].tolist()))
 
-    if result is None:
-        msg = "Chunked geometric operation produced no output."
-        raise RuntimeError(msg)
-    return result
+    return cast("np.ndarray", result)
 
 
 def _warp_affine_chunked(
@@ -451,10 +447,7 @@ def warp_affine(
         num_channels > _MAX_OPENCV_CHANNELS or flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
     )
     if needs_chunk:
-        if border_value_cv2 is None:
-            if border_value is None:
-                msg = "border_value is required for chunked affine warp."
-                raise ValueError(msg)
+        if border_value_cv2 is None and border_value is not None:
             return _warp_affine_chunked(img, m, dsize, flags, border_mode, border_value, dst=dst)
         return maybe_process_in_chunks(
             cv2.warpAffine,
@@ -699,10 +692,7 @@ def warp_perspective(
         num_channels > _MAX_OPENCV_CHANNELS or flags in _INTERP_NEEDS_CHUNK or border_value_cv2 is None
     )
     if needs_chunk:
-        if border_value_cv2 is None:
-            if border_value is None:
-                msg = "border_value is required for chunked perspective warp."
-                raise ValueError(msg)
+        if border_value_cv2 is None and border_value is not None:
             return _warp_perspective_chunked(img, m, dsize, flags, border_mode, border_value, dst=dst)
         return maybe_process_in_chunks(
             cv2.warpPerspective,
@@ -728,27 +718,33 @@ def warp_perspective(
     )
 
 
-def _copy_make_border_chunked(
+def _copy_make_border_constant_channels(
     img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     top: int,
     bottom: int,
     left: int,
     right: int,
-    border_type: int,
     value: float | tuple[float, ...] | np.ndarray,
-    dst: np.ndarray | None = None,
+    *,
+    dst: np.ndarray | None,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
-    """Chunk copyMakeBorder when per-channel value has len > 4."""
-    channel_values = np.array(value, dtype=np.float64).flatten()
-    return _apply_in_chunks(
-        img,
-        channel_values,
-        lambda chunk, bv: cast(
-            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
-            cv2.copyMakeBorder(chunk, top, bottom, left, right, borderType=border_type, value=bv),
-        ),
-        dst=dst,
-    )
+    """Fill per-channel constant borders with NumPy, matching OpenCV's value conversion."""
+    channel_values = np.asarray(value, dtype=np.float64).reshape(-1)
+    if img.dtype == np.uint8:
+        fill = np.clip(np.rint(channel_values), 0, 255).astype(np.uint8)
+    else:
+        # OpenCV converts the double value to float32 first, so float16 rounds twice.
+        with np.errstate(over="ignore"):
+            fill = channel_values.astype(np.float32).astype(img.dtype)
+    height, width = img.shape[:2]
+    shape = (height + top + bottom, width + left + right, img.shape[-1])
+    result = np.empty(shape, dtype=img.dtype) if dst is None else dst
+    result[:top] = fill
+    result[top + height :] = fill
+    result[top : top + height, :left] = fill
+    result[top : top + height, left + width :] = fill
+    result[top : top + height, left : left + width] = img
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result)
 
 
 @overload
@@ -840,14 +836,13 @@ def copy_make_border(
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(value) if value is not None else 0
 
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS and border_value_cv2 is None:
-        if value is None:
-            msg = "value is required for chunked copy_make_border."
-            raise ValueError(msg)
-        return _copy_make_border_chunked(img, top, bottom, left, right, border_type, value, dst=dst)
+    if num_channels > MAX_OPENCV_WORKING_CHANNELS and border_value_cv2 is None and value is not None:
+        if border_type == cv2.BORDER_CONSTANT:
+            return _copy_make_border_constant_channels(img, top, bottom, left, right, value, dst=dst)
+        # OpenCV reads the fill value only for constant borders.
+        border_value_cv2 = 0
 
-    border_value_arg: float | tuple[float, ...]
-    border_value_arg = 0.0 if value is None else cast("float | tuple[float, ...]", border_value_cv2)
+    border_value_arg = cast("float | tuple[float, ...]", border_value_cv2)
 
     return cast(
         "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
@@ -1043,10 +1038,7 @@ def remap(
         num_channels > _MAX_OPENCV_CHANNELS or interpolation in _REMAP_INTERP_NEEDS_CHUNK or border_value_cv2 is None
     )
     if needs_chunk:
-        if border_value_cv2 is None:
-            if border_value is None:
-                msg = "border_value is required for chunked remap."
-                raise ValueError(msg)
+        if border_value_cv2 is None and border_value is not None:
             return _remap_chunked(img, map_x, map_y, interpolation, border_mode, border_value, dst=dst)
         return maybe_process_in_chunks(
             cv2.remap,

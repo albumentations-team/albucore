@@ -14,7 +14,7 @@ from albucore import (
     clip,
     convert_dtype,
     exp,
-    get_image_data,
+    gaussian_blur3d,
     get_num_channels,
     hflip,
     is_grayscale_image,
@@ -27,7 +27,6 @@ from albucore import (
     pairwise_distances_squared,
     reduce_sum,
     resize3d,
-    separable_filter3d,
     std,
     vflip,
 )
@@ -358,23 +357,6 @@ def test_layout_aware_tensor_shape_helpers_and_clip() -> None:
     assert is_rgb_image(tensor, layout="CHW")
     assert not is_grayscale_image(tensor, layout="CHW")
     assert clip(tensor, np.dtype(np.float16)).dtype == torch.float16
-    metadata = get_image_data({"image": tensor})
-    assert metadata == {"dtype": torch.float32, "height": 5, "width": 7, "num_channels": 3}
-
-
-@pytest.mark.parametrize(
-    ("key", "shape"),
-    [("image", (3, 5, 7)), ("images", (2, 3, 5, 7)), ("volume", (3, 2, 5, 7))],
-)
-@pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32])
-def test_tensor_metadata_uses_the_selected_key_layout(key: str, shape: tuple[int, ...], dtype: torch.dtype) -> None:
-    tensor = torch.zeros(shape, dtype=dtype)
-    data = {"volume": torch.zeros((9, 11, 13, 17)), "images": torch.zeros((4, 9, 13, 17))}
-    if key == "volume":
-        del data["images"]
-    data[key] = tensor
-
-    assert get_image_data(data) == {"dtype": dtype, "height": 5, "width": 7, "num_channels": 3}
 
 
 def test_tensor_unary_output_mutates_leaf_view_and_its_alias() -> None:
@@ -404,10 +386,9 @@ def test_tensor_dtype_conversion_preserves_container_and_float16_policy() -> Non
 
 def test_spatial_tensor_results_can_feed_trainable_operations() -> None:
     volume = torch.rand((1, 3, 4, 5), dtype=torch.float16)
-    kernel = np.array([0.25, 0.5, 0.25], dtype=np.float32)
     outputs = (
         resize3d(volume, (5, 6, 7)),
-        separable_filter3d(volume, (kernel, kernel, kernel)),
+        gaussian_blur3d(volume, sigma=0.5, kernel_size=3),
     )
 
     for output in outputs:

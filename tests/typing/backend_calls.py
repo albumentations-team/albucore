@@ -10,7 +10,6 @@ from albucore.arithmetic import (
 )
 from albucore.elementwise import _numpy_unary
 from albucore.normalize import _affine_numpy
-from albucore.ops_misc import hflip_cv2, hflip_numpy, vflip_cv2, vflip_numpy
 from albucore.weighted import _blend_numkong, _blend_numpy, _blend_opencv
 
 
@@ -23,7 +22,3 @@ def check_half(image: NDArray[np.float16]) -> None:
     assert_type(_numpy_unary(image, np.exp), NDArray[np.float16])
     assert_type(_numpy_unary(image, np.log), NDArray[np.float16])
     assert_type(_numpy_unary(image, np.sqrt), NDArray[np.float16])
-    assert_type(hflip_numpy(image), NDArray[np.float16])
-    assert_type(hflip_cv2(image), NDArray[np.float16])
-    assert_type(vflip_numpy(image), NDArray[np.float16])
-    assert_type(vflip_cv2(image), NDArray[np.float16])
