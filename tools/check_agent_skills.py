@@ -41,7 +41,7 @@ def find_problems(root: Path) -> list[str]:
     if not skills_dir.is_dir():
         return [f"{skills_dir.relative_to(root)}: directory is missing"]
     problems = []
-    names = sorted(path.name for path in skills_dir.iterdir() if path.is_dir())
+    names = sorted(path.name for path in skills_dir.iterdir() if path.is_dir() and not path.name.startswith("."))
     for name in names:
         skill_md = skills_dir / name / "SKILL.md"
         if not skill_md.is_file():
@@ -66,7 +66,7 @@ def find_problems(root: Path) -> list[str]:
         problems.extend(
             f"{entry.relative_to(root)}: no matching skill in .agents/skills"
             for entry in sorted(links_dir.iterdir())
-            if entry.name not in names
+            if entry.name not in names and not entry.name.startswith(".")
         )
     return problems
 

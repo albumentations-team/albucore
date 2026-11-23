@@ -1112,3 +1112,14 @@ def test_agent_skill_check_decodes_yaml_frontmatter(tmp_path, frontmatter_name, 
 
 def test_agent_skill_check_reports_missing_skills_directory(tmp_path) -> None:
     assert check_agent_skills.find_problems(tmp_path) == [".agents/skills: directory is missing"]
+
+
+def test_agent_skill_check_ignores_hidden_entries(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    (tmp_path / ".agents" / "skills" / ".mypy_cache").mkdir()
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+    (links / ".DS_Store").write_bytes(b"\x00")
+
+    assert check_agent_skills.find_problems(tmp_path) == []
