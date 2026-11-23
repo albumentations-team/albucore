@@ -24,6 +24,11 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: reject-os-metadata
+        name: Reject OS and file-manager metadata files
+        entry: OS metadata files must never be committed
+        language: fail
+        files: (^|/)(\.DS_Store|\._[^/]+|\.AppleDouble|\.LSOverride|Thumbs\.db|ehthumbs\.db|desktop\.ini)$|(^|/)(\.Spotlight-V100|\.Trashes)/
       - id: uv-lock-check
         name: uv lock --check
         entry: uv lock --check
