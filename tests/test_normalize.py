@@ -152,3 +152,22 @@ def test_normalize_float16_adjacent_values():
     result = normalize(image, float(mean), 1000.0)
     expected = ((neighbors.astype(np.float64) - float(mean)) * 1000).astype(np.float16)
     np.testing.assert_array_equal(result[0, :3, 0], expected)
+
+
+@pytest.mark.parametrize("shape", [(1, 1, 3), (1, 8191, 2), (1, 8192, 2), (2, 16, 16, 5)])
+@pytest.mark.parametrize("with_out", [False, True])
+def test_normalize_float16_scalar_preserves_infinity(shape, with_out):
+    image = np.ones(shape, dtype=np.float16)
+    image.flat[0], image.flat[1] = np.inf, -np.inf
+    out = np.empty_like(image) if with_out else None
+    result = normalize(image, 0.0, 2.0, out=out)
+    assert result.flat[0] == np.inf
+    assert result.flat[1] == -np.inf
+    assert result.flat[2] == 2.0
+
+
+@pytest.mark.parametrize("width", [8191, 8192])
+@pytest.mark.parametrize("denominator", [1e7, 1e8])
+def test_normalize_float16_center_is_zero_for_large_denominator(width, denominator):
+    image = np.full((1, width, 2), 0.7, dtype=np.float16)
+    np.testing.assert_array_equal(normalize(image, float(image.flat[0]), denominator), 0)
