@@ -254,6 +254,11 @@ def normalize_float16_torch(
     """Write the rounded fused result into half storage without a Tensor-owned return view."""
     if img.shape[-1] <= 1 or not img.flags.c_contiguous or not _is_half_torch_compatible(img, minimum_elements):
         return None
+    # Type promotion narrows 0-D float32 controls to float16 next to a half image, losing or overflowing the bias.
+    if not isinstance(mean, np.ndarray):
+        mean = np.array([mean], dtype=np.float32)
+    if not isinstance(denominator, np.ndarray):
+        denominator = np.array([denominator], dtype=np.float32)
     mean_tensor = _parameter_tensor(mean, img.ndim, img.shape[-1])
     denominator_tensor = _parameter_tensor(denominator, img.ndim, img.shape[-1])
     image = torch.from_numpy(img)

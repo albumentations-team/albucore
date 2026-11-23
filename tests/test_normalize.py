@@ -123,3 +123,51 @@ def test_normalize_preserves_original_image(dtype, shape):
 
     assert result.shape == image.shape
     np.testing.assert_array_equal(image, original)
+
+
+@pytest.mark.parametrize("width", [8191, 8192, 8193])
+@pytest.mark.parametrize("denominator", [5.0, 1000.0, 100000.0])
+@pytest.mark.parametrize("vector_controls", [False, True])
+def test_normalize_float16_center_is_zero(width, denominator, vector_controls):
+    """Scalar controls must not be narrowed to float16 (issue #248)."""
+    image = np.full((1, width, 2), 0.7, dtype=np.float16)
+    mean = float(image.flat[0])
+    if vector_controls:
+        mean_control, denominator_control = np.full(2, mean, np.float32), np.full(2, denominator, np.float32)
+    else:
+        mean_control, denominator_control = mean, denominator
+    result = normalize(image, mean_control, denominator_control)
+    assert result.dtype == np.float16
+    np.testing.assert_array_equal(result, 0)
+
+
+def test_normalize_float16_adjacent_values():
+    mean = np.float16(0.7)
+    neighbors = np.array(
+        [np.nextafter(mean, np.float16(-np.inf)), mean, np.nextafter(mean, np.float16(np.inf))],
+        dtype=np.float16,
+    )
+    image = np.empty((1, 8192, 3), dtype=np.float16)
+    image[...] = np.resize(neighbors, 8192)[:, None]
+    result = normalize(image, float(mean), 1000.0)
+    expected = ((neighbors.astype(np.float64) - float(mean)) * 1000).astype(np.float16)
+    np.testing.assert_array_equal(result[0, :3, 0], expected)
+
+
+@pytest.mark.parametrize("shape", [(1, 1, 3), (1, 8191, 2), (1, 8192, 2), (2, 16, 16, 5)])
+@pytest.mark.parametrize("with_out", [False, True])
+def test_normalize_float16_scalar_preserves_infinity(shape, with_out):
+    image = np.ones(shape, dtype=np.float16)
+    image.flat[0], image.flat[1] = np.inf, -np.inf
+    out = np.empty_like(image) if with_out else None
+    result = normalize(image, 0.0, 2.0, out=out)
+    assert result.flat[0] == np.inf
+    assert result.flat[1] == -np.inf
+    assert result.flat[2] == 2.0
+
+
+@pytest.mark.parametrize("width", [8191, 8192])
+@pytest.mark.parametrize("denominator", [1e7, 1e8])
+def test_normalize_float16_center_is_zero_for_large_denominator(width, denominator):
+    image = np.full((1, width, 2), 0.7, dtype=np.float16)
+    np.testing.assert_array_equal(normalize(image, float(image.flat[0]), denominator), 0)
