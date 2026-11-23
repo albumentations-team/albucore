@@ -832,7 +832,8 @@ def test_float32_per_channel_std_keeps_near_constant_variance(shape, keepdims):
     mean_values, mean_std_values = mean_std(image, "per_channel", eps=0, keepdims=keepdims)
     for values in (std_values, mean_std_values):
         np.testing.assert_allclose(np.asarray(values).reshape(-1), expected, rtol=1e-12, atol=0)
-    np.testing.assert_allclose(np.asarray(mean_values).reshape(-1), image.mean(axis=tuple(range(image.ndim - 1)), dtype=np.float64))
+    expected_mean = image.mean(axis=tuple(range(image.ndim - 1)), dtype=np.float64)
+    np.testing.assert_allclose(np.asarray(mean_values).reshape(-1), expected_mean, rtol=1e-15, atol=0)
 
 
 @pytest.mark.parametrize("value", [0.1, 0.5, 0.7])
@@ -842,3 +843,15 @@ def test_float32_per_channel_std_is_zero_for_constant_image(value, channels, kee
     image = np.full((512, 512, channels), value, dtype=np.float32)
     np.testing.assert_array_equal(std(image, "per_channel", eps=0, keepdims=keepdims), 0)
     np.testing.assert_array_equal(mean_std(image, "per_channel", eps=0, keepdims=keepdims)[1], 0)
+
+
+@pytest.mark.parametrize("keepdims", [False, True])
+def test_float32_per_channel_std_keeps_other_channels_finite(keepdims):
+    """Centering a near-constant channel must not touch channels whose moments were fine."""
+    largest = np.finfo(np.float32).max
+    image = np.array([[[0.5, largest], [0.5, largest], [0.5, -largest]]], dtype=np.float32)
+    expected = image.std(axis=(0, 1), dtype=np.float64)
+    for values in (std(image, "per_channel", eps=0, keepdims=keepdims), mean_std(image, "per_channel", eps=0, keepdims=keepdims)[1]):
+        values = np.asarray(values).reshape(-1)
+        assert np.isfinite(values).all()
+        np.testing.assert_allclose(values, expected, rtol=1e-12, atol=0)

@@ -520,14 +520,17 @@ def _mean_std_per_channel_float32(arr: NDArray[np.float32], eps: float) -> tuple
         means, stds = cv2.meanStdDev(arr)
         mean_values, std_values = means[:, 0], stds[:, 0]
         # All-zero channels have exact moments; a nonzero mean with tiny variance may be cancellation.
-        if any(
+        cancelled = [
             mean != 0 and std * std <= _FLOAT32_MOMENTS_CANCELLATION_FLOOR * mean * mean
             for mean, std in zip(mean_values.tolist(), std_values.tolist(), strict=True)
-        ):
+        ]
+        if any(cancelled):
             # Variance ignores the shift, and near-constant pixels minus a nearby float32 mean subtract exactly.
-            shift = mean_values.astype(np.float32).tolist()
-            offsets, centered_stds = cv2.meanStdDev(cv2.subtract(arr, (*shift, *(0.0,) * (4 - c))))
-            mean_values, std_values = mean_values + offsets[:, 0], centered_stds[:, 0]
+            # Other channels shift by zero and keep their first-pass statistics.
+            shift = np.where(cancelled, mean_values.astype(np.float32), np.float32(0)).astype(np.float64)
+            offsets, centered_stds = cv2.meanStdDev(cv2.subtract(arr, (*shift.tolist(), *(0.0,) * (4 - c))))
+            mean_values = np.where(cancelled, shift + offsets[:, 0], mean_values)
+            std_values = np.where(cancelled, centered_stds[:, 0], std_values)
         return mean_values, std_values + eps
 
     n = arr.size // c
