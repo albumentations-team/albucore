@@ -1123,3 +1123,40 @@ def test_agent_skill_check_ignores_hidden_entries(tmp_path) -> None:
     (links / ".DS_Store").write_bytes(b"\x00")
 
     assert check_agent_skills.find_problems(tmp_path) == []
+
+
+def test_agent_skill_check_accepts_frontmatter_at_end_of_file(tmp_path) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    skill_md = tmp_path / ".agents" / "skills" / "linked" / "SKILL.md"
+    skill_md.write_text(skill_md.read_text().rstrip("\n"))
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    assert check_agent_skills.find_problems(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ('[{"id": "trigger-1", "prompt": "Run it."}]', []),
+        ("[", ["invalid JSON"]),
+        ("[]", ["must be a non-empty list of cases"]),
+        ('[{"id": "trigger-1"}]', ["case 0 needs string 'id' and 'prompt'"]),
+    ],
+)
+def test_agent_skill_check_validates_optional_evals(tmp_path, content, expected) -> None:
+    _write_skill(tmp_path, "linked", "linked")
+    evals = tmp_path / ".agents" / "skills" / "linked" / "evals"
+    evals.mkdir()
+    (evals / "evals.json").write_text(content)
+    links = tmp_path / ".claude" / "skills"
+    links.mkdir(parents=True)
+    (links / "linked").write_text("../../.agents/skills/linked")
+
+    problems = check_agent_skills.find_problems(tmp_path)
+
+    assert len(problems) == len(expected)
+    for problem, fragment in zip(problems, expected, strict=True):
+        assert problem.startswith(".agents/skills/linked/evals/evals.json: ")
+        assert fragment in problem
