@@ -37,8 +37,9 @@ when that storage must remain unchanged. No dtype-specific ownership heuristic s
 `normalize(image, mean, denominator, out=destination)` uses fixed caller statistics. Its destination is float16
 for float16 input and float32 for uint8/float32 input. Floating output may alias the complete input; uint8 input
 requires a separate float32 result. Tensor calls require layout. Without `out`, input is unchanged and the existing
-approximate identity policy may return it directly. Output strides do not change the selected arithmetic kernel;
-an unsupported destination uses a temporary followed by a copy. Adaptive `normalize_per_image` has separate statistics
+approximate identity policy may return it directly. Float32 results subtract the mean before scaling, so a pixel
+equal to the mean returns exact zero. Output strides do not change results; an unsupported destination uses a
+temporary followed by a copy. Adaptive `normalize_per_image` has separate statistics
 and clipping policies.
 
 `normalize_per_image(image, mode, out=destination)` estimates its statistics from the input. Its result dtype and

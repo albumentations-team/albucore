@@ -200,8 +200,9 @@ Every Torch optimization handoff reports:
 - correctness and memory evidence;
 - any follow-up that needs a profiler trace, platform matrix, or a wider API contract.
 
-Fixed-statistics `normalize` supports explicit result-dtype output. The existing fused Torch kernels can write a
-positive-stride NumPy destination; negative strides retain that kernel and copy its result. The Half CHW/NCHW plane
+Fixed-statistics `normalize` supports explicit result-dtype output. The float16 Torch kernel can write a
+positive-stride NumPy destination; negative strides retain that kernel and copy its result. Float32 normalization no
+longer uses Torch: centered OpenCV or NumPy routes were faster and keep a pixel at the mean exactly zero. The Half CHW/NCHW plane
 route writes contiguous Tensor destinations directly. Non-half Tensor batches fill one final result while preserving
 per-item numerical routing. Strided uint8 Tensor destinations use `Tensor.copy_` after the selected float LUT result.
 

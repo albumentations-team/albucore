@@ -72,8 +72,9 @@ cover Core public operations only. Do not add hidden pools or caches of large ar
 contract through keyword-only `out`.
 `multiply_add` follows the same explicit output contract; Tensor calls require layout and compound control aliases must preserve read-before-write order.
 `normalize` writes result-dtype `out`: float16 for float16 input, float32 for uint8/float32. Exact floating source
-aliases are supported. Preserve its backend arithmetic order and approximate identity policy; destination strides
-must not select a different numerical kernel. Fixed and adaptive normalization share the normalize module.
+aliases are supported. Route it for speed and accuracy rather than a fixed arithmetic order: a pixel equal to the
+mean must normalize to exact zero, and destination strides must not change results. Preserve the approximate identity
+policy. Fixed and adaptive normalization share the normalize module.
 `normalize_per_image` also uses result-dtype `out` and required Tensor layout. Compute all statistics before an alias
 write. Preserve mode-specific epsilon/clipping and NumPy whole-array versus Tensor per-item batch statistics.
 

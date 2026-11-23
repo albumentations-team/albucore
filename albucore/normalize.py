@@ -18,7 +18,7 @@ from albucore.tensor_bridge import (
     tensor_operand_to_numpy,
     tensor_to_numpy_channel_last,
 )
-from albucore.torch_backend import normalize_float16_torch, normalize_float32_torch
+from albucore.torch_backend import normalize_float16_torch
 from albucore.utils import (
     _FLOAT32_MAX,
     _MACOS_ARM64,
@@ -397,28 +397,89 @@ def normalize_per_image(
     )
 
 
-def _affine_numpy(
-    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+def _centered_numpy(
+    img: NDArray[np.float16] | NDArray[np.float32],
     mean: float | np.ndarray,
     denominator: float | np.ndarray,
     *,
     out: NDArray[np.float32] | None = None,
 ) -> NDArray[np.float32]:
+    """Compute ``(img - mean) * denominator`` in float32; subtracting first keeps a pixel at the mean exactly zero."""
     mean_f = mean.astype(np.float32, copy=False) if isinstance(mean, np.ndarray) else np.float32(mean)
     denom_f = (
         denominator.astype(np.float32, copy=False) if isinstance(denominator, np.ndarray) else np.float32(denominator)
     )
     if isinstance(mean_f, np.ndarray) or isinstance(denom_f, np.ndarray):
-        mean_b = _broadcast_channel_vector(mean_f, img.ndim, img.shape[-1])
-        denom_b = _broadcast_channel_vector(denom_f, img.ndim, img.shape[-1])
-        offset = mean_b * denom_b
-        result = cast("NDArray[np.float32]", np.multiply(img, denom_b, dtype=np.float32, out=out))
-        np.subtract(result, offset, out=result)
-        return result
-
-    result = cast("NDArray[np.float32]", np.multiply(img, denom_f, dtype=np.float32, out=out))
-    np.subtract(result, mean_f * denom_f, out=result)
+        mean_operand = _broadcast_channel_vector(mean_f, img.ndim, img.shape[-1])
+        denominator_operand = _broadcast_channel_vector(denom_f, img.ndim, img.shape[-1])
+    else:
+        mean_operand, denominator_operand = mean_f, denom_f
+    result = cast("NDArray[np.float32]", np.subtract(img, mean_operand, dtype=np.float32, out=out))
+    np.multiply(result, denominator_operand, out=result)
     return result
+
+
+def _channel_vector_float32(value: float | np.ndarray, channels: int) -> NDArray[np.float32] | None:
+    """Return a ``(channels,)`` float32 control, or ``None`` for full-array controls."""
+    if not isinstance(value, np.ndarray):
+        return np.full(channels, value, dtype=np.float32)
+    return value.astype(np.float32, copy=False) if value.shape == (channels,) else None
+
+
+def _normalize_float32(
+    img: NDArray[np.float32],
+    mean: float | np.ndarray,
+    denominator: float | np.ndarray,
+    *,
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32]:
+    """Route centered float32 normalization by measured speed; every route subtracts before scaling."""
+    channels = img.shape[-1]
+    contiguous = img.flags.c_contiguous and (out is None or out.flags.c_contiguous)
+    # Scalar controls are fastest as two NumPy passes; channel vectors broadcast slowly over a short last axis.
+    if contiguous and channels > 1 and (isinstance(mean, np.ndarray) or isinstance(denominator, np.ndarray)):
+        mean_vector = _channel_vector_float32(mean, channels)
+        denominator_vector = _channel_vector_float32(denominator, channels)
+        if mean_vector is not None and denominator_vector is not None:
+            if channels <= MAX_OPENCV_WORKING_CHANNELS:
+                return _centered_opencv(img, mean_vector, denominator_vector, out=out)
+            return _centered_numpy_rows(img, mean_vector, denominator_vector, out=out)
+    return _centered_numpy(img, mean, denominator, out=out)
+
+
+def _centered_opencv(
+    img: NDArray[np.float32],
+    mean: NDArray[np.float32],
+    denominator: NDArray[np.float32],
+    *,
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32]:
+    """Apply per-channel OpenCV scalar subtract and multiply to a contiguous 2-4 channel image.
+
+    Flattening first gives size-1 axes canonical strides, which OpenCV requires for ``dst``.
+    """
+    padding = (0.0,) * (4 - img.shape[-1])
+    shape = (-1, img.shape[-2], img.shape[-1])
+    rows = img.reshape(-1).reshape(shape)
+    result = cv2.subtract(rows, (*mean.tolist(), *padding), dst=None if out is None else out.reshape(-1).reshape(shape))
+    cv2.multiply(result, (*denominator.tolist(), *padding), dst=result)
+    return out if out is not None else cast("NDArray[np.float32]", result.reshape(img.shape))
+
+
+def _centered_numpy_rows(
+    img: NDArray[np.float32],
+    mean: NDArray[np.float32],
+    denominator: NDArray[np.float32],
+    *,
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32]:
+    """Subtract and scale contiguous rows by controls repeated across the width, a long contiguous inner axis."""
+    width = img.shape[-2]
+    rows = img.reshape(-1, width * img.shape[-1])
+    destination = None if out is None else out.reshape(rows.shape)
+    result = np.subtract(rows, np.tile(mean, width), out=destination)
+    np.multiply(result, np.tile(denominator, width), out=result)
+    return out if out is not None else cast("NDArray[np.float32]", result.reshape(img.shape))
 
 
 def _normalize_float16_single_channel_opencv(
@@ -603,7 +664,7 @@ def _normalize_half(
     return (
         half_result
         if half_result is not None
-        else _cast_float_numpy(_affine_numpy(img, mean, denominator), np.float16, out=out)
+        else _cast_float_numpy(_centered_numpy(img, mean, denominator), np.float16, out=out)
     )
 
 
@@ -744,8 +805,8 @@ def normalize(
     """Normalize with fixed caller constants as ``(img - mean) * denominator``.
 
     Float16 input returns float16; uint8 and float32 return float32. NumPy arrays are
-    channel-last. Tensor calls require CHW, NCHW, CDHW or NCDHW layout. Scalar and
-    per-channel controls use the existing backend's arithmetic order and precision.
+    channel-last. Tensor calls require CHW, NCHW, CDHW or NCDHW layout. Float32 results
+    subtract the mean before scaling, so a pixel equal to the mean returns exact zero.
 
     Without ``out``, input storage is unchanged; approximate identity controls may
     return it directly. A supplied output matches the result dtype, shape and container
@@ -790,6 +851,9 @@ def normalize(
             denominator,
             out=cast("NDArray[np.float16] | None", out),
         )
-    float_out = cast("NDArray[np.float32] | None", out)
-    float32_result = normalize_float32_torch(cast("NDArray[np.float32]", img), mean, denominator, out=float_out)
-    return float32_result if float32_result is not None else _affine_numpy(img, mean, denominator, out=float_out)
+    return _normalize_float32(
+        cast("NDArray[np.float32]", img),
+        mean,
+        denominator,
+        out=cast("NDArray[np.float32] | None", out),
+    )
