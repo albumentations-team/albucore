@@ -28,6 +28,8 @@ from albucore.tensor_bridge import (
     tensor_to_numpy_channel_last,
 )
 from albucore.utils import (
+    _LINUX_X86_64,
+    _MACOS_ARM64,
     MAX_OPENCV_WORKING_CHANNELS,
     get_num_channels,
     get_opencv_max_channels,
@@ -43,6 +45,7 @@ _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
 _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 _RESIZE_TENSOR_FLOAT16_LINEAR_MIN_ELEMENTS = 16_384
 _RESIZE_TENSOR_FLOAT16_NEAREST_MIN_ELEMENTS = 61_440
+_LINUX_FLOAT16_TENSOR_PAD_MAX_ELEMENTS = 3_686_400
 
 __all__ = [
     "copy_make_border",
@@ -747,6 +750,72 @@ def _copy_make_border_constant_channels(
     return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result)
 
 
+def _tensor_pad_fill(value: float | None, dtype: torch.dtype) -> float:
+    """Convert a scalar border value the way OpenCV does for the tensor dtype."""
+    if value is None:
+        return 0
+    if dtype == torch.uint8:
+        return min(max(round(value), 0), 255)
+    with np.errstate(over="ignore"):
+        fill = np.float32(value)
+        return float(np.float16(fill) if dtype == torch.float16 else fill)
+
+
+def _tensor_pad_border_supported(
+    img: torch.Tensor,
+    border_type: int,
+    value: float | tuple[float, ...] | np.ndarray | None,
+    pads: tuple[int, int, int, int],
+) -> bool:
+    if border_type == cv2.BORDER_CONSTANT:
+        return value is None or isinstance(value, (int, float))
+    if border_type == cv2.BORDER_REPLICATE:
+        return True
+    if border_type == cv2.BORDER_REFLECT_101:
+        # Torch reflection rejects padding at least as large as the padded axis.
+        top, bottom, left, right = pads
+        return max(top, bottom) < img.shape[-2] and max(left, right) < img.shape[-1]
+    return False
+
+
+def _use_tensor_pad(
+    img: torch.Tensor,
+    layout: TensorImageLayout | None,
+    border_type: int,
+    value: float | tuple[float, ...] | np.ndarray | None,
+    pads: tuple[int, int, int, int],
+) -> bool:
+    """Select ``torch.nn.functional.pad`` over the per-image OpenCV bridge for measured regions."""
+    if not (_MACOS_ARM64 or _LINUX_X86_64) or layout not in ("CHW", "NCHW"):
+        return False
+    channels = img.shape[-3]
+    if (layout == "CHW" and channels == 1) or not _tensor_pad_border_supported(img, border_type, value, pads):
+        return False
+    if img.dtype != torch.float16 or border_type == cv2.BORDER_CONSTANT:
+        return True
+    if _LINUX_X86_64:
+        return channels == 3 and img.numel() <= _LINUX_FLOAT16_TENSOR_PAD_MAX_ELEMENTS
+    return channels >= 3
+
+
+def _copy_make_border_tensor_pad(
+    img: torch.Tensor,
+    top: int,
+    bottom: int,
+    left: int,
+    right: int,
+    border_type: int,
+    value: float | None,
+) -> torch.Tensor:
+    padding = (int(left), int(right), int(top), int(bottom))
+    if border_type == cv2.BORDER_CONSTANT:
+        return torch_f.pad(img, padding, value=_tensor_pad_fill(value, img.dtype))
+    mode = "replicate" if border_type == cv2.BORDER_REPLICATE else "reflect"
+    if img.dtype == torch.float16:
+        return torch_f.pad(img.to(torch.float32), padding, mode=mode).to(torch.float16)
+    return torch_f.pad(img, padding, mode=mode)
+
+
 @overload
 def copy_make_border(
     img: ArrayT,
@@ -810,6 +879,16 @@ def copy_make_border(
         Padded image, shape (H+top+bottom, W+left+right, C).
     """
     if isinstance(img, torch.Tensor):
+        if dst is None and _use_tensor_pad(img, layout, border_type, value, (top, bottom, left, right)):
+            return _copy_make_border_tensor_pad(
+                img,
+                top,
+                bottom,
+                left,
+                right,
+                border_type,
+                cast("float | None", value),
+            )
         dst_view = tensor_to_numpy_channel_last(dst, layout) if isinstance(dst, torch.Tensor) else dst
         result = dispatch_tensor_image(
             img,
