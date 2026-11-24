@@ -245,7 +245,8 @@ def test_uint8_sqrt_macos_routes_through_torch_and_matches_numpy(
     assert calls == [1]
     assert result.dtype == np.float32
     assert (result is out) if with_out else not np.shares_memory(result, array)
-    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+    # Torch and NumPy float32 sqrt differ by up to 1 ulp on some CPUs (x86), so compare within float32 precision.
+    np.testing.assert_allclose(result, _uint8_sqrt_reference(array), rtol=1e-6, atol=0)
 
 
 def test_uint8_sqrt_macos_torch_route_handles_strided_input_and_output(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -260,7 +261,7 @@ def test_uint8_sqrt_macos_torch_route_handles_strided_input_and_output(monkeypat
 
     assert calls == [1]
     assert result is out
-    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+    np.testing.assert_allclose(result, _uint8_sqrt_reference(array), rtol=1e-6, atol=0)
 
 
 def test_uint8_sqrt_macos_read_only_input_skips_torch_and_matches_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -295,7 +296,8 @@ def test_uint8_sqrt_linux_uses_float_lut_for_every_channel_count_with_and_withou
 
     assert calls == [1]
     assert (result is out) if with_out else not np.shares_memory(result, array)
-    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+    # Torch and NumPy float32 sqrt differ by up to 1 ulp on some CPUs (x86), so compare within float32 precision.
+    np.testing.assert_allclose(result, _uint8_sqrt_reference(array), rtol=1e-6, atol=0)
 
 
 def test_uint8_sqrt_linux_below_lut_minimum_and_strided_input_use_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -350,8 +352,11 @@ def test_tensor_exp_contiguous_input_uses_numpy_bridge_and_matches_torch(
     assert result.shape == expected.shape
     if output is not None:
         assert result is output
-    if dtype == torch.float16:
+    if dtype == torch.float16 and elementwise._MACOS_ARM64:
         torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    elif dtype == torch.float16:
+        # Linux never routes float16 here; forced through the bridge, cv2.exp differs from Torch by one half ulp.
+        torch.testing.assert_close(result, expected, rtol=2**-10, atol=0)
     else:
         torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-7)
 
@@ -471,3 +476,18 @@ def test_float16_sqrt_reaches_torch_exactly_at_the_measured_platform_minimum(mon
     at_minimum = _float16_sqrt_input((1, 1, minimum))
     np.testing.assert_array_equal(ac.sqrt(at_minimum), _float16_sqrt_reference(at_minimum))
     assert calls == [1]
+
+
+def test_tensor_exp_numpy_bridge_bumps_the_version_counter_of_the_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _tensor_exp_spy(monkeypatch, {torch.float32: 1})
+    weight = torch.full((3, 4, 5), 2.0, requires_grad=True)
+    image = torch.rand(3, 4, 5)
+    product = image * weight  # saves image for backward
+    version = image._version
+
+    ac.exp(image, out=image)
+
+    assert calls == [1]
+    assert image._version > version
+    with pytest.raises(RuntimeError, match="modified by an inplace operation"):
+        product.sum().backward()
