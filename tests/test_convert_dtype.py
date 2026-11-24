@@ -43,7 +43,7 @@ def test_convert_dtype_reference_and_input_preservation(
     result = convert_dtype(image, target_dtype, max_value=max_value)
 
     actual = result.movedim(-3, -1).numpy() if container == "tensor" else result
-    if container == "tensor" and source_dtype == np.float16 and target_dtype == np.uint8:
+    if source_dtype == np.float16 and target_dtype == np.uint8 and (container == "tensor" or max_value == 17.3):
         np.testing.assert_allclose(actual, expected, rtol=0, atol=1)
     else:
         np.testing.assert_array_equal(actual, expected)
@@ -129,7 +129,7 @@ def test_float16_to_uint8_matches_promoted_reference(shape) -> None:
     np.testing.assert_array_equal(convert_dtype(image, np.dtype(np.uint8)), expected)
 
 
-def test_large_float16_to_uint8_preserves_float32_rounding_edges() -> None:
+def test_large_float16_to_uint8_is_within_one_level_of_float32_contract() -> None:
     values = np.array(
         [-np.inf, -1, -0.0, 0, 0.5 / 17.3, 1.5 / 17.3, 127.5 / 17.3, 255 / 17.3, 1, np.inf],
         dtype=np.float16,
@@ -137,7 +137,14 @@ def test_large_float16_to_uint8_preserves_float32_rounding_edges() -> None:
     image = np.resize(values, (128, 160, 3))
     result = convert_dtype(image, np.dtype(np.uint8), max_value=17.3)
     expected = convert_dtype(image.astype(np.float32), np.dtype(np.uint8), max_value=17.3)
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_allclose(result, expected, rtol=0, atol=1)
+
+
+@pytest.mark.parametrize("max_value", [65_505.0, 1e5, 1e10, -1e5])
+def test_float16_to_uint8_scale_beyond_half_range_keeps_float32_result(max_value):
+    image = np.resize(np.array([-0.5, 0, 1e-3, 3e-3, 0.5, 1], dtype=np.float16), (128, 160, 3))
+    expected = np.clip(np.rint(image.astype(np.float32) * np.float32(max_value)), 0, 255).astype(np.uint8)
+    np.testing.assert_array_equal(convert_dtype(image, np.uint8, max_value=max_value), expected)
 
 
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])

@@ -127,7 +127,7 @@ def test_half_quantization_all_encodings_with_output(monkeypatch, container, sca
         result = convert_dtype(image, np.uint8, max_value=scale, out=output)
     actual = result.numpy() if container == "tensor" else result
     assert result is output
-    np.testing.assert_allclose(actual, expected, rtol=0, atol=1 if container == "tensor" and scale != 17.3 else 0)
+    np.testing.assert_allclose(actual, expected, rtol=0, atol=1 if (container == "tensor") != (scale == 17.3) else 0)
     np.testing.assert_array_equal(source.view(np.uint16), original_bits)
     if container == "numpy":
         assert working_buffer_calls == []

@@ -55,11 +55,6 @@ def _quantize_uint8_opencv(
     return result
 
 
-def _is_half_exact(scale: float) -> bool:
-    """Return whether OpenCV's half-precision scalar cast preserves ``scale``."""
-    return abs(scale) <= _FLOAT16_MAX and float(np.float16(scale)) == scale
-
-
 def _convert_float_to_uint8(
     img: NDArray[np.float16] | NDArray[np.float32],
     scale: float,
@@ -72,8 +67,8 @@ def _convert_float_to_uint8(
         and img.flags.c_contiguous
         and (out is None or out.flags.c_contiguous)
     ):
-        if img.dtype == np.float16 and not _is_half_exact(scale):
-            # OpenCV would round the scale to half; a float32 source keeps the float32 contract.
+        if img.dtype == np.float16 and abs(scale) > _FLOAT16_MAX:
+            # OpenCV casts the scale to half, where it overflows to inf and saturates every nonzero pixel.
             img = _cast_float_numpy(img, np.dtype(np.float32), out=None)
         return _quantize_uint8_opencv(img, scale, out)
 
@@ -231,8 +226,11 @@ def convert_dtype(
     saturate to [0, 255]. NaN input is unspecified for images, masks, and volumes;
     only vector fields carry NaN and they are not quantized. Float16/float32 casts and same-dtype
     conversions ignore the scale and do not clip. The image's actual min/max
-    values are never used to determine the scale. NumPy half quantization uses
-    float32 arithmetic.
+    values are never used to determine the scale. NumPy float32 quantization uses
+    float32 arithmetic. Contiguous NumPy float16 quantization multiplies in OpenCV,
+    which rounds the scale to half precision: for scales not exactly representable in
+    half (such as 17.3) results differ from the float32 contract by at most one uint8
+    level; scales beyond the half range (above 65504) use float32 arithmetic.
     Contiguous half Tensors use half arithmetic for exactly half-representable
     scales, differing from the wide result by at most one uint8 unit; other
     Tensor quantization uses float32 arithmetic.
