@@ -1353,6 +1353,9 @@ _RESIZE3D_XY_MIN_PLANE_ELEMENTS = 16_384
 _RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS = 3_840
 # Single-channel planes lose below about 5k elements (audit: 0.63x at 5,120, 1.9x at 1,280).
 _RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS = 5_120
+# Linux x86-64 single-channel H/W growth (xy_up and mixed up/down): the per-plane route measured 0.75-0.95x of the
+# fallback at 5,120 elements, a tie to 1.12x at 10,240 and 1.14-1.68x from 20,480.
+_LINUX_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_GROW_MIN_PLANE_ELEMENTS = 10_240
 # Smallest plane for the three-channel all-axis shrink, which replaces the Torch route.
 _MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 3_840
 _LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 15_360
@@ -1662,6 +1665,8 @@ def _can_resize3d_numpy_uint8_linear_per_slice(
         if channels == 1
         else _RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS
     )
+    if _LINUX_X86_64 and channels == 1 and hw_only:
+        plane_floor = _LINUX_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_GROW_MIN_PLANE_ELEMENTS
     return bool((hw_down_depth_up or hw_only) and plane_elements >= plane_floor)
 
 
