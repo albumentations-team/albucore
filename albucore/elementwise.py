@@ -150,7 +150,10 @@ def _exp_tensor_numpy(array: torch.Tensor, out: torch.Tensor | None) -> torch.Te
         with np.errstate(all="ignore"):
             working = _cast_float_numpy(source, np.float32)
             result = _cast_float_numpy(_opencv_unary(working, cv2.exp), np.float16, out=destination)
-    return torch.from_numpy(result).reshape(array.shape) if out is None else out
+    if out is None:
+        return torch.from_numpy(result).reshape(array.shape)
+    torch.autograd.graph.increment_version(out)
+    return out
 
 
 @overload
