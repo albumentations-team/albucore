@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
+from albucore import torch_backend
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ImageArrayT, ValueType
 from albucore.lut import _tensor_shared_uint8_lut
@@ -24,7 +25,6 @@ from albucore.tensor_bridge import (
 from albucore.torch_backend import (
     float16_pointwise_torch,
     multiply_add_float16_torch,
-    multiply_add_float32_torch,
 )
 from albucore.utils import (
     _FLOAT32_MAX,
@@ -847,6 +847,18 @@ def _add_field(
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if value.shape == img.shape and value.dtype == img.dtype:
+            if (
+                img.flags.c_contiguous
+                and value.flags.c_contiguous
+                and (destination_u8 is None or destination_u8.flags.c_contiguous)
+            ):
+                rows = (-1, img.shape[-2] * img.shape[-1])
+                dst = None if destination_u8 is None else destination_u8.reshape(rows)
+                result = cv2.add(img.reshape(rows), value.reshape(rows), dst=dst)
+                return cast(
+                    "NDArray[np.uint8]",
+                    result.reshape(img.shape) if destination_u8 is None else destination_u8,
+                )
             return _blend_numkong(img, 1.0, value, 1.0, out=destination_u8)
         return _add_uint8_opencv(img, value, out=destination_u8)
     if (
@@ -1425,6 +1437,37 @@ def _multiply_add_tensor_batch(
     return img if unchanged else numpy_to_tensor_layout(np.stack(results), layout)
 
 
+def _multiply_add_scalar_batch_storage(
+    img: torch.Tensor,
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Run one fused ``nk.scale`` over a contiguous batch whose items all stay below the Torch threshold.
+
+    Each item would otherwise reach the same elementwise NumKong kernel one call at a time, so the
+    result is bit-identical. Batches with larger items keep the per-item loop and its Torch rounding.
+    """
+    if (
+        img.dtype != torch.float32
+        or not isinstance(factor, (float, int))
+        or not isinstance(value, (float, int))
+        or not -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
+        or not -_FLOAT32_MAX <= value <= _FLOAT32_MAX
+        or (factor == 1 and value == 0)
+        or img.numel() // img.shape[0] >= torch_backend.TORCH_MIN_ELEMENTS
+        or not img.is_contiguous()
+        or (out is not None and not out.is_contiguous())
+    ):
+        return None
+    flat = img.numpy().reshape(-1)
+    if out is not None:
+        _scale_numkong(flat, float(factor), float(value), out=out.numpy().reshape(-1))
+        return out
+    return numpy_to_tensor_storage(_scale_numkong(flat, float(factor), float(value))).reshape(img.shape)
+
+
 def _multiply_add_scalar_tensor(
     img: torch.Tensor,
     factor: float,
@@ -1439,6 +1482,20 @@ def _multiply_add_scalar_tensor(
     if out is not None:
         return out
     return img if result is image else numpy_to_tensor_storage(result).reshape(img.shape)
+
+
+def _multiply_add_batch(
+    img: torch.Tensor,
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    layout: TensorLayout,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor:
+    whole_storage = _multiply_add_scalar_batch_storage(img, factor, value, out=out)
+    if whole_storage is not None:
+        return whole_storage
+    return _multiply_add_tensor_batch(img, factor, value, layout, out=out)
 
 
 def _multiply_add_tensor(
@@ -1461,7 +1518,7 @@ def _multiply_add_tensor(
         table = _multiply_add_uint8_scalar_table(float(factor_value), float(bias_value))
         return _tensor_shared_uint8_lut(img, table, out=out)
     if layout in ("NCHW", "NCDHW") and img.shape[0]:
-        return _multiply_add_tensor_batch(img, factor_value, bias_value, layout, out=out)
+        return _multiply_add_batch(img, factor_value, bias_value, layout, out=out)
     if (
         img.dtype == torch.float32
         and isinstance(factor_value, (float, int))
@@ -1535,7 +1592,9 @@ def multiply_add(
     Uint8 scalar/channel controls saturate and truncate one float32 table.
     Floating images also accept broadcastable fields and preserve their raw range.
     Half Torch/NumPy kernels round the product before addition; the selected
-    NumKong scalar kernel retains its fused rounding.
+    NumKong scalar kernel retains its fused rounding. Float32 scalar controls always use that kernel, so results
+    can differ from two roundings by up to one ULP, and an intermediate that would overflow float32 does not
+    produce inf when the fused result is finite.
 
     Without ``out``, inputs stay unchanged and identity results are allowed.
     A supplied output matches the image dtype, shape, container and layout and is
@@ -1575,27 +1634,19 @@ def multiply_add(
         and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
         and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
     ):
-        result = multiply_add_float32_torch(
+        result = _scale_numkong(
             image,
             float(factor),
             float(value),
             out=cast("NDArray[np.float32] | None", destination),
         )
-        if result is None:
-            result = _scale_numkong(
-                image,
-                float(factor),
-                float(value),
-                out=cast("NDArray[np.float32] | None", destination),
-            )
     else:
-        result = (
+        rows_result = (
             _multiply_add_float32_rows(image, factor, value, cast("NDArray[np.float32] | None", destination))
             if image.shape[-1] != 1
             else None
         )
-        if result is None:
-            result = _multiply_add_numpy(image, factor, value)
+        result = _multiply_add_numpy(image, factor, value) if rows_result is None else rows_result
     if destination is not None and result is not destination:
         np.copyto(destination, result)
     return result if destination is None else destination
