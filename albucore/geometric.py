@@ -28,6 +28,8 @@ from albucore.tensor_bridge import (
     tensor_to_numpy_channel_last,
 )
 from albucore.utils import (
+    _LINUX_X86_64,
+    _MACOS_ARM64,
     MAX_OPENCV_WORKING_CHANNELS,
     get_num_channels,
     get_opencv_max_channels,
@@ -36,13 +38,19 @@ from albucore.utils import (
 
 # Interpolations that require chunking for >4ch (CI: _src.channels() <= 4)
 _INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4, cv2.INTER_LINEAR_EXACT}
-_RESIZE3D_NEAREST_GATHER_MIN_ELEMENTS = 900_000
+# Single-channel nearest H/W shrink with a depth change: the per-slice OpenCV route is faster for smaller volumes.
+_RESIZE3D_NEAREST_TAKE_SINGLE_CHANNEL_MIN_ELEMENTS = 1_048_576
+# Float nearest all-axis upscale: OpenCV packs D*C channels and slows down above this count.
+_RESIZE3D_NEAREST_TAKE_FLOAT_UPSCALE_PACKED_CHANNELS = 128
+# Source indices travel through a float32 ramp, which is exact only up to 2**24.
+_RESIZE3D_NEAREST_TAKE_MAX_AXIS = 1 << 24
 _RESIZE3D_DEPTH_ONE_MIN_ELEMENTS = 4_096
 # remap does not support INTER_LINEAR_EXACT; only CUBIC/LANCZOS4 need chunking
 _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
 _MAX_OPENCV_CHANNELS = get_opencv_max_channels()
 _RESIZE_TENSOR_FLOAT16_LINEAR_MIN_ELEMENTS = 16_384
 _RESIZE_TENSOR_FLOAT16_NEAREST_MIN_ELEMENTS = 61_440
+_LINUX_FLOAT16_TENSOR_PAD_MAX_ELEMENTS = 3_686_400
 
 __all__ = [
     "copy_make_border",
@@ -747,6 +755,72 @@ def _copy_make_border_constant_channels(
     return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result)
 
 
+def _tensor_pad_fill(value: float | None, dtype: torch.dtype) -> float:
+    """Convert a scalar border value the way OpenCV does for the tensor dtype."""
+    if value is None:
+        return 0
+    if dtype == torch.uint8:
+        return min(max(round(value), 0), 255)
+    with np.errstate(over="ignore"):
+        fill = np.float32(value)
+        return float(np.float16(fill) if dtype == torch.float16 else fill)
+
+
+def _tensor_pad_border_supported(
+    img: torch.Tensor,
+    border_type: int,
+    value: float | tuple[float, ...] | np.ndarray | None,
+    pads: tuple[int, int, int, int],
+) -> bool:
+    if border_type == cv2.BORDER_CONSTANT:
+        return value is None or isinstance(value, (int, float))
+    if border_type == cv2.BORDER_REPLICATE:
+        return True
+    if border_type == cv2.BORDER_REFLECT_101:
+        # Torch reflection rejects padding at least as large as the padded axis.
+        top, bottom, left, right = pads
+        return max(top, bottom) < img.shape[-2] and max(left, right) < img.shape[-1]
+    return False
+
+
+def _use_tensor_pad(
+    img: torch.Tensor,
+    layout: TensorImageLayout | None,
+    border_type: int,
+    value: float | tuple[float, ...] | np.ndarray | None,
+    pads: tuple[int, int, int, int],
+) -> bool:
+    """Select ``torch.nn.functional.pad`` over the per-image OpenCV bridge for measured regions."""
+    if not (_MACOS_ARM64 or _LINUX_X86_64) or layout not in ("CHW", "NCHW"):
+        return False
+    channels = img.shape[-3]
+    if (layout == "CHW" and channels == 1) or not _tensor_pad_border_supported(img, border_type, value, pads):
+        return False
+    if img.dtype != torch.float16 or border_type == cv2.BORDER_CONSTANT:
+        return True
+    if _LINUX_X86_64:
+        return channels == 3 and img.numel() <= _LINUX_FLOAT16_TENSOR_PAD_MAX_ELEMENTS
+    return channels >= 3
+
+
+def _copy_make_border_tensor_pad(
+    img: torch.Tensor,
+    top: int,
+    bottom: int,
+    left: int,
+    right: int,
+    border_type: int,
+    value: float | None,
+) -> torch.Tensor:
+    padding = (int(left), int(right), int(top), int(bottom))
+    if border_type == cv2.BORDER_CONSTANT:
+        return torch_f.pad(img, padding, value=_tensor_pad_fill(value, img.dtype))
+    mode = "replicate" if border_type == cv2.BORDER_REPLICATE else "reflect"
+    if img.dtype == torch.float16:
+        return torch_f.pad(img.to(torch.float32), padding, mode=mode).to(torch.float16)
+    return torch_f.pad(img, padding, mode=mode)
+
+
 @overload
 def copy_make_border(
     img: ArrayT,
@@ -810,6 +884,16 @@ def copy_make_border(
         Padded image, shape (H+top+bottom, W+left+right, C).
     """
     if isinstance(img, torch.Tensor):
+        if dst is None and _use_tensor_pad(img, layout, border_type, value, (top, bottom, left, right)):
+            return _copy_make_border_tensor_pad(
+                img,
+                top,
+                bottom,
+                left,
+                right,
+                border_type,
+                cast("float | None", value),
+            )
         dst_view = tensor_to_numpy_channel_last(dst, layout) if isinstance(dst, torch.Tensor) else dst
         result = dispatch_tensor_image(
             img,
@@ -1157,10 +1241,14 @@ def _resize_tensor_float16(
         result = torch_f.interpolate(batched, size=output_size, mode="nearest")
         return result.squeeze(0) if layout == "CHW" else result
 
+    # The OpenCV float32 bridge is faster for upscales; Torch keeps downscales, mixed axis changes,
+    # and channel counts beyond the OpenCV limit.
+    uses_opencv_bridge = dsize[0] >= img.shape[-1] and dsize[1] >= img.shape[-2] and channels <= _MAX_OPENCV_CHANNELS
     if (
         interpolation == cv2.INTER_LINEAR
         and img.numel() >= _RESIZE_TENSOR_FLOAT16_LINEAR_MIN_ELEMENTS
         and channels >= 3
+        and not uses_opencv_bridge
     ):
         result = torch_f.interpolate(
             batched.to(torch.float32),
@@ -1211,9 +1299,9 @@ def resize(
     being downscaled with INTER_AREA are processed in chunks of up to 4 channels.
     All other cases are passed directly to cv2.resize.
     Contiguous float16 NCHW and multi-channel CHW Tensors use native CPU nearest interpolation from 61,440 elements;
-    single-channel CHW keeps the existing route. For linear interpolation, multi-channel Tensors use float32 working
-    interpolation and cast back to float16. NumPy inputs use the float32 OpenCV path except for bit-preserving nearest
-    routes.
+    single-channel CHW keeps the existing route. For linear interpolation, multi-channel Tensors that shrink an axis
+    use float32 Torch interpolation and cast back to float16; upscales use the float32 OpenCV bridge. NumPy inputs use
+    the float32 OpenCV path except for bit-preserving nearest routes.
 
     Args:
         img: (H, W, C) image. uint8, float16, or float32.
@@ -1253,6 +1341,13 @@ def resize(
 
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
 _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
+_RESIZE3D_TORCH_NUMPY_BRIDGE_MANY_CHANNELS = 5
+# Channel-last float XY-only growth with many channels loses to native Torch above this input size.
+_RESIZE3D_TORCH_NUMPY_BRIDGE_CHANNEL_LAST_XY_UP_MAX_ELEMENTS = 1_048_576
+# Channel-last XY-only shrink: the bridge loses to native Torch below this input size.
+_RESIZE3D_TORCH_NUMPY_BRIDGE_XY_DOWN_MIN_ELEMENTS = 262_144
+# uint8 depth-only resize: the bridge ties or loses below this output size.
+_RESIZE3D_TORCH_NUMPY_BRIDGE_UINT8_Z_MIN_OUTPUT_ELEMENTS = 131_072
 _RESIZE3D_XY_MIN_PLANE_ELEMENTS = 16_384
 
 
@@ -1301,32 +1396,47 @@ def _resize3d_numpy_axis_packing(
     return result
 
 
-def _can_resize3d_numpy_nearest_gather(
-    volume: np.ndarray,
-    size: tuple[int, int, int],
-    interpolation: int,
-    antialias: bool,
-) -> bool:
-    return (
-        interpolation == cv2.INTER_NEAREST
-        and not antialias
-        and volume.ndim == 4
-        and volume.shape[-1] == 3
-        and volume.flags.c_contiguous
-        and volume.size >= _RESIZE3D_NEAREST_GATHER_MIN_ELEMENTS
-        and all(output_size < input_size for input_size, output_size in zip(volume.shape[:3], size, strict=True))
-    )
-
-
-def _resize3d_numpy_nearest_gather(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
-    indices = tuple(
-        np.minimum(
-            np.floor(np.arange(output_size, dtype=np.float64) * (input_size / output_size)).astype(np.intp),
-            input_size - 1,
+def _can_resize3d_numpy_nearest_take(volume: np.ndarray, size: tuple[int, int, int]) -> bool:
+    """Select the measured regions where one np.take per axis beats the OpenCV nearest routes."""
+    depth, height, width, channels = volume.shape
+    new_depth, new_height, new_width = size
+    if max(depth, height, width) > _RESIZE3D_NEAREST_TAKE_MAX_AXIS:
+        return False
+    if (new_height, new_width) == (height, width):
+        return True
+    if new_depth == depth:
+        return False
+    if new_height < height and new_width < width:
+        return channels > 1 or volume.size >= _RESIZE3D_NEAREST_TAKE_SINGLE_CHANNEL_MIN_ELEMENTS
+    if new_height > height and new_width > width:
+        return channels >= 3 and (
+            new_depth < depth
+            or volume.itemsize == 1
+            or channels >= 4
+            or depth * channels > _RESIZE3D_NEAREST_TAKE_FLOAT_UPSCALE_PACKED_CHANNELS
         )
-        for input_size, output_size in zip(volume.shape[:3], size, strict=True)
-    )
-    return volume[indices[0][:, None, None], indices[1][None, :, None], indices[2][None, None, :], :]
+    return False
+
+
+def _resize3d_nearest_indices(input_size: int, output_size: int) -> np.ndarray:
+    """Return the source indices OpenCV nearest resizing selects, computed by OpenCV itself."""
+    row = np.arange(input_size, dtype=np.float32).reshape(1, input_size)
+    resized = cv2.resize(row, (output_size, 1), interpolation=cv2.INTER_NEAREST)
+    return cast("np.ndarray", resized.astype(np.intp).reshape(output_size))
+
+
+def _resize3d_numpy_nearest_take(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    """Gather nearest voxels one axis at a time: shrinking axes first, then H/W growth, then depth growth."""
+
+    def cost_order(axis: int) -> tuple[bool, bool, float]:
+        grows = size[axis] > volume.shape[axis]
+        return size[axis] >= volume.shape[axis], axis == 0 and grows, size[axis] / volume.shape[axis]
+
+    result = volume
+    for axis in sorted(range(3), key=cost_order):
+        if size[axis] != volume.shape[axis]:
+            result = np.take(result, _resize3d_nearest_indices(volume.shape[axis], size[axis]), axis=axis)
+    return result
 
 
 def _resize3d_numpy_linear_axis(volume: np.ndarray, axis: int, output_size: int) -> np.ndarray:
@@ -1543,12 +1653,30 @@ def _should_resize3d_torch_use_numpy_route(
     size: tuple[int, int, int],
     interpolation: int,
 ) -> bool:
-    """Select the measured zero-copy path for sufficiently large all-axis linear Tensor upscales."""
-    return (
-        interpolation == cv2.INTER_LINEAR
-        and volume.shape[0] * size[0] * size[1] * size[2] >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS
-        and all(output_size > input_size for input_size, output_size in zip(volume.shape[1:], size, strict=True))
-    )
+    """Select the measured Tensor regions where the NumPy/OpenCV route beats native Torch interpolation."""
+    if interpolation != cv2.INTER_LINEAR:
+        return False
+    channels, depth, height, width = volume.shape
+    new_depth, new_height, new_width = size
+    is_uint8 = volume.dtype == torch.uint8
+    channel_last = channels > 1 and volume.stride(0) == 1
+    grows_hw = new_height > height and new_width > width
+
+    if new_depth > depth and grows_hw:
+        output_elements = channels * new_depth * new_height * new_width
+        return output_elements >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS or channels > 1 or not is_uint8
+    if new_depth == depth and grows_hw:
+        return not (
+            channel_last
+            and channels >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MANY_CHANNELS
+            and not is_uint8
+            and volume.numel() > _RESIZE3D_TORCH_NUMPY_BRIDGE_CHANNEL_LAST_XY_UP_MAX_ELEMENTS
+        )
+    if new_depth == depth and new_height < height and new_width < width:
+        return channels == 1 or (channel_last and volume.numel() >= _RESIZE3D_TORCH_NUMPY_BRIDGE_XY_DOWN_MIN_ELEMENTS)
+    if is_uint8 and (new_height, new_width) == (height, width):
+        return channels * new_depth * height * width >= _RESIZE3D_TORCH_NUMPY_BRIDGE_UINT8_Z_MIN_OUTPUT_ELEMENTS
+    return False
 
 
 def _resize3d_torch_via_numpy(
@@ -1615,12 +1743,16 @@ def resize3d(
     ``(C, D, H, W)`` layout. AlbumentationsX validates the input layout, spatial dimensions, output size,
     device, and autograd state before calling this primitive. The container, dtype, and channel count are preserved
     for uint8, float16, and float32 inputs.
-    Contiguous NumPy C3 nearest downscales use one shared-index gather from 900,000 input elements when all
-    spatial axes shrink. Contiguous float16/float32 linear resizes to depth one
+    NumPy nearest resizes that change depth alone, or change depth together with both H and W in the same direction,
+    gather the source voxels with one ``np.take`` per axis where that is faster than OpenCV; other regions keep the
+    OpenCV routes. Contiguous float16/float32 linear resizes to depth one
     use only the central depth slices from 4,096 input elements when antialiasing is disabled.
-    Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
-    benchmark-selected NumPy/OpenCV CPU route. Float16 bridge inputs widen to float32 and round back once. Its float32
-    output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most one value.
+    Linear Tensor resize uses the benchmark-selected NumPy/OpenCV CPU route when it enlarges all three spatial axes
+    (below 10,000 output elements only for multichannel or float inputs), when it enlarges H and W with depth unchanged,
+    when it shrinks H and W of single-channel or large channel-last-stored volumes with depth unchanged, and for uint8
+    depth-only resizes of at least 131,072 output elements. Float16 bridge inputs widen to float32 and round back once.
+    Its float32 output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most
+    one value.
     Other Tensor regions use native Torch interpolation, including the CPU float16 kernel.
 
     Args:
@@ -1636,8 +1768,8 @@ def resize3d(
     if isinstance(volume, np.ndarray):
         if volume.shape[:3] == size:
             return volume
-        if _can_resize3d_numpy_nearest_gather(volume, size, interpolation, antialias):
-            return _resize3d_numpy_nearest_gather(volume, size)
+        if interpolation == cv2.INTER_NEAREST and not antialias and _can_resize3d_numpy_nearest_take(volume, size):
+            return _resize3d_numpy_nearest_take(volume, size)
         if (
             size[0] == 1
             and volume.dtype == np.float16
