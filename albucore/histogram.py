@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-__all__ = ["equalize_uint8"]
+__all__ = ["equalize_uint8", "match_histograms_uint8"]
 
 _OPENCV_MAX_CHANNELS = get_opencv_max_channels()
 _MAX_EXACT_HISTOGRAM_PIXELS = 2**24
@@ -167,3 +167,51 @@ def equalize_uint8(
         lut = lut_for(_histogram(plane, selection))
         result[..., channel] = plane if lut is None else apply_uint8_lut(plane, lut)
     return result
+
+
+def _channel_histograms(img: NDArray[np.uint8]) -> list[NDArray[np.int64]]:
+    channels = img.shape[-1]
+    pixels = img if img.ndim == 3 else img.reshape(1, -1, channels)
+    if pixels.size // channels > _MAX_EXACT_HISTOGRAM_PIXELS:
+        return [_histogram(pixels[..., channel]) for channel in range(channels)]
+    # One OpenCV call per channel reads the packed or row-strided image in place; slicing a plane first copies it.
+    return [
+        np.asarray(cv2.calcHist([pixels], [channel], None, [256], (0, 256)), dtype=np.int64).ravel()
+        for channel in range(channels)
+    ]
+
+
+def _matched_lut(source_counts: NDArray[np.int64], reference_counts: NDArray[np.int64]) -> NDArray[np.uint8]:
+    # Levels absent from the reference carry no mass; skip them as the CDF-matching rule requires.
+    reference_levels = np.flatnonzero(reference_counts)
+    source_quantiles = np.cumsum(source_counts) / source_counts.sum()
+    reference_quantiles = np.cumsum(reference_counts[reference_levels]) / reference_counts.sum()
+    return np.asarray(np.interp(source_quantiles, reference_quantiles, reference_levels), dtype=np.uint8)
+
+
+def match_histograms_uint8(img: NDArray[np.uint8], reference: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    """Match the histogram of each channel of ``img`` to the same channel of ``reference``.
+
+    Each source level maps to the reference level at the same cumulative quantile, as in
+    ``skimage.exposure.match_histograms``. Histograms are exact, and one ``(256, 1, C)`` table
+    is applied with :func:`albucore.lut.apply_uint8_lut`.
+
+    Args:
+        img: Channel-last uint8 array with shape ``(..., C)``.
+        reference: Channel-last uint8 array with the same ``C``. Its spatial size may differ.
+
+    Returns:
+        An independent writable uint8 array with the shape of ``img``. Neither input is written.
+
+    Examples:
+        >>> image = np.arange(256, dtype=np.uint8).reshape(16, 16, 1)
+        >>> reference = np.full((4, 4, 1), 7, dtype=np.uint8)
+        >>> int(match_histograms_uint8(image, reference).max())
+        7
+    """
+    luts = np.empty((256, 1, img.shape[-1]), dtype=np.uint8)
+    for channel, (source_counts, reference_counts) in enumerate(
+        zip(_channel_histograms(img), _channel_histograms(reference), strict=True),
+    ):
+        luts[:, 0, channel] = _matched_lut(source_counts, reference_counts)
+    return apply_uint8_lut(img, luts)
