@@ -37,6 +37,7 @@ _FLOAT16_STRUCT = struct.Struct("e")
 _FLOAT32_STRUCT = struct.Struct("f")
 _TENSOR_BATCH_FLOAT32_IMAGE_MAX_ELEMENTS = 2_000_000
 _TENSOR_BATCH_FLOAT32_MIN_ELEMENTS = 20_480
+_TENSOR_NCDHW_BATCH_FLOAT32_MIN_ITEMS = 4
 
 
 def _single_channel_stats(img: NDArray[np.float32]) -> tuple[float, float]:
@@ -233,7 +234,7 @@ def _use_tensor_batch_float32_route(
     if (
         img.dtype != torch.float32
         or not img.is_contiguous()
-        or img.shape[0] < 4
+        or (layout == "NCDHW" and img.shape[0] < _TENSOR_NCDHW_BATCH_FLOAT32_MIN_ITEMS)
         or (out is not None and not out.is_contiguous())
     ):
         return False
