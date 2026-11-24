@@ -105,8 +105,6 @@ def test_identity_morphology_kernel_returns_an_independent_copy(
     layout: str,
 ) -> None:
     image = _source(dtype, 3, "contiguous")
-    if kernel_kind == "center_only":
-        image = np.tile(image, (10, 10, 1))
     if layout == "strided":
         image = image[:, ::2]
     elif layout == "negative":
@@ -122,8 +120,7 @@ def test_identity_morphology_kernel_returns_an_independent_copy(
     def fail_filter(*args: object, **kwargs: object) -> None:
         pytest.fail("identity kernel called OpenCV")
 
-    if dtype is not np.float32 or kernel_kind == "center_only":
-        monkeypatch.setattr(cv2, operation, fail_filter)
+    monkeypatch.setattr(cv2, operation, fail_filter)
 
     result = getattr(core, operation)(image, kernel)
 
@@ -136,6 +133,23 @@ def test_identity_morphology_kernel_returns_an_independent_copy(
     assert result.flags.writeable
     assert not np.shares_memory(result, image)
     assert image.tobytes() == original
+
+
+@pytest.mark.parametrize("operation", ["erode", "dilate"])
+@pytest.mark.parametrize("kernel_kind", ["zero_pixel", "off_center", "two_pixels"])
+def test_non_identity_morphology_kernels_still_use_opencv(operation: str, kernel_kind: str) -> None:
+    image = _source(np.uint8, 3, "contiguous")
+    kernel = np.zeros((3, 3), dtype=np.uint8)
+    if kernel_kind == "zero_pixel":
+        kernel = np.zeros((1, 1), dtype=np.uint8)
+    elif kernel_kind == "off_center":
+        kernel[0, 1] = 1
+    else:
+        kernel[1, 1] = kernel[0, 1] = 1
+
+    actual = getattr(core, operation)(image, kernel)
+
+    np.testing.assert_array_equal(actual, getattr(cv2, operation)(image, kernel))
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float16, np.float32])

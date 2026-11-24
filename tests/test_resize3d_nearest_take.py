@@ -180,3 +180,13 @@ def test_nearest_take_preserves_nan_and_negative_zero() -> None:
 
     expected = _opencv_nearest(volume, (12, 8, 9))
     np.testing.assert_array_equal(result.view(np.uint32), expected.view(np.uint32))
+
+
+def test_axis_beyond_float32_integer_range_keeps_opencv(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _spy_take(monkeypatch)
+    depth = (1 << 24) + 4
+    volume = (np.arange(depth, dtype=np.uint32) % 251).astype(np.uint8).reshape(depth, 1, 1, 1)
+    result = resize3d(volume, (depth + 1, 1, 1), interpolation=cv2.INTER_NEAREST)
+    assert not calls
+    assert result.shape == (depth + 1, 1, 1, 1)
+    assert result[-1, 0, 0, 0] == volume[-1, 0, 0, 0]
