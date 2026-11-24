@@ -1,6 +1,6 @@
 """Benchmark-driven mean / std / mean_std for Albucore channel-last array layouts."""
 
-from typing import Literal, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast, overload
 
 import cv2
 import numkong as nk
@@ -21,6 +21,9 @@ from albucore.utils import (
     get_opencv_max_channels,
 )
 from albucore.weighted import _NUMKONG_NEON_HALF
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 DEFAULT_EPS = 1e-4
 _NUMPY_STD_MEAN_SUPPORTED = np.lib.NumpyVersion(np.__version__) >= "2.0.0"
@@ -64,6 +67,10 @@ _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS = {
     5: 184_320,
     9: 184_320,
 }
+
+# Float32 CHW Tensors with 2..4 channels reduce each contiguous plane; wider and single-channel inputs do not win.
+_FLOAT32_TENSOR_PLANE_MOMENTS_MAX_CHANNELS = 4
+_FLOAT32_TENSOR_NCHW_MEAN_CHANNELS = 9
 
 AxisSpec = None | int | tuple[int, ...] | Literal["global", "per_channel"]
 _GlobalAxis: TypeAlias = Literal["global"] | None
@@ -801,6 +808,41 @@ def _mean_per_channel_float16_tensor(
     return result.reshape(output_shape)
 
 
+def _mean_per_channel_float32_tensor(
+    arr: torch.Tensor,
+    layout: TensorLayout | None,
+    *,
+    keepdims: bool,
+) -> torch.Tensor | None:
+    """Per-channel float32 mean as one float64-accumulating Torch reduction over channel-first storage."""
+    if arr.dtype != torch.float32 or not arr.is_contiguous():
+        return None
+    # NCHW C=3 keeps the NumPy route, which is 5x faster than Torch on x86-64.
+    if not (
+        (layout == "CHW" and arr.shape[0] > 1)
+        or (layout == "NCHW" and arr.shape[1] == _FLOAT32_TENSOR_NCHW_MEAN_CHANNELS)
+    ):
+        return None
+    channel_axis = _TENSOR_CHANNEL_AXES[layout]
+    axes = tuple(axis for axis in range(arr.ndim) if axis != channel_axis)
+    return torch.mean(arr, dim=axes, dtype=torch.float64, keepdim=keepdims)
+
+
+def _mean_std_per_channel_plane_moments(
+    arr: NDArray[np.float32],
+    axis: tuple[int, ...],
+    *,
+    keepdims: bool,
+    eps: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Channel-last view of CHW storage: each ``arr[..., channel]`` is one contiguous plane."""
+    means, stds = _mean_std_per_channel_numkong(arr, eps)
+    if keepdims:
+        shape = (1,) * (arr.ndim - 1) + (arr.shape[-1],)
+        return means.reshape(shape), stds.reshape(shape)
+    return means, stds
+
+
 def _std_global_float16_tensor(
     arr: torch.Tensor,
     layout: TensorLayout | None,
@@ -1108,6 +1150,8 @@ def mean_std(
       can lose low-order precision and drop subnormals.
     - **per-channel uint8 and float16 C > 4**: NumKong moments per channel, with a stable two-pass fallback for
       near-constant half data.
+    - **contiguous float32 CHW Tensor per-channel, 2 ≤ C ≤ 4**: one NumKong ``moments`` call per channel plane with
+      the near-constant shift fallback.
     - **per-channel float32, ndim == 3, 2 ≤ C ≤ 4**: ``cv2.meanStdDev``; near-constant channels repeat it on
       mean-centered pixels.
     - **per-channel float32, C=1, C>4, or ndim>3**: one NumKong ``moments`` call per channel; near-constant
@@ -1136,9 +1180,18 @@ def mean_std(
                     shape = (1,) * arr.ndim
                     return tensor_result[0].reshape(shape), tensor_result[1].reshape(shape)
                 return tensor_result
+        router: Callable[..., Any] = mean_std
+        if (
+            axis == "per_channel"
+            and layout == "CHW"
+            and arr.dtype == torch.float32
+            and arr.is_contiguous()
+            and 1 < arr.shape[0] <= _FLOAT32_TENSOR_PLANE_MOMENTS_MAX_CHANNELS
+        ):
+            router = _mean_std_per_channel_plane_moments
         return cast(
             "tuple[np.floating | float | np.ndarray | torch.Tensor, np.floating | float | np.ndarray | torch.Tensor]",
-            dispatch_tensor_reduction(arr, layout, mean_std, axis, {"keepdims": keepdims, "eps": eps}),
+            dispatch_tensor_reduction(arr, layout, router, axis, {"keepdims": keepdims, "eps": eps}),
         )
 
     axes = _resolve_axes(arr, axis)
@@ -1274,6 +1327,7 @@ def mean(
       exceed the float64-reference tolerance. Higher channel counts use a float32 reduction path.
     - **NumPy float16 per-channel, rank-4 C=3**: zero-copy Torch ``mean(dtype=float64)`` from 20,480 elements;
       rank-4 C=1 uses the global Torch float64 sum from 20,480 through 8,000,000 elements.
+    - **contiguous float32 Tensor per-channel, CHW with C>1 or NCHW with C=9**: Torch ``mean(dtype=float64)``.
     - **everything else**: ``arr.mean(dtype=float64)``.
 
     Alternative: ``mean_std`` if std is also needed (avoids a second pass for uint8).
@@ -1296,6 +1350,8 @@ def mean(
                 return result
         if dtype is None and axis == "per_channel":
             result = _mean_per_channel_float16_tensor(arr, layout, keepdims=keepdims)
+            if result is None:
+                result = _mean_per_channel_float32_tensor(arr, layout, keepdims=keepdims)
             if result is not None:
                 return result
         return dispatch_tensor_reduction(arr, layout, mean, axis, {"keepdims": keepdims, "dtype": dtype})
