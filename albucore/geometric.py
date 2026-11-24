@@ -28,6 +28,7 @@ from albucore.tensor_bridge import (
     tensor_to_numpy_channel_last,
 )
 from albucore.utils import (
+    _LINUX_X86_64,
     MAX_OPENCV_WORKING_CHANNELS,
     get_num_channels,
     get_opencv_max_channels,
@@ -1257,6 +1258,19 @@ def resize(
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
 _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
 _RESIZE3D_XY_MIN_PLANE_ELEMENTS = 16_384
+_RESIZE3D_UINT8_SLICE_DOWN_CHANNELS = (3, 4)
+# uint8 linear per-plane OpenCV resizing: smallest H*W*C plane for H/W-only and depth-up routes.
+_RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS = 3_840
+# Smallest plane for the three-channel all-axis shrink, which replaces the exact Torch route.
+_MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 3_840
+_LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 15_360
+# uint8 linear per-slice OpenCV resizing: smallest H*W*C plane for multichannel volumes.
+_RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS = 3_840
+# Smallest plane for single-channel volumes, and for all-axis shrinks of multichannel volumes.
+_MACOS_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS = 5_120
+_LINUX_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS = 20_480
+_MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 3_840
+_LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 15_360
 
 
 def _resize3d_axis_packing(
@@ -1403,12 +1417,20 @@ def _resize3d_numpy_linear_depth_one(volume: np.ndarray, size: tuple[int, int, i
     return result
 
 
+def _can_resize3d_float32_depth_one_torch(volume: np.ndarray, size: tuple[int, int, int]) -> bool:
+    """Float32 depth-to-one resizes that also change H/W are faster through Torch at every size."""
+    if volume.dtype != np.float32 or size[1:] == volume.shape[1:3]:
+        return False
+    all_hw_up = size[1] > volume.shape[1] and size[2] > volume.shape[2]
+    return not (_LINUX_X86_64 and volume.shape[-1] == 1 and all_hw_up)
+
+
 def _resize3d_numpy_linear_depth_one_dispatch(
     volume: np.ndarray,
     size: tuple[int, int, int],
     torch_compatible: bool,
 ) -> np.ndarray:
-    if volume.dtype == np.uint8 and torch_compatible:
+    if torch_compatible and (volume.dtype == np.uint8 or _can_resize3d_float32_depth_one_torch(volume, size)):
         return _resize3d_numpy_torch_cpu(volume, size)
     if volume.dtype != np.uint8 and volume.size >= _RESIZE3D_DEPTH_ONE_MIN_ELEMENTS:
         return _resize3d_numpy_linear_depth_one(volume, size)
@@ -1514,6 +1536,64 @@ def _can_resize3d_xy_per_slice(
     )
 
 
+def _can_resize3d_numpy_uint8_linear_per_slice(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+) -> bool:
+    """Select the measured uint8 linear regions where per-plane OpenCV resizing beats packing and Torch.
+
+    One- and four-channel planes are excluded except for the single-channel all-axis shrink: OpenCV rounds those
+    planes up to three levels away from the float result, while the routes replaced here stay within one or two.
+    """
+    if volume.dtype != np.uint8 or interpolation != cv2.INTER_LINEAR or antialias:
+        return False
+    depth, height, width, channels = volume.shape
+    new_depth, new_height, new_width = size
+    plane_elements = height * width * channels
+    shrinking = (new_height < height) + (new_width < width)
+    growing = (new_height > height) + (new_width > width)
+
+    if new_depth < depth:
+        if shrinking != 2:
+            return False
+        if channels == 1:
+            return True
+        down_floor = (
+            _LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS
+            if _LINUX_X86_64
+            else _MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS
+        )
+        return bool(channels == 3 and plane_elements >= down_floor)
+
+    hw_down_depth_up = new_depth > depth and shrinking == 2
+    hw_only = new_depth == depth and ((growing == 2) or (growing == 1 and shrinking == 1))
+    return (
+        (hw_down_depth_up or hw_only)
+        and channels not in (1, 4)
+        and plane_elements >= _RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS
+    )
+
+
+def _resize3d_numpy_measured_region(
+    volume: np.ndarray,
+    size: tuple[int, int, int],
+    interpolation: int,
+    antialias: bool,
+    torch_compatible: bool,
+) -> np.ndarray | None:
+    """Resize the linear regions with a dedicated measured route, or return None for the general routing."""
+    if interpolation == cv2.INTER_LINEAR and not antialias:
+        if size[0] == 1 and volume.shape[0] != 1:
+            return _resize3d_numpy_linear_depth_one_dispatch(volume, size, torch_compatible)
+        if volume.dtype == np.float32 and size[1:] == volume.shape[1:3]:
+            return _resize3d_numpy_linear_three_pass(volume, size)
+    if _can_resize3d_numpy_uint8_linear_per_slice(volume, size, interpolation, antialias):
+        return _resize3d_numpy_per_slice(volume, size, interpolation, antialias)
+    return None
+
+
 def _resize3d_numpy(
     volume: np.ndarray,
     size: tuple[int, int, int],
@@ -1529,8 +1609,9 @@ def _resize3d_numpy(
     all_up = all(target_axis > source_axis for source_axis, target_axis in zip(source_size, size, strict=True))
     torch_compatible = _can_resize3d_numpy_torch(volume, interpolation, antialias)
 
-    if interpolation == cv2.INTER_LINEAR and not antialias and size[0] == 1 and volume.shape[0] != 1:
-        return _resize3d_numpy_linear_depth_one_dispatch(volume, size, torch_compatible)
+    measured_result = _resize3d_numpy_measured_region(volume, size, interpolation, antialias, torch_compatible)
+    if measured_result is not None:
+        return measured_result
 
     if all_down and torch_compatible and (volume.dtype == np.float32 or volume.shape[-1] > 1):
         return _resize3d_numpy_torch_cpu(volume, size)
@@ -1635,6 +1716,7 @@ def resize3d(
     gather the source voxels with one ``np.take`` per axis where that is faster than OpenCV; other regions keep the
     OpenCV routes. Contiguous float16/float32 linear resizes to depth one
     use only the central depth slices from 4,096 input elements when antialiasing is disabled.
+    Linear float32 resizes to depth one that also change H/W use the Torch route at every size.
     Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
     benchmark-selected NumPy/OpenCV CPU route. Float16 bridge inputs widen to float32 and round back once. Its float32
     output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most one value.
