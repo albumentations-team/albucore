@@ -68,6 +68,10 @@ from AX only when the complete caller gains speed or memory; ownership alone doe
 5. Check dependent AX imports and typing consumers before removing or changing an export.
 6. Update `docs/public-api.md` and the relevant operation documentation.
 
+State the NaN contract for each operation: `remap`, `remap3d` and the `albucore.tensor_bridge` helpers preserve NaN
+exactly, because AX applies only them to vector fields (`tests/test_nan_field_contract.py`). Every other operation
+leaves NaN behavior unspecified; do not document or guard NaN there.
+
 Keep one public operation for each numerical contract. Scalar, channel-vector and full-array operands belong to the
 operation's documented parameter contract; backend selection remains inside its owning module.
 

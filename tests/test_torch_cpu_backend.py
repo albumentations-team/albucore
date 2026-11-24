@@ -157,9 +157,8 @@ def test_reduce_sum_torch_is_exact_for_global_and_per_channel(
             expected = np.sum(image, axis=expected_axis, dtype=accumulator, keepdims=keepdims)
             np.testing.assert_array_equal(reduce_sum(image, axis, keepdims=keepdims), expected)
 
-    # UInt8 keeps its established per-channel NumKong/OpenCV routing; Torch only
-    # replaces its full reductions. Float32 also uses Torch for C <= 4 per-channel sums.
-    assert calls == (4 if dtype is np.uint8 else 6)
+    # UInt8 uses NumKong and OpenCV only; Torch serves float32 global and C <= 4 per-channel sums.
+    assert calls == (0 if dtype is np.uint8 else 6)
 
 
 def test_torch_backend_skips_read_only_and_negative_stride_arrays(monkeypatch: pytest.MonkeyPatch) -> None:
