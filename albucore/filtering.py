@@ -16,8 +16,6 @@ from albucore.utils import _LINUX_X86_64, _MACOS_ARM64, clip
 
 _MACOS_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 20_480
 _LINUX_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 230_400
-_IDENTITY_KERNEL_MIN_ELEMENTS_HALF = 20_480
-_IDENTITY_KERNEL_MIN_ELEMENTS_OTHER = 30_720
 _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = {
     (3, 7): 921_600,
     (3, 15): 230_400,
@@ -45,25 +43,15 @@ def _opencv_working_image(
     return image.copy(order="C") if copy else image
 
 
-def _is_center_only_kernel(kernel: np.ndarray) -> bool:
-    center = kernel.shape[0] // 2, kernel.shape[1] // 2
-    return bool(kernel[center] != 0) and np.count_nonzero(kernel) == 1
-
-
 def _identity_morphology_copy(
     image: ImageArrayT,
     kernel: NDArray[Any],
 ) -> ImageArrayT | None:
     if kernel.size == 1:
-        if image.dtype.type is np.float32 or kernel[0, 0] == 0:
-            return None
-        return cast("ImageArrayT", image.copy(order="C"))
-    min_elements = (
-        _IDENTITY_KERNEL_MIN_ELEMENTS_HALF if image.dtype.type is np.float16 else _IDENTITY_KERNEL_MIN_ELEMENTS_OTHER
-    )
-    if image.size < min_elements or not _is_center_only_kernel(kernel):
-        return None
-    return cast("ImageArrayT", image.copy(order="C"))
+        identity = kernel[0, 0] != 0
+    else:
+        identity = np.count_nonzero(kernel) == 1 and kernel[kernel.shape[0] // 2, kernel.shape[1] // 2] != 0
+    return cast("ImageArrayT", image.copy(order="C")) if identity else None
 
 
 def _separable_float32_kernel(kernel: NDArray[Any]) -> tuple[np.ndarray, np.ndarray] | None:

@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import SupportedDType
 from albucore.lut import _cv2_lut_channel_last
-from albucore.torch_backend import quantize_uint8_torch
+from albucore.torch_backend import quantize_uint8_torch, uint8_to_float_torch
 from albucore.utils import _LINUX_X86_64, _MACOS_ARM64, _TORCH_DTYPES, MAX_VALUES_BY_DTYPE, get_max_value
 
 __all__ = ["convert_dtype"]
@@ -132,6 +132,10 @@ def _convert_dtype_torch(
     return rounded.to(torch.uint8) if out is None else out.copy_(rounded)
 
 
+_MACOS_UINT8_TO_FLOAT_TORCH_MIN_ELEMENTS = 12_288
+_LINUX_UINT8_TO_FLOAT32_CAST_DIVIDE_MAX_ELEMENTS = 230_400
+
+
 def _convert_uint8_numpy(
     image: NDArray[np.uint8],
     dtype: np.dtype[np.float16] | np.dtype[np.float32],
@@ -142,6 +146,26 @@ def _convert_uint8_numpy(
     """Select raw casting or normalized lookup without changing output storage rules."""
     if divisor == 1 and dtype == np.float32 and image.flags.c_contiguous:
         return _cast_float_numpy(image, np.float32, out=cast("NDArray[np.float32] | None", out))
+    if _MACOS_ARM64:
+        torch_result = uint8_to_float_torch(
+            image,
+            dtype,
+            divisor,
+            minimum_elements=_MACOS_UINT8_TO_FLOAT_TORCH_MIN_ELEMENTS,
+            out=out,
+        )
+        if torch_result is not None:
+            return torch_result
+    elif (
+        _LINUX_X86_64
+        and dtype == np.float32
+        and out is None
+        and image.size <= _LINUX_UINT8_TO_FLOAT32_CAST_DIVIDE_MAX_ELEMENTS
+        and image.flags.c_contiguous
+    ):
+        result = image.astype(np.float32)
+        np.divide(result, divisor, out=result)
+        return result
     lut = (np.arange(256, dtype=np.float32) / divisor).astype(dtype)
     return _cv2_lut_channel_last(image, lut, out=out)
 

@@ -60,6 +60,25 @@ explicit channel dimension, dtype, device, contiguity, autograd state, and opera
 before dispatch. Do not duplicate those checks in Albucore routers; keep only backend dispatch and kernel-required
 normalization. Invalid direct calls are outside the low-level contract.
 
+### NaN is a vector-field-only contract
+
+Vector fields are the only target that expects NaN: AlbumentationsX stores them as float16/float32 arrays where NaN
+marks an invalid vector. The split is by function: AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge`
+helpers (`numpy_to_tensor_layout`, `numpy_to_tensor_storage`, `tensor_to_numpy_channel_last`, `tensor_to_numpy_storage`)
+on fields, so only these must keep NaN exactly (`tests/test_nan_field_contract.py`). Every other operation, including the
+flip, rotate, crop, pad and resize operations, serves images, masks and volumes, which do not contain NaN. Arithmetic,
+quantization, statistics, normalization and LUT routes therefore assume finite input; their NaN behavior is unspecified.
+Do not add a NaN guard or extra pass to those hot paths, and delete one that exists. Benchmark and test those routes on
+finite data. Inf and signed-zero behavior are unchanged.
+
+### Speed over bit-exactness
+
+Speed is the top routing priority. Rounding-level differences (ulp-scale gaps between backends, fused versus
+two-rounding arithmetic, float32 versus float64 accumulation) are acceptable when a route is faster. Document the
+tolerance in the docstring and the `docs/public-api.md` row, and test the route against that tolerance, not bitwise.
+Gross errors stay unacceptable: wrong saturation or overflow (`1e10 * pixel` must give 255, not 0), a wrong `std` from
+near-constant cancellation, wrong shape or dtype, or a crash on valid input.
+
 ### Output ownership
 
 Operations with `out` write input storage only when the caller explicitly supplies it as output. Without `out`,
@@ -72,7 +91,7 @@ cover Core public operations only. Do not add hidden pools or caches of large ar
 contract through keyword-only `out`.
 `multiply_add` follows the same explicit output contract; Tensor calls require layout and compound control aliases must preserve read-before-write order.
 `normalize` writes result-dtype `out`: float16 for float16 input, float32 for uint8/float32. Exact floating source
-aliases are supported. Route it for speed and accuracy rather than a fixed arithmetic order: a pixel equal to the
+aliases are supported. Route it for speed rather than a fixed arithmetic order, within the speed-over-bit-exactness rule: a pixel equal to the
 mean must normalize to exact zero, and destination strides must not change results. Preserve the approximate identity
 policy. Fixed and adaptive normalization share the normalize module.
 `normalize_per_image` also uses result-dtype `out` and required Tensor layout. Compute all statistics before an alias

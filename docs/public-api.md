@@ -29,6 +29,8 @@ destination dtype and returns that exact object; `out=image` requests mutation. 
 a conversion independently of optional output storage. An explicit dtype must match the supplied destination.
 Clipping does not scale intensities: a uint8 destination clips to [0,255] and truncates fractions; floating destinations
 clip to [0,1]. The caller validates output metadata and overlap. Dtype changes may require working storage.
+NumPy float16 and float32 clipping may run through `torch.clamp`: `-0.0` and `+0.0` are the same value there, and NaN
+stays NaN without preserved payload bits or signalling-NaN state. All other values are identical.
 
 `exp` and `sqrt` use the same explicit-output contract. Their output dtype is float16 for float16 input
 and float32 for uint8/float32 input. Writable views may be supplied as output; AX owns protective copies required
@@ -165,6 +167,10 @@ The destination dtype is explicit and supports all nine pairs among uint8, float
 | float16/float32 → uint8 | Multiply by `max_value`, round ties to even, saturate to [0, 255], map NaN to zero |
 | float16 ↔ float32 | Cast without intensity scaling or clipping |
 | Same dtype | Preserve values and ignore `max_value` |
+
+NaN contract: only `remap`, `remap3d` and the `albucore.tensor_bridge` helpers preserve NaN, because AlbumentationsX
+applies only them to vector fields. Every other operation, including `convert_dtype`, assumes finite input and leaves NaN
+behavior unspecified.
 
 Float images conventionally represent intensities in [0, 1]. The conversion does not estimate the image's
 min/max or rescale floating values that are outside that range. For example:
