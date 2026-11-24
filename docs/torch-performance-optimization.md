@@ -126,6 +126,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   cells per operation at least 5% faster than their float32 peers. A separate 11-sample interleaved run with scalar
   `0.1` measured 0.26–0.47× for `add` and
   0.33–0.62× for `multiply` across CHW 128×160×3, CHW 480×640×3, and NCHW 4×3×240×320.
+- Contiguous float32 Tensor `add`/`multiply` with a finite Python scalar (`add` zero excepted) or a writable float32 channel vector use one Torch op, with explicit `out` when given, up to a per-platform size: 691,200 elements on macOS (0.43–0.89× of the NumPy bridge, 0.65–0.89× at 61K–307K) and 76,800 without `out` or 307,200 with `out` on Linux x86-64 (Sapphire Rapids audit: 0.54–0.75× to 77K, with `out` 0.81–0.90× to 307K, 1.16–1.20× slower above without `out`). Larger images, non-contiguous storage, float16 vectors and other controls keep the NumPy bridge.
 - NumPy HWC float16 vector routes are selected by channel count and measured region: C1 uses NumKong `scale` for
   exact controls from 20,480 elements; C3 uses OpenCV CV16F from 61,440 elements; C9 `add(..., channel_vector)` uses NumKong
   `add` with a zero-stride half control view for exact controls. C9 `multiply(..., channel_vector)` uses OpenCV CV16F for
@@ -163,11 +164,14 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   no robust slow cell; the maximum float16/float32 ratio was 0.900×. A binary16-
   domain test checks all 65,536 bit patterns on NCHW C=1.
 - For float16 Tensor `resize(..., INTER_LINEAR)` with C=1, keep the current float32/OpenCV bridge until a faster backend is available. In a 16-cell 101-sample CHW/NCHW grid, the public half route was 1.08–2.10× the float32 route and passed the 2-MAD slow screen in all cells. Direct Torch half was slower in all 16 cells (1.19–5.21×); a Torch float32 round-trip was 1.69–7.45×. Direct-half upscales differed from the public float32 result rounded to half by up to 4 ULP. Track the OpenCV CV16F resize gap in [#30216](https://github.com/opencv/opencv/issues/30216) and the CPU half kernel limitation in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503); raw samples are in [`tensor_c1_linear_torch_candidate_public_101_20261011.json`](../_internal/float16_probe_20261010/tensor_c1_linear_torch_candidate_public_101_20261011.json).
+- For float16 Tensor `resize(..., INTER_LINEAR)` with C≥3, upscales (both output axes at least the input size) use the float32/OpenCV bridge; downscales and mixed axis changes keep Torch float32 interpolation. One-thread public calls over 128×160–768×1024, C=1/3/9, CHW and NCHW N=4: the bridge was 0.32–0.47× (C=3) and 0.37–0.51× (C=9) of the previous time on M4 Max for 1.5× and 2× upscales, and the downscale and C=1 routes were unchanged (0.95–1.02×). GCP Sapphire Rapids measured 0.38–0.46× (C=3) and 0.57–0.96× (C=9) for 1.5×; Torch won every 0.5× downscale there (bridge 1.12–4.6× slower).
 - NumPy `float16 → uint8` keeps exact float32 scaling and rounding by widening into one float32 work buffer. The current full path is 1.29–1.31× slower than float32 on six large HWC cases; track a fused CPU route in [PyTorch #97068](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
 - Contiguous float16 Tensor `convert_dtype(..., uint8)` may use half multiply/round/clip only when the scale is exactly
   representable in float16; all 65,536 binary16 patterns stay within one uint8 unit of the float32 route, and other
   scales retain float32 rounding.
-- `resize3d` uses native CPU half trilinear interpolation outside the large all-axis upscale bridge. The bridge widens
+- `resize3d` uses native CPU half trilinear interpolation outside the NumPy bridge regions: all-axis upscales (below
+  10,000 output elements only for multichannel or float inputs), H/W upscales, single-channel H/W shrinks, large
+  channel-last-stored H/W shrinks, and uint8 depth-only resizes of at least 131,072 output elements. The bridge widens
   before the NumPy volume kernel and rounds back once. On normalized data, interpolation candidates are tested against
   the float32 reference with an absolute tolerance of `float16 eps / 2`.
 - Keep Torch CPU, OpenMP, and MKL thread counts at one for backend comparisons. A thread-count sweep requires an explicit user request. `OMP_NUM_THREADS` controls OpenMP regions, and `MKL_NUM_THREADS` overrides it for MKL. Do not bake one machine's thread count into a router. [PyTorch threading variables](https://docs.pytorch.org/docs/stable/threading_environment_variables.html)

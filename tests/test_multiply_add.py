@@ -180,3 +180,50 @@ def test_multiply_add_float16_numkong_skips_non_half_controls(monkeypatch, facto
     result = multiply_add(image, factor, bias)
 
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("threshold", [1_024, 4_096], ids=["linux", "macos"])
+@pytest.mark.parametrize(("factor", "bias"), [(1.1, 0.3), (0.4, -0.6)])
+@pytest.mark.parametrize("output", ["allocate", "separate", "strided"])
+def test_multiply_add_float16_inexact_scalars_switch_to_torch_at_platform_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+    threshold: int,
+    factor: float,
+    bias: float,
+    output: str,
+) -> None:
+    rng = np.random.default_rng(16)
+    numpy_calls: list[int] = []
+    real_ufunc = arithmetic._float16_numpy_ufunc
+
+    def spy(*args: object, **kwargs: object) -> np.ndarray | None:
+        numpy_calls.append(1)
+        return real_ufunc(*args, **kwargs)
+
+    for elements, torch_route in ((threshold - 3, False), (threshold, True)):
+        image = rng.random((1, elements, 1), dtype=np.float32).astype(np.float16)
+        destination = None
+        if output == "separate":
+            destination = np.empty_like(image)
+        elif output == "strided":
+            destination = np.empty((1, elements, 2), dtype=np.float16)[..., ::2]
+        monkeypatch.setattr(arithmetic, "_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS", 1 << 40)
+        numpy_result = multiply_add(image, factor, bias)
+        monkeypatch.setattr(arithmetic, "_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS", 1)
+        torch_result = multiply_add(image, factor, bias)
+        monkeypatch.setattr(arithmetic, "_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS", threshold)
+        monkeypatch.setattr(arithmetic, "_float16_numpy_ufunc", spy)
+        numpy_calls.clear()
+
+        result = multiply_add(image, factor, bias, out=destination)
+
+        expected = torch_result if torch_route else numpy_result
+        np.testing.assert_array_equal(result.view(np.uint16), expected.view(np.uint16), strict=True)
+        if destination is not None:
+            assert result is destination
+        assert bool(numpy_calls) != torch_route
+        # For unit-range images the routes differ by at most one half ULP of the larger of product and result.
+        product = np.abs(image.astype(np.float32) * np.float32(factor)).astype(np.float16)
+        spacing = np.spacing(np.maximum(product, np.abs(numpy_result))).astype(np.float32)
+        difference = np.abs(numpy_result.astype(np.float32) - torch_result.astype(np.float32))
+        assert np.all(difference <= spacing)

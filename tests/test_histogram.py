@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 
 from albucore import equalize_uint8
-from albucore.histogram import _histogram
+import albucore.histogram as histogram_module
+from albucore.histogram import _histogram, _opencv_lut
 
 
 @pytest.mark.parametrize("mode", ["cv", "pil"])
@@ -99,3 +100,40 @@ def test_large_histogram_preserves_counts_beyond_float32_precision() -> None:
     expected = np.zeros(256, dtype=np.int64)
     expected[[0, 255]] = [2**24 + 1, 4095]
     np.testing.assert_array_equal(counts, expected, strict=True)
+
+
+@pytest.mark.parametrize("mask_shape", ["hw", "shared", "per-channel"])
+@pytest.mark.parametrize(("height", "width", "packed_route"), [(64, 64, True), (63, 64, False), (96, 160, True)])
+def test_masked_rgb_cv_equalization_uses_packed_route_from_4096_pixels(
+    monkeypatch: pytest.MonkeyPatch,
+    mask_shape: str,
+    height: int,
+    width: int,
+    *,
+    packed_route: bool,
+) -> None:
+    rng = np.random.default_rng(height + width)
+    image = rng.integers(0, 256, (height, width, 3), dtype=np.uint8)
+    mask = (rng.random((height, width, 3)) > 0.4).astype(np.uint8) * 255
+    if mask_shape == "hw":
+        mask = mask[..., 0]
+    elif mask_shape == "shared":
+        mask = mask[..., :1]
+    calls = 0
+    original = histogram_module._equalize_cv_masked_rgb
+
+    def spy(img: np.ndarray, selection: np.ndarray) -> np.ndarray:
+        nonlocal calls
+        calls += 1
+        return original(img, selection)
+
+    monkeypatch.setattr(histogram_module, "_equalize_cv_masked_rgb", spy)
+    result = equalize_uint8(image, mask=mask)
+
+    expected = np.empty_like(image)
+    for channel in range(3):
+        selection = mask[..., channel] if mask.ndim == 3 and mask.shape[-1] == 3 else mask.reshape(height, width)
+        lut = _opencv_lut(_histogram(image[..., channel], selection))
+        expected[..., channel] = image[..., channel] if lut is None else lut[image[..., channel]]
+    np.testing.assert_array_equal(result, expected, strict=True)
+    assert calls == int(packed_route)
