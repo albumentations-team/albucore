@@ -6,10 +6,12 @@ Albucore routers run after the caller has validated the input contract. Upstream
 
 ## NaN contract
 
-Only vector fields carry NaN (float16/float32 arrays where NaN marks an invalid vector). Operations used on fields
-(flip, rot90, transpose, crop, pad, `remap`, `remap3d`, nearest-neighbor resize) must keep NaN exactly. Images, masks and
-volumes contain no NaN, so arithmetic, quantization, statistics, normalization and LUT routes assume finite input and leave
-NaN behavior unspecified. A NaN guard on those routes is a pass that buys nothing: delete it rather than add one, and
+Only vector fields carry NaN (float16/float32 arrays where NaN marks an invalid vector). The split is by function:
+AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge` helpers (`numpy_to_tensor_layout`,
+`numpy_to_tensor_storage`, `tensor_to_numpy_channel_last`, `tensor_to_numpy_storage`) on fields, so only these must keep
+NaN exactly; `tests/test_nan_field_contract.py` pins it. Images, masks and volumes contain no NaN, so every other operation
+(arithmetic, quantization, statistics, normalization, LUT, flip, rotate, crop, pad, resize) assumes finite input and
+leaves NaN behavior unspecified. A NaN guard on those routes is a pass that buys nothing: delete it rather than add one, and
 benchmark and test those routes on finite data. Inf and signed zero behave as before.
 
 Use this workflow whenever implementing, reviewing, or profiling runtime code in Albucore or AlbumentationsX. Its

@@ -46,9 +46,9 @@ branches.
 
 ## NaN contract
 
-Only vector fields expect NaN, and only data-movement and sampling operations used on fields (flip, rot90, transpose,
-crop, pad, `remap`, `remap3d`, nearest resize) must keep it exactly. Arithmetic, quantization, statistics, normalization
-and LUT routes assume finite images, masks and volumes: delete NaN guards instead of adding them, and benchmark those
+Only vector fields expect NaN. AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge` helpers on fields,
+so only these must keep it exactly (`tests/test_nan_field_contract.py`). Every other operation (arithmetic, quantization,
+statistics, normalization, LUT, flip, rotate, crop, pad, resize) assumes finite images, masks and volumes: delete NaN guards instead of adding them, and benchmark those
 routes on finite data. See `docs/performance-optimization.md`.
 
 ## Required handoff

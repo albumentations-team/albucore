@@ -63,11 +63,13 @@ normalization. Invalid direct calls are outside the low-level contract.
 ### NaN is a vector-field-only contract
 
 Vector fields are the only target that expects NaN: AlbumentationsX stores them as float16/float32 arrays where NaN
-marks an invalid vector. Data-movement and sampling operations used on fields (flip, rot90, transpose, crop, pad, `remap`,
-`remap3d`, nearest-neighbor resize) must keep NaN exactly. Images, masks and volumes do not contain NaN, so arithmetic,
-quantization, statistics, normalization and LUT routes assume finite input; their NaN behavior is unspecified. Do not add a
-NaN guard or extra pass to those hot paths, and delete one that exists. Benchmark and test those routes on finite data.
-Inf and signed-zero behavior are unchanged.
+marks an invalid vector. The split is by function: AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge`
+helpers (`numpy_to_tensor_layout`, `numpy_to_tensor_storage`, `tensor_to_numpy_channel_last`, `tensor_to_numpy_storage`)
+on fields, so only these must keep NaN exactly (`tests/test_nan_field_contract.py`). Every other operation, including the
+flip, rotate, crop, pad and resize operations, serves images, masks and volumes, which do not contain NaN. Arithmetic,
+quantization, statistics, normalization and LUT routes therefore assume finite input; their NaN behavior is unspecified.
+Do not add a NaN guard or extra pass to those hot paths, and delete one that exists. Benchmark and test those routes on
+finite data. Inf and signed-zero behavior are unchanged.
 
 ### Output ownership
 

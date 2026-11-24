@@ -62,8 +62,8 @@ implementation or review, also load the `performance-optimization` skill.
 
 ## NaN
 
-- Only vector fields expect NaN. Data-movement and sampling operations used on fields (flip, rot90, transpose, crop, pad,
-  `remap`, `remap3d`, nearest resize) keep NaN exactly.
+- Only vector fields expect NaN. AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge` helpers on fields;
+  only these keep NaN exactly (`tests/test_nan_field_contract.py`).
 - Arithmetic, quantization, statistics, normalization and LUT routes assume non-NaN images, masks and volumes; NaN there is
   unspecified. Never add a NaN guard to them; delete one that exists. Test and benchmark them on finite data.
 
