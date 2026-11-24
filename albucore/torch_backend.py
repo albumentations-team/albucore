@@ -143,6 +143,36 @@ def sqrt_uint8_torch(
     return out
 
 
+def uint8_to_float_torch(
+    image: NDArray[np.uint8],
+    dtype: np.dtype[np.float16] | np.dtype[np.float32],
+    divisor: float,
+    *,
+    minimum_elements: int,
+    out: NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.float16] | NDArray[np.float32] | None:
+    """Convert contiguous uint8 input to floating point and divide in place with a Torch CPU kernel."""
+    if not image.flags.c_contiguous or not _is_torch_compatible_array(image, minimum_elements=minimum_elements):
+        return None
+    if out is not None and any(stride < 0 for stride in out.strides):
+        return None
+    source = torch.from_numpy(image)
+    if out is None:
+        result = source.to(torch.float32 if dtype == np.float32 else torch.float16)
+        result.div_(divisor)
+        return cast("NDArray[np.float16] | NDArray[np.float32]", result.numpy())
+    destination = torch.from_numpy(out)
+    if dtype == np.float16 and not out.flags.c_contiguous:
+        # Strided half division can narrow the divisor to float16; divide in float32, then cast.
+        working = source.to(torch.float32)
+        working.div_(divisor)
+        destination.copy_(working)
+        return out
+    destination.copy_(source)
+    destination.div_(divisor)
+    return out
+
+
 def multiply_add_float16_torch(
     array: np.ndarray,
     factor: float | np.ndarray,
@@ -273,24 +303,12 @@ def reduce_sum_torch(
     keepdims: bool,
     minimum_elements: int | None = None,
 ) -> np.generic | np.ndarray | None:
-    """Match Albucore's uint64/float64 sum accumulator for a preselected CPU Torch path."""
+    """Match Albucore's float64 sum accumulator for a preselected float16/float32 CPU Torch path."""
     if not _is_torch_compatible_array(arr, minimum_elements=minimum_elements):
         return None
-    if arr.dtype == np.uint8:
-        torch_dtype = torch.int64
-        output_dtype: type[np.generic] = np.uint64
-    elif arr.dtype in (np.float16, np.float32):
-        torch_dtype = torch.float64
-        output_dtype = np.float64
-    else:
+    if arr.dtype not in (np.float16, np.float32):
         return None
     image = torch.from_numpy(arr)
     if len(axes) == arr.ndim and not keepdims:
-        result = torch.sum(image, dtype=torch_dtype).numpy()
-    else:
-        result = torch.sum(image, dim=axes, dtype=torch_dtype, keepdim=keepdims).numpy()
-    if output_dtype is np.uint64:
-        result = result.view(np.uint64)
-    if len(axes) == arr.ndim and not keepdims:
-        return output_dtype(result)
-    return np.asarray(result)
+        return np.float64(torch.sum(image, dtype=torch.float64).numpy())
+    return np.asarray(torch.sum(image, dim=axes, dtype=torch.float64, keepdim=keepdims).numpy())

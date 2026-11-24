@@ -14,6 +14,7 @@ from albucore._types import ImageArrayT, ImageInput, SupportedDType, TensorLayou
 P = ParamSpec("P")
 
 _FLOAT32_MAX = float(np.finfo(np.float32).max)
+_INT32_MAX = 2_147_483_647
 
 
 def _broadcast_channel_vector(x: ValueType | np.floating[Any], n_dim: int, c: int) -> ValueType | np.floating[Any]:
@@ -45,6 +46,20 @@ MAX_VALUES_BY_DTYPE: dict[np.dtype | type, float] = {
 
 _MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
 _LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
+
+# Element-count windows (inclusive) where ``torch.clamp`` beats the NumPy/OpenCV clip route, per platform and dtype.
+# Platforms without an entry keep the NumPy/OpenCV route.
+_CLIP_TORCH_WINDOWS: dict[np.dtype, tuple[int, int]] = {}
+if _LINUX_X86_64:
+    _CLIP_TORCH_WINDOWS = {
+        np.dtype(np.float16): (0, _INT32_MAX),
+        np.dtype(np.float32): (8_192, 131_072),
+    }
+elif _MACOS_ARM64:
+    _CLIP_TORCH_WINDOWS = {
+        np.dtype(np.float16): (0, _INT32_MAX),
+        np.dtype(np.float32): (3_072, _INT32_MAX),
+    }
 
 _TENSOR_CHANNEL_AXES: dict[TensorLayout, int] = {"CHW": 0, "NCHW": 1, "CDHW": 0, "NCDHW": 1}
 _TORCH_DTYPES: dict[np.dtype | type | torch.dtype, torch.dtype] = {
@@ -263,6 +278,10 @@ def clip(
     The caller validates output shape, dtype, device, writeability, and overlap.
     Without ``out``, the input remains unchanged. ``out=img`` permits mutation
     when the input already has the requested output dtype.
+
+    NumPy float16 and float32 images may be clipped with ``torch.clamp`` where it is faster. That route treats
+    ``-0.0`` and ``+0.0`` as the same value and keeps NaN as NaN without preserving payload bits or signalling NaNs.
+    Every other value, including infinities, is identical to the NumPy result.
     """
     if isinstance(img, torch.Tensor):
         # Uint8 is the only supported one-byte image dtype.
@@ -287,6 +306,22 @@ def clip(
     return _clip_numpy(img, dtype, cast("np.ndarray | None", out))
 
 
+def _torch_can_wrap(array: np.ndarray) -> bool:
+    # ``torch.from_numpy`` rejects non-native byte order and byte strides that are not multiples of the item size.
+    return array.dtype.isnative and array.flags.aligned
+
+
+def _clip_torch(img: np.ndarray, max_value: float, out: np.ndarray | None) -> np.ndarray:
+    if not img.flags.writeable or (img.ndim and min(img.strides) < 0):
+        # ``torch.from_numpy`` rejects negative strides and warns on read-only storage.
+        img = np.array(img, copy=True, order="K")
+    source = torch.from_numpy(img)
+    if out is None:
+        return torch.clamp(source, 0, max_value).numpy()
+    torch.clamp(source, 0, max_value, out=torch.from_numpy(out))
+    return out
+
+
 def _clip_numpy(img: np.ndarray, dtype: np.dtype | type[np.generic] | None, out: np.ndarray | None) -> np.ndarray:
     if dtype is None:
         inferred_dtype = img.dtype if out is None else out.dtype
@@ -300,6 +335,17 @@ def _clip_numpy(img: np.ndarray, dtype: np.dtype | type[np.generic] | None, out:
         if out is not img:
             np.copyto(out, img)
         return out
+    window = _CLIP_TORCH_WINDOWS.get(img.dtype)
+    if (
+        window is not None
+        and dtype == img.dtype
+        and window[0] <= img.size <= window[1]
+        and _torch_can_wrap(img)
+        and (
+            out is None or (out.dtype == img.dtype and _torch_can_wrap(out) and (not out.ndim or min(out.strides) >= 0))
+        )
+    ):
+        return _clip_torch(img, max_value, out)
     if img.dtype == np.float16 and dtype == np.float16:
         result = _clip_float16_opencv(
             cast("NDArray[np.float16]", img),
