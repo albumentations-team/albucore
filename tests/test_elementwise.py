@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 
 import numpy as np
 import pytest
+import torch
 
 import albucore as ac
 from albucore import elementwise
@@ -310,3 +312,182 @@ def test_uint8_sqrt_linux_below_lut_minimum_and_strided_input_use_numpy(monkeypa
     strided = array[:, ::2]
     np.testing.assert_array_equal(ac.sqrt(strided), _uint8_sqrt_reference(strided))
     assert calls == []
+
+
+def _tensor_exp_spy(monkeypatch: pytest.MonkeyPatch, minimums: dict[torch.dtype, int]) -> list[int]:
+    monkeypatch.setattr(elementwise, "_TENSOR_EXP_NUMPY_MIN_ELEMENTS", minimums)
+    return _spy(monkeypatch, "_exp_tensor_numpy")
+
+
+def _tensor_exp_input(dtype: torch.dtype, shape: tuple[int, ...]) -> torch.Tensor:
+    generator = torch.Generator().manual_seed(0)
+    if dtype == torch.uint8:
+        return torch.randint(0, 256, shape, dtype=torch.uint8, generator=generator)
+    # Values up to 18 overflow float16 results, which must stay silent like Torch.
+    return (torch.rand(shape, generator=generator) * 24 - 6).to(dtype)
+
+
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32, torch.float16])
+@pytest.mark.parametrize("shape", [(3, 40, 50), (3, 100, 700), (2, 3, 8, 9)])
+@pytest.mark.parametrize("destination", ["allocate", "out", "in_place"])
+def test_tensor_exp_contiguous_input_uses_numpy_bridge_and_matches_torch(
+    monkeypatch: pytest.MonkeyPatch,
+    dtype: torch.dtype,
+    shape: tuple[int, ...],
+    destination: str,
+) -> None:
+    if destination == "in_place" and dtype == torch.uint8:
+        pytest.skip("uint8 input cannot be the float32 output")
+    calls = _tensor_exp_spy(monkeypatch, {dtype: 1})
+    image = _tensor_exp_input(dtype, shape)
+    expected = torch.exp(image.to(torch.float32) if dtype == torch.uint8 else image)
+    output = {"allocate": None, "out": torch.empty_like(expected), "in_place": image}[destination]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = ac.exp(image, out=output)
+
+    assert calls == [1]
+    assert result.dtype == expected.dtype
+    assert result.shape == expected.shape
+    if output is not None:
+        assert result is output
+    if dtype == torch.float16 and elementwise._MACOS_ARM64:
+        torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    elif dtype == torch.float16:
+        # Linux never routes float16 here; forced through the bridge, cv2.exp differs from Torch by one half ulp.
+        torch.testing.assert_close(result, expected, rtol=2**-10, atol=0)
+    else:
+        torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("case", ["below_minimum", "dtype_absent", "strided_input", "strided_output"])
+def test_tensor_exp_keeps_torch_outside_the_numpy_bridge_region(monkeypatch: pytest.MonkeyPatch, case: str) -> None:
+    minimums = {torch.float32: 10**9 if case == "below_minimum" else 1}
+    if case == "dtype_absent":
+        minimums = {torch.float16: 1}
+    calls = _tensor_exp_spy(monkeypatch, minimums)
+    backing = torch.rand(3, 40, 100)
+    image = backing[..., ::2] if case == "strided_input" else backing[..., :50].contiguous()
+    output = torch.empty(3, 40, 100)[..., ::2] if case == "strided_output" else None
+
+    result = ac.exp(image, out=output)
+
+    assert calls == []
+    torch.testing.assert_close(result, torch.exp(image))
+
+
+@pytest.mark.parametrize(
+    ("dtype", "present"),
+    [(torch.uint8, True), (torch.float32, True), (torch.float16, False)],
+)
+def test_tensor_exp_platform_table_matches_measured_regions(dtype: torch.dtype, present: bool) -> None:
+    table = elementwise._TENSOR_EXP_NUMPY_MIN_ELEMENTS
+    if elementwise._MACOS_ARM64:
+        assert dtype in table
+    elif elementwise._LINUX_X86_64:
+        assert (dtype in table) is present
+    else:
+        assert table == {}
+
+
+def _float16_sqrt_input(shape: tuple[int, ...]) -> np.ndarray:
+    values = np.abs(np.random.default_rng(5).standard_normal(shape, dtype=np.float32) * 100).astype(np.float16)
+    values.reshape(-1)[:3] = [0.0, np.inf, np.nan]
+    return values
+
+
+def _float16_sqrt_reference(array: np.ndarray) -> np.ndarray:
+    return np.sqrt(array.astype(np.float32)).astype(np.float16)
+
+
+@pytest.mark.parametrize("shape", [(1, 10, 20), (3, 13, 17), (2, 7, 9, 3)])
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "out", "in_place"])
+def test_float16_sqrt_uses_torch_from_the_platform_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+    layout: str,
+) -> None:
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "sqrt", 100)
+    calls = _spy(monkeypatch, "_float16_unary_torch")
+    array = _float16_sqrt_input(shape)
+    if layout == "strided":
+        array = _float16_sqrt_input((*shape[:-1], shape[-1] * 2))[..., ::2]
+    out = {"contiguous": None, "strided": None, "out": np.empty_like(array), "in_place": array}[layout]
+    expected = _float16_sqrt_reference(array)
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    if out is not None:
+        assert result is out
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "out", "in_place", "read_only"])
+def test_linux_float16_sqrt_below_the_torch_minimum_uses_one_float32_buffer(
+    monkeypatch: pytest.MonkeyPatch,
+    layout: str,
+) -> None:
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", True)
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "sqrt", 128)
+    calls = _spy(monkeypatch, "_sqrt_float16_via_float32")
+    array = _float16_sqrt_input((1, 7, 9))
+    if layout == "strided":
+        array = _float16_sqrt_input((1, 7, 18))[..., ::2]
+    if layout == "read_only":
+        array.flags.writeable = False
+    out = {"out": np.empty_like(array), "in_place": array}.get(layout)
+    expected = _float16_sqrt_reference(array)
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    if out is not None:
+        assert result is out
+    else:
+        assert not np.shares_memory(result, array)
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_float16_sqrt_without_linux_keeps_the_ufunc_below_the_torch_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", False)
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "sqrt", 128)
+    calls = _spy(monkeypatch, "_sqrt_float16_via_float32")
+    array = _float16_sqrt_input((1, 7, 9))
+
+    np.testing.assert_array_equal(ac.sqrt(array), _float16_sqrt_reference(array))
+    assert calls == []
+
+
+
+@pytest.mark.skipif(
+    not (elementwise._MACOS_ARM64 or elementwise._LINUX_X86_64),
+    reason="Torch half sqrt minimums are measured on macOS arm64 and Linux x86-64 only",
+)
+def test_float16_sqrt_reaches_torch_exactly_at_the_measured_platform_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    minimum = 128 if elementwise._LINUX_X86_64 else 12_288
+    calls = _spy(monkeypatch, "_float16_unary_torch")
+
+    below = _float16_sqrt_input((1, 1, minimum - 1))
+    np.testing.assert_array_equal(ac.sqrt(below), _float16_sqrt_reference(below))
+    assert calls == []
+
+    at_minimum = _float16_sqrt_input((1, 1, minimum))
+    np.testing.assert_array_equal(ac.sqrt(at_minimum), _float16_sqrt_reference(at_minimum))
+    assert calls == [1]
+
+
+def test_tensor_exp_numpy_bridge_bumps_the_version_counter_of_the_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _tensor_exp_spy(monkeypatch, {torch.float32: 1})
+    weight = torch.full((3, 4, 5), 2.0, requires_grad=True)
+    image = torch.rand(3, 4, 5)
+    product = image * weight  # saves image for backward
+    version = image._version
+
+    ac.exp(image, out=image)
+
+    assert calls == [1]
+    assert image._version > version
+    with pytest.raises(RuntimeError, match="modified by an inplace operation"):
+        product.sum().backward()
