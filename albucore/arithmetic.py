@@ -427,6 +427,30 @@ def _multiply_scalar(
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
+def _float16_numpy_channel_vector(
+    img: NDArray[np.float16],
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+    *,
+    out: NDArray[np.float16] | None,
+) -> NDArray[np.float16]:
+    """Apply a channel vector to contiguous C>1 half images through one tiled float32 row ufunc."""
+    channels = img.shape[-1]
+    if (
+        channels == 1
+        or not img.flags.c_contiguous
+        or (out is not None and not out.flags.c_contiguous)
+        or value.dtype not in _FLOAT32_COMPATIBLE_OPERAND_DTYPES
+    ):
+        return cast("NDArray[np.float16]", _numpy_pointwise(img, value, operation, out=out))
+    width = img.shape[-2]
+    rows = img.reshape(-1, width * channels)
+    output = np.empty_like(rows) if out is None else out.reshape(rows.shape)
+    with np.errstate(over="ignore", invalid="ignore"):
+        _NUMPY_OPERATIONS[operation](rows, np.tile(value, width), dtype=np.float32, out=output, casting="unsafe")
+    return out if out is not None else output.reshape(img.shape)
+
+
 def _multiply_channels(
     img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: np.ndarray,
@@ -441,7 +465,7 @@ def _multiply_channels(
         if result is None:
             result = _opencv_float16_c9_multiply_vector(img, value, out=destination)
         if result is None and _numpy_float16_c9_vector_eligible(img, value):
-            return _numpy_pointwise(img, value, "multiply", out=out)
+            return _float16_numpy_channel_vector(img, value, "multiply", out=destination)
         if result is None:
             result = _numkong_float16_single_channel_scale(img, value, "multiply", out=destination)
         if result is None:
@@ -452,8 +476,7 @@ def _multiply_channels(
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
                 out=destination,
             )
-        if result is not None:
-            return result
+        return result if result is not None else _float16_numpy_channel_vector(img, value, "multiply", out=destination)
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
@@ -726,7 +749,7 @@ def _add_channels(
         if result is None:
             result = _numkong_float16_c9_add_channels(img, value, out=destination)
         if result is None and _numpy_float16_c9_vector_eligible(img, value):
-            return _numpy_pointwise(img, value, "add", out=out)
+            return _float16_numpy_channel_vector(img, value, "add", out=destination)
         if result is None:
             result = _numkong_float16_single_channel_scale(img, value, "add", out=destination)
         if result is None:
@@ -737,8 +760,7 @@ def _add_channels(
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
                 out=destination,
             )
-        if result is not None:
-            return result
+        return result if result is not None else _float16_numpy_channel_vector(img, value, "add", out=destination)
     return _numpy_pointwise(img, value, "add", out=out)
 
 
