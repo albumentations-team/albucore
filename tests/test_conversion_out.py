@@ -127,7 +127,7 @@ def test_half_quantization_all_encodings_with_output(monkeypatch, container, sca
     np.testing.assert_allclose(actual, expected, rtol=0, atol=1 if container == "tensor" and scale != 17.3 else 0)
     np.testing.assert_array_equal(source.view(np.uint16), original_bits)
     if container == "numpy":
-        assert working_buffer_calls == ([True] if scale == 17.3 else [])
+        assert working_buffer_calls == []
 
 
 @pytest.mark.parametrize("channels", [1, 3, 4, 5])

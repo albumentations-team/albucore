@@ -21,6 +21,7 @@ _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.uint8 | np.float16 | np.float3
 _TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
 _OPENCV_MAX_ELEMENTS = 2**31 - 1
 _MIN_IMAGE_NDIM = 3
+_FLOAT16_MAX = 65_504
 
 
 def _quantize_uint8_numkong(
@@ -56,8 +57,7 @@ def _quantize_uint8_opencv(
 
 def _is_half_exact(scale: float) -> bool:
     """Return whether OpenCV's half-precision scalar cast preserves ``scale``."""
-    with np.errstate(over="ignore"):
-        return float(np.float16(scale)) == scale
+    return abs(scale) <= _FLOAT16_MAX and float(np.float16(scale)) == scale
 
 
 def _convert_float_to_uint8(
@@ -71,8 +71,10 @@ def _convert_float_to_uint8(
         and img.ndim >= _MIN_IMAGE_NDIM
         and img.flags.c_contiguous
         and (out is None or out.flags.c_contiguous)
-        and (img.dtype == np.float32 or _is_half_exact(scale))
     ):
+        if img.dtype == np.float16 and not _is_half_exact(scale):
+            # OpenCV would round the scale to half; a float32 source keeps the float32 contract.
+            img = _cast_float_numpy(img, np.dtype(np.float32), out=None)
         return _quantize_uint8_opencv(img, scale, out)
 
     torch_result = quantize_uint8_torch(img, scale, out=out)
