@@ -41,7 +41,7 @@ _NUMKONG_MOMENTS_RELATIVE_VARIANCE_FLOOR = 1e-2
 _NUMKONG_FLOAT16_HWC_STATS_MIN_ELEMENTS = 20_480
 _FLOAT16_PER_CHANNEL_TORCH_MIN_ELEMENTS = 20_480
 _FLOAT16_TENSOR_MEAN_MIN_ELEMENTS = 40_960
-_FLOAT16_TENSOR_REDUCE_SUM_MIN_ELEMENTS = 16_384
+_FLOAT16_TENSOR_REDUCE_SUM_MIN_ELEMENTS = 256
 _FLOAT16_GLOBAL_NUMPY_REDUCE_SUM_MIN_ELEMENTS = 20_480
 # OpenCV #25019 tracks CV_16F meanStdDev accuracy; revisit this cap when that issue is resolved.
 _FLOAT16_OPENCV_STATS_MAX_CHANNELS = min(get_opencv_max_channels(), MAX_OPENCV_WORKING_CHANNELS)
@@ -59,7 +59,6 @@ _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS = {
     3: 307_200,
     4: 307_200,
     5: 184_320,
-    9: 184_320,
 }
 
 # Per-channel uint8 sums use nk.sum up to this many channels; cv2.reduce wins only for wider images.
@@ -212,11 +211,7 @@ def _reduce_sum_per_channel_float16_fastpath(
     ):
         return np.asarray(torch.sum(torch.from_numpy(arr), dim=axes, dtype=torch.float64).numpy())
 
-    if (
-        arr.ndim not in (3, 4)
-        or arr.shape[-1] != 9
-        or arr.size <= _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS[9]
-    ):
+    if arr.ndim not in (3, 4) or arr.shape[-1] != 9:
         return None
     result = _cv2_reduce_sum_per_channel(_cast_float_numpy(arr, np.float32))
     if keepdims:
@@ -466,7 +461,7 @@ def reduce_sum(
     - **contiguous uint8 CHW/NCHW Tensor, C > 4, 65,536+ spatial elements**: one ``nk.sum`` per channel plane.
     - **large float32 global and per-channel C ≤ 4**: Torch float64
       accumulation through a zero-copy NumPy wrapper.
-    - **contiguous float16 Tensor, 16,384+ elements**: direct Torch ``sum(dtype=float64)`` for global,
+    - **contiguous float16 Tensor, 256+ elements**: direct Torch ``sum(dtype=float64)`` for global,
       per-channel, and explicit axes.
     - **contiguous NumPy float16 global, 20,480+ elements**: Torch ``sum(dtype=float64)`` through a zero-copy
       wrapper; tested ``keepdims=False`` calls matched NumPy float64 bitwise and ran at 0.879x-0.991x float32 time.
@@ -474,7 +469,7 @@ def reduce_sum(
     - **float16 per-channel HWC**: measured Torch windows for contiguous arrays. Rank-4 channel-last C=1 arrays up
       to 307,200 elements use Torch's float64 accumulator when ``keepdims=False``; C=3 arrays up to 245,760 elements
       use it with either ``keepdims`` value. Other ranks, channel counts and sizes keep the standard Torch threshold
-      or NumPy wide-accumulator path. Contiguous C=9 arrays beyond the measured Torch window widen once and use
+      or NumPy wide-accumulator path. Contiguous C=9 arrays of any size widen once and use
       OpenCV ``CV_64F reduce`` because CV_16F reduce is unsupported.
     - **other float32 global**: ``numpy.sum(dtype=float64)``.
     - **other float32 per-channel, ndim ≤ 4, 1 < C ≤ 4**: NumKong ``nk.sum`` — 4x faster than
