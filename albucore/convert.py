@@ -228,7 +228,8 @@ def convert_dtype(
 
     Uint8-to-float conversion divides by ``max_value`` (default 255). Floating
     sources converted to uint8 multiply by the same scale, round ties to even,
-    saturate to [0, 255], and map NaN to zero. Float16/float32 casts and same-dtype
+    saturate to [0, 255]. NaN input is unspecified for images, masks, and volumes;
+    only vector fields carry NaN and they are not quantized. Float16/float32 casts and same-dtype
     conversions ignore the scale and do not clip. The image's actual min/max
     values are never used to determine the scale. NumPy half quantization uses
     float32 arithmetic.

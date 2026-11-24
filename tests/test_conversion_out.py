@@ -57,6 +57,8 @@ def test_convert_dtype_supplied_output(container, mode, shape, source_dtype, tar
         if source_dtype == np.uint8
         else np.array([-np.inf, -2, -0.0, 0.5 / 255, 1.5 / 255, 0.3333, 1, 2, np.inf, np.nan], dtype=source_dtype)
     )
+    if target_dtype == np.uint8 and source_dtype != np.uint8:
+        values = values[~np.isnan(values)]  # NaN input is unspecified for float -> uint8
     source = np.resize(values, shape)
     original = source.copy()
     image = torch.from_numpy(source) if container == "tensor" else source
@@ -108,7 +110,8 @@ def test_half_quantization_all_encodings_with_output(monkeypatch, container, sca
         monkeypatch.setattr(torch_backend, "TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS", 1 << 31)
         working_buffer_calls = _record_reused_numkong_working_buffer(monkeypatch)
 
-    values = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(1, 65536, 1)
+    values = np.arange(65536, dtype=np.uint16).view(np.float16)
+    values = values[~np.isnan(values)].reshape(1, -1, 1)  # NaN input is unspecified for float -> uint8
     source = np.repeat(values, channels, axis=-1)
     if container == "numpy":
         source.flags.writeable = False
@@ -137,7 +140,9 @@ def test_half_quantization_all_encodings_without_output(monkeypatch, channels):
     monkeypatch.setattr(torch_backend, "TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS", 1 << 31)
     working_buffer_calls = _record_reused_numkong_working_buffer(monkeypatch)
 
-    values = np.arange(65536, dtype=np.uint16).view(np.float16).reshape(256, 256, 1)
+    values = np.arange(65536, dtype=np.uint16).view(np.float16)
+    values = values[~np.isnan(values)]  # NaN input is unspecified for float -> uint8
+    values = np.resize(values, (256, 256, 1))
     source = np.repeat(values, channels, axis=-1)
     source.flags.writeable = False
     original_bits = source.view(np.uint16).copy()
@@ -161,7 +166,7 @@ def test_numpy_torch_quantization_writes_supplied_storage(monkeypatch, dtype, mo
 
     monkeypatch.setattr(torch_backend, "TORCH_MIN_ELEMENTS", 1)
     monkeypatch.setattr(torch_backend, "TORCH_FLOAT16_TO_UINT8_MIN_ELEMENTS", 1)
-    source = np.resize(np.array([-np.inf, -0.0, 0.5 / 255, 1.5 / 255, 1, np.inf, np.nan], dtype=dtype), (3, 5, 3))
+    source = np.resize(np.array([-np.inf, -0.0, 0.5 / 255, 1.5 / 255, 1, np.inf], dtype=dtype), (3, 5, 3))
     output, backing = destination(source.shape, np.uint8, "numpy", mode)
     with np.errstate(invalid="ignore"):
         expected = np.clip(np.rint(source.astype(np.float32) * np.float32(255)), 0, 255).astype(np.uint8)

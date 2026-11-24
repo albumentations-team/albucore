@@ -162,7 +162,7 @@ The destination dtype is explicit and supports all nine pairs among uint8, float
 | Conversion | Values |
 | --- | --- |
 | uint8 → float16/float32 | Divide by `max_value`, returning the requested floating dtype |
-| float16/float32 → uint8 | Multiply by `max_value`, round ties to even, saturate to [0, 255], map NaN to zero |
+| float16/float32 → uint8 | Multiply by `max_value`, round ties to even, saturate to [0, 255]; NaN input is unspecified for images, masks and volumes |
 | float16 ↔ float32 | Cast without intensity scaling or clipping |
 | Same dtype | Preserve values and ignore `max_value` |
 
