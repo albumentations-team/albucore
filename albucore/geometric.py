@@ -1157,10 +1157,13 @@ def _resize_tensor_float16(
         result = torch_f.interpolate(batched, size=output_size, mode="nearest")
         return result.squeeze(0) if layout == "CHW" else result
 
+    # The OpenCV float32 bridge is faster for upscales; Torch keeps downscales and mixed axis changes.
+    is_upscale = dsize[0] >= img.shape[-1] and dsize[1] >= img.shape[-2]
     if (
         interpolation == cv2.INTER_LINEAR
         and img.numel() >= _RESIZE_TENSOR_FLOAT16_LINEAR_MIN_ELEMENTS
         and channels >= 3
+        and not is_upscale
     ):
         result = torch_f.interpolate(
             batched.to(torch.float32),
@@ -1211,9 +1214,9 @@ def resize(
     being downscaled with INTER_AREA are processed in chunks of up to 4 channels.
     All other cases are passed directly to cv2.resize.
     Contiguous float16 NCHW and multi-channel CHW Tensors use native CPU nearest interpolation from 61,440 elements;
-    single-channel CHW keeps the existing route. For linear interpolation, multi-channel Tensors use float32 working
-    interpolation and cast back to float16. NumPy inputs use the float32 OpenCV path except for bit-preserving nearest
-    routes.
+    single-channel CHW keeps the existing route. For linear interpolation, multi-channel Tensors that shrink an axis
+    use float32 Torch interpolation and cast back to float16; upscales use the float32 OpenCV bridge. NumPy inputs use
+    the float32 OpenCV path except for bit-preserving nearest routes.
 
     Args:
         img: (H, W, C) image. uint8, float16, or float32.
