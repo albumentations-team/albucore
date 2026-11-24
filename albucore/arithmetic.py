@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
+from albucore import torch_backend
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ImageArrayT, ValueType
 from albucore.lut import _tensor_shared_uint8_lut
@@ -1232,6 +1233,37 @@ def _multiply_add_tensor_batch(
     return img if unchanged else numpy_to_tensor_layout(np.stack(results), layout)
 
 
+def _multiply_add_scalar_batch_storage(
+    img: torch.Tensor,
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Run one fused ``nk.scale`` over a contiguous batch whose items all stay below the Torch threshold.
+
+    Each item would otherwise reach the same elementwise NumKong kernel one call at a time, so the
+    result is bit-identical. Batches with larger items keep the per-item loop and its Torch rounding.
+    """
+    if (
+        img.dtype != torch.float32
+        or not isinstance(factor, (float, int))
+        or not isinstance(value, (float, int))
+        or not -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
+        or not -_FLOAT32_MAX <= value <= _FLOAT32_MAX
+        or (factor == 1 and value == 0)
+        or img.numel() // img.shape[0] >= torch_backend.TORCH_MIN_ELEMENTS
+        or not img.is_contiguous()
+        or (out is not None and not out.is_contiguous())
+    ):
+        return None
+    flat = img.numpy().reshape(-1)
+    if out is not None:
+        _scale_numkong(flat, float(factor), float(value), out=out.numpy().reshape(-1))
+        return out
+    return numpy_to_tensor_storage(_scale_numkong(flat, float(factor), float(value))).reshape(img.shape)
+
+
 def _multiply_add_scalar_tensor(
     img: torch.Tensor,
     factor: float,
@@ -1246,6 +1278,20 @@ def _multiply_add_scalar_tensor(
     if out is not None:
         return out
     return img if result is image else numpy_to_tensor_storage(result).reshape(img.shape)
+
+
+def _multiply_add_batch(
+    img: torch.Tensor,
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    layout: TensorLayout,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor:
+    whole_storage = _multiply_add_scalar_batch_storage(img, factor, value, out=out)
+    if whole_storage is not None:
+        return whole_storage
+    return _multiply_add_tensor_batch(img, factor, value, layout, out=out)
 
 
 def _multiply_add_tensor(
@@ -1268,7 +1314,7 @@ def _multiply_add_tensor(
         table = _multiply_add_uint8_scalar_table(float(factor_value), float(bias_value))
         return _tensor_shared_uint8_lut(img, table, out=out)
     if layout in ("NCHW", "NCDHW") and img.shape[0]:
-        return _multiply_add_tensor_batch(img, factor_value, bias_value, layout, out=out)
+        return _multiply_add_batch(img, factor_value, bias_value, layout, out=out)
     if (
         img.dtype == torch.float32
         and isinstance(factor_value, (float, int))
