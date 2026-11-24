@@ -54,7 +54,7 @@ _FLOAT32_COMPATIBLE_OPERAND_DTYPES: frozenset[np.dtype[Any]] = frozenset(
     np.dtype(dtype) for dtype in (np.bool_, np.uint8, np.int8, np.uint16, np.int16, np.float16, np.float32)
 )
 _TORCH_FLOAT16_MIN_ELEMENTS = 16_384
-_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
+_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_024 if _LINUX_X86_64 else 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
 # AVX-512 FP16 NumKong ("sapphire") is the only x86 profile that was measured.
 _NUMKONG_FLOAT16_X86 = _LINUX_X86_64 and bool(nk.get_capabilities().get("sapphire", False))
