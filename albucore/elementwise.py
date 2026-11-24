@@ -10,7 +10,7 @@ import torch
 
 from albucore._float_cast import _cast_float_numpy
 from albucore.lut import _apply_float_lut
-from albucore.torch_backend import _float16_unary_torch
+from albucore.torch_backend import _float16_unary_torch, sqrt_uint8_torch
 from albucore.utils import _LINUX_X86_64, _MACOS_ARM64
 
 if TYPE_CHECKING:
@@ -27,7 +27,9 @@ _OPENCV_CONTIGUOUS_MIN_ELEMENTS = 4_096
 _EXP_OPENCV_STRIDED_MIN_ELEMENTS = 65_536
 _TORCH_FLOAT16_MIN_ELEMENTS = {"exp": 12_288, "sqrt": 20_480}
 _UINT8_SQRT_LUT_MIN_ELEMENTS = 20_480
-_LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS = 921_600
+_LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS = 230_400
+_MACOS_UINT8_SQRT_TORCH_MIN_ELEMENTS = 12_288
+_MACOS_UINT8_SQRT_TORCH_AFTER_LUT_MIN_ELEMENTS = 36_864
 _UINT8_SQRT_LUT = np.sqrt(np.arange(256, dtype=np.float32))
 with np.errstate(over="ignore"):
     _UINT8_EXP_LUT = np.exp(np.arange(256, dtype=np.float32))
@@ -160,6 +162,31 @@ def exp(
     return _numpy_unary(cast("NDArray[np.float32]", array), np.exp, out=destination)
 
 
+def _sqrt_uint8(array: NDArray[np.uint8], out: NDArray[np.float32] | None) -> NDArray[np.float32]:
+    """Route uint8 square roots among Torch, the shared float LUT, and NumPy by measured platform regions."""
+    lut_contiguous = array.flags.c_contiguous and (out is None or out.flags.c_contiguous)
+    if _MACOS_ARM64:
+        channels = array.shape[-1] if array.ndim == 3 else 0
+        macos_lut_region = (channels in (1, 3) and array.size >= _UINT8_SQRT_LUT_MIN_ELEMENTS) or (
+            channels == 9 and array.size >= 7_000_000 and out is None
+        )
+        # The LUT ties Torch from its own minimum up to about 37K elements for C=1 and C=3.
+        torch_minimum = (
+            _MACOS_UINT8_SQRT_TORCH_AFTER_LUT_MIN_ELEMENTS
+            if channels in (1, 3) and array.size >= _UINT8_SQRT_LUT_MIN_ELEMENTS
+            else _MACOS_UINT8_SQRT_TORCH_MIN_ELEMENTS
+        )
+        torch_result = sqrt_uint8_torch(array, minimum_elements=torch_minimum, out=out)
+        if torch_result is not None:
+            return torch_result
+        use_lut = macos_lut_region and lut_contiguous
+    else:
+        use_lut = _LINUX_X86_64 and array.size >= _LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS and lut_contiguous
+    if use_lut:
+        return _apply_float_lut(array, _UINT8_SQRT_LUT, out=out)
+    return _numpy_unary(cast("NDArray[np.float32]", array.astype(np.float32)), np.sqrt, out=out)
+
+
 @overload
 def sqrt(array: NDArray[np.float16], *, out: NDArray[np.float16] | None = None) -> NDArray[np.float16]: ...
 
@@ -196,32 +223,7 @@ def sqrt(
         return _torch_unary(array, torch.sqrt, out=cast("torch.Tensor | None", out))
     output = cast("NDArray[np.float16] | NDArray[np.float32] | None", out)
     if array.dtype == np.uint8:
-        channels = array.shape[-1] if array.ndim == 3 else 0
-        macos_lut_region = _MACOS_ARM64 and (
-            (channels in (1, 3) and array.size >= _UINT8_SQRT_LUT_MIN_ELEMENTS)
-            or (channels == 9 and array.size >= 7_000_000 and output is None)
-        )
-        linux_lut_region = (
-            _LINUX_X86_64
-            and array.size >= _LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS
-            and (channels == 9 or (channels == 3 and output is None))
-        )
-        if (
-            (macos_lut_region or linux_lut_region)
-            and array.ndim == 3
-            and array.flags.c_contiguous
-            and (output is None or output.flags.c_contiguous)
-        ):
-            return _apply_float_lut(
-                cast("NDArray[np.uint8]", array),
-                _UINT8_SQRT_LUT,
-                out=cast("NDArray[np.float32] | None", output),
-            )
-        return _numpy_unary(
-            cast("NDArray[np.float32]", array.astype(np.float32)),
-            np.sqrt,
-            out=cast("NDArray[np.float32] | None", output),
-        )
+        return _sqrt_uint8(cast("NDArray[np.uint8]", array), cast("NDArray[np.float32] | None", output))
     if array.dtype == np.float16:
         return _float16_unary(
             cast("NDArray[np.float16]", array),

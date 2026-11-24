@@ -121,6 +121,28 @@ def _float16_unary_torch(
     return cast("NDArray[np.float16]", result.numpy())
 
 
+def sqrt_uint8_torch(
+    array: NDArray[np.uint8],
+    *,
+    minimum_elements: int,
+    out: NDArray[np.float32] | None = None,
+) -> NDArray[np.float32] | None:
+    """Apply a measured CPU float32 square root to uint8 input without a NumPy float32 image copy."""
+    if not _is_torch_compatible_array(array, minimum_elements=minimum_elements):
+        return None
+    if out is not None and any(stride < 0 for stride in out.strides):
+        return None
+    source = torch.from_numpy(array)
+    if out is None:
+        result = source.to(torch.float32)
+        result.sqrt_()
+        return cast("NDArray[np.float32]", result.numpy())
+    destination = torch.from_numpy(out)
+    destination.copy_(source)
+    destination.sqrt_()
+    return out
+
+
 def uint8_to_float_torch(
     image: NDArray[np.uint8],
     dtype: np.dtype[np.float16] | np.dtype[np.float32],
