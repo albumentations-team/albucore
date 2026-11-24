@@ -44,6 +44,20 @@ Before adding an atom:
 Invalid direct calls are outside the caller-validated router contract in `AGENTS.md` and must not add hot-path
 branches.
 
+## NaN contract
+
+Only vector fields expect NaN. AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge` helpers on fields,
+so only these must keep it exactly (`tests/test_nan_field_contract.py`). Every other operation (arithmetic, quantization,
+statistics, normalization, LUT, flip, rotate, crop, pad, resize) assumes finite images, masks and volumes: delete NaN guards instead of adding them, and benchmark those
+routes on finite data. See `docs/performance-optimization.md`.
+
+## Speed over bit-exactness
+
+Speed is the top routing priority. Accept rounding-level differences (ulp-scale backend gaps, fused versus two-rounding
+arithmetic, float32 versus float64 accumulation) when a route is faster; document the tolerance in the docstring and the
+public-API row, and test with that tolerance, not bitwise. Gross errors stay unacceptable: wrong saturation or overflow
+(`1e10 * pixel` gives 255, not 0), a wrong `std` from near-constant cancellation, wrong shape or dtype, a crash on valid input.
+
 ## Required handoff
 
 Report:

@@ -12,14 +12,17 @@ from albucore._float_cast import _cast_float_numpy
 from albucore._types import ArrayT, ImageArrayT, TensorImageLayout
 from albucore.convert import convert_dtype
 from albucore.tensor_bridge import dispatch_tensor_image
-from albucore.utils import _MACOS_ARM64 as _IS_MACOS_ARM64
 from albucore.utils import (
+    _LINUX_X86_64,
     MAX_OPENCV_WORKING_CHANNELS,
     get_num_channels,
 )
+from albucore.utils import _MACOS_ARM64 as _IS_MACOS_ARM64
 
 _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
 _MEDIAN_BLUR_FLOAT16_ORDERED_U16_MIN_ELEMENTS = 76_800
+_FLOAT16_INFINITY_BITS = 0x7C00
+_LINUX_MEDIAN_BLUR_FLOAT16_TENSOR_PLANES_MAX_ELEMENTS = 8_388_608
 _NUMKONG_CDIST_D8_MAX_PAIRS = 2_048
 
 
@@ -122,6 +125,42 @@ def _median_blur_float16_single_channel_5(img: NDArray[np.float16]) -> NDArray[n
     return cast("NDArray[np.float16]", result.view(np.float16))
 
 
+def _median_blur_float16_nonnegative(img: NDArray[Any], ksize: int) -> NDArray[np.float16] | None:
+    """Filter non-negative finite or infinite float16 data as CV_16U; None selects another route."""
+    if img.dtype != np.float16 or ksize not in (3, 5):
+        return None
+    bits = img.view(np.uint16)
+    # Such half bit patterns sort like their values, so OpenCV selects the same elements as the float32 route.
+    if bits.max() > _FLOAT16_INFINITY_BITS:
+        return None
+    destination = np.empty_like(bits) if img.shape[-1] == 1 else None
+    return cast("NDArray[np.float16]", cv2.medianBlur(bits, ksize, dst=destination).view(np.float16))
+
+
+def _use_median_blur_tensor_planes(img: torch.Tensor, ksize: int) -> bool:
+    """Select per-plane OpenCV for contiguous Tensors, where it beats the channel-last bridge."""
+    if not img.is_contiguous():
+        return False
+    if img.dtype == torch.uint8:
+        return True
+    if ksize not in (3, 5) or img.shape[-3] < 3:
+        return False
+    if _LINUX_X86_64 and img.dtype == torch.float16:
+        return img.numel() <= _LINUX_MEDIAN_BLUR_FLOAT16_TENSOR_PLANES_MAX_ELEMENTS
+    return True
+
+
+def _median_blur_tensor_planes(img: torch.Tensor, ksize: int) -> torch.Tensor:
+    """Filter each channel plane of a contiguous Tensor without repacking; float16 filters as float32."""
+    source = img.to(torch.float32) if img.dtype == torch.float16 else img
+    planes = source.numpy().reshape(-1, img.shape[-2], img.shape[-1])
+    filtered = np.empty_like(planes)
+    for index, plane in enumerate(planes):
+        cv2.medianBlur(plane, ksize, dst=filtered[index])
+    result = torch.from_numpy(filtered.reshape(img.shape))
+    return result.to(torch.float16) if img.dtype == torch.float16 else result
+
+
 @overload
 def median_blur(img: ImageArrayT, ksize: int, *, layout: TensorImageLayout | None = None) -> ImageArrayT: ...
 
@@ -154,13 +193,9 @@ def median_blur(
     The caller validates the image dtype and kernel size before entering this low-level router.
     """
     if isinstance(img, torch.Tensor):
-        if img.dtype == torch.uint8 and img.is_contiguous():
+        if _use_median_blur_tensor_planes(img, ksize):
             # Channel-first planes are contiguous, so they need no interleaving copy.
-            planes = img.numpy().reshape(-1, img.shape[-2], img.shape[-1])
-            filtered = np.empty_like(planes)
-            for index, plane in enumerate(planes):
-                cv2.medianBlur(plane, ksize, dst=filtered[index])
-            return torch.from_numpy(filtered.reshape(img.shape))
+            return _median_blur_tensor_planes(img, ksize)
         return dispatch_tensor_image(img, layout, median_blur, ksize)
 
     if img.dtype == np.uint8:
@@ -171,6 +206,9 @@ def median_blur(
         img = cast("NDArray[np.float16] | NDArray[np.float32]", np.ascontiguousarray(img))
 
     result: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
+    nonnegative_result = _median_blur_float16_nonnegative(img, ksize)
+    if nonnegative_result is not None:
+        return nonnegative_result
     if img.dtype == np.float32 and ksize in (3, 5):
         destination = np.empty_like(img, order="C") if img.shape[-1] == 1 else None
         result = cast(

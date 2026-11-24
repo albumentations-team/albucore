@@ -1,5 +1,6 @@
 """Constant spatial padding for single volumes and masks."""
 
+import sys
 from typing import overload
 
 import numpy as np
@@ -8,6 +9,7 @@ import torch.nn.functional as torch_f
 
 from albucore._types import ArrayT
 from albucore.tensor_bridge import numpy_to_tensor_layout, tensor_to_numpy_channel_last
+from albucore.utils import _LINUX_X86_64
 
 __all__ = ["pad3d"]
 
@@ -21,6 +23,13 @@ _TORCH_MIN_ELEMENTS = 524_288
 _TORCH_UINT8_STRIDED_MIN_ELEMENTS = 1_048_576
 _TORCH_FLOAT32_STRIDED_MAX_ELEMENTS = 4_194_304
 _NUMPY_FACES_MAX_EXPANSION = 1.1
+# Float C-contiguous volumes with C>1, including channel-last float32 Tensors: faces beat the full-array fill from
+# these sizes for every pad width.
+# float16 faces lose 1.1-1.4x on macOS at every size, so only Linux uses them.
+_FLOAT32_FACES_MIN_ELEMENTS = 245_760 if _LINUX_X86_64 else 1_310_720
+_FLOAT16_FACES_MIN_ELEMENTS = 983_040 if _LINUX_X86_64 else sys.maxsize
+# C-contiguous single-channel volumes: on Linux NumPy beats Torch at every size measured (to 1.31M elements).
+_LINUX_TORCH_SINGLE_CHANNEL_MIN_ELEMENTS = 2_097_152
 
 
 def _cast_pad_value(value: float, dtype: np.dtype | type[np.generic]) -> float:
@@ -53,15 +62,22 @@ def _numpy_pad_use_faces(
     volume: np.ndarray,
     padding: tuple[int, int, int, int, int, int],
 ) -> bool:
+    if not volume.flags.c_contiguous:
+        return False
     front, back, top, bottom, left, right = padding
-    depth, height, width, _ = volume.shape
-    padded_elements = (depth + front + back) * (height + top + bottom) * (width + left + right) * volume.shape[-1]
-    return bool(
-        volume.shape[-1] > 1
-        and volume.flags.c_contiguous
-        and volume.size >= _TORCH_MIN_ELEMENTS
-        and padded_elements <= _NUMPY_FACES_MAX_EXPANSION * volume.size,
-    )
+    depth, height, width, channels = volume.shape
+    if volume.dtype == np.float32 and channels > 1 and volume.size >= _FLOAT32_FACES_MIN_ELEMENTS:
+        return True
+    if volume.dtype == np.float16 and channels > 1 and volume.size >= _FLOAT16_FACES_MIN_ELEMENTS:
+        return True
+    if channels == 1:
+        return bool(
+            _LINUX_X86_64
+            and volume.dtype in (np.float16, np.float32)
+            and _TORCH_MIN_ELEMENTS <= volume.size < _LINUX_TORCH_SINGLE_CHANNEL_MIN_ELEMENTS,
+        )
+    padded_elements = (depth + front + back) * (height + top + bottom) * (width + left + right) * channels
+    return bool(volume.size >= _TORCH_MIN_ELEMENTS and padded_elements <= _NUMPY_FACES_MAX_EXPANSION * volume.size)
 
 
 def _pad3d_numpy_faces(
@@ -88,6 +104,16 @@ def _pad3d_numpy_faces(
     return padded
 
 
+def _tensor_pad_use_faces(volume: np.ndarray) -> bool:
+    """Select channel-last float32 Tensor storage whose NumPy view is C-contiguous and large enough for faces."""
+    return bool(
+        volume.dtype == np.float32
+        and volume.shape[-1] > 1
+        and volume.flags.c_contiguous
+        and volume.size >= _FLOAT32_FACES_MIN_ELEMENTS,
+    )
+
+
 @torch.no_grad()
 def _pad3d_torch(
     volume: torch.Tensor,
@@ -107,7 +133,10 @@ def _numpy_pad_use_torch(volume: np.ndarray) -> bool:
     # Thresholds come from the paired full-path measurements in benchmarks/results/benchmark_pad3d.md.
     if volume.size < _TORCH_MIN_ELEMENTS or volume.dtype == np.int16 or volume.flags.f_contiguous:
         return False
-    torch_is_faster = volume.shape[-1] == 1 or (
+    numpy_is_faster_single_channel = (
+        _LINUX_X86_64 and volume.flags.c_contiguous and volume.size < _LINUX_TORCH_SINGLE_CHANNEL_MIN_ELEMENTS
+    )
+    torch_is_faster = (volume.shape[-1] == 1 and not numpy_is_faster_single_channel) or (
         not volume.flags.c_contiguous
         and (
             (volume.dtype == np.uint8 and volume.size >= _TORCH_UINT8_STRIDED_MIN_ELEMENTS)
@@ -119,6 +148,17 @@ def _numpy_pad_use_torch(volume: np.ndarray) -> bool:
         and volume.flags.writeable
         and all(stride >= 0 and stride % volume.itemsize == 0 for stride in volume.strides)
     )
+
+
+def _pad3d_tensor_via_numpy(
+    volume: torch.Tensor,
+    padding: tuple[int, int, int, int, int, int],
+    value: float | tuple[float, ...],
+) -> torch.Tensor:
+    numpy_volume = tensor_to_numpy_channel_last(volume, "CDHW")
+    if not isinstance(value, tuple) and _tensor_pad_use_faces(numpy_volume):
+        return numpy_to_tensor_layout(_pad3d_numpy_faces(numpy_volume, padding, value), "CDHW")
+    return numpy_to_tensor_layout(_pad3d_numpy(numpy_volume, padding, value), "CDHW")
 
 
 @overload
@@ -175,6 +215,5 @@ def pad3d(
         return _pad3d_numpy(volume, padding, value)
     # Interleaved channels make the native CDHW copy strided; retain DHWC storage.
     if isinstance(value, tuple) or (volume.shape[0] > 1 and volume.stride(0) == 1):
-        result = _pad3d_numpy(tensor_to_numpy_channel_last(volume, "CDHW"), padding, value)
-        return numpy_to_tensor_layout(result, "CDHW")
+        return _pad3d_tensor_via_numpy(volume, padding, value)
     return _pad3d_torch(volume, padding, value)
