@@ -562,3 +562,35 @@ def test_add_uint8_scalar_truncates_offset_and_saturates(
     assert result.shape == shape
     assert result.dtype == np.uint8
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("shape", [(37, 41, 3), (2, 37, 41, 3), (2, 3, 17, 19, 3)])
+@pytest.mark.parametrize("controls", [[10, 20, 30], [0.0, 255.9, 7.7], [-10, 20, -30], [-3.5, -20, -30], [300, 5, 5]])
+@pytest.mark.parametrize("output", ["allocate", "separate"])
+def test_add_uint8_rgb_vector_routes_by_sign(
+    shape: tuple[int, ...],
+    controls: list[float],
+    output: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rng = np.random.default_rng(11)
+    image = rng.integers(0, 256, shape, dtype=np.uint8)
+    value = np.array(controls, dtype=np.float32)
+    expected = arithmetic._apply_lut(image, value, "add")
+    destination = np.full_like(image, 7) if output == "separate" else None
+    calls = []
+    real_add = arithmetic.cv2.add
+
+    def spy(*args: object, **kwargs: object) -> np.ndarray:
+        calls.append(1)
+        return real_add(*args, **kwargs)
+
+    monkeypatch.setattr(arithmetic.cv2, "add", spy)
+
+    result = add(image, value, out=destination)
+
+    np.testing.assert_array_equal(result, expected, strict=True)
+    if destination is not None:
+        assert result is destination
+    opencv_expected = all(0 <= np.trunc(control) <= 255 for control in controls)
+    assert bool(calls) == opencv_expected

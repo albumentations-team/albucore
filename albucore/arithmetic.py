@@ -658,6 +658,13 @@ def _add_scalar(
     return _numpy_pointwise(img, value, "add", out=out)
 
 
+def _uint8_rgb_rows(img: NDArray[np.uint8]) -> NDArray[np.uint8] | None:
+    """View a contiguous or row-padded RGB image as one (rows, W, 3) OpenCV matrix."""
+    if img.ndim == 3 and img.strides[1:] == (NUM_RGB_CHANNELS, 1) and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS:
+        return img
+    return img.reshape(-1, img.shape[-2], NUM_RGB_CHANNELS) if img.flags.c_contiguous else None
+
+
 def _add_channels(
     img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     value: np.ndarray,
@@ -667,19 +674,19 @@ def _add_channels(
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if (
-            img.ndim == 3
+            img.ndim >= 3
             and img.shape[-1] == NUM_RGB_CHANNELS
-            and img.strides[1:] == (NUM_RGB_CHANNELS, 1)
-            and img.strides[0] >= img.shape[1] * NUM_RGB_CHANNELS
             and (destination_u8 is None or destination_u8.flags.c_contiguous)
         ):
-            # Match the LUT's truncation before narrowing extended-precision offsets.
+            # Truncation matches the LUT. OpenCV is slow with negative controls, so those use the LUT.
             red, green, blue = map(float, np.trunc(value))
-            if -255 <= red <= 255 and -255 <= green <= 255 and -255 <= blue <= 255:
-                dst = None if destination_u8 is None else destination_u8.reshape(-1).reshape(img.shape)
-                shifted = cv2.add(img, (int(red), int(green), int(blue), 0), dst=dst)
-                return (
-                    cast("NDArray[np.uint8]", shifted.reshape(img.shape)) if destination_u8 is None else destination_u8
+            rows = _uint8_rgb_rows(img) if 0 <= red <= 255 and 0 <= green <= 255 and 0 <= blue <= 255 else None
+            if rows is not None:
+                dst = None if destination_u8 is None else destination_u8.reshape(rows.shape)
+                shifted = cv2.add(rows, (int(red), int(green), int(blue), 0), dst=dst)
+                return cast(
+                    "NDArray[np.uint8]",
+                    shifted.reshape(img.shape) if destination_u8 is None else destination_u8,
                 )
         return _apply_lut(img, value, "add", out=destination_u8)
     if _is_float16_image(img):
