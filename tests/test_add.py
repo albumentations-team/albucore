@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import pytest
 
@@ -393,21 +395,16 @@ def test_add_float16_numkong_scalar_matches_all_non_nan_binary16_values(
     monkeypatch: pytest.MonkeyPatch,
     output_mode: str,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS", arithmetic._NUMKONG_FLOAT16_MIN_ELEMENTS)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS", sys.maxsize)
     calls: list[tuple[float, float]] = []
-    original_scale = arithmetic._scale_numkong
+    original_scale = arithmetic.nk.scale
 
-    def scale_spy(
-        image: np.ndarray,
-        factor: float,
-        value: float,
-        *,
-        out: np.ndarray | None = None,
-    ) -> np.ndarray:
-        calls.append((factor, float(value)))
-        return original_scale(image, factor, value, out=out)
+    def scale_spy(image: np.ndarray, **kwargs: float | np.ndarray) -> np.ndarray:
+        calls.append((kwargs["alpha"], kwargs["beta"]))
+        return original_scale(image, **kwargs)
 
-    monkeypatch.setattr(arithmetic, "_scale_numkong", scale_spy)
+    monkeypatch.setattr(arithmetic.nk, "scale", scale_spy)
     bits = np.arange(1 << 16, dtype=np.uint16)
     exponent = bits & np.uint16(0x7C00)
     mantissa = bits & np.uint16(0x03FF)
@@ -593,3 +590,35 @@ def test_add_uint8_same_shape_strided_field_keeps_numkong_blend() -> None:
     expected = np.minimum(image.astype(np.int32) + field, 255).astype(np.uint8)
 
     np.testing.assert_array_equal(add(image, field), expected, strict=True)
+
+
+@pytest.mark.parametrize("shape", [(37, 41, 3), (2, 37, 41, 3), (2, 3, 17, 19, 3)])
+@pytest.mark.parametrize("controls", [[10, 20, 30], [0.0, 255.9, 7.7], [-10, 20, -30], [-3.5, -20, -30], [300, 5, 5]])
+@pytest.mark.parametrize("output", ["allocate", "separate"])
+def test_add_uint8_rgb_vector_routes_by_sign(
+    shape: tuple[int, ...],
+    controls: list[float],
+    output: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rng = np.random.default_rng(11)
+    image = rng.integers(0, 256, shape, dtype=np.uint8)
+    value = np.array(controls, dtype=np.float32)
+    expected = arithmetic._apply_lut(image, value, "add")
+    destination = np.full_like(image, 7) if output == "separate" else None
+    calls = []
+    real_add = arithmetic.cv2.add
+
+    def spy(*args: object, **kwargs: object) -> np.ndarray:
+        calls.append(1)
+        return real_add(*args, **kwargs)
+
+    monkeypatch.setattr(arithmetic.cv2, "add", spy)
+
+    result = add(image, value, out=destination)
+
+    np.testing.assert_array_equal(result, expected, strict=True)
+    if destination is not None:
+        assert result is destination
+    opencv_expected = all(0 <= np.trunc(control) <= 255 for control in controls)
+    assert bool(calls) == opencv_expected
