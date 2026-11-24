@@ -16,11 +16,13 @@ import sys
 from functools import partial
 from pathlib import Path
 
+# Importing benchmark_threads sets the one-thread environment, so it must precede NumPy, OpenCV and Torch.
+from benchmark_threads import THREAD_COUNT, configure_libraries
+
 import cv2
 import numkong as nk
 import numpy as np
 import torch
-from benchmark_threads import THREAD_COUNT, configure_libraries
 from timing import bench_paired_wall_ms, median_ms
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

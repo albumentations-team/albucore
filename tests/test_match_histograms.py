@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 
@@ -97,3 +99,18 @@ def test_match_histograms_uint8_volume_matches_reference() -> None:
     reference = rng.integers(0, 256, (2, 5, 6, 3), dtype=np.uint8)
 
     np.testing.assert_array_equal(match_histograms_uint8(volume, reference), reference_match(volume, reference))
+
+
+@pytest.mark.parametrize("shape", [(0, 5, 3), (4, 0, 3), (0, 0, 1)])
+def test_match_histograms_uint8_empty_image_returns_independent_copy(shape: tuple[int, int, int]) -> None:
+    image = np.empty(shape, dtype=np.uint8)
+    reference = np.arange(24, dtype=np.uint8).reshape(2, 4, 3)[..., : shape[-1]]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # the unguarded path divides 0 by 0
+        result = match_histograms_uint8(image, reference)
+
+    assert result.shape == shape
+    assert result.dtype == np.uint8
+    assert result.flags.writeable
+    assert not np.shares_memory(result, image)

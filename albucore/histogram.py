@@ -202,6 +202,7 @@ def match_histograms_uint8(img: NDArray[np.uint8], reference: NDArray[np.uint8])
 
     Returns:
         An independent writable uint8 array with the shape of ``img``. Neither input is written.
+        An empty ``img`` returns an empty copy.
 
     Examples:
         >>> image = np.arange(256, dtype=np.uint8).reshape(16, 16, 1)
@@ -209,6 +210,8 @@ def match_histograms_uint8(img: NDArray[np.uint8], reference: NDArray[np.uint8])
         >>> int(match_histograms_uint8(image, reference).max())
         7
     """
+    if not img.size:
+        return img.copy()
     luts = np.empty((256, 1, img.shape[-1]), dtype=np.uint8)
     for channel, (source_counts, reference_counts) in enumerate(
         zip(_channel_histograms(img), _channel_histograms(reference), strict=True),
