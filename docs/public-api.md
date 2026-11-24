@@ -168,6 +168,10 @@ The destination dtype is explicit and supports all nine pairs among uint8, float
 | float16 ↔ float32 | Cast without intensity scaling or clipping |
 | Same dtype | Preserve values and ignore `max_value` |
 
+NaN contract: only `remap`, `remap3d` and the `albucore.tensor_bridge` helpers preserve NaN, because AlbumentationsX
+applies only them to vector fields. Every other operation, including `convert_dtype`, assumes finite input and leaves NaN
+behavior unspecified.
+
 Float images conventionally represent intensities in [0, 1]. The conversion does not estimate the image's
 min/max or rescale floating values that are outside that range. For example:
 
