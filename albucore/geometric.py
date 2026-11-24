@@ -40,6 +40,8 @@ _INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4, cv2.INTER_LINEAR_EXA
 _RESIZE3D_NEAREST_TAKE_SINGLE_CHANNEL_MIN_ELEMENTS = 1_048_576
 # Float nearest all-axis upscale: OpenCV packs D*C channels and slows down above this count.
 _RESIZE3D_NEAREST_TAKE_FLOAT_UPSCALE_PACKED_CHANNELS = 128
+# Source indices travel through a float32 ramp, which is exact only up to 2**24.
+_RESIZE3D_NEAREST_TAKE_MAX_AXIS = 1 << 24
 _RESIZE3D_DEPTH_ONE_MIN_ELEMENTS = 4_096
 # remap does not support INTER_LINEAR_EXACT; only CUBIC/LANCZOS4 need chunking
 _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
@@ -1308,6 +1310,8 @@ def _can_resize3d_numpy_nearest_take(volume: np.ndarray, size: tuple[int, int, i
     """Select the measured regions where one np.take per axis beats the OpenCV nearest routes."""
     depth, height, width, channels = volume.shape
     new_depth, new_height, new_width = size
+    if max(depth, height, width) > _RESIZE3D_NEAREST_TAKE_MAX_AXIS:
+        return False
     if (new_height, new_width) == (height, width):
         return True
     if new_depth == depth:
