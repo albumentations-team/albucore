@@ -243,7 +243,8 @@ def test_uint8_sqrt_macos_routes_through_torch_and_matches_numpy(
     assert calls == [1]
     assert result.dtype == np.float32
     assert (result is out) if with_out else not np.shares_memory(result, array)
-    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+    # Torch and NumPy float32 sqrt differ by up to 1 ulp on some CPUs (x86), so compare within float32 precision.
+    np.testing.assert_allclose(result, _uint8_sqrt_reference(array), rtol=1e-6, atol=0)
 
 
 def test_uint8_sqrt_macos_torch_route_handles_strided_input_and_output(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -258,7 +259,7 @@ def test_uint8_sqrt_macos_torch_route_handles_strided_input_and_output(monkeypat
 
     assert calls == [1]
     assert result is out
-    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+    np.testing.assert_allclose(result, _uint8_sqrt_reference(array), rtol=1e-6, atol=0)
 
 
 def test_uint8_sqrt_macos_read_only_input_skips_torch_and_matches_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -293,7 +294,8 @@ def test_uint8_sqrt_linux_uses_float_lut_for_every_channel_count_with_and_withou
 
     assert calls == [1]
     assert (result is out) if with_out else not np.shares_memory(result, array)
-    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+    # Torch and NumPy float32 sqrt differ by up to 1 ulp on some CPUs (x86), so compare within float32 precision.
+    np.testing.assert_allclose(result, _uint8_sqrt_reference(array), rtol=1e-6, atol=0)
 
 
 def test_uint8_sqrt_linux_below_lut_minimum_and_strided_input_use_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
