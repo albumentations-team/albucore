@@ -150,10 +150,14 @@ def _reduce_sum_global_uint8(arr: NDArray[np.uint8], *, keepdims: bool) -> np.ui
 
 
 def _reduce_sum_global_float32(arr: NDArray[np.float32], *, keepdims: bool) -> np.float64 | np.ndarray:
-    torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
-    if torch_result is not None:
-        return cast("np.float64 | np.ndarray", torch_result)
-    out = np.sum(arr, dtype=np.float64)
+    if _LINUX_X86_64:
+        # NumKong accumulates float32 in float64 and is 5-25x faster than Torch and NumPy on x86-64; macOS keeps them.
+        out = np.float64(nk.sum(arr))
+    else:
+        torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
+        if torch_result is not None:
+            return cast("np.float64 | np.ndarray", torch_result)
+        out = np.sum(arr, dtype=np.float64)
     if keepdims:
         return np.asarray(out, dtype=np.float64).reshape((1,) * arr.ndim)
     return out
@@ -426,7 +430,7 @@ def reduce_sum(
       documented uint64 accumulator; other global uint8 input uses NumKong ``nk.sum``.
     - **uint8 per-channel**: NumKong ``nk.sum(arr, axis=spatial_axes)`` — single call over
       all spatial dimensions for all ranks (HWC, DHWC, NHWC, …).
-    - **large float32 global and per-channel C ≤ 4**: Torch float64
+    - **large float32 global (except Linux x86-64) and per-channel C ≤ 4**: Torch float64
       accumulation through a zero-copy NumPy wrapper.
     - **contiguous float16 Tensor, 16,384+ elements**: direct Torch ``sum(dtype=float64)`` for global,
       per-channel, and explicit axes.
@@ -438,6 +442,7 @@ def reduce_sum(
       use it with either ``keepdims`` value. Other ranks, channel counts and sizes keep the standard Torch threshold
       or NumPy wide-accumulator path. Contiguous C=9 arrays beyond the measured Torch window widen once and use
       OpenCV ``CV_64F reduce`` because CV_16F reduce is unsupported.
+    - **float32 global on Linux x86-64**: NumKong ``nk.sum`` (float64 accumulation) at every size.
     - **other float32 global**: ``numpy.sum(dtype=float64)``.
     - **other float32 per-channel, ndim ≤ 4, 1 < C ≤ 4**: NumKong ``nk.sum`` — 4x faster than
       NumPy for RGB/RGBA images and 4-D batch/volume layouts.
@@ -760,6 +765,9 @@ def _mean_global(
         if keepdims:
             return mean_value.reshape((1,) * arr.ndim)
         return mean_value
+    if _LINUX_X86_64 and _is_float32_image(arr):
+        mean_value = np.float64(nk.sum(arr)) / arr.size
+        return mean_value.reshape((1,) * arr.ndim) if keepdims else mean_value
     return np.mean(arr, dtype=np.float64, keepdims=keepdims)
 
 
@@ -1260,7 +1268,7 @@ def mean(
     - **uint8 global**: NumKong ``nk.sum(arr) / N`` (single reduction; avoids moments/sqrt work).
     - **uint8 per-channel**: NumKong ``nk.sum(spatial_axes) / n`` — wins for all shapes
       and channel counts (2x over cv2.mean for HWC C=3, 40x for NHWC/DHWC).
-    - **float32 global**: ``np.mean(dtype=float64)``.
+    - **float32 global**: ``nk.sum / N`` on Linux x86-64, ``np.mean(dtype=float64)`` elsewhere.
     - **float32 per-channel, ndim==3, C ≤ 4**: ``cv2.mean`` (fastest for HWC images).
     - **float32 per-channel, ndim==4, 1 < C ≤ 4**: NumKong ``nk.sum / n`` — 4x over arr.mean
       for NHWC/DHWC batch/volume layouts.
