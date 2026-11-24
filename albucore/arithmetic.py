@@ -1106,7 +1106,8 @@ def _tensor_direct_float32(
         if not -_FLOAT32_MAX <= control <= _FLOAT32_MAX or (operation == "add" and control == 0):
             return None
     elif layout is not None and isinstance(value, np.ndarray) and value.dtype == np.float32 and value.ndim == 1:
-        if not value.flags.writeable:
+        if not value.flags.writeable or value.strides[0] < 0:
+            # ``torch.from_numpy`` warns on read-only storage and rejects negative strides.
             return None
         shape = [1] * image.ndim
         shape[_TENSOR_CHANNEL_AXES[layout]] = value.size

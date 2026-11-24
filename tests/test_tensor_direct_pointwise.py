@@ -106,3 +106,22 @@ def test_float16_tensor_scalar_keeps_the_bridge_route(monkeypatch: pytest.Monkey
     add(_tensor((3, 40, 50)).to(torch.float16), 0.5, layout="CHW")
 
     assert bridge_calls
+
+
+@pytest.mark.parametrize("operation", [add, multiply], ids=["add", "multiply"])
+@pytest.mark.parametrize("output", ["allocate", "out"])
+def test_float32_tensor_vector_with_negative_strides_is_supported(
+    monkeypatch: pytest.MonkeyPatch,
+    operation: Callable[..., torch.Tensor],
+    output: str,
+) -> None:
+    bridge_calls = _patch_limits(monkeypatch, MACOS_LIMITS)
+    image = _tensor((3, 40, 50))
+    vector = np.array([1, 2, 3], dtype=np.float32)[::-1]
+    expected = image.numpy() + vector[:, None, None] if operation is add else image.numpy() * vector[:, None, None]
+    destination = torch.empty_like(image) if output == "out" else None
+
+    result = operation(image, vector, layout="CHW", out=destination)
+
+    np.testing.assert_array_equal(result.numpy(), expected)
+    assert bridge_calls
