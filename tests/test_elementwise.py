@@ -352,8 +352,11 @@ def test_tensor_exp_contiguous_input_uses_numpy_bridge_and_matches_torch(
     assert result.shape == expected.shape
     if output is not None:
         assert result is output
-    if dtype == torch.float16:
+    if dtype == torch.float16 and elementwise._MACOS_ARM64:
         torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    elif dtype == torch.float16:
+        # Linux never routes float16 here; forced through the bridge, cv2.exp differs from Torch by one half ulp.
+        torch.testing.assert_close(result, expected, rtol=2**-10, atol=0)
     else:
         torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-7)
 
@@ -386,3 +389,18 @@ def test_tensor_exp_platform_table_matches_measured_regions(dtype: torch.dtype, 
         assert (dtype in table) is present
     else:
         assert table == {}
+
+
+def test_tensor_exp_numpy_bridge_bumps_the_version_counter_of_the_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _tensor_exp_spy(monkeypatch, {torch.float32: 1})
+    weight = torch.full((3, 4, 5), 2.0, requires_grad=True)
+    image = torch.rand(3, 4, 5)
+    product = image * weight  # saves image for backward
+    version = image._version
+
+    ac.exp(image, out=image)
+
+    assert calls == [1]
+    assert image._version > version
+    with pytest.raises(RuntimeError, match="modified by an inplace operation"):
+        product.sum().backward()
