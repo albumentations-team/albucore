@@ -1258,17 +1258,11 @@ def resize(
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
 _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
 _RESIZE3D_XY_MIN_PLANE_ELEMENTS = 16_384
-_RESIZE3D_UINT8_SLICE_DOWN_CHANNELS = (3, 4)
-# uint8 linear per-plane OpenCV resizing: smallest H*W*C plane for H/W-only and depth-up routes.
+# uint8 linear per-plane OpenCV resizing: smallest H*W*C plane for H/W-only and depth-up routes (C >= 2).
 _RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS = 3_840
-# Smallest plane for the three-channel all-axis shrink, which replaces the exact Torch route.
-_MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 3_840
-_LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 15_360
-# uint8 linear per-slice OpenCV resizing: smallest H*W*C plane for multichannel volumes.
-_RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS = 3_840
-# Smallest plane for single-channel volumes, and for all-axis shrinks of multichannel volumes.
-_MACOS_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS = 5_120
-_LINUX_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS = 20_480
+# Single-channel planes lose below about 5k elements (audit: 0.63x at 5,120, 1.9x at 1,280).
+_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS = 5_120
+# Smallest plane for the three-channel all-axis shrink, which replaces the Torch route.
 _MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 3_840
 _LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS = 15_360
 
@@ -1544,8 +1538,9 @@ def _can_resize3d_numpy_uint8_linear_per_slice(
 ) -> bool:
     """Select the measured uint8 linear regions where per-plane OpenCV resizing beats packing and Torch.
 
-    One- and four-channel planes are excluded except for the single-channel all-axis shrink: OpenCV rounds those
-    planes up to three levels away from the float result, while the routes replaced here stay within one or two.
+    Speed takes priority over rounding: OpenCV's one- and four-channel uint8 planes can land up to four levels from
+    the float result (documented uint8 tolerance: four levels), and the three-channel all-axis shrink can differ from
+    the Torch route by one level (two rarely).
     """
     if volume.dtype != np.uint8 or interpolation != cv2.INTER_LINEAR or antialias:
         return False
@@ -1569,11 +1564,12 @@ def _can_resize3d_numpy_uint8_linear_per_slice(
 
     hw_down_depth_up = new_depth > depth and shrinking == 2
     hw_only = new_depth == depth and ((growing == 2) or (growing == 1 and shrinking == 1))
-    return (
-        (hw_down_depth_up or hw_only)
-        and channels not in (1, 4)
-        and plane_elements >= _RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS
+    plane_floor = (
+        _RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS
+        if channels == 1
+        else _RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS
     )
+    return bool((hw_down_depth_up or hw_only) and plane_elements >= plane_floor)
 
 
 def _resize3d_numpy_measured_region(
@@ -1717,6 +1713,9 @@ def resize3d(
     OpenCV routes. Contiguous float16/float32 linear resizes to depth one
     use only the central depth slices from 4,096 input elements when antialiasing is disabled.
     Linear float32 resizes to depth one that also change H/W use the Torch route at every size.
+    uint8 linear resizes that change only H/W, or grow depth while shrinking H and W, resize each plane with OpenCV;
+    those routes are within four levels of the float reference (one- and four-channel planes reach three to four,
+    other channel counts one or two).
     Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
     benchmark-selected NumPy/OpenCV CPU route. Float16 bridge inputs widen to float32 and round back once. Its float32
     output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most one value.

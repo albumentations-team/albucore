@@ -59,6 +59,13 @@ _U8_SLICE_CASES = [
     pytest.param((8, 24, 40, 1), (6, 17, 28), 2, id="c1_odd_down"),
     pytest.param((6, 24, 40, 2), (6, 36, 60), 1, id="c2_xy_up"),
     pytest.param((6, 24, 40, 9), (9, 12, 20), 2, id="c9_depth_up_hw_down"),
+    # One- and four-channel OpenCV planes: documented uint8 tolerance of four levels versus the float reference.
+    pytest.param((6, 24, 40, 1), (6, 36, 60), 4, id="c1_xy_up"),
+    pytest.param((6, 24, 40, 1), (6, 36, 20), 4, id="c1_xy_up_down"),
+    pytest.param((6, 24, 40, 1), (9, 12, 20), 4, id="c1_depth_up_hw_down"),
+    pytest.param((6, 24, 40, 4), (6, 36, 60), 4, id="c4_xy_up"),
+    pytest.param((6, 24, 40, 4), (6, 36, 20), 4, id="c4_xy_up_down"),
+    pytest.param((6, 24, 40, 4), (9, 12, 20), 4, id="c4_depth_up_hw_down"),
 ]
 
 
@@ -71,6 +78,7 @@ def test_uint8_linear_takes_the_per_slice_route(
 ) -> None:
     for name in (
         "_RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS",
+        "_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS",
         "_MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS",
         "_LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS",
     ):
@@ -87,11 +95,6 @@ def test_uint8_linear_takes_the_per_slice_route(
 @pytest.mark.parametrize(
     ("shape", "size"),
     [
-        pytest.param((6, 24, 40, 1), (6, 36, 60), id="c1_xy_up"),
-        pytest.param((6, 24, 40, 1), (6, 36, 20), id="c1_xy_up_down"),
-        pytest.param((6, 24, 40, 1), (9, 12, 20), id="c1_depth_up_hw_down"),
-        pytest.param((6, 24, 40, 4), (6, 36, 60), id="c4_xy_up"),
-        pytest.param((6, 24, 40, 4), (9, 12, 20), id="c4_depth_up_hw_down"),
         pytest.param((6, 24, 40, 4), (4, 12, 20), id="c4_down_all"),
         pytest.param((6, 24, 40, 5), (4, 12, 20), id="c5_down_all"),
         pytest.param((6, 24, 40, 2), (4, 12, 20), id="c2_down_all"),
@@ -105,9 +108,41 @@ def test_uint8_linear_regions_without_a_measured_win_skip_the_new_route(
     size: tuple[int, int, int],
 ) -> None:
     monkeypatch.setattr(geometric, "_RESIZE3D_UINT8_SLICE_MIN_PLANE_ELEMENTS", 1)
+    monkeypatch.setattr(geometric, "_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS", 1)
     volume = _volume(shape, np.uint8)
 
     assert not geometric._can_resize3d_numpy_uint8_linear_per_slice(volume, size, _LINEAR, antialias=False)
+
+
+@pytest.mark.parametrize("channels", [1, 3], ids=["c1", "c3"])
+def test_uint8_hw_only_plane_floor_depends_on_channel_count(channels: int) -> None:
+    def routed(plane_height: int) -> bool:
+        volume = _volume((4, plane_height, 40, channels), np.uint8)
+        return geometric._can_resize3d_numpy_uint8_linear_per_slice(
+            volume, (4, plane_height + 8, 60), _LINEAR, antialias=False
+        )
+
+    floor = 5_120 if channels == 1 else 3_840
+    assert routed(floor // (40 * channels))
+    assert not routed(floor // (40 * channels) - 4)
+
+
+@pytest.mark.parametrize("channels", [1, 4], ids=["c1", "c4"])
+def test_uint8_one_and_four_channel_planes_stay_within_four_levels_on_random_shapes(channels: int) -> None:
+    rng = np.random.default_rng(channels)
+    worst = 0
+    for _ in range(60):
+        height, width = int(rng.integers(40, 90)), int(rng.integers(40, 90))
+        depth = int(rng.integers(2, 6))
+        volume = rng.integers(0, 256, size=(depth, height, width, channels), dtype=np.uint8)
+        new_height = int(rng.integers(height // 2, height * 2))
+        new_width = int(rng.integers(width // 2, width * 2))
+        size = (depth, new_height, new_width)
+        if not geometric._can_resize3d_numpy_uint8_linear_per_slice(volume, size, _LINEAR, antialias=False):
+            continue
+        expected = np.clip(np.floor(_float_reference(volume, size) + 0.5), 0, 255)
+        worst = max(worst, int(np.max(np.abs(resize3d(volume, size).astype(np.float64) - expected))))
+    assert worst <= 4
 
 
 def test_uint8_linear_antialias_and_other_dtypes_skip_the_new_route() -> None:
