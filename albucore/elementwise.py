@@ -24,7 +24,8 @@ if TYPE_CHECKING:
 __all__ = ["exp", "sqrt"]
 
 _FloatDTypeT = TypeVar("_FloatDTypeT", np.float16, np.float32)
-_OPENCV_CONTIGUOUS_MIN_ELEMENTS = 4_096
+_OPENCV_CONTIGUOUS_MIN_ELEMENTS = 512 if _MACOS_ARM64 else 4_096
+_LINUX_OPENCV_CONTIGUOUS_MIN_ELEMENTS = 64
 _EXP_OPENCV_STRIDED_MIN_ELEMENTS = 65_536
 _TORCH_FLOAT16_MIN_ELEMENTS = {
     "exp": 12_288,
@@ -46,6 +47,10 @@ _TENSOR_EXP_NUMPY_MIN_ELEMENTS: dict[torch.dtype, int] = (
     if _MACOS_ARM64
     else {}
 )
+
+
+def _opencv_contiguous_min_elements() -> int:
+    return _LINUX_OPENCV_CONTIGUOUS_MIN_ELEMENTS if _LINUX_X86_64 else _OPENCV_CONTIGUOUS_MIN_ELEMENTS
 
 
 def _numpy_unary(
@@ -92,7 +97,7 @@ def _float16_unary(
     *,
     out: NDArray[np.float16] | None,
 ) -> NDArray[np.float16]:
-    if array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS and operation == "exp":
+    if array.flags.c_contiguous and array.size >= _opencv_contiguous_min_elements() and operation == "exp":
         if not _NATIVE_HALF_EXP:
             working = _cast_float_numpy(array, np.float32)
             return _cast_float_numpy(_opencv_unary(working, cv2.exp), np.float16, out=out)
@@ -207,7 +212,7 @@ def exp(
             out=cast("NDArray[np.float16] | None", output),
         )
     destination = cast("NDArray[np.float32] | None", output)
-    minimum = _OPENCV_CONTIGUOUS_MIN_ELEMENTS if array.flags.c_contiguous else _EXP_OPENCV_STRIDED_MIN_ELEMENTS
+    minimum = _opencv_contiguous_min_elements() if array.flags.c_contiguous else _EXP_OPENCV_STRIDED_MIN_ELEMENTS
     if array.size >= minimum and (destination is None or (array.flags.c_contiguous and destination.flags.c_contiguous)):
         return _opencv_unary(cast("NDArray[np.float32]", array), cv2.exp, out=destination)
     return _numpy_unary(cast("NDArray[np.float32]", array), np.exp, out=destination)
