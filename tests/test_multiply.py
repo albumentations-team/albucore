@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from albucore import multiply
+from albucore import arithmetic, multiply
 from albucore.utils import convert_value
 
 
@@ -282,3 +282,46 @@ def test_multiply_uint8_field_matches_truncating_saturation(
     np.testing.assert_array_equal(result, expected)
     if destination != "field":
         np.testing.assert_array_equal(field, original_field)
+
+
+@pytest.mark.parametrize("platform", ["macos", "linux"])
+@pytest.mark.parametrize("scalar", [2.0, 3.0, 0.0, 1.0, -2.0, 300.0, 0.5, 2.5])
+@pytest.mark.parametrize("output", ["allocate", "separate", "strided"])
+def test_multiply_uint8_integer_scalar_routes_by_platform_size(
+    platform: str,
+    scalar: float,
+    output: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    limit = (
+        arithmetic._MACOS_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+        if platform == "macos"
+        else arithmetic._LINUX_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+    )
+    monkeypatch.setattr(arithmetic, "_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS", limit)
+    rng = np.random.default_rng(17)
+    lut_calls = []
+    real_lut = arithmetic._apply_lut
+
+    def spy(*args: object, **kwargs: object) -> np.ndarray:
+        lut_calls.append(1)
+        return real_lut(*args, **kwargs)
+
+    for height in (limit // 30, limit // 3):
+        image = rng.integers(0, 256, (height, 10, 3), dtype=np.uint8)
+        expected = real_lut(image, scalar, "multiply")
+        destination = None
+        if output == "separate":
+            destination = np.full_like(image, 9)
+        elif output == "strided":
+            destination = np.full((height, 20, 3), 9, dtype=np.uint8)[:, ::2]
+        monkeypatch.setattr(arithmetic, "_apply_lut", spy)
+        lut_calls.clear()
+
+        result = multiply(image, scalar, out=destination)
+
+        np.testing.assert_array_equal(result, expected, strict=True)
+        if destination is not None:
+            assert result is destination
+        integer_route = scalar.is_integer() and image.size <= limit and output != "strided"
+        assert bool(lut_calls) != integer_route
