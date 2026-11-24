@@ -81,7 +81,6 @@ def test_uint8_linear_takes_the_per_slice_route(
         "_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS",
         "_MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS",
         "_LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS",
-        "_LINUX_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_GROW_MIN_PLANE_ELEMENTS",
     ):
         monkeypatch.setattr(geometric, name, 1)
     volume = _volume(shape, np.uint8)
@@ -116,9 +115,7 @@ def test_uint8_linear_regions_without_a_measured_win_skip_the_new_route(
 
 
 @pytest.mark.parametrize("channels", [1, 3], ids=["c1", "c3"])
-def test_uint8_hw_only_plane_floor_depends_on_channel_count(monkeypatch: pytest.MonkeyPatch, channels: int) -> None:
-    monkeypatch.setattr(geometric, "_LINUX_X86_64", False)
-
+def test_uint8_hw_only_plane_floor_depends_on_channel_count(channels: int) -> None:
     def routed(plane_height: int) -> bool:
         volume = _volume((4, plane_height, 40, channels), np.uint8)
         return geometric._can_resize3d_numpy_uint8_linear_per_slice(
@@ -174,22 +171,6 @@ def test_uint8_all_axis_shrink_plane_floor_is_per_platform(monkeypatch: pytest.M
     assert routed(small, (2, 16, 20)) is (not linux)
     assert routed(mid, (2, 32, 40))
     assert routed(small, (4, 48, 20))
-
-
-@pytest.mark.parametrize("platform", ["linux", "macos"])
-def test_uint8_single_channel_hw_growth_plane_floor_is_per_platform(monkeypatch: pytest.MonkeyPatch, platform: str) -> None:
-    """Linux x86-64 measured 16x64x80x1 xy_up (plane 5,120) 1.24x slower; macOS wins from 5,120."""
-    linux = platform == "linux"
-    monkeypatch.setattr(geometric, "_LINUX_X86_64", linux)
-
-    def routed(shape: tuple[int, ...], size: tuple[int, int, int]) -> bool:
-        return geometric._can_resize3d_numpy_uint8_linear_per_slice(_volume(shape, np.uint8), size, _LINEAR, antialias=False)
-
-    assert routed((4, 64, 80, 1), (4, 128, 160)) is (not linux)  # plane 5,120 grows
-    assert routed((4, 64, 80, 1), (4, 128, 40)) is (not linux)  # mixed growth and shrink
-    assert routed((4, 128, 160, 1), (4, 256, 320))  # plane 20,480
-    assert routed((4, 64, 80, 1), (8, 32, 40))  # H/W shrink with depth growth keeps the 5,120 floor
-    assert routed((4, 64, 80, 3), (4, 128, 160))  # other channel counts are untouched
 
 
 def test_uint8_single_channel_down_all_has_no_element_cap() -> None:
