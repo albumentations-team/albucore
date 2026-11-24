@@ -3,6 +3,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable
 
+import cv2
 import numpy as np
 import pytest
 import torch
@@ -476,6 +477,54 @@ def test_float16_sqrt_reaches_torch_exactly_at_the_measured_platform_minimum(mon
     at_minimum = _float16_sqrt_input((1, 1, minimum))
     np.testing.assert_array_equal(ac.sqrt(at_minimum), _float16_sqrt_reference(at_minimum))
     assert calls == [1]
+
+
+def _opencv_exp_spy(monkeypatch: pytest.MonkeyPatch) -> list[np.dtype]:
+    dtypes: list[np.dtype] = []
+    original = cv2.exp
+
+    def wrapper(source: np.ndarray, *args: object, **kwargs: object) -> object:
+        dtypes.append(source.dtype)
+        return original(source, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "exp", wrapper)
+    return dtypes
+
+
+def _small_exp_input(dtype: type[np.float16 | np.float32], size: int) -> np.ndarray:
+    return (np.random.default_rng(6).random((size // 20, 20, 1), dtype=np.float32) * 6 - 3).astype(dtype)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float16])
+@pytest.mark.parametrize("with_out", [False, True])
+@pytest.mark.parametrize(("linux", "size", "reached"), [(True, 100, True), (True, 40, False), (False, 300, False), (False, 600, True)])
+def test_exp_small_contiguous_arrays_use_opencv_from_the_platform_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+    dtype: type[np.float16 | np.float32],
+    with_out: bool,
+    linux: bool,
+    size: int,
+    reached: bool,
+) -> None:
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", linux)
+    monkeypatch.setattr(elementwise, "_MACOS_ARM64", not linux)
+    monkeypatch.setattr(elementwise, "_NATIVE_HALF_EXP", linux)
+    monkeypatch.setattr(elementwise, "_LINUX_OPENCV_CONTIGUOUS_MIN_ELEMENTS", 64)
+    monkeypatch.setattr(elementwise, "_OPENCV_CONTIGUOUS_MIN_ELEMENTS", 512)
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "exp", 10**9)
+    calls = _opencv_exp_spy(monkeypatch)
+    array = _small_exp_input(dtype, size)
+    out = np.empty_like(array) if with_out else None
+
+    result = ac.exp(array, out=out)
+
+    expected = np.exp(array.astype(np.float32))
+    np.testing.assert_allclose(result, expected, rtol=1e-3 if dtype == np.float16 else 1e-5, atol=1e-7)
+    assert (result is out) if with_out else result.dtype == dtype
+    assert bool(calls) is reached
+    if reached:
+        # macOS-style float16 casts to float32 for OpenCV; Linux passes native half.
+        assert calls[0] == (np.float16 if linux and dtype == np.float16 else np.float32)
 
 
 def test_tensor_exp_numpy_bridge_bumps_the_version_counter_of_the_output(monkeypatch: pytest.MonkeyPatch) -> None:
