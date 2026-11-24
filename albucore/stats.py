@@ -43,8 +43,6 @@ _FLOAT16_PER_CHANNEL_TORCH_MIN_ELEMENTS = 20_480
 _FLOAT16_TENSOR_MEAN_MIN_ELEMENTS = 40_960
 _FLOAT16_TENSOR_REDUCE_SUM_MIN_ELEMENTS = 16_384
 _FLOAT16_GLOBAL_NUMPY_REDUCE_SUM_MIN_ELEMENTS = 20_480
-_FLOAT16_GLOBAL_TENSOR_STD_MIN_ELEMENTS = 40_960
-_FLOAT16_GLOBAL_TENSOR_STD_F32_MIN_STD = 1e-3
 # OpenCV #25019 tracks CV_16F meanStdDev accuracy; revisit this cap when that issue is resolved.
 _FLOAT16_OPENCV_STATS_MAX_CHANNELS = min(get_opencv_max_channels(), MAX_OPENCV_WORKING_CHANNELS)
 _FLOAT16_GLOBAL_MEAN_OPENCV_MIN_ELEMENTS = 4_096
@@ -53,14 +51,8 @@ _FLOAT16_GLOBAL_TENSOR_MOMENTS_MIN_ELEMENTS = 20_480
 _FLOAT16_RANK4_PER_CHANNEL_TORCH_MAX_ELEMENTS = 245_760
 _FLOAT16_RANK4_C1_PER_CHANNEL_TORCH_MAX_ELEMENTS = 307_200
 _FLOAT16_RANK4_C1_MEAN_TORCH_MAX_ELEMENTS = 8_000_000
-_FLOAT16_GLOBAL_STATS_OPENCV_MIN_ELEMENTS = 20_480
-# Single-channel CV16F stats use the measured contiguous HWC/NHWC size regions.
-_FLOAT16_GLOBAL_STATS_C1_HWC_MIN_ELEMENTS = 20_480
-_FLOAT16_GLOBAL_STATS_C1_NHWC_MIN_ELEMENTS = 81_920
-_FLOAT16_GLOBAL_STATS_C1_NHWC_MAX_ELEMENTS = 1_228_800
-_FLOAT16_GLOBAL_STD_C1_HWC_MIN_ELEMENTS = 307_200
-_FLOAT16_GLOBAL_STD_C1_NHWC_MIN_ELEMENTS = 204_800
-_FLOAT16_GLOBAL_STD_C1_NHWC_MAX_ELEMENTS = 614_400
+# Widening to float32 for OpenCV meanStdDev beats the NumPy float64 reductions from this size on all channel counts.
+_FLOAT16_GLOBAL_STATS_OPENCV_MIN_ELEMENTS = 4_096
 # Paired timings show an early Torch win only within these contiguous HWC cells.
 _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS = {
     1: 307_200,
@@ -658,35 +650,10 @@ def _mean_std_global_float16_opencv(
     arr: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     eps: float,
 ) -> tuple[float, float] | None:
-    channels = arr.shape[-1]
-    if (
-        arr.dtype != np.float16
-        or not arr.flags.c_contiguous
-        or arr.size < _FLOAT16_GLOBAL_STATS_OPENCV_MIN_ELEMENTS
-        or arr.ndim not in (3, 4)
-        or channels > MAX_OPENCV_WORKING_CHANNELS
-    ):
+    """Widen contiguous float16 once so OpenCV accumulates exact float32 values in float64."""
+    if arr.size < _FLOAT16_GLOBAL_STATS_OPENCV_MIN_ELEMENTS or not arr.flags.c_contiguous:
         return None
-    if channels == 1:
-        if arr.ndim == 3 and arr.size < _FLOAT16_GLOBAL_STATS_C1_HWC_MIN_ELEMENTS:
-            return None
-        if arr.ndim == 4 and not (
-            _FLOAT16_GLOBAL_STATS_C1_NHWC_MIN_ELEMENTS <= arr.size <= _FLOAT16_GLOBAL_STATS_C1_NHWC_MAX_ELEMENTS
-        ):
-            return None
-
-    image = arr if arr.ndim == 3 else arr.reshape(-1, 1, channels)
-    channel_mean, channel_std = cv2.meanStdDev(image)
-    means = np.asarray(channel_mean[:, 0], dtype=np.float64)
-    stds = np.asarray(channel_std[:, 0], dtype=np.float64)
-    if not np.isfinite(means).all() or not np.isfinite(stds).all():
-        return None
-    if np.any(np.square(stds) <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(means)):
-        return None
-
-    mean_value = float(np.mean(means, dtype=np.float64))
-    variance = np.mean(np.square(stds) + np.square(means - mean_value), dtype=np.float64)
-    return mean_value, float(np.sqrt(max(variance, 0.0))) + eps
+    return _mean_std_global_float32_opencv(_cast_float_numpy(arr, np.float32), eps)
 
 
 def _mean_std_global_float16_fallback(
@@ -729,27 +696,33 @@ def _mean_std_global_float16_tensor(
     layout: TensorLayout | None,
     eps: float,
 ) -> tuple[torch.Tensor, torch.Tensor] | None:
+    elements = arr.numel()
     if (
         arr.dtype != torch.float16
         or not arr.is_contiguous()
-        or arr.numel() < _FLOAT16_GLOBAL_TENSOR_MOMENTS_MIN_ELEMENTS
+        or layout is None
+        or elements < _FLOAT16_GLOBAL_STATS_OPENCV_MIN_ELEMENTS
     ):
         return None
-    if layout is None:
-        return None
-
-    image = arr.numpy().reshape(-1, 1)
-    mean_array, std_array = cv2.meanStdDev(image)
-    mean_value = float(mean_array[0, 0])
-    std_value = float(std_array[0, 0])
-    if (
-        not np.isfinite(mean_value)
-        or not np.isfinite(std_value)
-        or std_value * std_value <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
-    ):
-        mean_value, std_value = _mean_std_global_float16_fallback(arr.numpy(), eps)
+    image = arr.numpy()
+    if _MACOS_ARM64 or (_LINUX_X86_64 and elements < _FLOAT16_GLOBAL_TENSOR_MOMENTS_MIN_ELEMENTS):
+        # CV_16F statistics are slow on ARM and below the x86 threshold; widening wins there.
+        stats = _mean_std_global_float16_opencv(image, eps)
+        mean_value, std_value = _mean_std_global_float16_fallback(image, eps) if stats is None else stats
+    elif elements >= _FLOAT16_GLOBAL_TENSOR_MOMENTS_MIN_ELEMENTS:
+        mean_array, std_array = cv2.meanStdDev(image.reshape(-1, 1))
+        mean_value = float(mean_array[0, 0])
+        std_value = float(std_array[0, 0])
+        if (
+            not np.isfinite(mean_value)
+            or not np.isfinite(std_value)
+            or std_value * std_value <= _MOMENTS_RELATIVE_VARIANCE_FLOOR * mean_value * mean_value
+        ):
+            mean_value, std_value = _mean_std_global_float16_fallback(image, eps)
+        else:
+            std_value += eps
     else:
-        std_value += eps
+        return None
     return (
         torch.tensor(mean_value, dtype=torch.float64),
         torch.tensor(std_value, dtype=torch.float64),
@@ -854,24 +827,12 @@ def _std_global_float16_tensor(
     keepdims: bool,
     eps: float,
 ) -> torch.Tensor | None:
-    if (
-        arr.dtype != torch.float16
-        or arr.numel() < _FLOAT16_GLOBAL_TENSOR_STD_MIN_ELEMENTS
-        or not arr.is_contiguous()
-        or layout is None
-    ):
+    if arr.dtype != torch.float16 or not arr.is_contiguous() or layout is None:
         return None
-    low, high = torch.aminmax(arr)
-    if float(low) >= -1.0 and float(high) <= 1.0:
-        image_view = tensor_to_numpy_channel_last(arr, layout)
-        std_value = np.std(image_view, dtype=np.float32)
-        if std_value > _FLOAT16_GLOBAL_TENSOR_STD_F32_MIN_STD:
-            result = torch.tensor(np.float64(std_value) + eps, dtype=torch.float64)
-            return result.reshape((1,) * arr.ndim) if keepdims else result
-    mean_value = torch.mean(arr, dtype=torch.float64)
-    centered = arr.to(torch.float64)
-    centered.sub_(mean_value).square_()
-    result = torch.mean(centered, dtype=torch.float64).sqrt() + eps
+    stats = _mean_std_global_float16_opencv(arr.numpy(), eps)
+    if stats is None:
+        return None
+    result = torch.tensor(stats[1], dtype=torch.float64)
     return result.reshape((1,) * arr.ndim) if keepdims else result
 
 
@@ -885,14 +846,7 @@ def _std_global(
     if _is_uint8_image(arr):
         std_value = _global_mean_std_uint8(arr, eps)[1]
     elif arr.dtype == np.float16:
-        std_opencv_eligible = arr.shape[-1] != 1 or (
-            (arr.ndim == 3 and arr.size >= _FLOAT16_GLOBAL_STD_C1_HWC_MIN_ELEMENTS)
-            or (
-                arr.ndim == 4
-                and _FLOAT16_GLOBAL_STD_C1_NHWC_MIN_ELEMENTS <= arr.size <= _FLOAT16_GLOBAL_STD_C1_NHWC_MAX_ELEMENTS
-            )
-        )
-        cv_stats = _mean_std_global_float16_opencv(arr, eps) if std_opencv_eligible else None
+        cv_stats = _mean_std_global_float16_opencv(arr, eps)
         std_value = float(np.std(arr, dtype=np.float64)) + eps if cv_stats is None else cv_stats[1]
     else:
         cv_stats = _mean_std_global_float32_opencv(cast("NDArray[np.float32]", arr), eps)
@@ -1150,10 +1104,11 @@ def mean_std(
     - **uint8 global**: NumKong ``nk.moments`` (single pass, wide accumulator).
     - **float32 global**: OpenCV ``meanStdDev`` on contiguous inputs from two elements on Linux x86-64 and macOS ARM64;
       low-variance and non-finite inputs use NumPy float64 reductions.
-    - **float16 global**: fused CV16F channel statistics in measured contiguous HWC/NHWC C≤4 regions; use a wide
-      NumPy fallback when cancellation dominates or the layout is unmeasured.
-    - **contiguous float16 Tensor global, 20,480 elements and larger**: CV16F ``meanStdDev`` over a zero-copy scalar
-      view; near-constant and non-finite inputs widen to NumPy float64.
+    - **contiguous float16 global, 4,096 elements and larger**: widen to float32 once and call OpenCV
+      ``meanStdDev`` (float64 accumulation); near-constant and non-finite inputs use NumPy float64.
+    - **contiguous float16 Tensor global, 4,096 elements and larger**: the same widened route on macOS ARM64 and,
+      on Linux x86-64, below 20,480 elements; Linux keeps CV16F ``meanStdDev`` over a zero-copy scalar view from
+      20,480 elements. Near-constant and non-finite inputs use NumPy float64.
     - **per-channel float16 HWC, C ≤ 4**: OpenCV ``meanStdDev`` after widening to float32; direct CV16F statistics
       can lose low-order precision and drop subnormals.
     - **per-channel uint8 and float16 C > 4**: NumKong moments per channel, with a stable two-pass fallback for
