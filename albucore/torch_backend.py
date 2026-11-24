@@ -251,24 +251,12 @@ def reduce_sum_torch(
     keepdims: bool,
     minimum_elements: int | None = None,
 ) -> np.generic | np.ndarray | None:
-    """Match Albucore's uint64/float64 sum accumulator for a preselected CPU Torch path."""
+    """Match Albucore's float64 sum accumulator for a preselected float16/float32 CPU Torch path."""
     if not _is_torch_compatible_array(arr, minimum_elements=minimum_elements):
         return None
-    if arr.dtype == np.uint8:
-        torch_dtype = torch.int64
-        output_dtype: type[np.generic] = np.uint64
-    elif arr.dtype in (np.float16, np.float32):
-        torch_dtype = torch.float64
-        output_dtype = np.float64
-    else:
+    if arr.dtype not in (np.float16, np.float32):
         return None
     image = torch.from_numpy(arr)
     if len(axes) == arr.ndim and not keepdims:
-        result = torch.sum(image, dtype=torch_dtype).numpy()
-    else:
-        result = torch.sum(image, dim=axes, dtype=torch_dtype, keepdim=keepdims).numpy()
-    if output_dtype is np.uint64:
-        result = result.view(np.uint64)
-    if len(axes) == arr.ndim and not keepdims:
-        return output_dtype(result)
-    return np.asarray(result)
+        return np.float64(torch.sum(image, dtype=torch.float64).numpy())
+    return np.asarray(torch.sum(image, dim=axes, dtype=torch.float64, keepdim=keepdims).numpy())

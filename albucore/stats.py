@@ -9,7 +9,12 @@ import torch
 from numpy.typing import DTypeLike, NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
+from albucore.tensor_bridge import (
+    TensorLayout,
+    dispatch_tensor_reduction,
+    numpy_to_tensor_storage,
+    tensor_to_numpy_channel_last,
+)
 from albucore.torch_backend import reduce_sum_torch
 from albucore.utils import (
     _LINUX_X86_64,
@@ -64,6 +69,12 @@ _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS = {
     5: 184_320,
     9: 184_320,
 }
+
+# Per-channel uint8 sums use nk.sum up to this many channels; cv2.reduce wins only for wider images.
+_UINT8_NUMKONG_PER_CHANNEL_MAX_CHANNELS = 9
+_UINT8_PER_CHANNEL_OPENCV_MIN_SPATIAL = 65_536
+# Per-plane nk.sum on a contiguous channel-first Tensor beats the transposed-view reduction for C > 4.
+_UINT8_TENSOR_PLANE_SUM_MIN_SPATIAL = 65_536
 
 AxisSpec = None | int | tuple[int, ...] | Literal["global", "per_channel"]
 _GlobalAxis: TypeAlias = Literal["global"] | None
@@ -140,9 +151,6 @@ def _cv2_reduce_mean_per_channel(arr: np.ndarray) -> np.ndarray:
 
 
 def _reduce_sum_global_uint8(arr: NDArray[np.uint8], *, keepdims: bool) -> np.uint64 | np.ndarray:
-    torch_result = reduce_sum_torch(arr, tuple(range(arr.ndim)), keepdims=keepdims)
-    if torch_result is not None:
-        return cast("np.uint64 | np.ndarray", torch_result)
     out = np.uint64(int(nk.sum(arr)))
     if keepdims:
         return np.array(out, dtype=np.uint64).reshape((1,) * arr.ndim)
@@ -163,7 +171,7 @@ def _reduce_sum_per_channel_uint8(arr: NDArray[np.uint8], *, keepdims: bool) -> 
     axes = _per_channel_spatial_axes(arr)
     c = arr.shape[-1]
     n_spatial = arr.size // c
-    if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 65_536:
+    if c > _UINT8_NUMKONG_PER_CHANNEL_MAX_CHANNELS and n_spatial >= _UINT8_PER_CHANNEL_OPENCV_MIN_SPATIAL:
         result = _cv2_reduce_sum_per_channel(arr)
     else:
         result = np.asarray(nk.sum(arr, axis=axes), dtype=np.uint64)
@@ -283,6 +291,40 @@ def _reduce_sum_float16_tensor(
     return torch.sum(arr, dim=axes, dtype=torch.float64, keepdim=keepdims)
 
 
+def _uint8_tensor_channel_sums(
+    arr: torch.Tensor,
+    axis: AxisSpec,
+    layout: TensorLayout | None,
+) -> tuple[np.ndarray, int] | None:
+    """Per-channel uint8 sums of a contiguous CHW/NCHW Tensor as one ``nk.sum`` per channel plane."""
+    if arr.dtype != torch.uint8 or axis != "per_channel" or layout not in ("CHW", "NCHW") or not arr.is_contiguous():
+        return None
+    channels = arr.shape[_TENSOR_CHANNEL_AXES[layout]]
+    n_spatial = arr.numel() // channels
+    if channels <= MAX_OPENCV_WORKING_CHANNELS or n_spatial < _UINT8_TENSOR_PLANE_SUM_MIN_SPATIAL:
+        return None
+    planes = arr.numpy()
+    if layout == "CHW":
+        planes = planes[None]
+    sums = np.array([nk.sum(planes[:, channel]) for channel in range(channels)], dtype=np.uint64)
+    return sums, n_spatial
+
+
+def _channel_vector_to_tensor(
+    values: np.ndarray,
+    arr: torch.Tensor,
+    layout: TensorLayout,
+    *,
+    keepdims: bool,
+) -> torch.Tensor:
+    result = numpy_to_tensor_storage(values)
+    if not keepdims:
+        return result
+    shape = [1] * arr.ndim
+    shape[_TENSOR_CHANNEL_AXES[layout]] = values.size
+    return result.reshape(shape)
+
+
 def _reduce_sum_tensor(
     arr: torch.Tensor,
     axis: AxisSpec,
@@ -290,6 +332,9 @@ def _reduce_sum_tensor(
     *,
     keepdims: bool,
 ) -> torch.Tensor:
+    plane_sums = _uint8_tensor_channel_sums(arr, axis, layout)
+    if plane_sums is not None:
+        return _channel_vector_to_tensor(plane_sums[0], arr, cast("TensorLayout", layout), keepdims=keepdims)
     tensor_result = _reduce_sum_float16_tensor(arr, axis, layout, keepdims=keepdims)
     if tensor_result is not None:
         return tensor_result
@@ -422,10 +467,11 @@ def reduce_sum(
     r"""Sum over image tensor axes with benchmark-driven routing.
 
     Routing:
-    - **large uint8 global**: Torch ``int64`` sum reinterpreted as the
-      documented uint64 accumulator; other global uint8 input uses NumKong ``nk.sum``.
+    - **uint8 global**: NumKong ``nk.sum`` at every size.
     - **uint8 per-channel**: NumKong ``nk.sum(arr, axis=spatial_axes)`` — single call over
-      all spatial dimensions for all ranks (HWC, DHWC, NHWC, …).
+      all spatial dimensions for all ranks (HWC, DHWC, NHWC, …); C > 9 with 65,536+ spatial elements uses
+      OpenCV ``reduce``.
+    - **contiguous uint8 CHW/NCHW Tensor, C > 4, 65,536+ spatial elements**: one ``nk.sum`` per channel plane.
     - **large float32 global and per-channel C ≤ 4**: Torch float64
       accumulation through a zero-copy NumPy wrapper.
     - **contiguous float16 Tensor, 16,384+ elements**: direct Torch ``sum(dtype=float64)`` for global,
@@ -901,10 +947,14 @@ def _mean_std_per_channel(
 
 
 def _mean_per_channel_uint8(arr: NDArray[np.uint8], axes: tuple[int, ...], *, keepdims: bool) -> np.ndarray:
-    """Per-channel uint8 mean: OpenCV for C > 4 with 65,536+ spatial elements, nk.sum otherwise."""
+    """Per-channel uint8 mean: sumElems / n for contiguous HWC C=2..4, cv2.reduce for wide images, else nk.sum."""
     n_spatial = arr.size // arr.shape[-1]
     c = arr.shape[-1]
-    if c > MAX_OPENCV_WORKING_CHANNELS and n_spatial >= 65_536:
+    result: np.ndarray
+    if arr.ndim == 3 and 1 < c <= MAX_OPENCV_WORKING_CHANNELS and arr.flags.c_contiguous:
+        # sumElems is an exact integer sum; cv2.mean multiplies by 1/n and differs from sum / n by one ulp.
+        result = np.asarray(cv2.sumElems(arr)[:c], dtype=np.float64) / n_spatial
+    elif c > _UINT8_NUMKONG_PER_CHANNEL_MAX_CHANNELS and n_spatial >= _UINT8_PER_CHANNEL_OPENCV_MIN_SPATIAL:
         result = _cv2_reduce_mean_per_channel(arr)
     else:
         result = np.asarray(nk.sum(arr, axis=axes), dtype=np.float64) / n_spatial
@@ -1258,8 +1308,9 @@ def mean(
 
     Routing:
     - **uint8 global**: NumKong ``nk.sum(arr) / N`` (single reduction; avoids moments/sqrt work).
-    - **uint8 per-channel**: NumKong ``nk.sum(spatial_axes) / n`` — wins for all shapes
-      and channel counts (2x over cv2.mean for HWC C=3, 40x for NHWC/DHWC).
+    - **uint8 per-channel**: NumKong ``nk.sum(spatial_axes) / n``; contiguous HWC with C=2..4 uses
+      ``cv2.sumElems / n`` (bit-equal, 0.9x time on M4 Max) and C > 9 with 65,536+ spatial elements uses OpenCV
+      ``reduce``. Contiguous uint8 CHW/NCHW Tensors with C > 4 and 65,536+ spatial elements sum per channel plane.
     - **float32 global**: ``np.mean(dtype=float64)``.
     - **float32 per-channel, ndim==3, C ≤ 4**: ``cv2.mean`` (fastest for HWC images).
     - **float32 per-channel, ndim==4, 1 < C ≤ 4**: NumKong ``nk.sum / n`` — 4x over arr.mean
@@ -1298,6 +1349,10 @@ def mean(
             result = _mean_per_channel_float16_tensor(arr, layout, keepdims=keepdims)
             if result is not None:
                 return result
+            plane_sums = _uint8_tensor_channel_sums(arr, axis, layout)
+            if plane_sums is not None:
+                means = plane_sums[0].astype(np.float64) / plane_sums[1]
+                return _channel_vector_to_tensor(means, arr, cast("TensorLayout", layout), keepdims=keepdims)
         return dispatch_tensor_reduction(arr, layout, mean, axis, {"keepdims": keepdims, "dtype": dtype})
 
     axes = _resolve_axes(arr, axis)
