@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, TypeVar, cast, overload
 
 import cv2
@@ -34,6 +35,14 @@ _UINT8_SQRT_LUT = np.sqrt(np.arange(256, dtype=np.float32))
 with np.errstate(over="ignore"):
     _UINT8_EXP_LUT = np.exp(np.arange(256, dtype=np.float32))
 _NATIVE_HALF_EXP = _LINUX_X86_64
+# Contiguous Tensor exp reaches OpenCV through shared storage above these sizes; Linux keeps Torch for float16.
+_TENSOR_EXP_NUMPY_MIN_ELEMENTS: dict[torch.dtype, int] = (
+    {torch.uint8: 1_024, torch.float32: 12_288}
+    if _LINUX_X86_64
+    else {torch.uint8: 2_048, torch.float32: 4_096, torch.float16: 12_288}
+    if _MACOS_ARM64
+    else {}
+)
 
 
 def _numpy_unary(
@@ -104,6 +113,26 @@ def _torch_unary(
         return operation(working) if out is None else operation(working, out=out)
 
 
+def _exp_tensor_numpy(array: torch.Tensor, out: torch.Tensor | None) -> torch.Tensor:
+    """Compute a contiguous CPU Tensor exponential through the shared-storage NumPy/OpenCV kernels.
+
+    The flat view keeps OpenCV's channel limit from applying to arbitrary Tensor layouts.
+    """
+    source = array.numpy().reshape(-1)
+    destination = None if out is None else out.numpy().reshape(-1)
+    result: np.ndarray
+    if array.dtype == torch.uint8:
+        result = _apply_float_lut(source, _UINT8_EXP_LUT, out=destination)
+    elif array.dtype == torch.float32:
+        result = _opencv_unary(source, cv2.exp, out=destination)
+    else:
+        # Narrowing overflow must stay silent, as in Torch.
+        with np.errstate(all="ignore"):
+            working = _cast_float_numpy(source, np.float32)
+            result = _cast_float_numpy(_opencv_unary(working, cv2.exp), np.float16, out=destination)
+    return torch.from_numpy(result).reshape(array.shape) if out is None else out
+
+
 @overload
 def exp(array: NDArray[np.float16], *, out: NDArray[np.float16] | None = None) -> NDArray[np.float16]: ...
 
@@ -140,7 +169,14 @@ def exp(
         OpenCV finite results match NumPy within rtol=1e-5 and atol=1e-7.
     """
     if isinstance(array, torch.Tensor):
-        return _torch_unary(array, torch.exp, out=cast("torch.Tensor | None", out))
+        tensor_out = cast("torch.Tensor | None", out)
+        if (
+            array.numel() >= _TENSOR_EXP_NUMPY_MIN_ELEMENTS.get(array.dtype, sys.maxsize)
+            and array.is_contiguous()
+            and (tensor_out is None or tensor_out.is_contiguous())
+        ):
+            return _exp_tensor_numpy(array, tensor_out)
+        return _torch_unary(array, torch.exp, out=tensor_out)
     output = cast("NDArray[np.float16] | NDArray[np.float32] | None", out)
     if array.dtype == np.uint8:
         return _apply_float_lut(

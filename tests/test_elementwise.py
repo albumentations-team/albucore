@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 
 import numpy as np
 import pytest
+import torch
 
 import albucore as ac
 from albucore import elementwise
@@ -308,3 +310,77 @@ def test_uint8_sqrt_linux_below_lut_minimum_and_strided_input_use_numpy(monkeypa
     strided = array[:, ::2]
     np.testing.assert_array_equal(ac.sqrt(strided), _uint8_sqrt_reference(strided))
     assert calls == []
+
+
+def _tensor_exp_spy(monkeypatch: pytest.MonkeyPatch, minimums: dict[torch.dtype, int]) -> list[int]:
+    monkeypatch.setattr(elementwise, "_TENSOR_EXP_NUMPY_MIN_ELEMENTS", minimums)
+    return _spy(monkeypatch, "_exp_tensor_numpy")
+
+
+def _tensor_exp_input(dtype: torch.dtype, shape: tuple[int, ...]) -> torch.Tensor:
+    generator = torch.Generator().manual_seed(0)
+    if dtype == torch.uint8:
+        return torch.randint(0, 256, shape, dtype=torch.uint8, generator=generator)
+    # Values up to 18 overflow float16 results, which must stay silent like Torch.
+    return (torch.rand(shape, generator=generator) * 24 - 6).to(dtype)
+
+
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.float32, torch.float16])
+@pytest.mark.parametrize("shape", [(3, 40, 50), (3, 100, 700), (2, 3, 8, 9)])
+@pytest.mark.parametrize("destination", ["allocate", "out", "in_place"])
+def test_tensor_exp_contiguous_input_uses_numpy_bridge_and_matches_torch(
+    monkeypatch: pytest.MonkeyPatch,
+    dtype: torch.dtype,
+    shape: tuple[int, ...],
+    destination: str,
+) -> None:
+    if destination == "in_place" and dtype == torch.uint8:
+        pytest.skip("uint8 input cannot be the float32 output")
+    calls = _tensor_exp_spy(monkeypatch, {dtype: 1})
+    image = _tensor_exp_input(dtype, shape)
+    expected = torch.exp(image.to(torch.float32) if dtype == torch.uint8 else image)
+    output = {"allocate": None, "out": torch.empty_like(expected), "in_place": image}[destination]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = ac.exp(image, out=output)
+
+    assert calls == [1]
+    assert result.dtype == expected.dtype
+    assert result.shape == expected.shape
+    if output is not None:
+        assert result is output
+    if dtype == torch.float16:
+        torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    else:
+        torch.testing.assert_close(result, expected, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("case", ["below_minimum", "dtype_absent", "strided_input", "strided_output"])
+def test_tensor_exp_keeps_torch_outside_the_numpy_bridge_region(monkeypatch: pytest.MonkeyPatch, case: str) -> None:
+    minimums = {torch.float32: 10**9 if case == "below_minimum" else 1}
+    if case == "dtype_absent":
+        minimums = {torch.float16: 1}
+    calls = _tensor_exp_spy(monkeypatch, minimums)
+    backing = torch.rand(3, 40, 100)
+    image = backing[..., ::2] if case == "strided_input" else backing[..., :50].contiguous()
+    output = torch.empty(3, 40, 100)[..., ::2] if case == "strided_output" else None
+
+    result = ac.exp(image, out=output)
+
+    assert calls == []
+    torch.testing.assert_close(result, torch.exp(image))
+
+
+@pytest.mark.parametrize(
+    ("dtype", "present"),
+    [(torch.uint8, True), (torch.float32, True), (torch.float16, False)],
+)
+def test_tensor_exp_platform_table_matches_measured_regions(dtype: torch.dtype, present: bool) -> None:
+    table = elementwise._TENSOR_EXP_NUMPY_MIN_ELEMENTS
+    if elementwise._MACOS_ARM64:
+        assert dtype in table
+    elif elementwise._LINUX_X86_64:
+        assert (dtype in table) is present
+    else:
+        assert table == {}
