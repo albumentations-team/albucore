@@ -60,6 +60,15 @@ explicit channel dimension, dtype, device, contiguity, autograd state, and opera
 before dispatch. Do not duplicate those checks in Albucore routers; keep only backend dispatch and kernel-required
 normalization. Invalid direct calls are outside the low-level contract.
 
+### NaN is a vector-field-only contract
+
+Vector fields are the only target that expects NaN: AlbumentationsX stores them as float16/float32 arrays where NaN
+marks an invalid vector. Data-movement and sampling operations used on fields (flip, rot90, transpose, crop, pad, `remap`,
+`remap3d`, nearest-neighbor resize) must keep NaN exactly. Images, masks and volumes do not contain NaN, so arithmetic,
+quantization, statistics, normalization and LUT routes assume finite input; their NaN behavior is unspecified. Do not add a
+NaN guard or extra pass to those hot paths, and delete one that exists. Benchmark and test those routes on finite data.
+Inf and signed-zero behavior are unchanged.
+
 ### Output ownership
 
 Operations with `out` write input storage only when the caller explicitly supplies it as output. Without `out`,

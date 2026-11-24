@@ -4,6 +4,14 @@
 
 Albucore routers run after the caller has validated the input contract. Upstream code owns container, rank, layout, dtype, device, contiguity, autograd state, and operation-control validation. NumPy uses channel-last layouts; CPU Tensor layouts are explicit. Albucore keeps only dispatch branches and kernel-required normalization needed to select and execute the benchmarked implementation; hot paths must not repeat those checks.
 
+## NaN contract
+
+Only vector fields carry NaN (float16/float32 arrays where NaN marks an invalid vector). Operations used on fields
+(flip, rot90, transpose, crop, pad, `remap`, `remap3d`, nearest-neighbor resize) must keep NaN exactly. Images, masks and
+volumes contain no NaN, so arithmetic, quantization, statistics, normalization and LUT routes assume finite input and leave
+NaN behavior unspecified. A NaN guard on those routes is a pass that buys nothing: delete it rather than add one, and
+benchmark and test those routes on finite data. Inf and signed zero behave as before.
+
 Use this workflow whenever implementing, reviewing, or profiling runtime code in Albucore or AlbumentationsX. Its
 order matters: remove work before making the remaining work faster. Treat every proposed optimization as a hypothesis
 until correctness tests and representative benchmarks support it.

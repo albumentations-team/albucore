@@ -60,6 +60,13 @@ implementation or review, also load the `performance-optimization` skill.
   `normalize`, `normalize_per_image`, `power`, `convert_dtype`) are in `docs/public-api.md`; load the
   `albucore-public-api` skill when changing them.
 
+## NaN
+
+- Only vector fields expect NaN. Data-movement and sampling operations used on fields (flip, rot90, transpose, crop, pad,
+  `remap`, `remap3d`, nearest resize) keep NaN exactly.
+- Arithmetic, quantization, statistics, normalization and LUT routes assume non-NaN images, masks and volumes; NaN there is
+  unspecified. Never add a NaN guard to them; delete one that exists. Test and benchmark them on finite data.
+
 ## Tests
 
 - Test `uint8`, `float16`, and `float32` for every supported image router; keep `uint8` LUT APIs `uint8`-only.

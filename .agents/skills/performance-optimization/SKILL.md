@@ -44,6 +44,13 @@ Before adding an atom:
 Invalid direct calls are outside the caller-validated router contract in `AGENTS.md` and must not add hot-path
 branches.
 
+## NaN contract
+
+Only vector fields expect NaN, and only data-movement and sampling operations used on fields (flip, rot90, transpose,
+crop, pad, `remap`, `remap3d`, nearest resize) must keep it exactly. Arithmetic, quantization, statistics, normalization
+and LUT routes assume finite images, masks and volumes: delete NaN guards instead of adding them, and benchmark those
+routes on finite data. See `docs/performance-optimization.md`.
+
 ## Required handoff
 
 Report:
