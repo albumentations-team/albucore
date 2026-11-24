@@ -28,6 +28,7 @@ from albucore.torch_backend import (
 )
 from albucore.utils import (
     _FLOAT32_MAX,
+    _LINUX_X86_64,
     _MACOS_ARM64,
     _TENSOR_CHANNEL_AXES,
     NUM_RGB_CHANNELS,
@@ -53,7 +54,7 @@ _FLOAT32_COMPATIBLE_OPERAND_DTYPES: frozenset[np.dtype[Any]] = frozenset(
     np.dtype(dtype) for dtype in (np.bool_, np.uint8, np.int8, np.uint16, np.int16, np.float16, np.float32)
 )
 _TORCH_FLOAT16_MIN_ELEMENTS = 16_384
-_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
+_TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_024 if _LINUX_X86_64 else 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
