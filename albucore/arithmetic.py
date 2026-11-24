@@ -86,6 +86,8 @@ _UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = (
 # OpenCV rounds products through int32; 255 * 2**20 stays far inside it, so larger scalars use the saturating LUT.
 _UINT8_INTEGER_MULTIPLY_MAX_SCALAR = 1 << 20
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
+_TENSOR_DIRECT_FLOAT32_MAX_ELEMENTS = 691_200 if _MACOS_ARM64 else 76_800 if _LINUX_X86_64 else 0
+_TENSOR_DIRECT_FLOAT32_OUT_MAX_ELEMENTS = 691_200 if _MACOS_ARM64 else 307_200 if _LINUX_X86_64 else 0
 
 
 def _scale_numkong(
@@ -600,7 +602,8 @@ def multiply(
             and img.dtype in (torch.float16, torch.float32)
         ):
             return torch.mul(img, value) if tensor_out is None else torch.mul(img, value, out=tensor_out)
-        return _tensor_pointwise(img, value, "multiply", layout, out=tensor_out)
+        direct = _tensor_direct_float32(img, value, "multiply", layout, out=tensor_out)
+        return direct if direct is not None else _tensor_pointwise(img, value, "multiply", layout, out=tensor_out)
     destination = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None", out)
     value = _prepare_pointwise_operand(img, cast("ValueType", value))
     if img.size == 0:
@@ -974,7 +977,8 @@ def add(
         if isinstance(value, torch.Tensor) and value.ndim == img.ndim and img.dtype in (torch.float16, torch.float32):
             result = torch.add(img, value) if tensor_out is None else torch.add(img, value, out=tensor_out)
             return result if result.dtype == img.dtype else result.to(img.dtype)
-        return _tensor_pointwise(img, value, "add", layout, out=tensor_out)
+        direct = _tensor_direct_float32(img, value, "add", layout, out=tensor_out)
+        return direct if direct is not None else _tensor_pointwise(img, value, "add", layout, out=tensor_out)
     return _add_numpy(
         img,
         cast("ValueType", value),
@@ -1160,6 +1164,38 @@ def _torch_half_pointwise_tensor(
         return None
     control = _torch_half_control(value, image, layout)
     if control is None:
+        return None
+    return torch.add(image, control, out=out) if operation == "add" else torch.mul(image, control, out=out)
+
+
+def _tensor_direct_float32(
+    image: torch.Tensor,
+    value: ValueType | torch.Tensor,
+    operation: Literal["add", "multiply"],
+    layout: TensorLayout | None,
+    *,
+    out: torch.Tensor | None,
+) -> torch.Tensor | None:
+    """Apply a scalar or channel vector to a float32 Tensor with one Torch op where it beats the NumPy bridge."""
+    if image.dtype != torch.float32 or image.numel() > (
+        _TENSOR_DIRECT_FLOAT32_MAX_ELEMENTS if out is None else _TENSOR_DIRECT_FLOAT32_OUT_MAX_ELEMENTS
+    ):
+        return None
+    control: torch.Tensor | float
+    if isinstance(value, (float, int)):
+        control = float(value)
+        if not -_FLOAT32_MAX <= control <= _FLOAT32_MAX or (operation == "add" and control == 0):
+            return None
+    elif layout is not None and isinstance(value, np.ndarray) and value.dtype == np.float32 and value.ndim == 1:
+        if not value.flags.writeable or value.strides[0] < 0:
+            # ``torch.from_numpy`` warns on read-only storage and rejects negative strides.
+            return None
+        shape = [1] * image.ndim
+        shape[_TENSOR_CHANNEL_AXES[layout]] = value.size
+        control = torch.from_numpy(value).reshape(shape)
+    else:
+        return None
+    if not image.is_contiguous() or (out is not None and not out.is_contiguous()):
         return None
     return torch.add(image, control, out=out) if operation == "add" else torch.mul(image, control, out=out)
 
