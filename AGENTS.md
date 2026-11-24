@@ -108,6 +108,12 @@ Never infer `NCHW` versus `CDHW` from rank or axis sizes.
   request escalated permissions; Claude Code: disable the sandbox for that command); verify the NumKong `neon` capability before accepting results. Never force
   backend flags to conceal a failed hardware probe.
 - OpenCV, NumPy, LUT — pick whichever is fastest for the target dtype/shape
+- **Every timing runs with exactly one CPU thread, including quick ad-hoc checks.** Production is AX under a PyTorch
+  DataLoader with one thread per worker, but Albucore is still measured as is, without AX or DataLoader. Before
+  importing numerical libraries set `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`,
+  `VECLIB_MAXIMUM_THREADS`, and `NUMEXPR_NUM_THREADS` to `1`; then call `cv2.setNumThreads(0)`,
+  `torch.set_num_threads(1)`, and `torch.set_num_interop_threads(1)`. Time thread counts above one only on an explicit
+  user request. Load the `albucore-benchmarks` skill before any timing; never write a bare `timeit` loop.
 
 ### 3. Type Safety
 
