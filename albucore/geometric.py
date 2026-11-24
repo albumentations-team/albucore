@@ -36,7 +36,10 @@ from albucore.utils import (
 
 # Interpolations that require chunking for >4ch (CI: _src.channels() <= 4)
 _INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4, cv2.INTER_LINEAR_EXACT}
-_RESIZE3D_NEAREST_GATHER_MIN_ELEMENTS = 900_000
+# Single-channel nearest H/W shrink with a depth change: the per-slice OpenCV route is faster for smaller volumes.
+_RESIZE3D_NEAREST_TAKE_SINGLE_CHANNEL_MIN_ELEMENTS = 1_048_576
+# Float nearest all-axis upscale: OpenCV packs D*C channels and slows down above this count.
+_RESIZE3D_NEAREST_TAKE_FLOAT_UPSCALE_PACKED_CHANNELS = 128
 _RESIZE3D_DEPTH_ONE_MIN_ELEMENTS = 4_096
 # remap does not support INTER_LINEAR_EXACT; only CUBIC/LANCZOS4 need chunking
 _REMAP_INTERP_NEEDS_CHUNK = {cv2.INTER_CUBIC, cv2.INTER_LANCZOS4}
@@ -1301,32 +1304,45 @@ def _resize3d_numpy_axis_packing(
     return result
 
 
-def _can_resize3d_numpy_nearest_gather(
-    volume: np.ndarray,
-    size: tuple[int, int, int],
-    interpolation: int,
-    antialias: bool,
-) -> bool:
-    return (
-        interpolation == cv2.INTER_NEAREST
-        and not antialias
-        and volume.ndim == 4
-        and volume.shape[-1] == 3
-        and volume.flags.c_contiguous
-        and volume.size >= _RESIZE3D_NEAREST_GATHER_MIN_ELEMENTS
-        and all(output_size < input_size for input_size, output_size in zip(volume.shape[:3], size, strict=True))
-    )
-
-
-def _resize3d_numpy_nearest_gather(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
-    indices = tuple(
-        np.minimum(
-            np.floor(np.arange(output_size, dtype=np.float64) * (input_size / output_size)).astype(np.intp),
-            input_size - 1,
+def _can_resize3d_numpy_nearest_take(volume: np.ndarray, size: tuple[int, int, int]) -> bool:
+    """Select the measured regions where one np.take per axis beats the OpenCV nearest routes."""
+    depth, height, width, channels = volume.shape
+    new_depth, new_height, new_width = size
+    if (new_height, new_width) == (height, width):
+        return True
+    if new_depth == depth:
+        return False
+    if new_height < height and new_width < width:
+        return channels > 1 or volume.size >= _RESIZE3D_NEAREST_TAKE_SINGLE_CHANNEL_MIN_ELEMENTS
+    if new_height > height and new_width > width:
+        return channels >= 3 and (
+            new_depth < depth
+            or volume.itemsize == 1
+            or channels >= 4
+            or depth * channels > _RESIZE3D_NEAREST_TAKE_FLOAT_UPSCALE_PACKED_CHANNELS
         )
-        for input_size, output_size in zip(volume.shape[:3], size, strict=True)
-    )
-    return volume[indices[0][:, None, None], indices[1][None, :, None], indices[2][None, None, :], :]
+    return False
+
+
+def _resize3d_nearest_indices(input_size: int, output_size: int) -> np.ndarray:
+    """Return the source indices OpenCV nearest resizing selects, computed by OpenCV itself."""
+    row = np.arange(input_size, dtype=np.float32).reshape(1, input_size)
+    resized = cv2.resize(row, (output_size, 1), interpolation=cv2.INTER_NEAREST)
+    return cast("np.ndarray", resized.astype(np.intp).reshape(output_size))
+
+
+def _resize3d_numpy_nearest_take(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
+    """Gather nearest voxels one axis at a time: shrinking axes first, then H/W growth, then depth growth."""
+
+    def cost_order(axis: int) -> tuple[bool, bool, float]:
+        grows = size[axis] > volume.shape[axis]
+        return size[axis] >= volume.shape[axis], axis == 0 and grows, size[axis] / volume.shape[axis]
+
+    result = volume
+    for axis in sorted(range(3), key=cost_order):
+        if size[axis] != volume.shape[axis]:
+            result = np.take(result, _resize3d_nearest_indices(volume.shape[axis], size[axis]), axis=axis)
+    return result
 
 
 def _resize3d_numpy_linear_axis(volume: np.ndarray, axis: int, output_size: int) -> np.ndarray:
@@ -1615,8 +1631,9 @@ def resize3d(
     ``(C, D, H, W)`` layout. AlbumentationsX validates the input layout, spatial dimensions, output size,
     device, and autograd state before calling this primitive. The container, dtype, and channel count are preserved
     for uint8, float16, and float32 inputs.
-    Contiguous NumPy C3 nearest downscales use one shared-index gather from 900,000 input elements when all
-    spatial axes shrink. Contiguous float16/float32 linear resizes to depth one
+    NumPy nearest resizes that change depth alone, or change depth together with both H and W in the same direction,
+    gather the source voxels with one ``np.take`` per axis where that is faster than OpenCV; other regions keep the
+    OpenCV routes. Contiguous float16/float32 linear resizes to depth one
     use only the central depth slices from 4,096 input elements when antialiasing is disabled.
     Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
     benchmark-selected NumPy/OpenCV CPU route. Float16 bridge inputs widen to float32 and round back once. Its float32
@@ -1636,8 +1653,8 @@ def resize3d(
     if isinstance(volume, np.ndarray):
         if volume.shape[:3] == size:
             return volume
-        if _can_resize3d_numpy_nearest_gather(volume, size, interpolation, antialias):
-            return _resize3d_numpy_nearest_gather(volume, size)
+        if interpolation == cv2.INTER_NEAREST and not antialias and _can_resize3d_numpy_nearest_take(volume, size):
+            return _resize3d_numpy_nearest_take(volume, size)
         if (
             size[0] == 1
             and volume.dtype == np.float16
