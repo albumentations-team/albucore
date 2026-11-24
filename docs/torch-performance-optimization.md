@@ -126,6 +126,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   cells per operation at least 5% faster than their float32 peers. A separate 11-sample interleaved run with scalar
   `0.1` measured 0.26–0.47× for `add` and
   0.33–0.62× for `multiply` across CHW 128×160×3, CHW 480×640×3, and NCHW 4×3×240×320.
+- Contiguous float32 Tensor `add`/`multiply` with a finite Python scalar (`add` zero excepted) or a writable float32 channel vector use one Torch op, with explicit `out` when given, up to a per-platform size: 691,200 elements on macOS (0.43–0.89× of the NumPy bridge, 0.65–0.89× at 61K–307K) and 76,800 without `out` or 307,200 with `out` on Linux x86-64 (Sapphire Rapids audit: 0.54–0.75× to 77K, with `out` 0.81–0.90× to 307K, 1.16–1.20× slower above without `out`). Larger images, non-contiguous storage, float16 vectors and other controls keep the NumPy bridge.
 - NumPy HWC float16 vector routes are selected by channel count and measured region: C1 uses NumKong `scale` for
   exact controls from 20,480 elements; C3 uses OpenCV CV16F from 61,440 elements; C9 `add(..., channel_vector)` uses NumKong
   `add` with a zero-stride half control view for exact controls. C9 `multiply(..., channel_vector)` uses OpenCV CV16F for
