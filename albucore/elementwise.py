@@ -26,7 +26,10 @@ __all__ = ["exp", "sqrt"]
 _FloatDTypeT = TypeVar("_FloatDTypeT", np.float16, np.float32)
 _OPENCV_CONTIGUOUS_MIN_ELEMENTS = 4_096
 _EXP_OPENCV_STRIDED_MIN_ELEMENTS = 65_536
-_TORCH_FLOAT16_MIN_ELEMENTS = {"exp": 12_288, "sqrt": 20_480}
+_TORCH_FLOAT16_MIN_ELEMENTS = {
+    "exp": 12_288,
+    "sqrt": 128 if _LINUX_X86_64 else 12_288 if _MACOS_ARM64 else 20_480,
+}
 _UINT8_SQRT_LUT_MIN_ELEMENTS = 20_480
 _LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS = 230_400
 _MACOS_UINT8_SQRT_TORCH_MIN_ELEMENTS = 12_288
@@ -72,6 +75,16 @@ def _opencv_unary(
     return cast("NDArray[_FloatDTypeT]", result.reshape(array.shape))
 
 
+def _sqrt_float16_via_float32(array: NDArray[np.float16], out: NDArray[np.float16] | None) -> NDArray[np.float16]:
+    """Take the root in one float32 buffer, avoiding the buffered-cast ufunc loop that dominates tiny arrays."""
+    working = array.astype(np.float32)
+    np.sqrt(working, out=working)
+    if out is None:
+        return working.astype(np.float16)
+    np.copyto(out, working, casting="unsafe")
+    return out
+
+
 def _float16_unary(
     array: NDArray[np.float16],
     operation: Literal["exp", "sqrt"],
@@ -95,6 +108,8 @@ def _float16_unary(
     )
     if torch_result is not None:
         return torch_result
+    if operation == "sqrt" and _LINUX_X86_64 and array.size < _TORCH_FLOAT16_MIN_ELEMENTS["sqrt"]:
+        return _sqrt_float16_via_float32(array, out)
     return _numpy_unary(array, numpy_operation, out=out)
 
 

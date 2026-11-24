@@ -384,3 +384,90 @@ def test_tensor_exp_platform_table_matches_measured_regions(dtype: torch.dtype, 
         assert (dtype in table) is present
     else:
         assert table == {}
+
+
+def _float16_sqrt_input(shape: tuple[int, ...]) -> np.ndarray:
+    values = np.abs(np.random.default_rng(5).standard_normal(shape, dtype=np.float32) * 100).astype(np.float16)
+    values.reshape(-1)[:3] = [0.0, np.inf, np.nan]
+    return values
+
+
+def _float16_sqrt_reference(array: np.ndarray) -> np.ndarray:
+    return np.sqrt(array.astype(np.float32)).astype(np.float16)
+
+
+@pytest.mark.parametrize("shape", [(1, 10, 20), (3, 13, 17), (2, 7, 9, 3)])
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "out", "in_place"])
+def test_float16_sqrt_uses_torch_from_the_platform_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+    layout: str,
+) -> None:
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "sqrt", 100)
+    calls = _spy(monkeypatch, "_float16_unary_torch")
+    array = _float16_sqrt_input(shape)
+    if layout == "strided":
+        array = _float16_sqrt_input((*shape[:-1], shape[-1] * 2))[..., ::2]
+    out = {"contiguous": None, "strided": None, "out": np.empty_like(array), "in_place": array}[layout]
+    expected = _float16_sqrt_reference(array)
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    if out is not None:
+        assert result is out
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "out", "in_place", "read_only"])
+def test_linux_float16_sqrt_below_the_torch_minimum_uses_one_float32_buffer(
+    monkeypatch: pytest.MonkeyPatch,
+    layout: str,
+) -> None:
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", True)
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "sqrt", 128)
+    calls = _spy(monkeypatch, "_sqrt_float16_via_float32")
+    array = _float16_sqrt_input((1, 7, 9))
+    if layout == "strided":
+        array = _float16_sqrt_input((1, 7, 18))[..., ::2]
+    if layout == "read_only":
+        array.flags.writeable = False
+    out = {"out": np.empty_like(array), "in_place": array}.get(layout)
+    expected = _float16_sqrt_reference(array)
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    if out is not None:
+        assert result is out
+    else:
+        assert not np.shares_memory(result, array)
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_float16_sqrt_without_linux_keeps_the_ufunc_below_the_torch_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", False)
+    monkeypatch.setitem(elementwise._TORCH_FLOAT16_MIN_ELEMENTS, "sqrt", 128)
+    calls = _spy(monkeypatch, "_sqrt_float16_via_float32")
+    array = _float16_sqrt_input((1, 7, 9))
+
+    np.testing.assert_array_equal(ac.sqrt(array), _float16_sqrt_reference(array))
+    assert calls == []
+
+
+
+@pytest.mark.skipif(
+    not (elementwise._MACOS_ARM64 or elementwise._LINUX_X86_64),
+    reason="Torch half sqrt minimums are measured on macOS arm64 and Linux x86-64 only",
+)
+def test_float16_sqrt_reaches_torch_exactly_at_the_measured_platform_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    minimum = 128 if elementwise._LINUX_X86_64 else 12_288
+    calls = _spy(monkeypatch, "_float16_unary_torch")
+
+    below = _float16_sqrt_input((1, 1, minimum - 1))
+    np.testing.assert_array_equal(ac.sqrt(below), _float16_sqrt_reference(below))
+    assert calls == []
+
+    at_minimum = _float16_sqrt_input((1, 1, minimum))
+    np.testing.assert_array_equal(ac.sqrt(at_minimum), _float16_sqrt_reference(at_minimum))
+    assert calls == [1]
