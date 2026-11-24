@@ -1253,6 +1253,13 @@ def resize(
 
 _RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS = 1_000_000
 _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS = 10_000
+_RESIZE3D_TORCH_NUMPY_BRIDGE_MANY_CHANNELS = 5
+# Channel-last float XY-only growth with many channels loses to native Torch above this input size.
+_RESIZE3D_TORCH_NUMPY_BRIDGE_CHANNEL_LAST_XY_UP_MAX_ELEMENTS = 1_048_576
+# Channel-last XY-only shrink: the bridge loses to native Torch below this input size.
+_RESIZE3D_TORCH_NUMPY_BRIDGE_XY_DOWN_MIN_ELEMENTS = 262_144
+# uint8 depth-only resize: the bridge ties or loses below this output size.
+_RESIZE3D_TORCH_NUMPY_BRIDGE_UINT8_Z_MIN_OUTPUT_ELEMENTS = 131_072
 _RESIZE3D_XY_MIN_PLANE_ELEMENTS = 16_384
 
 
@@ -1543,12 +1550,30 @@ def _should_resize3d_torch_use_numpy_route(
     size: tuple[int, int, int],
     interpolation: int,
 ) -> bool:
-    """Select the measured zero-copy path for sufficiently large all-axis linear Tensor upscales."""
-    return (
-        interpolation == cv2.INTER_LINEAR
-        and volume.shape[0] * size[0] * size[1] * size[2] >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS
-        and all(output_size > input_size for input_size, output_size in zip(volume.shape[1:], size, strict=True))
-    )
+    """Select the measured Tensor regions where the NumPy/OpenCV route beats native Torch interpolation."""
+    if interpolation != cv2.INTER_LINEAR:
+        return False
+    channels, depth, height, width = volume.shape
+    new_depth, new_height, new_width = size
+    is_uint8 = volume.dtype == torch.uint8
+    channel_last = channels > 1 and volume.stride(0) == 1
+    grows_hw = new_height > height and new_width > width
+
+    if new_depth > depth and grows_hw:
+        output_elements = channels * new_depth * new_height * new_width
+        return output_elements >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MIN_OUTPUT_ELEMENTS or channels > 1 or not is_uint8
+    if new_depth == depth and grows_hw:
+        return not (
+            channel_last
+            and channels >= _RESIZE3D_TORCH_NUMPY_BRIDGE_MANY_CHANNELS
+            and not is_uint8
+            and volume.numel() > _RESIZE3D_TORCH_NUMPY_BRIDGE_CHANNEL_LAST_XY_UP_MAX_ELEMENTS
+        )
+    if new_depth == depth and new_height < height and new_width < width:
+        return channels == 1 or (channel_last and volume.numel() >= _RESIZE3D_TORCH_NUMPY_BRIDGE_XY_DOWN_MIN_ELEMENTS)
+    if is_uint8 and (new_height, new_width) == (height, width):
+        return channels * new_depth * height * width >= _RESIZE3D_TORCH_NUMPY_BRIDGE_UINT8_Z_MIN_OUTPUT_ELEMENTS
+    return False
 
 
 def _resize3d_torch_via_numpy(
@@ -1618,9 +1643,12 @@ def resize3d(
     Contiguous NumPy C3 nearest downscales use one shared-index gather from 900,000 input elements when all
     spatial axes shrink. Contiguous float16/float32 linear resizes to depth one
     use only the central depth slices from 4,096 input elements when antialiasing is disabled.
-    Linear Tensor resize that enlarges all three spatial axes and produces at least 10,000 output elements uses the
-    benchmark-selected NumPy/OpenCV CPU route. Float16 bridge inputs widen to float32 and round back once. Its float32
-    output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most one value.
+    Linear Tensor resize uses the benchmark-selected NumPy/OpenCV CPU route when it enlarges all three spatial axes
+    (below 10,000 output elements only for multichannel or float inputs), when it enlarges H and W with depth unchanged,
+    when it shrinks H and W of single-channel or large channel-last-stored volumes with depth unchanged, and for uint8
+    depth-only resizes of at least 131,072 output elements. Float16 bridge inputs widen to float32 and round back once.
+    Its float32 output is within ``rtol=2e-4``, ``atol=3e-5`` of native Torch interpolation; uint8 differs by at most
+    one value.
     Other Tensor regions use native Torch interpolation, including the CPU float16 kernel.
 
     Args:

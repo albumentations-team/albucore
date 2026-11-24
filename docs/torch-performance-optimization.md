@@ -167,7 +167,9 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
 - Contiguous float16 Tensor `convert_dtype(..., uint8)` may use half multiply/round/clip only when the scale is exactly
   representable in float16; all 65,536 binary16 patterns stay within one uint8 unit of the float32 route, and other
   scales retain float32 rounding.
-- `resize3d` uses native CPU half trilinear interpolation outside the large all-axis upscale bridge. The bridge widens
+- `resize3d` uses native CPU half trilinear interpolation outside the NumPy bridge regions: all-axis upscales (below
+  10,000 output elements only for multichannel or float inputs), H/W upscales, single-channel H/W shrinks, large
+  channel-last-stored H/W shrinks, and uint8 depth-only resizes of at least 131,072 output elements. The bridge widens
   before the NumPy volume kernel and rounds back once. On normalized data, interpolation candidates are tested against
   the float32 reference with an absolute tolerance of `float16 eps / 2`.
 - Keep Torch CPU, OpenMP, and MKL thread counts at one for backend comparisons. A thread-count sweep requires an explicit user request. `OMP_NUM_THREADS` controls OpenMP regions, and `MKL_NUM_THREADS` overrides it for MKL. Do not bake one machine's thread count into a router. [PyTorch threading variables](https://docs.pytorch.org/docs/stable/threading_environment_variables.html)
