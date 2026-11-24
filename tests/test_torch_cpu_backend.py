@@ -155,10 +155,18 @@ def test_reduce_sum_torch_is_exact_for_global_and_per_channel(
         for keepdims in (False, True):
             expected_axis = None if axis in (None, "global") else axes
             expected = np.sum(image, axis=expected_axis, dtype=accumulator, keepdims=keepdims)
-            np.testing.assert_array_equal(reduce_sum(image, axis, keepdims=keepdims), expected)
+            actual = reduce_sum(image, axis, keepdims=keepdims)
+            if dtype is np.float32 and expected_axis is None and stats._MACOS_ARM64:
+                # cv2.sumElems accumulates float32 blocks: rtol 1e-6 documented, measured at most 1.7e-8.
+                np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=0)
+            else:
+                np.testing.assert_array_equal(actual, expected)
 
-    # UInt8 uses NumKong and OpenCV only; Torch serves float32 global and C <= 4 per-channel sums.
-    assert calls == (0 if dtype is np.uint8 else 6)
+    # UInt8 uses NumKong and OpenCV only; Torch serves float32 C <= 4 per-channel sums
+    # and float32 global sums except on Linux x86-64 (NumKong) and contiguous macOS ARM64 (cv2.sumElems).
+    global_without_torch = stats._LINUX_X86_64 or (stats._MACOS_ARM64 and layout == "contiguous")
+    float32_calls = 2 if global_without_torch else 6
+    assert calls == (0 if dtype is np.uint8 else float32_calls)
 
 
 def test_torch_backend_skips_read_only_and_negative_stride_arrays(monkeypatch: pytest.MonkeyPatch) -> None:
