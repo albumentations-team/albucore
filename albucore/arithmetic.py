@@ -74,6 +74,17 @@ else:
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
 _MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_048_576
+_MACOS_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = 61_440
+_LINUX_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = 24_576
+_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = (
+    _MACOS_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+    if _MACOS_ARM64
+    else _LINUX_UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+    if _LINUX_X86_64
+    else 0
+)
+# OpenCV rounds products through int32; 255 * 2**20 stays far inside it, so larger scalars use the saturating LUT.
+_UINT8_INTEGER_MULTIPLY_MAX_SCALAR = 1 << 20
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
 
 
@@ -407,7 +418,20 @@ def _multiply_scalar(
     out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None = None,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     if _is_uint8_image(img):
-        return _apply_lut(img, value, "multiply", out=cast("NDArray[np.uint8] | None", out))
+        destination_u8 = cast("NDArray[np.uint8] | None", out)
+        if (
+            img.size <= _UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+            and -_UINT8_INTEGER_MULTIPLY_MAX_SCALAR <= value <= _UINT8_INTEGER_MULTIPLY_MAX_SCALAR
+            and float(value).is_integer()
+            and img.flags.c_contiguous
+            and (destination_u8 is None or destination_u8.flags.c_contiguous)
+        ):
+            # Small images: saturating integer multiply beats the LUT's table build.
+            rows = img.reshape(-1, img.shape[-2] * img.shape[-1])
+            dst = None if destination_u8 is None else destination_u8.reshape(rows.shape)
+            result = cv2.multiply(rows, int(value), dst=dst)
+            return cast("NDArray[np.uint8]", result.reshape(img.shape) if destination_u8 is None else destination_u8)
+        return _apply_lut(img, value, "multiply", out=destination_u8)
     if _is_float16_image(img):
         destination = cast("NDArray[np.float16] | None", out)
         result = None
