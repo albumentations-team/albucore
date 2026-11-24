@@ -436,20 +436,22 @@ def _multiply_scalar(
         return _apply_lut(img, value, "multiply", out=destination_u8)
     if _is_float16_image(img):
         destination = cast("NDArray[np.float16] | None", out)
-        result = None
+        float16_result: NDArray[np.float16] | None = None
         if _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS:
             scalar = _half_exact_scalar(value)
-            result = None if scalar is None else _numkong_float16_scale(img, scalar, "multiply", out=destination)
-        if result is None:
-            result = float16_pointwise_torch(
+            float16_result = (
+                None if scalar is None else _numkong_float16_scale(img, scalar, "multiply", out=destination)
+            )
+        if float16_result is None:
+            float16_result = float16_pointwise_torch(
                 img,
                 "multiply",
                 value,
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
                 out=destination,
             )
-        if result is not None:
-            return result
+        if float16_result is not None:
+            return float16_result
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
@@ -800,6 +802,18 @@ def _add_field(
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if value.shape == img.shape and value.dtype == img.dtype:
+            if (
+                img.flags.c_contiguous
+                and value.flags.c_contiguous
+                and (destination_u8 is None or destination_u8.flags.c_contiguous)
+            ):
+                rows = (-1, img.shape[-2] * img.shape[-1])
+                dst = None if destination_u8 is None else destination_u8.reshape(rows)
+                result = cv2.add(img.reshape(rows), value.reshape(rows), dst=dst)
+                return cast(
+                    "NDArray[np.uint8]",
+                    result.reshape(img.shape) if destination_u8 is None else destination_u8,
+                )
             return _blend_numkong(img, 1.0, value, 1.0, out=destination_u8)
         return _add_uint8_opencv(img, value, out=destination_u8)
     if (
