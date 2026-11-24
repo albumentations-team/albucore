@@ -68,6 +68,8 @@ _UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS = (
     if _LINUX_X86_64
     else 0
 )
+# OpenCV rounds products through int32; 255 * 2**20 stays far inside it, so larger scalars use the saturating LUT.
+_UINT8_INTEGER_MULTIPLY_MAX_SCALAR = 1 << 20
 _FLOAT16_MIN_NORMAL = float(np.finfo(np.float16).tiny)
 
 
@@ -395,6 +397,7 @@ def _multiply_scalar(
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if (
             img.size <= _UINT8_INTEGER_MULTIPLY_MAX_ELEMENTS
+            and -_UINT8_INTEGER_MULTIPLY_MAX_SCALAR <= value <= _UINT8_INTEGER_MULTIPLY_MAX_SCALAR
             and float(value).is_integer()
             and img.flags.c_contiguous
             and (destination_u8 is None or destination_u8.flags.c_contiguous)

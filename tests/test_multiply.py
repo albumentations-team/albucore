@@ -325,3 +325,16 @@ def test_multiply_uint8_integer_scalar_routes_by_platform_size(
             assert result is destination
         integer_route = scalar.is_integer() and image.size <= limit and output != "strided"
         assert bool(lut_calls) != integer_route
+
+
+@pytest.mark.parametrize("scalar", [1e10, -1e10, 1e20, -1e30, 2.0**31, -(2.0**31), 2.0**31 - 1, 2.0**20, 2.0**20 + 1, -(2.0**20) - 1])
+@pytest.mark.parametrize("height", [2, 40])
+@pytest.mark.parametrize("output", ["allocate", "separate"])
+def test_multiply_uint8_large_integer_scalar_saturates(scalar: float, height: int, output: str) -> None:
+    image = np.tile(np.array([0, 1, 2, 255], dtype=np.uint8), (height, 3, 1)).reshape(height, 12, 1)
+    expected = np.clip(image.astype(np.float64) * scalar, 0, 255).astype(np.uint8)
+    destination = np.full_like(image, 9) if output == "separate" else None
+
+    result = multiply(image, scalar, out=destination)
+
+    np.testing.assert_array_equal(result, expected, strict=True)
