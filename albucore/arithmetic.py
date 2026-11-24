@@ -25,7 +25,6 @@ from albucore.tensor_bridge import (
 from albucore.torch_backend import (
     float16_pointwise_torch,
     multiply_add_float16_torch,
-    multiply_add_float32_torch,
 )
 from albucore.utils import (
     _FLOAT32_MAX,
@@ -1520,7 +1519,9 @@ def multiply_add(
     Uint8 scalar/channel controls saturate and truncate one float32 table.
     Floating images also accept broadcastable fields and preserve their raw range.
     Half Torch/NumPy kernels round the product before addition; the selected
-    NumKong scalar kernel retains its fused rounding.
+    NumKong scalar kernel retains its fused rounding. Float32 scalar controls always use that kernel, so results
+    can differ from two roundings by up to one ULP, and an intermediate that would overflow float32 does not
+    produce inf when the fused result is finite.
 
     Without ``out``, inputs stay unchanged and identity results are allowed.
     A supplied output matches the image dtype, shape, container and layout and is
@@ -1560,19 +1561,12 @@ def multiply_add(
         and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
         and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
     ):
-        result = multiply_add_float32_torch(
+        result = _scale_numkong(
             image,
             float(factor),
             float(value),
             out=cast("NDArray[np.float32] | None", destination),
         )
-        if result is None:
-            result = _scale_numkong(
-                image,
-                float(factor),
-                float(value),
-                out=cast("NDArray[np.float32] | None", destination),
-            )
     else:
         result = _multiply_add_numpy(image, factor, value)
     if destination is not None and result is not destination:
