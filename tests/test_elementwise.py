@@ -203,3 +203,108 @@ def test_exp_uint8_matches_float32_numpy_for_every_byte(layout: str) -> None:
 
     assert result.dtype == np.float32
     np.testing.assert_array_equal(result, expected)
+
+
+def _uint8_sqrt_reference(array: np.ndarray) -> np.ndarray:
+    return np.sqrt(array.astype(np.float32))
+
+
+def _spy(monkeypatch: pytest.MonkeyPatch, name: str) -> list[int]:
+    calls: list[int] = []
+    original = getattr(elementwise, name)
+
+    def wrapper(*args: object, **kwargs: object) -> object:
+        result = original(*args, **kwargs)
+        if result is not None:
+            calls.append(1)
+        return result
+
+    monkeypatch.setattr(elementwise, name, wrapper)
+    return calls
+
+
+@pytest.mark.parametrize("shape", [(40, 50, 1), (40, 50, 3), (30, 40, 9), (2, 20, 30, 3)])
+@pytest.mark.parametrize("with_out", [False, True])
+def test_uint8_sqrt_macos_routes_through_torch_and_matches_numpy(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+    with_out: bool,
+) -> None:
+    monkeypatch.setattr(elementwise, "_MACOS_ARM64", True)
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", False)
+    monkeypatch.setattr(elementwise, "_MACOS_UINT8_SQRT_TORCH_MIN_ELEMENTS", 1)
+    monkeypatch.setattr(elementwise, "_MACOS_UINT8_SQRT_TORCH_AFTER_LUT_MIN_ELEMENTS", 1)
+    calls = _spy(monkeypatch, "sqrt_uint8_torch")
+    array = np.random.default_rng(0).integers(0, 256, shape, dtype=np.uint8)
+    out = np.empty(shape, dtype=np.float32) if with_out else None
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    assert result.dtype == np.float32
+    assert (result is out) if with_out else not np.shares_memory(result, array)
+    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+
+
+def test_uint8_sqrt_macos_torch_route_handles_strided_input_and_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(elementwise, "_MACOS_ARM64", True)
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", False)
+    monkeypatch.setattr(elementwise, "_MACOS_UINT8_SQRT_TORCH_MIN_ELEMENTS", 1)
+    calls = _spy(monkeypatch, "sqrt_uint8_torch")
+    array = np.random.default_rng(1).integers(0, 256, (40, 60, 3), dtype=np.uint8)[:, ::2]
+    out = np.empty((40, 60, 3), dtype=np.float32)[:, ::2]
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    assert result is out
+    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+
+
+def test_uint8_sqrt_macos_read_only_input_skips_torch_and_matches_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(elementwise, "_MACOS_ARM64", True)
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", False)
+    monkeypatch.setattr(elementwise, "_MACOS_UINT8_SQRT_TORCH_MIN_ELEMENTS", 1)
+    calls = _spy(monkeypatch, "sqrt_uint8_torch")
+    array = np.random.default_rng(2).integers(0, 256, (40, 50, 3), dtype=np.uint8)
+    array.flags.writeable = False
+
+    result = ac.sqrt(array)
+
+    assert calls == []
+    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+
+
+@pytest.mark.parametrize("shape", [(40, 50, 1), (40, 50, 3), (30, 40, 9), (2, 20, 30, 3), (2, 3, 10, 20, 5)])
+@pytest.mark.parametrize("with_out", [False, True])
+def test_uint8_sqrt_linux_uses_float_lut_for_every_channel_count_with_and_without_out(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+    with_out: bool,
+) -> None:
+    monkeypatch.setattr(elementwise, "_MACOS_ARM64", False)
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", True)
+    monkeypatch.setattr(elementwise, "_LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS", 1)
+    calls = _spy(monkeypatch, "_apply_float_lut")
+    array = np.random.default_rng(3).integers(0, 256, shape, dtype=np.uint8)
+    out = np.empty(shape, dtype=np.float32) if with_out else None
+
+    result = ac.sqrt(array, out=out)
+
+    assert calls == [1]
+    assert (result is out) if with_out else not np.shares_memory(result, array)
+    np.testing.assert_array_equal(result, _uint8_sqrt_reference(array))
+
+
+def test_uint8_sqrt_linux_below_lut_minimum_and_strided_input_use_numpy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(elementwise, "_MACOS_ARM64", False)
+    monkeypatch.setattr(elementwise, "_LINUX_X86_64", True)
+    monkeypatch.setattr(elementwise, "_LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS", 1_000_000)
+    calls = _spy(monkeypatch, "_apply_float_lut")
+    array = np.random.default_rng(4).integers(0, 256, (40, 60, 3), dtype=np.uint8)
+    np.testing.assert_array_equal(ac.sqrt(array), _uint8_sqrt_reference(array))
+
+    monkeypatch.setattr(elementwise, "_LINUX_UINT8_SQRT_LUT_MIN_ELEMENTS", 1)
+    strided = array[:, ::2]
+    np.testing.assert_array_equal(ac.sqrt(strided), _uint8_sqrt_reference(strided))
+    assert calls == []
