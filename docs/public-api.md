@@ -164,7 +164,7 @@ The destination dtype is explicit and supports all nine pairs among uint8, float
 | Conversion | Values |
 | --- | --- |
 | uint8 → float16/float32 | Divide by `max_value`, returning the requested floating dtype |
-| float16/float32 → uint8 | Multiply by `max_value`, round ties to even, saturate to [0, 255], map NaN to zero |
+| float16/float32 → uint8 | Multiply by `max_value`, round ties to even, saturate to [0, 255]; contiguous NumPy float16 input is within one uint8 level of the float32 result for scales not exactly representable in half (e.g. 17.3); NaN input is unspecified for images, masks and volumes |
 | float16 ↔ float32 | Cast without intensity scaling or clipping |
 | Same dtype | Preserve values and ignore `max_value` |
 
@@ -196,7 +196,10 @@ for float16 output. On Linux x86-64, Tensor uint8-to-float16 conversion normaliz
 casting or writing the half destination. Other Tensor uint8 conversions divide in the result dtype; a strided
 half destination uses a contiguous half workspace before copying the result.
 
-NumPy half-to-uint8 quantization computes in float32. Contiguous half Tensors may quantize in half for exactly
+Contiguous NumPy float16-to-uint8 quantization multiplies in OpenCV, which rounds the scale to half precision: scales
+not exactly representable in half (e.g. 17.3) differ from the float32 result by at most one uint8 level, a documented
+speed-over-bit-exactness tolerance; scales beyond the half range (above 65504) use float32 arithmetic. Other NumPy
+quantization computes in float32. Contiguous half Tensors may quantize in half for exactly
 representable scales, within one uint8 unit of the wide result; other Tensor quantization uses float32.
 
 Large contiguous NumPy FP16↔FP32 casts use NumKong in the measured AVX-512 region when NumPy's
