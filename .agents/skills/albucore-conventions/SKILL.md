@@ -60,6 +60,21 @@ implementation or review, also load the `performance-optimization` skill.
   `normalize`, `normalize_per_image`, `power`, `convert_dtype`) are in `docs/public-api.md`; load the
   `albucore-public-api` skill when changing them.
 
+## NaN
+
+- Only vector fields expect NaN. AlbumentationsX calls only `remap`, `remap3d` and the `tensor_bridge` helpers on fields;
+  only these keep NaN exactly (`tests/test_nan_field_contract.py`).
+- Arithmetic, quantization, statistics, normalization and LUT routes assume non-NaN images, masks and volumes; NaN there is
+  unspecified. Never add a NaN guard to them; delete one that exists. Test and benchmark them on finite data.
+
+## Speed over bit-exactness
+
+- Speed is the top routing priority: rounding-level differences (ulp-scale backend gaps, fused versus two-rounding
+  arithmetic, float32 versus float64 accumulation) are acceptable when a route is faster. Document the tolerance in the
+  docstring and public-API row; test with that tolerance, not bitwise.
+- Gross errors are not acceptable: wrong saturation or overflow (`1e10 * pixel` gives 255, not 0), a wrong `std` from
+  near-constant cancellation, wrong shape or dtype, a crash on valid input.
+
 ## Tests
 
 - Test `uint8`, `float16`, and `float32` for every supported image router; keep `uint8` LUT APIs `uint8`-only.

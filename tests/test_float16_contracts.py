@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import cv2
+import sys
+
 import numpy as np
 import pytest
 import torch
@@ -127,6 +129,12 @@ def test_float16_pointwise_operations_preserve_dtype_and_match_float32_rounded_o
     assert observed_ulps.max() <= 1, name
 
 
+def _use_macos_numkong_scalar_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS", arithmetic._NUMKONG_FLOAT16_MIN_ELEMENTS)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS", sys.maxsize)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS", sys.maxsize)
+
+
 @pytest.mark.parametrize(
     ("operation", "control", "reference"),
     [
@@ -176,7 +184,7 @@ def test_float16_single_channel_vector_controls_use_scalar_torch_parameter(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS", sys.maxsize)
     source = np.random.default_rng(610135).random((128, 160, 1), dtype=np.float32).astype(np.float16)
     vector = np.array([control], dtype=np.float32)
     expected = reference(source.astype(np.float32), vector).astype(np.float16)
@@ -223,7 +231,7 @@ def test_float16_single_channel_vector_uses_numkong_scale_for_exact_half_control
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    _use_macos_numkong_scalar_region(monkeypatch)
     calls: list[tuple[float, float | None]] = []
     original = arithmetic.nk.scale
 
@@ -267,7 +275,7 @@ def test_float16_single_channel_numkong_vector_route_keeps_measurement_gates(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    _use_macos_numkong_scalar_region(monkeypatch)
 
     def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
         msg = "NumKong scale is limited to the measured contiguous HWC C=1 half-exact region."
@@ -427,13 +435,13 @@ def test_float16_hwc_c9_multiply_allows_safe_inexact_controls(monkeypatch: pytes
     [
         (
             add,
-            "_numpy_pointwise",
+            "_float16_numpy_channel_vector",
             np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.25], np.float32),
             np.add,
         ),
         (
             multiply,
-            "_numpy_pointwise",
+            "_float16_numpy_channel_vector",
             np.array([0.875, 1.125, 0.5, -0.75, 1.25, 0.625, 0.25, -1.0, 1.1], np.float32),
             np.multiply,
         ),
@@ -525,7 +533,7 @@ def test_float16_hwc_c9_multiply_zero_control_preserves_negative_zero() -> None:
 def test_float16_hwc_c9_multiply_keeps_numpy_route_with_neonhalf(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(arithmetic, "_NUMKONG_NEON_HALF", True)
     calls: list[tuple[int, ...]] = []
-    original_numpy = arithmetic._numpy_pointwise
+    original_numpy = arithmetic._float16_numpy_channel_vector
 
     def record_numpy(img: np.ndarray, value: np.ndarray, op: str, *, out: np.ndarray | None = None) -> np.ndarray:
         calls.append(img.shape)
@@ -534,7 +542,7 @@ def test_float16_hwc_c9_multiply_keeps_numpy_route_with_neonhalf(monkeypatch: py
     def fail_torch(*args: object, **kwargs: object) -> np.ndarray | None:
         raise AssertionError("C9 float32 ufunc output path should be selected before Torch half")
 
-    monkeypatch.setattr(arithmetic, "_numpy_pointwise", record_numpy)
+    monkeypatch.setattr(arithmetic, "_float16_numpy_channel_vector", record_numpy)
     monkeypatch.setattr(arithmetic, "float16_pointwise_torch", fail_torch)
     monkeypatch.setattr(arithmetic.nk, "multiply", fail_torch)
     image = np.random.default_rng(632).uniform(-0.75, 0.75, size=(480, 640, 9)).astype(np.float16)
@@ -551,7 +559,7 @@ def test_float16_hwc_c9_multiply_falls_back_for_inexact_subnormal_control(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[int, ...]] = []
-    original_numpy = arithmetic._numpy_pointwise
+    original_numpy = arithmetic._float16_numpy_channel_vector
 
     def fail_cv16f(*args: object, **kwargs: object) -> np.ndarray:
         raise AssertionError("an inexact half-subnormal control must keep the float32 working path")
@@ -561,7 +569,7 @@ def test_float16_hwc_c9_multiply_falls_back_for_inexact_subnormal_control(
         return original_numpy(img, value, op, out=out)
 
     monkeypatch.setattr(arithmetic.cv2, "multiply", fail_cv16f)
-    monkeypatch.setattr(arithmetic, "_numpy_pointwise", record_numpy)
+    monkeypatch.setattr(arithmetic, "_float16_numpy_channel_vector", record_numpy)
     image = np.random.default_rng(633).uniform(-0.75, 0.75, size=(128, 160, 9)).astype(np.float16)
     vector = np.array([0.5, -0.25, 0.125, 0.375, -0.5, 0.75, -0.125, 0.875, 0.00006], dtype=np.float32)
     expected = np.multiply(image.astype(np.float32), vector).astype(np.float16)
