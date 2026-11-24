@@ -115,3 +115,23 @@ def test_convolve_separable_gate_is_skipped_on_unmeasured_platforms(monkeypatch:
 
     np.testing.assert_array_equal(actual, _expected(image, kernel))
     assert spy.calls == 0
+
+
+def test_nearly_separable_kernel_with_accumulated_error_stays_on_filter2d(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_platform(monkeypatch, "linux")
+    kernel = np.full((31, 31), 1 / 961, dtype=np.float32)
+    kernel[0, 0] += np.float32(9e-8)
+    kernel[1, 1] -= np.float32(9e-8)
+    image = _image(3, 2_000_000)
+    spy = _SepSpy(monkeypatch)
+
+    actual = convolve(image, kernel)
+
+    assert filtering._separable_float32_kernel(kernel) is None
+    np.testing.assert_array_equal(actual, _expected(image, kernel))
+    assert spy.calls == 0
+
+
+@pytest.mark.parametrize("size", [7, 9, 15, 21, 31])
+def test_exactly_separable_kernels_still_factor(size: int) -> None:
+    assert filtering._separable_float32_kernel(_gaussian_kernel(size)) is not None

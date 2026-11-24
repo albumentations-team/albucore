@@ -24,6 +24,9 @@ _SEPARABLE_FLOAT32_CONVOLVE_MIN_KSIZE = 9
 _KERNEL_SUM_TOLERANCE = 1e-8 + 1e-5
 _KERNEL_FACTOR_ATOL = 1e-7
 _KERNEL_FACTOR_RTOL = 1e-6
+# Bound on the summed reconstruction error relative to sum(|K|); per-coefficient tolerances alone let many
+# small errors accumulate into a materially different kernel.
+_KERNEL_FACTOR_SUM_ERROR_EPS_MULTIPLE = 4 * float(np.finfo(np.float32).eps)
 _MACOS_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = 5_120
 # (smallest odd kernel size, minimum elements); sizes between measured kernels take the next smaller entry.
 _LINUX_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = (
@@ -90,7 +93,10 @@ def _separable_float32_kernel(kernel: NDArray[Any]) -> tuple[np.ndarray, np.ndar
     kernel_x = kernel[row].copy()
     kernel_y = (kernel[:, col] / pivot).astype(np.float32)
     residual = np.abs(kernel_y[:, None] * kernel_x[None, :] - kernel)
-    if np.all(residual <= _KERNEL_FACTOR_ATOL + _KERNEL_FACTOR_RTOL * np.abs(kernel)):
+    if (
+        np.all(residual <= _KERNEL_FACTOR_ATOL + _KERNEL_FACTOR_RTOL * np.abs(kernel))
+        and float(residual.sum(dtype=np.float64)) <= _KERNEL_FACTOR_SUM_ERROR_EPS_MULTIPLE * total
+    ):
         return kernel_x, kernel_y
     return None
 
