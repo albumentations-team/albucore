@@ -23,11 +23,11 @@ from benchmark_threads import configure_libraries
 from timing import bench_paired_wall_ms
 
 import albucore
-from albucore.filtering import _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS  # noqa: SLF001
+from albucore.filtering import _separable_float32_min_elements  # noqa: SLF001
 from albucore.utils import clip
 
 SHAPES = ((128, 160, 1), (128, 160, 3), (240, 320, 3), (480, 640, 3), (480, 640, 9))
-KERNEL_SIZES = (3, 7, 15)
+KERNEL_SIZES = (3, 7, 9, 11, 15, 21, 31)
 
 
 def _gaussian_kernel(size: int) -> np.ndarray:
@@ -75,8 +75,7 @@ def _measure_case(
                 (sys.platform == "linux" and platform.machine() == "x86_64")
                 or (sys.platform == "darwin" and platform.machine() == "arm64")
             )
-            and (image.shape[-1], kernel.shape[0]) in _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS
-            and image.size >= _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS[(image.shape[-1], kernel.shape[0])]
+            and image.size >= (_separable_float32_min_elements(image.shape[-1], kernel.shape[0]) or float("inf"))
             and cv2.checkRange(image)[0]
         ),
         "baseline_ms": baseline_ms,
