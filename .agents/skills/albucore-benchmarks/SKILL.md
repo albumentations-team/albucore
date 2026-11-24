@@ -22,7 +22,10 @@ imported source paths before each acceptance run. `uv run` follows `uv.lock`; ve
 acceptance evidence.
 
 Use exactly one CPU thread per process for every candidate, following the thread controls in the canonical
-performance guide. Benchmark additional thread counts only when the user explicitly requests thread scaling.
+performance guide. This applies to every timing, including a quick ad-hoc check outside `benchmarks/`: copy the
+thread setup from an existing script such as `benchmarks/benchmark_lut_allocation.py` instead of writing a bare
+`timeit` loop. Production runs one thread per DataLoader worker under AX, but Albucore is measured as is, not
+through AX or DataLoader. Benchmark additional thread counts only when the user explicitly requests thread scaling.
 Record enabled backend/ISA flags and verify the intended host profile before acceptance. A sandbox that denies
 `sysctl` can disable NumKong NEON. On macOS ARM64, run local benchmark commands outside the agent sandbox
 (Codex: request escalated permissions; Claude Code: disable the sandbox for that command) and verify `nk.get_capabilities()["neon"]` is true in the same process. The
