@@ -21,6 +21,14 @@ def _rng(
     return np.random.default_rng(seed)
 
 
+def _assert_global_sum_equal(actual: object, expected: object, dtype: type, err_msg: str) -> None:
+    """uint8 sums are exact; float32 global sums may use cv2.sumElems (rtol 1e-6, measured at most 1.7e-8)."""
+    if dtype == np.float32:
+        np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=0, err_msg=err_msg)
+    else:
+        np.testing.assert_array_equal(actual, expected, err_msg=err_msg)
+
+
 @pytest.mark.parametrize("shape", [(8, 9, 1), (4, 8, 9, 3)])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 def test_mean_std_global_matches_numpy_float64_reference(shape: tuple[int, ...], dtype: type) -> None:
@@ -377,7 +385,7 @@ def test_reduce_sum_matches_numpy(shape: tuple[int, ...], dtype: type) -> None:
     g = reduce_sum(arr, "global")
     expected_g = np.sum(arr, dtype=acc)
     assert np.shape(g) == np.shape(expected_g), f"global shape {shape} {dtype}"
-    np.testing.assert_array_equal(g, expected_g, err_msg=f"global {shape} {dtype}")
+    _assert_global_sum_equal(g, expected_g, dtype, f"global {shape} {dtype}")
 
     pc = reduce_sum(arr, "per_channel")
     np.testing.assert_array_equal(
@@ -387,11 +395,7 @@ def test_reduce_sum_matches_numpy(shape: tuple[int, ...], dtype: type) -> None:
     )
 
     gk = reduce_sum(arr, "global", keepdims=True)
-    np.testing.assert_array_equal(
-        gk,
-        np.sum(arr, dtype=acc, keepdims=True),
-        err_msg=f"global keepdims {shape} {dtype}",
-    )
+    _assert_global_sum_equal(gk, np.sum(arr, dtype=acc, keepdims=True), dtype, f"global keepdims {shape} {dtype}")
 
     pck = reduce_sum(arr, "per_channel", keepdims=True)
     np.testing.assert_array_equal(
@@ -579,7 +583,7 @@ def test_axis_none_equals_string_global(shape: tuple[int, ...], dtype: type) -> 
     assert np.shape(g) == np.shape(named_g)
     np.testing.assert_array_equal(g, named_g)
     assert np.shape(g) == np.shape(expected_g)
-    np.testing.assert_array_equal(g, expected_g)
+    _assert_global_sum_equal(g, expected_g, dtype, "global")
 
 
 @pytest.mark.parametrize("shape", [(7, 8, 3), (2, 5, 6, 2)])
