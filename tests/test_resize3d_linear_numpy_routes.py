@@ -173,6 +173,22 @@ def test_uint8_all_axis_shrink_plane_floor_is_per_platform(monkeypatch: pytest.M
     assert routed(small, (4, 48, 20))
 
 
+@pytest.mark.parametrize("platform", ["linux", "macos"])
+def test_uint8_single_channel_hw_growth_plane_floor_is_per_platform(monkeypatch: pytest.MonkeyPatch, platform: str) -> None:
+    """Linux x86-64 measured 16x64x80x1 xy_up (plane 5,120) 1.24x slower; macOS wins from 5,120."""
+    linux = platform == "linux"
+    monkeypatch.setattr(geometric, "_LINUX_X86_64", linux)
+
+    def routed(shape: tuple[int, ...], size: tuple[int, int, int]) -> bool:
+        return geometric._can_resize3d_numpy_uint8_linear_per_slice(_volume(shape, np.uint8), size, _LINEAR, antialias=False)
+
+    assert routed((4, 64, 80, 1), (4, 128, 160)) is (not linux)  # plane 5,120 grows
+    assert routed((4, 64, 80, 1), (4, 128, 40)) is (not linux)  # mixed growth and shrink
+    assert routed((4, 128, 160, 1), (4, 256, 320))  # plane 20,480
+    assert routed((4, 64, 80, 1), (8, 32, 40))  # H/W shrink with depth growth keeps the 5,120 floor
+    assert routed((4, 64, 80, 3), (4, 128, 160))  # other channel counts are untouched
+
+
 def test_uint8_single_channel_down_all_has_no_element_cap() -> None:
     volume = _volume((64, 128, 160, 1), np.uint8)
     assert volume.size > geometric._RESIZE3D_NUMPY_PER_SLICE_MAX_ELEMENTS

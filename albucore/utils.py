@@ -49,17 +49,18 @@ _LINUX_X86_64 = sys.platform == "linux" and platform.machine() == "x86_64"
 
 # Element-count windows (inclusive) where ``torch.clamp`` beats the NumPy/OpenCV clip route, per platform and dtype.
 # Platforms without an entry keep the NumPy/OpenCV route.
-_CLIP_TORCH_WINDOWS: dict[np.dtype, tuple[int, int]] = {}
-if _LINUX_X86_64:
-    _CLIP_TORCH_WINDOWS = {
-        np.dtype(np.float16): (0, _INT32_MAX),
-        np.dtype(np.float32): (8_192, 131_072),
-    }
-elif _MACOS_ARM64:
-    _CLIP_TORCH_WINDOWS = {
-        np.dtype(np.float16): (0, _INT32_MAX),
-        np.dtype(np.float32): (3_072, _INT32_MAX),
-    }
+_LINUX_X86_64_CLIP_TORCH_WINDOWS: dict[np.dtype, tuple[int, int]] = {
+    np.dtype(np.float16): (0, _INT32_MAX),
+    # GCP x86-64 public timing: 8,192 elements 1.26x slower, 20,480 tie (1.02), 61,440 0.82x.
+    np.dtype(np.float32): (61_440, 131_072),
+}
+_MACOS_ARM64_CLIP_TORCH_WINDOWS: dict[np.dtype, tuple[int, int]] = {
+    np.dtype(np.float16): (0, _INT32_MAX),
+    np.dtype(np.float32): (3_072, _INT32_MAX),
+}
+_CLIP_TORCH_WINDOWS: dict[np.dtype, tuple[int, int]] = (
+    _LINUX_X86_64_CLIP_TORCH_WINDOWS if _LINUX_X86_64 else _MACOS_ARM64_CLIP_TORCH_WINDOWS if _MACOS_ARM64 else {}
+)
 
 _TENSOR_CHANNEL_AXES: dict[TensorLayout, int] = {"CHW": 0, "NCHW": 1, "CDHW": 0, "NCDHW": 1}
 _TORCH_DTYPES: dict[np.dtype | type | torch.dtype, torch.dtype] = {
