@@ -133,3 +133,45 @@ def test_torch_route_skips_other_dtypes_and_conversions(monkeypatch):
     clip(np.zeros((1, 4, 1), dtype=np.float32), out=np.empty((1, 4, 1), dtype=np.float16))
 
     assert not calls
+
+
+def _misaligned(dtype, shape=(2, 3, 1)):
+    itemsize = np.dtype(dtype).itemsize
+    strides = (3 * itemsize + 3, itemsize + 1, itemsize)
+    array = np.ndarray(shape, dtype=dtype, buffer=bytearray(strides[0] * shape[0] + itemsize), strides=strides)
+    array[...] = np.array([[-1.5, 0.25, 2.0], [0.5, 3.0, -0.0]], dtype=dtype)[..., None]
+    return array
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("kind", ["big_endian", "misaligned"])
+@pytest.mark.parametrize("use_out", [False, "same_kind"])
+def test_torch_route_keeps_numpy_for_storage_torch_cannot_wrap(torch_route, dtype, kind, use_out):
+    native = _values(dtype, (2, 3, 1))
+    source = native.astype(np.dtype(dtype).newbyteorder(">")) if kind == "big_endian" else _misaligned(dtype)
+    expected = np.clip(np.asarray(source, dtype=dtype), 0, 1)
+    destination = None
+    if use_out:
+        destination = (
+            np.zeros(source.shape, dtype=np.dtype(dtype).newbyteorder(">")) if kind == "big_endian" else _misaligned(dtype)
+        )
+
+    result = clip(source, out=destination)
+
+    assert not torch_route
+    np.testing.assert_array_equal(np.asarray(result, dtype=dtype), expected)
+    if destination is not None:
+        assert result is destination
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("kind", ["big_endian", "misaligned"])
+def test_torch_route_keeps_numpy_for_unwrappable_output_only(torch_route, dtype, kind):
+    source = _values(dtype, (2, 3, 1))
+    destination = np.zeros(source.shape, dtype=np.dtype(dtype).newbyteorder(">")) if kind == "big_endian" else _misaligned(dtype)
+
+    result = clip(source, out=destination)
+
+    assert not torch_route
+    assert result is destination
+    np.testing.assert_array_equal(np.asarray(result, dtype=dtype), np.clip(source, 0, 1))

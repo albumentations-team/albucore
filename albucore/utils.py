@@ -306,6 +306,11 @@ def clip(
     return _clip_numpy(img, dtype, cast("np.ndarray | None", out))
 
 
+def _torch_can_wrap(array: np.ndarray) -> bool:
+    # ``torch.from_numpy`` rejects non-native byte order and byte strides that are not multiples of the item size.
+    return array.dtype.isnative and array.flags.aligned
+
+
 def _clip_torch(img: np.ndarray, max_value: float, out: np.ndarray | None) -> np.ndarray:
     if not img.flags.writeable or (img.ndim and min(img.strides) < 0):
         # ``torch.from_numpy`` rejects negative strides and warns on read-only storage.
@@ -335,7 +340,10 @@ def _clip_numpy(img: np.ndarray, dtype: np.dtype | type[np.generic] | None, out:
         window is not None
         and dtype == img.dtype
         and window[0] <= img.size <= window[1]
-        and (out is None or (out.dtype == img.dtype and (not out.ndim or min(out.strides) >= 0)))
+        and _torch_can_wrap(img)
+        and (
+            out is None or (out.dtype == img.dtype and _torch_can_wrap(out) and (not out.ndim or min(out.strides) >= 0))
+        )
     ):
         return _clip_torch(img, max_value, out)
     if img.dtype == np.float16 and dtype == np.float16:
