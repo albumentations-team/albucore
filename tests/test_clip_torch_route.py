@@ -123,6 +123,21 @@ def test_torch_route_respects_window(monkeypatch, dtype):
     assert len(calls) == 2
 
 
+@pytest.mark.parametrize(
+    ("elements", "uses_torch"),
+    [(8_192, False), (20_480, False), (61_439, False), (61_440, True), (131_072, True), (131_073, False)],
+)
+def test_linux_float32_window_starts_above_the_measured_loss(monkeypatch, elements, uses_torch):
+    """The float32 Torch clamp lost 1.26x at 8,192 elements and tied at 20,480 on Linux x86-64."""
+    calls = []
+    monkeypatch.setattr(utils, "_CLIP_TORCH_WINDOWS", utils._LINUX_X86_64_CLIP_TORCH_WINDOWS)
+    monkeypatch.setattr(utils, "_clip_torch", lambda *args: calls.append(args) or args[0])
+
+    clip(np.zeros((1, elements, 1), dtype=np.float32))
+
+    assert bool(calls) is uses_torch
+
+
 def test_torch_route_skips_other_dtypes_and_conversions(monkeypatch):
     calls = []
     monkeypatch.setattr(utils, "_CLIP_TORCH_WINDOWS", _EVERYWHERE)

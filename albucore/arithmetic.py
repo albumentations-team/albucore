@@ -10,7 +10,6 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from albucore import torch_backend
 from albucore._float_cast import _cast_float_numpy
 from albucore._types import ImageArrayT, ValueType
 from albucore.lut import _tensor_shared_uint8_lut
@@ -1444,10 +1443,11 @@ def _multiply_add_scalar_batch_storage(
     *,
     out: torch.Tensor | None,
 ) -> torch.Tensor | None:
-    """Run one fused ``nk.scale`` over a contiguous batch whose items all stay below the Torch threshold.
+    """Run one fused ``nk.scale`` over a contiguous batch.
 
     Each item would otherwise reach the same elementwise NumKong kernel one call at a time, so the
-    result is bit-identical. Batches with larger items keep the per-item loop and its Torch rounding.
+    result is bit-identical. Large items would also copy their strided channel-last views before
+    scaling and scatter the result into a strided output.
     """
     if (
         img.dtype != torch.float32
@@ -1456,7 +1456,6 @@ def _multiply_add_scalar_batch_storage(
         or not -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
         or not -_FLOAT32_MAX <= value <= _FLOAT32_MAX
         or (factor == 1 and value == 0)
-        or img.numel() // img.shape[0] >= torch_backend.TORCH_MIN_ELEMENTS
         or not img.is_contiguous()
         or (out is not None and not out.is_contiguous())
     ):

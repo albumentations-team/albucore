@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from albucore import arithmetic, multiply_add, torch_backend
+from albucore import arithmetic, multiply_add
 
 
 def _batch(shape: tuple[int, ...]) -> torch.Tensor:
@@ -29,7 +29,7 @@ def _count_batch_loop(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 @pytest.mark.parametrize(("layout", "shape"), [("NCHW", (4, 3, 40, 50)), ("NCDHW", (2, 3, 5, 20, 30)), ("NCHW", (3, 1, 33, 17))])
 @pytest.mark.parametrize(("factor", "bias"), [(1.3, -0.4), (0.0, 2.5), (2, 3), (1.0, 0.25), (-1.5, 0.0)])
 @pytest.mark.parametrize("output", ["allocate", "separate", "alias"])
-def test_float32_tensor_batch_scalar_uses_whole_storage_below_the_torch_threshold(
+def test_float32_tensor_batch_scalar_uses_whole_storage(
     monkeypatch: pytest.MonkeyPatch,
     layout: Any,
     shape: tuple[int, ...],
@@ -52,14 +52,21 @@ def test_float32_tensor_batch_scalar_uses_whole_storage_below_the_torch_threshol
     assert not calls
 
 
-def test_float32_tensor_batch_with_large_items_keeps_the_per_item_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    image = _batch((3, 2, 30, 40))
-    monkeypatch.setattr(torch_backend, "TORCH_MIN_ELEMENTS", image[0].numel())
+@pytest.mark.parametrize("output", ["allocate", "separate"])
+def test_float32_tensor_batch_with_large_items_uses_whole_storage(monkeypatch: pytest.MonkeyPatch, output: str) -> None:
+    """Items above 524,288 elements used to loop over strided channel-last views (3.5x slower on Linux x86)."""
+    image = torch.from_numpy(np.random.default_rng(8).random((2, 9, 240, 320), dtype=np.float32) * 4 - 1)
+    assert image[0].numel() > 524_288
+    destination = torch.empty_like(image) if output == "separate" else None
     calls = _count_batch_loop(monkeypatch)
 
-    multiply_add(image, 1.3, -0.4, layout="NCHW")
+    result = multiply_add(image, 1.3, -0.4, layout="NCHW", out=destination)
 
-    assert calls
+    assert not calls
+    expected = image.numpy().astype(np.float64) * 1.3 - 0.4
+    np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6)
+    if destination is not None:
+        assert result is destination
 
 
 @pytest.mark.parametrize("case", ["strided_output", "non_contiguous_input", "vector_control"])

@@ -81,8 +81,27 @@ def _separable_float32_min_elements(channels: int, ksize: int) -> int | None:
     )
 
 
+def _two_by_two_minors_allow_rank_one(kernel: NDArray[Any]) -> bool:
+    """Reject kernels that are clearly not rank one from two 2x2 minors, in about 2 us instead of 25-33 us.
+
+    A rank-one kernel has vanishing minors. A kernel that passes the full factorization differs from one by at
+    most the summed-residual bound per coefficient (plus float32 product rounding), so each minor stays within
+    ``4 * kmax * e + 4 * e**2`` with ``e`` twice the summed-error bound. The corner minor rejects dense kernels and
+    the (1, centre) minor rejects disk-shaped kernels whose corners are zero. NaN never rejects.
+    """
+    rows, cols = kernel.shape
+    error = 2 * _KERNEL_FACTOR_SUM_ERROR_EPS_MULTIPLE
+    for row0, row1, col0, col1 in ((0, rows - 1, 0, cols - 1), (1, rows // 2, 1, cols // 2)):
+        a, b = kernel.item(row0, col0), kernel.item(row0, col1)
+        c, d = kernel.item(row1, col0), kernel.item(row1, col1)
+        kmax = max(abs(a), abs(b), abs(c), abs(d))
+        if abs(a * d - b * c) > 4 * error * (kmax + error):
+            return False
+    return True
+
+
 def _separable_float32_kernel(kernel: NDArray[Any]) -> tuple[np.ndarray, np.ndarray] | None:
-    if kernel.dtype != np.float32:
+    if kernel.dtype != np.float32 or not _two_by_two_minors_allow_rank_one(kernel):
         return None
     # Same tolerances as np.isclose/np.allclose without their per-call overhead.
     total = float(np.sum(kernel, dtype=np.float64))

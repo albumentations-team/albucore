@@ -135,3 +135,40 @@ def test_nearly_separable_kernel_with_accumulated_error_stays_on_filter2d(monkey
 @pytest.mark.parametrize("size", [7, 9, 15, 21, 31])
 def test_exactly_separable_kernels_still_factor(size: int) -> None:
     assert filtering._separable_float32_kernel(_gaussian_kernel(size)) is not None
+
+
+def _disk_kernel(size: int) -> np.ndarray:
+    grid = np.arange(size) - size // 2
+    kernel = (grid[:, None] ** 2 + grid[None, :] ** 2 <= (size // 2) ** 2).astype(np.float32)
+    return kernel / kernel.sum(dtype=np.float32)
+
+
+def _random_kernel(size: int) -> np.ndarray:
+    kernel = np.random.default_rng(size).random((size, size), dtype=np.float32)
+    return kernel / kernel.sum(dtype=np.float32)
+
+
+@pytest.mark.parametrize("size", [9, 15])
+@pytest.mark.parametrize("make_kernel", [_random_kernel, _disk_kernel], ids=["random", "disk"])
+def test_nonseparable_kernels_are_rejected_before_the_full_factorization(
+    monkeypatch: pytest.MonkeyPatch, size: int, make_kernel: object
+) -> None:
+    """The full factor test costs 25-33 us on Linux x86-64; two 2x2 minors reject these kernels first."""
+
+    def fail_isfinite(*args: object, **kwargs: object) -> None:
+        pytest.fail("non-separable kernel reached the full factorization")
+
+    monkeypatch.setattr(filtering.np, "isfinite", fail_isfinite)
+
+    assert filtering._separable_float32_kernel(make_kernel(size)) is None
+
+
+@pytest.mark.parametrize("size", [9, 15, 21, 31])
+def test_minor_precheck_keeps_separable_kernels(size: int) -> None:
+    assert filtering._two_by_two_minors_allow_rank_one(_gaussian_kernel(size))
+    rng = np.random.default_rng(size)
+    kernel_x, kernel_y = (rng.random(size, dtype=np.float32) for _ in range(2))
+    kernel = np.outer(kernel_y, kernel_x).astype(np.float32)
+    kernel /= kernel.sum(dtype=np.float32)
+    assert filtering._two_by_two_minors_allow_rank_one(kernel)
+    assert filtering._separable_float32_kernel(kernel) is not None
