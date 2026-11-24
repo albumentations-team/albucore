@@ -245,29 +245,6 @@ def quantize_uint8_torch(
     return cast("NDArray[np.uint8]", result.numpy())
 
 
-def multiply_add_float32_torch(
-    img: NDArray[np.float32],
-    factor: float,
-    value: float,
-    *,
-    out: NDArray[np.float32] | None = None,
-) -> NDArray[np.float32] | None:
-    """Compute two-step float32 arithmetic without copying the input buffer."""
-    if img.dtype != np.float32 or not _is_torch_compatible_array(img):
-        return None
-    product = torch.from_numpy(img) * factor
-    if out is not None and all(stride >= 0 for stride in out.strides):
-        torch.add(product, value, out=torch.from_numpy(out))
-        return out
-    result_tensor = product + value
-    del product
-    result = result_tensor.numpy()
-    if out is not None:
-        np.copyto(out, result)
-        return out
-    return cast("NDArray[np.float32]", result)
-
-
 def normalize_float16_torch(
     img: NDArray[np.float16],
     mean: float | np.ndarray,

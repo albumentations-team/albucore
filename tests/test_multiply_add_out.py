@@ -189,11 +189,12 @@ def test_multiply_add_half_alias_keeps_invalid_error_on_wide_bias_fallback(monke
 @pytest.mark.parametrize(
     ("dtype", "pixel", "factor", "bias", "predicate"),
     [
-        (np.float32, 1.5, 3e38, -3e38, np.isposinf),
+        # Fused float32 arithmetic: the 4.5e38 intermediate overflows two roundings but not the fused result.
+        (np.float32, 1.5, 3e38, -3e38, lambda result: np.isclose(result, 1.5e38, rtol=5e-7, atol=0)),
         (np.float16, 0.0, np.inf, 0.125, np.isnan),
     ],
 )
-def test_multiply_add_negative_output_preserves_selected_torch_math(dtype, pixel, factor, bias, predicate):
+def test_multiply_add_negative_output_preserves_selected_math(dtype, pixel, factor, bias, predicate):
     image = np.full((256, 256, 9), pixel, dtype=dtype)
     storage = np.full((256, 512, 9), 137, dtype=dtype)
     destination = storage[:, ::2][:, ::-1]
@@ -211,17 +212,20 @@ def test_multiply_add_negative_output_preserves_selected_torch_math(dtype, pixel
 @pytest.mark.parametrize("output_mode", ["allocate", "alias", "output"])
 @pytest.mark.parametrize("tensor_controls", [False, True])
 @pytest.mark.parametrize(
-    ("layout", "shape", "two_step"),
+    ("layout", "shape"),
     [
-        ("CHW", (3, 128, 160), False),
-        ("CHW", (3, 512, 512), True),
-        ("CDHW", (3, 4, 128, 160), False),
-        ("CDHW", (3, 16, 128, 160), True),
-        ("NCHW", (8, 3, 160, 160), False),
-        ("NCDHW", (2, 3, 4, 160, 160), False),
+        ("CHW", (3, 128, 160)),
+        ("CHW", (3, 512, 512)),
+        ("CDHW", (3, 4, 128, 160)),
+        ("CDHW", (3, 16, 128, 160)),
+        ("NCHW", (8, 3, 160, 160)),
+        ("NCDHW", (2, 3, 4, 160, 160)),
     ],
 )
-def test_multiply_add_tensor_preserves_fused_and_per_image_rounding(layout, shape, two_step, tensor_controls, output_mode):
+def test_multiply_add_tensor_float32_scalar_controls_use_fused_arithmetic_at_every_size(
+    layout, shape, tensor_controls, output_mode
+):
+    """Scalar float32 controls always take the fused kernel: 1.5 * 3e38 - 3e38 is finite for every size."""
     image = torch.full(shape, 1.5, dtype=torch.float32)
     factor = torch.tensor(3e38) if tensor_controls else 3e38
     bias = torch.tensor(-3e38) if tensor_controls else -3e38
@@ -230,7 +234,7 @@ def test_multiply_add_tensor_preserves_fused_and_per_image_rounding(layout, shap
     with np.errstate(all="raise"):
         result = multiply_add(image, factor, bias, out=destination, layout=layout)
 
-    torch.testing.assert_close(result, torch.full_like(result, torch.inf if two_step else 1.5e38), rtol=0, atol=0)
+    torch.testing.assert_close(result, torch.full_like(result, 1.5e38), rtol=5e-7, atol=0)
     if destination is not None:
         assert result is destination
     if output_mode != "alias":

@@ -1,6 +1,5 @@
 """Convert image arrays among uint8, float16, and float32."""
 
-from functools import lru_cache
 from typing import TypeVar, cast, overload
 
 import cv2
@@ -20,8 +19,9 @@ __all__ = ["convert_dtype"]
 _OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.uint8 | np.float16 | np.float32)
 
 _TENSOR_NUMPY_CAST_MIN_ELEMENTS = 61_440
-_FLOAT16_UINT8_LUT_MIN_ELEMENTS = 12_288
-_LINUX_FLOAT16_UINT8_LUT_MIN_ELEMENTS = 8_192
+_OPENCV_MAX_ELEMENTS = 2**31 - 1
+_MIN_IMAGE_NDIM = 3
+_FLOAT16_MAX = 65_504
 
 
 def _quantize_uint8_numkong(
@@ -43,23 +43,34 @@ def _quantize_uint8_numkong(
     return result
 
 
+def _quantize_uint8_opencv(
+    img: NDArray[np.float16] | NDArray[np.float32],
+    scale: float,
+    out: NDArray[np.uint8] | None,
+) -> NDArray[np.uint8]:
+    """Scale, round ties to even, and saturate in one OpenCV pass over a ``(rows, W * C)`` view."""
+    result = np.empty(img.shape, dtype=np.uint8) if out is None else out
+    rows = img.size // img.shape[-1] // img.shape[-2]
+    cv2.multiply(img.reshape(rows, -1), scale, dst=result.reshape(rows, -1), dtype=cv2.CV_8U)
+    return result
+
+
 def _convert_float_to_uint8(
     img: NDArray[np.float16] | NDArray[np.float32],
     scale: float,
     *,
     out: NDArray[np.uint8] | None,
 ) -> NDArray[np.uint8]:
-    lut_min_elements = _LINUX_FLOAT16_UINT8_LUT_MIN_ELEMENTS if _LINUX_X86_64 else _FLOAT16_UINT8_LUT_MIN_ELEMENTS
     if (
-        img.dtype == np.float16
-        and scale == 255
-        and lut_min_elements <= img.size <= 2**31 - 1
+        0 < img.size <= _OPENCV_MAX_ELEMENTS
+        and img.ndim >= _MIN_IMAGE_NDIM
         and img.flags.c_contiguous
         and (out is None or out.flags.c_contiguous)
     ):
-        result = np.empty(img.shape, dtype=np.uint8) if out is None else out
-        cv2.LUT(img.view(np.uint16).reshape(1, -1), _default_float16_uint8_lut(), dst=result.reshape(1, -1))
-        return result
+        if img.dtype == np.float16 and abs(scale) > _FLOAT16_MAX:
+            # OpenCV casts the scale to half, where it overflows to inf and saturates every nonzero pixel.
+            img = _cast_float_numpy(img, np.dtype(np.float32), out=None)
+        return _quantize_uint8_opencv(img, scale, out)
 
     torch_result = quantize_uint8_torch(img, scale, out=out)
     if torch_result is not None:
@@ -74,21 +85,6 @@ def _convert_float_to_uint8(
         out=out,
         input_is_working_buffer=input_is_working_buffer,
     )
-
-
-@lru_cache(maxsize=1)
-def _default_float16_uint8_lut() -> NDArray[np.uint8]:
-    table = np.empty(65_536, dtype=np.uint8)
-    with np.errstate(invalid="ignore"):
-        for start in range(0, table.size, 4_096):
-            stop = min(start + 4_096, table.size)
-            values = np.arange(start, stop, dtype=np.uint16).view(np.float16).astype(np.float32)
-            np.multiply(values, np.float32(255), out=values)
-            np.rint(values, out=values)
-            np.clip(values, 0, 255, out=values)
-            table[start:stop] = values.astype(np.uint8)
-    table.flags.writeable = False
-    return table
 
 
 def _convert_dtype_torch(
@@ -251,10 +247,14 @@ def convert_dtype(
 
     Uint8-to-float conversion divides by ``max_value`` (default 255). Floating
     sources converted to uint8 multiply by the same scale, round ties to even,
-    saturate to [0, 255], and map NaN to zero. Float16/float32 casts and same-dtype
+    saturate to [0, 255]. NaN input is unspecified for images, masks, and volumes;
+    only vector fields carry NaN and they are not quantized. Float16/float32 casts and same-dtype
     conversions ignore the scale and do not clip. The image's actual min/max
-    values are never used to determine the scale. NumPy half quantization uses
-    float32 arithmetic.
+    values are never used to determine the scale. NumPy float32 quantization uses
+    float32 arithmetic. Contiguous NumPy float16 quantization multiplies in OpenCV,
+    which rounds the scale to half precision: for scales not exactly representable in
+    half (such as 17.3) results differ from the float32 contract by at most one uint8
+    level; scales beyond the half range (above 65504) use float32 arithmetic.
     Contiguous half Tensors use half arithmetic for exactly half-representable
     scales, differing from the wide result by at most one uint8 unit; other
     Tensor quantization uses float32 arithmetic.
