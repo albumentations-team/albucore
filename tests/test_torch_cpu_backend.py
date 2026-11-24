@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 from importlib import import_module
+from typing import Any
 
 import numpy as np
 import pytest
+import torch
 
 from albucore import arithmetic, convert, convert_dtype, multiply_add, normalize, reduce_sum, stats, torch_backend
 
@@ -69,7 +71,7 @@ def test_convert_dtype_torch_matches_numpy_and_bypasses_numkong(
 
 
 @pytest.mark.parametrize("layout", ["contiguous", "fortran", "strided"])
-def test_multiply_add_scalar_torch_matches_current_float32_contract(
+def test_multiply_add_scalar_float32_always_uses_numkong_scale(
     monkeypatch: pytest.MonkeyPatch,
     layout: str,
 ) -> None:
@@ -80,17 +82,42 @@ def test_multiply_add_scalar_torch_matches_current_float32_contract(
         "fortran": np.asfortranarray(source),
         "strided": _strided(np.repeat(source, 2, axis=1)),
     }[layout]
-    expected = image * np.float32(1.125) + np.float32(-0.05)
+    # nk.scale may fuse the multiply and add; the difference from two roundings is a few ULP.
+    expected = image.astype(np.float64) * 1.125 - 0.05
+    calls = 0
+    original = arithmetic._scale_numkong
 
-    def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
-        msg = "Torch-compatible scalar float32 input should not reach NumKong."
-        raise AssertionError(msg)
+    def spy(*args: Any, **kwargs: Any) -> np.ndarray:
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
 
-    monkeypatch.setattr(arithmetic, "_scale_numkong", fail_numkong)
+    monkeypatch.setattr(arithmetic, "_scale_numkong", spy)
     result = multiply_add(image, 1.125, -0.05)
 
-    np.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-7)
+    assert calls == 1
+    np.testing.assert_allclose(result, expected, rtol=4e-7, atol=1e-7)
     assert result.dtype == np.float32
+
+
+@pytest.mark.parametrize("tensor", [False, True], ids=["numpy", "tensor_chw"])
+@pytest.mark.parametrize("with_out", [False, True], ids=["allocate", "out"])
+def test_multiply_add_scalar_float32_above_the_old_torch_threshold_is_within_two_ulp(tensor: bool, with_out: bool) -> None:
+    shape = (3, 400, 500)
+    assert np.prod(shape) > torch_backend.TORCH_MIN_ELEMENTS
+    source = np.random.default_rng(3).uniform(-300.0, 300.0, size=shape).astype(np.float32)
+    expected = source.astype(np.float64) * 1.5 + 0.25
+    if tensor:
+        image = torch.from_numpy(source.copy())
+        out = torch.empty_like(image) if with_out else None
+        result = multiply_add(image, 1.5, 0.25, layout="CHW", out=out).numpy()
+    else:
+        out_array = np.empty_like(source) if with_out else None
+        result = multiply_add(source.copy(), 1.5, 0.25, out=out_array)
+
+    # Two roundings (Torch) and the fused kernel (NumKong) differ by at most one ULP; accept two.
+    ulp = np.spacing(np.abs(expected).astype(np.float32))
+    assert np.all(np.abs(result.astype(np.float64) - expected) <= 2 * ulp)
 
 
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
@@ -128,10 +155,18 @@ def test_reduce_sum_torch_is_exact_for_global_and_per_channel(
         for keepdims in (False, True):
             expected_axis = None if axis in (None, "global") else axes
             expected = np.sum(image, axis=expected_axis, dtype=accumulator, keepdims=keepdims)
-            np.testing.assert_array_equal(reduce_sum(image, axis, keepdims=keepdims), expected)
+            actual = reduce_sum(image, axis, keepdims=keepdims)
+            if dtype is np.float32 and expected_axis is None and stats._MACOS_ARM64:
+                # cv2.sumElems accumulates float32 blocks: rtol 1e-6 documented, measured at most 1.7e-8.
+                np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=0)
+            else:
+                np.testing.assert_array_equal(actual, expected)
 
-    # UInt8 uses NumKong and OpenCV only; Torch serves float32 global and C <= 4 per-channel sums.
-    assert calls == (0 if dtype is np.uint8 else 6)
+    # UInt8 uses NumKong and OpenCV only; Torch serves float32 C <= 4 per-channel sums
+    # and float32 global sums except on Linux x86-64 (NumKong) and contiguous macOS ARM64 (cv2.sumElems).
+    global_without_torch = stats._LINUX_X86_64 or (stats._MACOS_ARM64 and layout == "contiguous")
+    float32_calls = 2 if global_without_torch else 6
+    assert calls == (0 if dtype is np.uint8 else float32_calls)
 
 
 def test_torch_backend_skips_read_only_and_negative_stride_arrays(monkeypatch: pytest.MonkeyPatch) -> None:
