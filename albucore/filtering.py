@@ -18,10 +18,23 @@ _MACOS_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 20_480
 _LINUX_FLOAT32_BOX_BLUR_MIN_ELEMENTS = 230_400
 _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = {
     (3, 7): 921_600,
-    (3, 15): 230_400,
     (9, 7): 2_764_800,
-    (9, 15): 2_764_800,
 }
+_SEPARABLE_FLOAT32_CONVOLVE_MIN_KSIZE = 9
+_KERNEL_SUM_TOLERANCE = 1e-8 + 1e-5
+_KERNEL_FACTOR_ATOL = 1e-7
+_KERNEL_FACTOR_RTOL = 1e-6
+# Bound on the summed reconstruction error relative to sum(|K|); per-coefficient tolerances alone let many
+# small errors accumulate into a materially different kernel.
+_KERNEL_FACTOR_SUM_ERROR_EPS_MULTIPLE = 4 * float(np.finfo(np.float32).eps)
+_MACOS_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = 5_120
+# (smallest odd kernel size, minimum elements); sizes between measured kernels take the next smaller entry.
+_LINUX_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS = (
+    (21, 5_120),
+    (15, 12_288),
+    (11, 20_480),
+    (9, 46_080),
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -54,18 +67,64 @@ def _identity_morphology_copy(
     return cast("ImageArrayT", image.copy(order="C")) if identity else None
 
 
+def _separable_float32_min_elements(channels: int, ksize: int) -> int | None:
+    """Smallest image size where sepFilter2D beats filter2D for an odd square kernel, per measured platform."""
+    if ksize == 7:
+        return _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS.get((channels, ksize))
+    if ksize < _SEPARABLE_FLOAT32_CONVOLVE_MIN_KSIZE or ksize % 2 == 0:
+        return None
+    if _MACOS_ARM64:
+        return _MACOS_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS
+    return next(
+        (elements for min_ksize, elements in _LINUX_SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS if ksize >= min_ksize),
+        None,
+    )
+
+
 def _separable_float32_kernel(kernel: NDArray[Any]) -> tuple[np.ndarray, np.ndarray] | None:
-    if kernel.dtype != np.float32 or kernel.shape[0] != kernel.shape[1] or kernel.shape[0] not in (7, 15):
+    if kernel.dtype != np.float32:
         return None
-    if not np.isfinite(kernel).all() or np.any(kernel < 0) or not np.isclose(np.sum(kernel, dtype=np.float64), 1.0):
+    # Same tolerances as np.isclose/np.allclose without their per-call overhead.
+    total = float(np.sum(kernel, dtype=np.float64))
+    if not np.isfinite(kernel).all() or kernel.min() < 0 or abs(total - 1.0) > _KERNEL_SUM_TOLERANCE:
         return None
-    row, col = np.unravel_index(np.argmax(np.abs(kernel)), kernel.shape)
+    row, col = np.unravel_index(kernel.argmax(), kernel.shape)
     pivot = kernel[row, col]
     kernel_x = kernel[row].copy()
     kernel_y = (kernel[:, col] / pivot).astype(np.float32)
-    if np.allclose(kernel_y[:, None] * kernel_x[None, :], kernel, rtol=1e-6, atol=1e-7):
+    residual = np.abs(kernel_y[:, None] * kernel_x[None, :] - kernel)
+    if (
+        np.all(residual <= _KERNEL_FACTOR_ATOL + _KERNEL_FACTOR_RTOL * np.abs(kernel))
+        and float(residual.sum(dtype=np.float64)) <= _KERNEL_FACTOR_SUM_ERROR_EPS_MULTIPLE * total
+    ):
         return kernel_x, kernel_y
     return None
+
+
+def _convolve_separable_float32(
+    img: ImageArrayT,
+    kernel: NDArray[Any],
+    working: NDArray[Any],
+    result: NDArray[Any],
+    border_mode: int,
+) -> ImageArrayT | None:
+    """Filter a finite float32 image with sepFilter2D when its separable kernel is profitable; else None."""
+    if not (
+        img.dtype.type is np.float32
+        and (_LINUX_X86_64 or _MACOS_ARM64)
+        and img.flags.c_contiguous
+        and kernel.shape[0] == kernel.shape[1]
+        and border_mode == cv2.BORDER_DEFAULT
+    ):
+        return None
+    min_elements = _separable_float32_min_elements(img.shape[-1], kernel.shape[0])
+    if min_elements is None or img.size < min_elements:
+        return None
+    factors = _separable_float32_kernel(kernel)
+    if factors is None or not cv2.checkRange(img)[0]:
+        return None
+    cv2.sepFilter2D(working, ddepth=-1, kernelX=factors[0], kernelY=factors[1], dst=result, borderType=border_mode)
+    return cast("ImageArrayT", clip(result, out=result))
 
 
 def box_blur(img: ImageArrayT, ksize: int) -> ImageArrayT:
@@ -166,26 +225,9 @@ def convolve(img: ImageArrayT, kernel: NDArray[Any], border_mode: int = cv2.BORD
     working = _opencv_working_image(img, copy=reuse_working)
     result = working if reuse_working else np.empty_like(working)
     if kernel.ndim == 2:
-        if (
-            input_dtype.type is np.float32
-            and (_LINUX_X86_64 or _MACOS_ARM64)
-            and img.flags.c_contiguous
-            and kernel.shape[0] == kernel.shape[1]
-            and (img.shape[-1], kernel.shape[0]) in _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS
-            and img.size >= _SEPARABLE_FLOAT32_CONVOLVE_MIN_ELEMENTS[(img.shape[-1], kernel.shape[0])]
-            and border_mode == cv2.BORDER_DEFAULT
-        ):
-            factors = _separable_float32_kernel(kernel)
-            if factors is not None and cv2.checkRange(img)[0]:
-                cv2.sepFilter2D(
-                    working,
-                    ddepth=-1,
-                    kernelX=factors[0],
-                    kernelY=factors[1],
-                    dst=result,
-                    borderType=border_mode,
-                )
-                return cast("ImageArrayT", clip(result, out=result))
+        separable_result = _convolve_separable_float32(img, kernel, working, result, border_mode)
+        if separable_result is not None:
+            return separable_result
         cv2.filter2D(working, ddepth=-1, kernel=kernel, dst=result, borderType=border_mode)
     else:
         for channel, channel_kernel in enumerate(kernel):

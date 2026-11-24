@@ -90,7 +90,7 @@ Compare vectorized NumPy, OpenCV, NumKong, StringZilla, and Torch where each can
   GEMM kernel wins against the existing same-dtype route and preserves precision; see the targeted
   [PyTorch matmul issue](https://github.com/pytorch/pytorch/issues/146508#issuecomment-6106617861)
   and the broader [CPU float16 issue](https://github.com/pytorch/pytorch/issues/97068#issuecomment-6111732503).
-- Contiguous float16 Tensor `reduce_sum` at 16,384+ elements now calls `torch.sum(dtype=float64)` directly for global,
+- Contiguous float16 Tensor `reduce_sum` at 256+ elements now calls `torch.sum(dtype=float64)` directly for global,
   per-channel, and explicit axes. The paired grid has no float16/float32 pair above 1.10× for either global or
   per-channel sums; 11 of 21 global and 16 of 21 per-channel cases are at least 5% faster in float16.
 - For NumPy float16 `reduce_sum(..., axis="per_channel")`, contiguous rank-4 channel-last C=3 arrays up to 245,760
