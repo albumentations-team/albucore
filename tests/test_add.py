@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import pytest
 
@@ -393,21 +395,16 @@ def test_add_float16_numkong_scalar_matches_all_non_nan_binary16_values(
     monkeypatch: pytest.MonkeyPatch,
     output_mode: str,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS", arithmetic._NUMKONG_FLOAT16_MIN_ELEMENTS)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS", sys.maxsize)
     calls: list[tuple[float, float]] = []
-    original_scale = arithmetic._scale_numkong
+    original_scale = arithmetic.nk.scale
 
-    def scale_spy(
-        image: np.ndarray,
-        factor: float,
-        value: float,
-        *,
-        out: np.ndarray | None = None,
-    ) -> np.ndarray:
-        calls.append((factor, float(value)))
-        return original_scale(image, factor, value, out=out)
+    def scale_spy(image: np.ndarray, **kwargs: float | np.ndarray) -> np.ndarray:
+        calls.append((kwargs["alpha"], kwargs["beta"]))
+        return original_scale(image, **kwargs)
 
-    monkeypatch.setattr(arithmetic, "_scale_numkong", scale_spy)
+    monkeypatch.setattr(arithmetic.nk, "scale", scale_spy)
     bits = np.arange(1 << 16, dtype=np.uint16)
     exponent = bits & np.uint16(0x7C00)
     mantissa = bits & np.uint16(0x03FF)

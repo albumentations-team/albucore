@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import cv2
+import sys
+
 import numpy as np
 import pytest
 import torch
@@ -127,6 +129,12 @@ def test_float16_pointwise_operations_preserve_dtype_and_match_float32_rounded_o
     assert observed_ulps.max() <= 1, name
 
 
+def _use_macos_numkong_scalar_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS", arithmetic._NUMKONG_FLOAT16_MIN_ELEMENTS)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS", sys.maxsize)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS", sys.maxsize)
+
+
 @pytest.mark.parametrize(
     ("operation", "control", "reference"),
     [
@@ -176,7 +184,7 @@ def test_float16_single_channel_vector_controls_use_scalar_torch_parameter(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", False)
+    monkeypatch.setattr(arithmetic, "_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS", sys.maxsize)
     source = np.random.default_rng(610135).random((128, 160, 1), dtype=np.float32).astype(np.float16)
     vector = np.array([control], dtype=np.float32)
     expected = reference(source.astype(np.float32), vector).astype(np.float16)
@@ -223,7 +231,7 @@ def test_float16_single_channel_vector_uses_numkong_scale_for_exact_half_control
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    _use_macos_numkong_scalar_region(monkeypatch)
     calls: list[tuple[float, float | None]] = []
     original = arithmetic.nk.scale
 
@@ -267,7 +275,7 @@ def test_float16_single_channel_numkong_vector_route_keeps_measurement_gates(
     reference: Callable[..., np.ndarray],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(arithmetic, "_NUMKONG_NEON", True)
+    _use_macos_numkong_scalar_region(monkeypatch)
 
     def fail_numkong(*args: object, **kwargs: object) -> np.ndarray:
         msg = "NumKong scale is limited to the measured contiguous HWC C=1 half-exact region."

@@ -28,6 +28,7 @@ from albucore.torch_backend import (
 )
 from albucore.utils import (
     _FLOAT32_MAX,
+    _LINUX_X86_64,
     _MACOS_ARM64,
     _TENSOR_CHANNEL_AXES,
     NUM_RGB_CHANNELS,
@@ -55,6 +56,21 @@ _FLOAT32_COMPATIBLE_OPERAND_DTYPES: frozenset[np.dtype[Any]] = frozenset(
 _TORCH_FLOAT16_MIN_ELEMENTS = 16_384
 _TORCH_FLOAT16_COMPOUND_MIN_ELEMENTS = 230_400
 _NUMKONG_FLOAT16_MIN_ELEMENTS = 20_480
+# AVX-512 FP16 NumKong ("sapphire") is the only x86 profile that was measured.
+_NUMKONG_FLOAT16_X86 = _LINUX_X86_64 and bool(nk.get_capabilities().get("sapphire", False))
+_LINUX_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = 3_072
+_LINUX_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = 2_359_296
+_LINUX_NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = 691_200
+if _NUMKONG_NEON:
+    _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = _NUMKONG_FLOAT16_MIN_ELEMENTS
+    _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = sys.maxsize
+elif _NUMKONG_FLOAT16_X86:
+    _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = _LINUX_NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS
+    _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = _LINUX_NUMKONG_FLOAT16_ADD_MAX_ELEMENTS
+    _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = _LINUX_NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS
+else:
+    _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS = sys.maxsize
+    _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS = _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS = 0
 _NUMPY_FLOAT16_C9_VECTOR_MIN_ELEMENTS = 184_320
 _CV16F_VECTOR_MIN_ELEMENTS = 61_440
 _MIXED_UINT8_ADD_MIN_ELEMENTS = 4_096 if _MACOS_ARM64 else 1_048_576
@@ -198,6 +214,33 @@ def _numkong_float16_c9_add_channels(
     return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
 
 
+def _numkong_float16_scale(
+    img: NDArray[np.float16],
+    scalar: float,
+    operation: Literal["add", "multiply"],
+    *,
+    out: NDArray[np.float16] | None = None,
+) -> NDArray[np.float16] | None:
+    """Half-exact scalar add or multiply through ``nk.scale`` for contiguous storage.
+
+    The caller has already checked the size region. Multiplication keeps NumKong's default
+    bias so signed zeros match the NumPy and Torch routes.
+    """
+    if not img.flags.c_contiguous or (out is not None and not out.flags.c_contiguous):
+        return None
+    flat = img.reshape(-1)
+    if out is not None:
+        if operation == "add":
+            nk.scale(flat, alpha=1.0, beta=scalar, out=out.reshape(-1))
+        else:
+            nk.scale(flat, alpha=scalar, out=out.reshape(-1))
+        return out
+    result = nk.scale(flat, alpha=1.0, beta=scalar) if operation == "add" else nk.scale(flat, alpha=scalar)
+    if result is None:
+        raise RuntimeError("nk.scale returned None")
+    return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
+
+
 def _numkong_float16_single_channel_scale(
     img: NDArray[np.float16],
     value: object,
@@ -205,37 +248,19 @@ def _numkong_float16_single_channel_scale(
     *,
     out: NDArray[np.float16] | None = None,
 ) -> NDArray[np.float16] | None:
+    maximum = _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS if operation == "add" else _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS
     if (
-        not _NUMKONG_NEON
-        or not img.flags.c_contiguous
+        not _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= maximum
         or not img.flags.writeable
         or img.ndim != 3
         or img.shape[-1] != 1
-        or img.size < _NUMKONG_FLOAT16_MIN_ELEMENTS
         or not isinstance(value, np.ndarray)
         or value.ndim != 1
         or value.size != 1
     ):
         return None
     scalar = _half_exact_scalar(float(value[0]))
-    if scalar is None:
-        return None
-    if out is not None and not out.flags.c_contiguous:
-        return None
-    flat = img.reshape(-1)
-    if operation == "add":
-        if out is not None:
-            nk.scale(flat, alpha=1.0, beta=scalar, out=out.reshape(-1))
-            return out
-        result = nk.scale(flat, alpha=1.0, beta=scalar)
-    else:
-        if out is not None:
-            nk.scale(flat, alpha=scalar, out=out.reshape(-1))
-            return out
-        result = nk.scale(flat, alpha=scalar)
-    if result is None:
-        raise RuntimeError("nk.scale returned None")
-    return cast("NDArray[np.float16]", np.asarray(result).reshape(img.shape))
+    return None if scalar is None else _numkong_float16_scale(img, scalar, operation, out=out)
 
 
 def _float16_numpy_ufunc(
@@ -384,13 +409,19 @@ def _multiply_scalar(
     if _is_uint8_image(img):
         return _apply_lut(img, value, "multiply", out=cast("NDArray[np.uint8] | None", out))
     if _is_float16_image(img):
-        result = float16_pointwise_torch(
-            img,
-            "multiply",
-            value,
-            minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
-            out=cast("NDArray[np.float16] | None", out),
-        )
+        destination = cast("NDArray[np.float16] | None", out)
+        result = None
+        if _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS:
+            scalar = _half_exact_scalar(value)
+            result = None if scalar is None else _numkong_float16_scale(img, scalar, "multiply", out=destination)
+        if result is None:
+            result = float16_pointwise_torch(
+                img,
+                "multiply",
+                value,
+                minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
+                out=destination,
+            )
         if result is not None:
             return result
     return _numpy_pointwise(img, value, "multiply", out=out)
@@ -794,20 +825,18 @@ def _add_numkong_float16_scalar(
     value: float | None,
     out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
 ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None:
-    if value is None or value == 0 or not _is_float16_image(img):
-        return None
     if (
-        not _NUMKONG_NEON
+        value is None
+        or value == 0
+        or not _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= _NUMKONG_FLOAT16_ADD_MAX_ELEMENTS
+        or not _is_float16_image(img)
         or img.ndim < 3
-        or not img.flags.c_contiguous
-        or img.size < _NUMKONG_FLOAT16_MIN_ELEMENTS
-        or (out is not None and not out.flags.c_contiguous)
     ):
         return None
     scalar = _half_exact_scalar(value)
     if scalar is None:
         return None
-    return _scale_numkong(img, 1.0, scalar, out=cast("NDArray[np.float16] | None", out))
+    return _numkong_float16_scale(img, scalar, "add", out=cast("NDArray[np.float16] | None", out))
 
 
 def _add_numpy(
