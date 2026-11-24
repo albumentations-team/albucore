@@ -249,3 +249,25 @@ def test_linux_uint8_to_float_keeps_lookup_table_outside_the_cast_divide_region(
 
     assert calls == [1]
     np.testing.assert_array_equal(result, _uint8_to_float_reference(image, dtype, 255))
+
+
+@pytest.mark.parametrize("max_value", [17.3, 1000, 70000])
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "transposed"])
+def test_macos_uint8_to_float16_out_divides_with_full_scale_for_any_destination_strides(
+    monkeypatch, max_value, layout
+):
+    monkeypatch.setattr(convert, "_MACOS_ARM64", True)
+    monkeypatch.setattr(convert, "_LINUX_X86_64", False)
+    monkeypatch.setattr(convert, "_MACOS_UINT8_TO_FLOAT_TORCH_MIN_ELEMENTS", 1)
+    image = np.random.default_rng(4).integers(0, 256, (40, 60, 3), dtype=np.uint8)
+    if layout == "contiguous":
+        out = np.empty(image.shape, dtype=np.float16)
+    elif layout == "strided":
+        out = np.empty((40, 120, 3), dtype=np.float16)[:, ::2]
+    else:
+        out = np.empty((60, 40, 3), dtype=np.float16).transpose(1, 0, 2)
+
+    result = convert_dtype(image, np.float16, max_value=max_value, out=out)
+
+    assert result is out
+    np.testing.assert_array_equal(result, _uint8_to_float_reference(image, np.float16, max_value))

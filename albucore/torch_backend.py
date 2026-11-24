@@ -140,6 +140,12 @@ def uint8_to_float_torch(
         result.div_(divisor)
         return cast("NDArray[np.float16] | NDArray[np.float32]", result.numpy())
     destination = torch.from_numpy(out)
+    if dtype == np.float16 and not out.flags.c_contiguous:
+        # Strided half division can narrow the divisor to float16; divide in float32, then cast.
+        working = source.to(torch.float32)
+        working.div_(divisor)
+        destination.copy_(working)
+        return out
     destination.copy_(source)
     destination.div_(divisor)
     return out
