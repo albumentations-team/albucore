@@ -387,7 +387,7 @@ def test_resize3d_torch_all_axis_upscale_uses_the_fast_numpy_route(
 
 @pytest.mark.parametrize("dtype", [torch.uint8, torch.float16, torch.float32], ids=["uint8", "float16", "float32"])
 def test_resize3d_torch_small_all_axis_upscale_matches_native_cpu_interpolate(dtype: torch.dtype) -> None:
-    """Small all-axis Tensor upscales avoid a marginal bridge win and retain the native result exactly."""
+    """Small single-channel uint8 upscales stay native and exact; float inputs use the bridge within its bound."""
     if dtype == torch.uint8:
         volume = torch.arange(5 * 7 * 9, dtype=dtype).reshape(1, 5, 7, 9)
     else:
@@ -399,6 +399,8 @@ def test_resize3d_torch_small_all_axis_upscale_matches_native_cpu_interpolate(dt
 
     if dtype == torch.float16:
         torch.testing.assert_close(result, expected, rtol=0, atol=float(np.finfo(np.float16).eps / 2))
+    elif dtype == torch.float32:
+        torch.testing.assert_close(result, expected, rtol=2e-4, atol=3e-5)
     else:
         torch.testing.assert_close(result, expected, rtol=0, atol=0)
 

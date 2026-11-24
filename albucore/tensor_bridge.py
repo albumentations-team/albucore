@@ -24,6 +24,8 @@ __all__ = [
 
 _MIN_SPLIT_PIXELS = 8192
 _MIN_ORIENTED_SPLIT_PIXELS = 32768
+_MIN_UINT8_DENSE_SPLIT_PIXELS = 6144
+_MIN_UINT8_DENSE_ORIENTED_SPLIT_PIXELS = 20_480 if _LINUX_X86_64 else 12_288
 _MIN_FLIP_PIXELS = 4096
 _HWC_DIMENSIONS = 3
 _OPENCV_INT_MAX = 2**31 - 1
@@ -259,9 +261,12 @@ def _write_channel_planes(source: np.ndarray, planes: list[np.ndarray], mapping:
 def _can_split_channels(array: np.ndarray, layout: TensorLayout) -> bool:
     channels = array.shape[-1]
     minimum = _MIN_ORIENTED_SPLIT_PIXELS if channels == 5 else _MIN_SPLIT_PIXELS
+    dense_minimum = minimum
+    if array.dtype == np.uint8:
+        dense_minimum = _MIN_UINT8_DENSE_ORIENTED_SPLIT_PIXELS if channels == 5 else _MIN_UINT8_DENSE_SPLIT_PIXELS
     if (
         not (_MACOS_ARM64 or _LINUX_X86_64)
-        or not minimum * channels <= array.size <= _OPENCV_INT_MAX
+        or not dense_minimum * channels <= array.size <= _OPENCV_INT_MAX
         or array.dtype not in _OPENCV_COPY_DTYPES
         or not array.flags.aligned
     ):

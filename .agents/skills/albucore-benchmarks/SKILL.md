@@ -17,6 +17,10 @@ Before designing a performance comparison, load the `performance-optimization` s
 candidate, such as label density for `bincount`, table and channel layout for LUTs, or output size and dtype for random
 generation.
 
+Benchmark and correctness data are finite: images, masks and volumes contain no NaN. NaN appears only in
+`tests/test_nan_field_contract.py`, which covers `remap`, `remap3d` and the `tensor_bridge` helpers that AX applies to
+vector fields. Never add a NaN case or guard to another operation's benchmark or route.
+
 Use the acceptance profile in `AGENTS.md` for acceptance benchmarks. Re-resolve and record all package versions and
 imported source paths before each acceptance run. `uv run` follows `uv.lock`; verify its resolved profile before using results as
 acceptance evidence.
