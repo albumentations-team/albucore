@@ -1157,13 +1157,14 @@ def _resize_tensor_float16(
         result = torch_f.interpolate(batched, size=output_size, mode="nearest")
         return result.squeeze(0) if layout == "CHW" else result
 
-    # The OpenCV float32 bridge is faster for upscales; Torch keeps downscales and mixed axis changes.
-    is_upscale = dsize[0] >= img.shape[-1] and dsize[1] >= img.shape[-2]
+    # The OpenCV float32 bridge is faster for upscales; Torch keeps downscales, mixed axis changes,
+    # and channel counts beyond the OpenCV limit.
+    uses_opencv_bridge = dsize[0] >= img.shape[-1] and dsize[1] >= img.shape[-2] and channels <= _MAX_OPENCV_CHANNELS
     if (
         interpolation == cv2.INTER_LINEAR
         and img.numel() >= _RESIZE_TENSOR_FLOAT16_LINEAR_MIN_ELEMENTS
         and channels >= 3
-        and not is_upscale
+        and not uses_opencv_bridge
     ):
         result = torch_f.interpolate(
             batched.to(torch.float32),

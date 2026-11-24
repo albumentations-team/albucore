@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from albucore import resize
+from albucore.geometric import _MAX_OPENCV_CHANNELS
 
 
 @pytest.fixture
@@ -67,6 +68,20 @@ def test_float16_linear_upscale_uses_opencv_bridge_and_other_changes_keep_torch(
     else:
         assert torch.equal(result.contiguous().view(torch.int16), expected.view(torch.int16))
     assert torch.equal(tensor.view(torch.int16), before.view(torch.int16))
+
+
+@pytest.mark.parametrize("layout", ["CHW", "NCHW"])
+def test_float16_linear_upscale_beyond_opencv_channel_limit_keeps_torch(
+    interpolate_spy: list[int], layout: str
+) -> None:
+    channels = _MAX_OPENCV_CHANNELS + 1
+    tensor = _tensor(layout, channels, 16, 16)
+
+    result = resize(tensor, (32, 16), interpolation=cv2.INTER_LINEAR, layout=layout)
+
+    assert interpolate_spy
+    assert result.dtype == torch.float16
+    assert result.shape[-3:] == (channels, 16, 32)
 
 
 def test_float16_linear_same_size_uses_opencv_bridge(interpolate_spy: list[int]) -> None:
