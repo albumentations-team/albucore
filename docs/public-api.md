@@ -29,6 +29,8 @@ destination dtype and returns that exact object; `out=image` requests mutation. 
 a conversion independently of optional output storage. An explicit dtype must match the supplied destination.
 Clipping does not scale intensities: a uint8 destination clips to [0,255] and truncates fractions; floating destinations
 clip to [0,1]. The caller validates output metadata and overlap. Dtype changes may require working storage.
+NumPy float16 and float32 clipping may run through `torch.clamp`: `-0.0` and `+0.0` are the same value there, and NaN
+stays NaN without preserved payload bits or signalling-NaN state. All other values are identical.
 
 `exp` and `sqrt` use the same explicit-output contract. Their output dtype is float16 for float16 input
 and float32 for uint8/float32 input. Writable views may be supplied as output; AX owns protective copies required
