@@ -75,6 +75,12 @@ Pillow histogram mapping. An optional uint8 mask selects histogram samples while
 An HW mask or HWC mask with one channel is shared across channels. An HWC mask with matching channel count selects
 each histogram independently. The result uses independent writable storage.
 
+`match_histograms_uint8(img, reference)` matches each channel of a channel-last uint8 array to the same channel of a
+reference with the same channel count and any spatial size, using exact cumulative-histogram matching
+(bit-identical to `skimage.exposure.match_histograms`). Histograms use OpenCV while a plane has at most 2**24 pixels
+and tiles above that. One `(256, 1, C)` table goes through `apply_uint8_lut`. The result uses independent writable
+storage and neither input is written. Owner: `albucore.histogram`.
+
 `apply_uint8_lut` maps uint8 images through a shared `(256,)` or per-channel `(256, 1, C)` table.
 Without `out`, it returns independent writable storage and leaves the input unchanged.
 It accepts writable strided `out` buffers and `out=image`, returning that exact object. Other overlapping
@@ -117,7 +123,7 @@ operands use the native CPU operation when that preserves the declared result dt
   broadcastable exponent fields. Tensor calls require an explicit layout. Scalar half powers compute in float32
   and round once; half channel/field routes match the wide result within one half ULP.
 - **Elementwise math:** `exp`, `sqrt` (float16/float32 inputs, uint8 with float32 output, NumPy-compatible special values, exact shape preservation, explicit writable `out` buffers)
-- **Histogram:** `equalize_uint8` (from `albucore.histogram`)
+- **Histogram:** `equalize_uint8`, `match_histograms_uint8` (from `albucore.histogram`)
 - **Uint8 LUT (`albucore.lut`):** `apply_uint8_lut` (shared or per-channel tables, with explicit `out`)
 - **Conversion (`albucore.convert`):** `convert_dtype(img, dtype, *, max_value=None, out=None)`; see the conversion contract below.
 - **Geometry / misc:** `hflip`, `vflip`, `median_blur`, `matmul`, `pairwise_distances_squared`

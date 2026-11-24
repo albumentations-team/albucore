@@ -91,7 +91,7 @@ from .geometric import (
     warp_affine3d,
     warp_perspective,
 )
-from .histogram import equalize_uint8
+from .histogram import equalize_uint8, match_histograms_uint8
 from .lut import (
     apply_uint8_lut,
 )
@@ -154,6 +154,7 @@ __all__ = [
     "is_multispectral_image",
     "is_rgb_image",
     "linear_transformation_rgb",
+    "match_histograms_uint8",
     "matmul",
     "maybe_process_in_chunks",
     "mean",
