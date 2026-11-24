@@ -713,6 +713,18 @@ def _add_field(
     if _is_uint8_image(img):
         destination_u8 = cast("NDArray[np.uint8] | None", out)
         if value.shape == img.shape and value.dtype == img.dtype:
+            if (
+                img.flags.c_contiguous
+                and value.flags.c_contiguous
+                and (destination_u8 is None or destination_u8.flags.c_contiguous)
+            ):
+                rows = (-1, img.shape[-2] * img.shape[-1])
+                dst = None if destination_u8 is None else destination_u8.reshape(rows)
+                result = cv2.add(img.reshape(rows), value.reshape(rows), dst=dst)
+                return cast(
+                    "NDArray[np.uint8]",
+                    result.reshape(img.shape) if destination_u8 is None else destination_u8,
+                )
             return _blend_numkong(img, 1.0, value, 1.0, out=destination_u8)
         return _add_uint8_opencv(img, value, out=destination_u8)
     if (
