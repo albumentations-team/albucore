@@ -1015,3 +1015,56 @@ def test_common_pointwise_tensor_routers_preserve_layout_dtype_and_values(
         np.testing.assert_allclose(result_last, expected, rtol=1e-3, atol=1e-3)
     else:
         np.testing.assert_allclose(result_last, expected, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("channels", "pixels", "linux", "split"),
+    [
+        (3, 6144, False, True),
+        (3, 4096, False, False),
+        (2, 6144, True, True),
+        (4, 4096, True, False),
+        (5, 12_288, False, True),
+        (5, 8_192, False, False),
+        (5, 20_480, True, True),
+        (5, 16_384, True, False),
+    ],
+)
+def test_dense_uint8_tensor_layout_splits_from_lowered_thresholds(
+    monkeypatch: pytest.MonkeyPatch, channels: int, pixels: int, linux: bool, split: bool
+) -> None:
+    import albucore.tensor_bridge as bridge
+
+    monkeypatch.setattr(bridge, "_MACOS_ARM64", not linux)
+    monkeypatch.setattr(bridge, "_LINUX_X86_64", linux)
+    monkeypatch.setattr(bridge, "_MIN_UINT8_DENSE_ORIENTED_SPLIT_PIXELS", 20_480 if linux else 12_288)
+    calls: list[int] = []
+    original = bridge._split_channel_last
+
+    def spy(*args: Any, **kwargs: Any) -> np.ndarray:
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(bridge, "_split_channel_last", spy)
+    width = 64
+    rng = np.random.default_rng(0)
+    array = rng.integers(0, 256, (pixels // width, width, channels), dtype=np.uint8)
+    result = bridge.numpy_to_tensor_layout(array, "CHW", contiguous=True)
+    assert bool(calls) is split
+    np.testing.assert_array_equal(result.numpy(), np.ascontiguousarray(array.transpose(2, 0, 1)))
+
+
+def test_float32_tensor_layout_keeps_original_split_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    import albucore.tensor_bridge as bridge
+
+    monkeypatch.setattr(bridge, "_MACOS_ARM64", True)
+    calls: list[int] = []
+    original = bridge._split_channel_last
+
+    def spy(*args: Any, **kwargs: Any) -> np.ndarray:
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(bridge, "_split_channel_last", spy)
+    bridge.numpy_to_tensor_layout(np.zeros((96, 64, 3), dtype=np.float32), "CHW", contiguous=True)
+    assert not calls
