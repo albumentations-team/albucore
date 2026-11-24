@@ -25,13 +25,13 @@ from albucore.tensor_bridge import (
 from albucore.torch_backend import (
     float16_pointwise_torch,
     multiply_add_float16_torch,
-    multiply_add_float32_torch,
 )
 from albucore.utils import (
     _FLOAT32_MAX,
     _LINUX_X86_64,
     _MACOS_ARM64,
     _TENSOR_CHANNEL_AXES,
+    MAX_OPENCV_WORKING_CHANNELS,
     NUM_RGB_CHANNELS,
     _batch_operand,
     _broadcast_channel_vector,
@@ -456,6 +456,50 @@ def _multiply_scalar(
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
+def _float32_channel_vector(
+    img: NDArray[np.float32],
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32] | None:
+    """Apply a float32 channel vector to a contiguous C>1 image without broadcasting over the channel axis.
+
+    Up to four channels use one OpenCV scalar call; more channels use a row-tiled ufunc.
+    """
+    channels = img.shape[-1]
+    if value.dtype != np.float32 or not img.flags.c_contiguous or (out is not None and not out.flags.c_contiguous):
+        return None
+    width = img.shape[-2]
+    if channels <= MAX_OPENCV_WORKING_CHANNELS:
+        pixels = img.reshape(-1, width, channels)
+        scalar = (*value.tolist(), *(0.0,) * (MAX_OPENCV_WORKING_CHANNELS - channels))
+        operate = cv2.add if operation == "add" else cv2.multiply
+        result = operate(pixels, scalar, dst=None if out is None else out.reshape(pixels.shape))
+        return out if out is not None else cast("NDArray[np.float32]", result.reshape(img.shape))
+    rows = img.reshape(-1, width * channels)
+    output = np.empty_like(rows) if out is None else out.reshape(rows.shape)
+    _NUMPY_OPERATIONS[operation](rows, np.tile(value, width), out=output)
+    return out if out is not None else output.reshape(img.shape)
+
+
+def _numpy_channel_vector(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    value: np.ndarray,
+    operation: Literal["add", "multiply"],
+    out: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | None,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+    if img.dtype == np.float32 and img.shape[-1] != 1:
+        result = _float32_channel_vector(
+            cast("NDArray[np.float32]", img),
+            value,
+            operation,
+            cast("NDArray[np.float32] | None", out),
+        )
+        if result is not None:
+            return result
+    return _numpy_pointwise(img, value, operation, out=out)
+
+
 def _float16_numpy_channel_vector(
     img: NDArray[np.float16],
     value: np.ndarray,
@@ -506,7 +550,7 @@ def _multiply_channels(
                 out=destination,
             )
         return result if result is not None else _float16_numpy_channel_vector(img, value, "multiply", out=destination)
-    return _numpy_pointwise(img, value, "multiply", out=out)
+    return _numpy_channel_vector(img, value, "multiply", out)
 
 
 def _multiply_field(
@@ -791,7 +835,7 @@ def _add_channels(
                 out=destination,
             )
         return result if result is not None else _float16_numpy_channel_vector(img, value, "add", out=destination)
-    return _numpy_pointwise(img, value, "add", out=out)
+    return _numpy_channel_vector(img, value, "add", out)
 
 
 def _add_field(
@@ -1339,6 +1383,34 @@ def _multiply_add_half(
     return _cast_float_numpy(_multiply_add_numpy(img, factor, value), np.float16, out=out)
 
 
+def _multiply_add_float32_rows(
+    image: NDArray[np.float32],
+    factor: float | np.ndarray,
+    value: float | np.ndarray,
+    out: NDArray[np.float32] | None,
+) -> NDArray[np.float32] | None:
+    """Fuse channel-vector controls over contiguous C>1 rows; zero controls keep the exact legacy shortcuts."""
+    channels = image.shape[-1]
+    if not image.flags.c_contiguous or (out is not None and not out.flags.c_contiguous):
+        return None
+    width = image.shape[-2]
+    tiled: list[float | np.ndarray] = []
+    for control in (factor, value):
+        if isinstance(control, np.ndarray):
+            if control.dtype != np.float32 or control.shape != (channels,) or not control.any():
+                return None
+            tiled.append(np.tile(control, width))
+        elif isinstance(control, (float, int)) and control != 0 and -_FLOAT32_MAX <= control <= _FLOAT32_MAX:
+            tiled.append(control)
+        else:
+            return None
+    rows = image.reshape(-1, width * channels)
+    output = np.empty_like(rows) if out is None else out.reshape(rows.shape)
+    np.multiply(rows, cast("Any", tiled[0]), out=output)
+    np.add(output, cast("Any", tiled[1]), out=output)
+    return out if out is not None else output.reshape(image.shape)
+
+
 def _multiply_add_tensor_batch(
     img: torch.Tensor,
     factor: float | np.ndarray,
@@ -1520,7 +1592,9 @@ def multiply_add(
     Uint8 scalar/channel controls saturate and truncate one float32 table.
     Floating images also accept broadcastable fields and preserve their raw range.
     Half Torch/NumPy kernels round the product before addition; the selected
-    NumKong scalar kernel retains its fused rounding.
+    NumKong scalar kernel retains its fused rounding. Float32 scalar controls always use that kernel, so results
+    can differ from two roundings by up to one ULP, and an intermediate that would overflow float32 does not
+    produce inf when the fused result is finite.
 
     Without ``out``, inputs stay unchanged and identity results are allowed.
     A supplied output matches the image dtype, shape, container and layout and is
@@ -1560,21 +1634,19 @@ def multiply_add(
         and -_FLOAT32_MAX <= factor <= _FLOAT32_MAX
         and -_FLOAT32_MAX <= value <= _FLOAT32_MAX
     ):
-        result = multiply_add_float32_torch(
+        result = _scale_numkong(
             image,
             float(factor),
             float(value),
             out=cast("NDArray[np.float32] | None", destination),
         )
-        if result is None:
-            result = _scale_numkong(
-                image,
-                float(factor),
-                float(value),
-                out=cast("NDArray[np.float32] | None", destination),
-            )
     else:
-        result = _multiply_add_numpy(image, factor, value)
+        rows_result = (
+            _multiply_add_float32_rows(image, factor, value, cast("NDArray[np.float32] | None", destination))
+            if image.shape[-1] != 1
+            else None
+        )
+        result = _multiply_add_numpy(image, factor, value) if rows_result is None else rows_result
     if destination is not None and result is not destination:
         np.copyto(destination, result)
     return result if destination is None else destination
