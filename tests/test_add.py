@@ -561,6 +561,37 @@ def test_add_uint8_scalar_truncates_offset_and_saturates(
     np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.parametrize("shape", [(23, 29, 3), (23, 29, 9), (3, 23, 29, 3), (3, 23, 29, 1)])
+@pytest.mark.parametrize("output", ["allocate", "separate", "alias"])
+def test_add_uint8_same_shape_field_uses_opencv_rows(
+    shape: tuple[int, ...],
+    output: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rng = np.random.default_rng(12)
+    image = rng.integers(0, 256, shape, dtype=np.uint8)
+    field = rng.integers(0, 256, shape, dtype=np.uint8)
+    expected = np.minimum(image.astype(np.int32) + field, 255).astype(np.uint8)
+    destination = {"allocate": None, "separate": np.full_like(image, 5), "alias": image}[output]
+    monkeypatch.setattr(arithmetic, "_blend_numkong", pytest.fail)
+
+    result = add(image, field, out=destination)
+
+    np.testing.assert_array_equal(result, expected, strict=True)
+    if destination is not None:
+        assert result is destination
+
+
+def test_add_uint8_same_shape_strided_field_keeps_numkong_blend() -> None:
+    rng = np.random.default_rng(13)
+    wide = rng.integers(0, 256, (23, 58, 3), dtype=np.uint8)
+    image = wide[:, ::2]
+    field = rng.integers(0, 256, image.shape, dtype=np.uint8)
+    expected = np.minimum(image.astype(np.int32) + field, 255).astype(np.uint8)
+
+    np.testing.assert_array_equal(add(image, field), expected, strict=True)
+
+
 @pytest.mark.parametrize("shape", [(37, 41, 3), (2, 37, 41, 3), (2, 3, 17, 19, 3)])
 @pytest.mark.parametrize("controls", [[10, 20, 30], [0.0, 255.9, 7.7], [-10, 20, -30], [-3.5, -20, -30], [300, 5, 5]])
 @pytest.mark.parametrize("output", ["allocate", "separate"])
