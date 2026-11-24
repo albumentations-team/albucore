@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from albucore import convert_dtype
+from albucore import convert, convert_dtype
 from albucore.utils import clip, convert_value, get_max_value
 
 CHANNELS = [1, 3, 5]
@@ -160,3 +160,92 @@ def test_convert_dtype_uint8_saturates_nonfinite_and_rounding_edges(layout, max_
 def test_uint8_roundtrip(channels, batch):
     image = generate_img(np.uint8, channels, batch)
     np.testing.assert_array_equal(convert_dtype(convert_dtype(image, np.float32), np.uint8), image)
+
+
+def _uint8_to_float_reference(image: np.ndarray, dtype: type[np.float16 | np.float32], divisor: float) -> np.ndarray:
+    return (np.arange(256, dtype=np.float32) / divisor).astype(dtype)[image]
+
+
+def _forbid_lut(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError
+
+    monkeypatch.setattr(convert, "_cv2_lut_channel_last", fail)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32])
+@pytest.mark.parametrize("max_value", [None, 1.0, 100, 255.5, np.float64(0.1)])
+@pytest.mark.parametrize("shape", [(40, 50, 1), (40, 50, 3), (30, 40, 9), (2, 20, 30, 3)])
+@pytest.mark.parametrize("with_out", [False, True])
+def test_macos_uint8_to_float_uses_torch_and_matches_lookup_table(monkeypatch, dtype, max_value, shape, with_out):
+    monkeypatch.setattr(convert, "_MACOS_ARM64", True)
+    monkeypatch.setattr(convert, "_LINUX_X86_64", False)
+    monkeypatch.setattr(convert, "_MACOS_UINT8_TO_FLOAT_TORCH_MIN_ELEMENTS", 1)
+    _forbid_lut(monkeypatch)
+    image = np.random.default_rng(0).integers(0, 256, shape, dtype=np.uint8)
+    out = np.empty(shape, dtype=dtype) if with_out else None
+
+    result = convert_dtype(image, dtype, max_value=max_value, out=out)
+
+    assert (result is out) if with_out else result.flags.c_contiguous
+    expected = _uint8_to_float_reference(image, dtype, 255 if max_value is None else max_value)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("layout", ["read_only", "strided", "strided_out"])
+def test_macos_uint8_to_float_falls_back_to_lookup_table_for_unsupported_storage(monkeypatch, layout):
+    monkeypatch.setattr(convert, "_MACOS_ARM64", True)
+    monkeypatch.setattr(convert, "_LINUX_X86_64", False)
+    monkeypatch.setattr(convert, "_MACOS_UINT8_TO_FLOAT_TORCH_MIN_ELEMENTS", 1)
+    calls = []
+    original = convert._cv2_lut_channel_last
+    monkeypatch.setattr(convert, "_cv2_lut_channel_last", lambda *a, **k: calls.append(1) or original(*a, **k))
+    image = np.random.default_rng(1).integers(0, 256, (40, 60, 3), dtype=np.uint8)
+    out = None
+    if layout == "read_only":
+        image.flags.writeable = False
+    elif layout == "strided":
+        image = image[:, ::2]
+    else:
+        out = np.empty((40, 60, 3), dtype=np.float32)[:, ::2]
+        image = image[:, ::2]
+
+    result = convert_dtype(image, np.float32, out=out)
+
+    assert calls
+    np.testing.assert_array_equal(result, _uint8_to_float_reference(image, np.float32, 255))
+
+
+@pytest.mark.parametrize("max_value", [None, 1.0, 100, np.float64(0.1)])
+@pytest.mark.parametrize("shape", [(40, 50, 1), (40, 50, 3), (2, 20, 30, 3)])
+def test_linux_uint8_to_float32_uses_cast_and_divide_without_lookup_table(monkeypatch, max_value, shape):
+    monkeypatch.setattr(convert, "_MACOS_ARM64", False)
+    monkeypatch.setattr(convert, "_LINUX_X86_64", True)
+    _forbid_lut(monkeypatch)
+    image = np.random.default_rng(2).integers(0, 256, shape, dtype=np.uint8)
+
+    result = convert_dtype(image, np.float32, max_value=max_value)
+
+    assert result.flags.c_contiguous
+    np.testing.assert_array_equal(result, _uint8_to_float_reference(image, np.float32, 255 if max_value is None else max_value))
+
+
+@pytest.mark.parametrize("case", ["float16", "out", "above_maximum", "strided"])
+def test_linux_uint8_to_float_keeps_lookup_table_outside_the_cast_divide_region(monkeypatch, case):
+    monkeypatch.setattr(convert, "_MACOS_ARM64", False)
+    monkeypatch.setattr(convert, "_LINUX_X86_64", True)
+    calls = []
+    original = convert._cv2_lut_channel_last
+    monkeypatch.setattr(convert, "_cv2_lut_channel_last", lambda *a, **k: calls.append(1) or original(*a, **k))
+    image = np.random.default_rng(3).integers(0, 256, (40, 60, 3), dtype=np.uint8)
+    dtype = np.float16 if case == "float16" else np.float32
+    out = np.empty(image.shape, dtype=dtype) if case == "out" else None
+    if case == "above_maximum":
+        monkeypatch.setattr(convert, "_LINUX_UINT8_TO_FLOAT32_CAST_DIVIDE_MAX_ELEMENTS", 10)
+    if case == "strided":
+        image = image[:, ::2]
+
+    result = convert_dtype(image, dtype, out=out)
+
+    assert calls == [1]
+    np.testing.assert_array_equal(result, _uint8_to_float_reference(image, dtype, 255))

@@ -121,6 +121,30 @@ def _float16_unary_torch(
     return cast("NDArray[np.float16]", result.numpy())
 
 
+def uint8_to_float_torch(
+    image: NDArray[np.uint8],
+    dtype: np.dtype[np.float16] | np.dtype[np.float32],
+    divisor: float,
+    *,
+    minimum_elements: int,
+    out: NDArray[np.float16] | NDArray[np.float32] | None = None,
+) -> NDArray[np.float16] | NDArray[np.float32] | None:
+    """Convert contiguous uint8 input to floating point and divide in place with a Torch CPU kernel."""
+    if not image.flags.c_contiguous or not _is_torch_compatible_array(image, minimum_elements=minimum_elements):
+        return None
+    if out is not None and any(stride < 0 for stride in out.strides):
+        return None
+    source = torch.from_numpy(image)
+    if out is None:
+        result = source.to(torch.float32 if dtype == np.float32 else torch.float16)
+        result.div_(divisor)
+        return cast("NDArray[np.float16] | NDArray[np.float32]", result.numpy())
+    destination = torch.from_numpy(out)
+    destination.copy_(source)
+    destination.div_(divisor)
+    return out
+
+
 def multiply_add_float16_torch(
     array: np.ndarray,
     factor: float | np.ndarray,
