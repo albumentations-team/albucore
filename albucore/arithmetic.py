@@ -436,20 +436,22 @@ def _multiply_scalar(
         return _apply_lut(img, value, "multiply", out=destination_u8)
     if _is_float16_image(img):
         destination = cast("NDArray[np.float16] | None", out)
-        result = None
+        float16_result: NDArray[np.float16] | None = None
         if _NUMKONG_FLOAT16_SCALAR_MIN_ELEMENTS <= img.size <= _NUMKONG_FLOAT16_MULTIPLY_MAX_ELEMENTS:
             scalar = _half_exact_scalar(value)
-            result = None if scalar is None else _numkong_float16_scale(img, scalar, "multiply", out=destination)
-        if result is None:
-            result = float16_pointwise_torch(
+            float16_result = (
+                None if scalar is None else _numkong_float16_scale(img, scalar, "multiply", out=destination)
+            )
+        if float16_result is None:
+            float16_result = float16_pointwise_torch(
                 img,
                 "multiply",
                 value,
                 minimum_elements=_TORCH_FLOAT16_MIN_ELEMENTS,
                 out=destination,
             )
-        if result is not None:
-            return result
+        if float16_result is not None:
+            return float16_result
     return _numpy_pointwise(img, value, "multiply", out=out)
 
 
