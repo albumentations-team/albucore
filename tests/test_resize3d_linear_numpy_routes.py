@@ -81,6 +81,7 @@ def test_uint8_linear_takes_the_per_slice_route(
         "_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_MIN_PLANE_ELEMENTS",
         "_MACOS_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS",
         "_LINUX_RESIZE3D_UINT8_SLICE_DOWN_MIN_PLANE_ELEMENTS",
+        "_LINUX_RESIZE3D_UINT8_SLICE_SINGLE_CHANNEL_GROW_MIN_PLANE_ELEMENTS",
     ):
         monkeypatch.setattr(geometric, name, 1)
     volume = _volume(shape, np.uint8)
@@ -115,7 +116,9 @@ def test_uint8_linear_regions_without_a_measured_win_skip_the_new_route(
 
 
 @pytest.mark.parametrize("channels", [1, 3], ids=["c1", "c3"])
-def test_uint8_hw_only_plane_floor_depends_on_channel_count(channels: int) -> None:
+def test_uint8_hw_only_plane_floor_depends_on_channel_count(monkeypatch: pytest.MonkeyPatch, channels: int) -> None:
+    monkeypatch.setattr(geometric, "_LINUX_X86_64", False)
+
     def routed(plane_height: int) -> bool:
         volume = _volume((4, plane_height, 40, channels), np.uint8)
         return geometric._can_resize3d_numpy_uint8_linear_per_slice(
